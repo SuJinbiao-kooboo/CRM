@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.crm.inventory.mapper.InvStockMapper">
+    
+    <sql id="selectInvStockVo">
+        select id, stock_date, product_code, product_detail, price, quantity, delivery_time, supplier, brand, remark, sheet_name, tags, status, create_time, update_time, create_by, update_by from inv_stock
+    </sql>
+
+    <select id="selectInvStockList" parameterType="InvStock" resultType="InvStock">
+        <include refid="selectInvStockVo"/>
+        <where>  
+            <if test="productCode != null  and productCode != ''"> and product_code like concat('%', #{productCode}, '%')</if>
+            <if test="supplier != null  and supplier != ''"> and supplier like concat('%', #{supplier}, '%')</if>
+            <if test="brand != null  and brand != ''"> and brand = #{brand}</if>
+            <if test="status != null"> and status = #{status}</if>
+            <if test="stockDate != null"> and stock_date = #{stockDate}</if>
+        </where>
+        order by stock_date desc
+    </select>
+    
+    <select id="selectInvStockById" parameterType="Long" resultType="InvStock">
+        <include refid="selectInvStockVo"/>
+        where id = #{id}
+    </select>
+        
+    <insert id="insertInvStock" parameterType="InvStock" useGeneratedKeys="true" keyProperty="id">
+        insert into inv_stock
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="stockDate != null">stock_date,</if>
+            <if test="productCode != null and productCode != ''">product_code,</if>
+            <if test="productDetail != null">product_detail,</if>
+            <if test="price != null">price,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="deliveryTime != null">delivery_time,</if>
+            <if test="supplier != null">supplier,</if>
+            <if test="brand != null">brand,</if>
+            <if test="remark != null">remark,</if>
+            <if test="sheetName != null">sheet_name,</if>
+            <if test="tags != null">tags,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="stockDate != null">#{stockDate},</if>
+            <if test="productCode != null and productCode != ''">#{productCode},</if>
+            <if test="productDetail != null">#{productDetail},</if>
+            <if test="price != null">#{price},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="deliveryTime != null">#{deliveryTime},</if>
+            <if test="supplier != null">#{supplier},</if>
+            <if test="brand != null">#{brand},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="sheetName != null">#{sheetName},</if>
+            <if test="tags != null">#{tags},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateInvStock" parameterType="InvStock">
+        update inv_stock
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="stockDate != null">stock_date = #{stockDate},</if>
+            <if test="productCode != null and productCode != ''">product_code = #{productCode},</if>
+            <if test="productDetail != null">product_detail = #{productDetail},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="deliveryTime != null">delivery_time = #{deliveryTime},</if>
+            <if test="supplier != null">supplier = #{supplier},</if>
+            <if test="brand != null">brand = #{brand},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="sheetName != null">sheet_name = #{sheetName},</if>
+            <if test="tags != null">tags = #{tags},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteInvStockById" parameterType="Long">
+        delete from inv_stock where id = #{id}
+    </delete>
+
+    <delete id="deleteInvStockByIds" parameterType="String">
+        delete from inv_stock where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <insert id="batchInsert" parameterType="java.util.List">
+        insert into inv_stock (stock_date, product_code, product_detail, price, quantity, delivery_time, supplier, brand, remark, sheet_name, tags, status, create_by, create_time)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.stockDate}, #{item.productCode}, #{item.productDetail}, #{item.price}, #{item.quantity}, #{item.deliveryTime}, #{item.supplier}, #{item.brand}, #{item.remark}, #{item.sheetName}, #{item.tags}, #{item.status}, #{item.createBy}, #{item.createTime})
+        </foreach>
+    </insert>
+
+</mapper>

@@ -1,0 +1,153 @@
+@import './variables.scss';
+@import './mixin.scss';
+@import './transition.scss';
+@import './element-ui.scss';
+@import './sidebar.scss';
+@import './menu-override.scss';
+@import './force-menu.scss';
+@import './global-menu.scss';
+@import './ultimate-menu.scss';
+
+body {
+  height: 100%;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-family: Helvetica Neue, Helvetica, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif;
+}
+
+label {
+  font-weight: 700;
+}
+
+html {
+  height: 100%;
+  box-sizing: border-box;
+}
+
+#app {
+  height: 100%;
+  width: 100%;
+  display: flex;
+}
+
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
+}
+
+a:focus,
+a:active {
+  outline: none;
+}
+
+a,
+a:focus,
+a:hover {
+  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
+}
+
+div:focus {
+  outline: none;
+}
+
+.clearfix {
+  &:after {
+    visibility: hidden;
+    display: block;
+    font-size: 0;
+    content: " ";
+    clear: both;
+    height: 0;
+  }
+}
+
+// main-container global css
+.app-container {
+  padding: 10px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+// 搜索表单样式优化
+.el-form--inline {
+  margin-bottom: 8px !important;
+}
+
+.el-form-item {
+  margin-bottom: 8px !important;
+  margin-right: 8px !important;
+}
+
+.el-form-item__label {
+  padding-right: 8px !important;
+  width: auto !important;
+}
+
+// 操作按钮区域优化
+.mb8 {
+  margin-bottom: 8px !important;
+}
+
+// 列表页面布局容器
+.list-layout {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 80px);
+  min-height: 650px;
+  max-height: 100%;
+}
+
+// 表格容器样式，解决列表数据显示和滚动条问题
+.table-container {
+  flex: 1;
+  overflow: auto;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  min-height: 300px;
+}
+
+// 分页容器样式
+.pagination-container {
+  flex-shrink: 0;
+  padding: 16px 0;
+  text-align: center;
+  background: #fff;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+// 表格样式优化
+.el-table {
+  .el-table__body-wrapper {
+    overflow: auto;
+  }
+  
+  // 当数据较少时，表格高度自适应
+  &.el-table--fit {
+    height: auto;
+  }
+  
+  // 优化表格行高，避免内容换行显示
+  .el-table__row {
+    height: 40px !important; // 减小行高
+    
+    td {
+      padding: 8px 0 !important; // 减小单元格内边距
+      line-height: 1.2 !important; // 减小行高
+    }
+  }
+  
+  // 表格单元格内容不换行
+  .el-table__cell {
+    white-space: nowrap !important; // 强制不换行
+    overflow: hidden !important;
+    text-overflow: ellipsis !important; // 超出显示省略号
+  }
+}

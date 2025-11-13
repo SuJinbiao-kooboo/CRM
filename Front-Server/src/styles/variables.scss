@@ -1,0 +1,33 @@
+// 淡蓝色主题配色
+$primaryColor: #5DADE2;      // 主色调 - 淡蓝色
+$primaryLightColor: #AED6F1; // 浅蓝色
+$primaryDarkColor: #3498DB;   // 深蓝色
+
+// sidebar - 深色模式配色
+$menuText: #E8E8E8;          // 浅灰色文字
+$menuActiveText: #5DADE2;    // 激活状态文字颜色
+$subMenuActiveText: #5DADE2; // 子菜单激活状态文字颜色
+
+$menuBg: #2C3E50;            // 深蓝灰色背景
+$menuHover: #34495E;         // 悬停时的深灰色
+
+$subMenuBg: #34495E;         // 子菜单深灰色背景
+$subMenuHover: #3F5A6E;      // 子菜单悬停时的颜色
+
+$sideBarWidth: 100px;        // 放开模式宽度缩小1/3
+
+// the :export directive is the magic sauce for webpack
+// https://www.bluematador.com/blog/how-to-share-variables-between-js-and-sass
+:export {
+  menuText: $menuText;
+  menuActiveText: $menuActiveText;
+  subMenuActiveText: $subMenuActiveText;
+  menuBg: $menuBg;
+  menuHover: $menuHover;
+  subMenuBg: $subMenuBg;
+  subMenuHover: $subMenuHover;
+  sideBarWidth: $sideBarWidth;
+  primaryColor: $primaryColor;
+  primaryLightColor: $primaryLightColor;
+  primaryDarkColor: $primaryDarkColor;
+}

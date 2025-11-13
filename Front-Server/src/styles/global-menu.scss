@@ -1,0 +1,253 @@
+@import "~@/styles/variables.scss";
+
+// 全局强制菜单样式覆盖 - 最高优先级
+body {
+  // 侧边栏容器强制样式
+  .sidebar-container {
+    background-color: #2C3E50 !important;
+    width: $sideBarWidth !important;
+    
+    // 主菜单容器
+    .el-menu {
+      background-color: #2C3E50 !important;
+      border: none !important;
+      width: 100% !important;
+    }
+    
+    // 一级菜单项
+    .el-menu-item {
+      background-color: #2C3E50 !important;
+      color: #FFFFFF !important;
+      min-height: 56px !important;
+      line-height: 56px !important;
+      font-size: 15px !important;
+      
+      span {
+        color: #FFFFFF !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+      
+      i {
+        color: #FFFFFF !important;
+      }
+      
+      &:hover {
+        background-color: #34495E !important;
+        color: #5DADE2 !important;
+        
+        span {
+          color: #5DADE2 !important;
+        }
+        
+        i {
+          color: #5DADE2 !important;
+        }
+      }
+      
+      &.is-active {
+        background-color: #5DADE2 !important;
+        color: #FFFFFF !important;
+        
+        span {
+          color: #FFFFFF !important;
+        }
+        
+        i {
+          color: #FFFFFF !important;
+        }
+      }
+    }
+    
+    // 子菜单标题
+    .el-submenu__title {
+      background-color: #2C3E50 !important;
+      color: #FFFFFF !important;
+      min-height: 56px !important;
+      line-height: 56px !important;
+      font-size: 15px !important;
+      
+      span {
+        color: #FFFFFF !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+      
+      i {
+        color: #FFFFFF !important;
+      }
+      
+      .el-submenu__icon-arrow {
+        color: #FFFFFF !important;
+      }
+      
+      &:hover {
+        background-color: #34495E !important;
+        color: #5DADE2 !important;
+        
+        span {
+          color: #5DADE2 !important;
+        }
+        
+        i {
+          color: #5DADE2 !important;
+        }
+        
+        .el-submenu__icon-arrow {
+          color: #5DADE2 !important;
+        }
+      }
+    }
+    
+    // 展开状态的子菜单标题
+    .el-submenu.is-opened > .el-submenu__title {
+      background-color: #34495E !important;
+      color: #5DADE2 !important;
+      
+      span {
+        color: #5DADE2 !important;
+      }
+      
+      i {
+        color: #5DADE2 !important;
+      }
+      
+      .el-submenu__icon-arrow {
+        color: #5DADE2 !important;
+        transform: rotateZ(90deg);
+      }
+    }
+    
+    // 子菜单容器 - 关键部分
+    .el-submenu .el-menu {
+      background-color: #34495E !important;
+      position: static !important;
+      box-shadow: none !important;
+      border: none !important;
+      width: 100% !important;
+      left: 0 !important;
+      top: auto !important;
+      transform: none !important;
+      
+      // 二级菜单项
+      .el-menu-item {
+        background-color: #34495E !important;
+        color: #FFFFFF !important;
+        padding-left: 20px !important;
+        min-height: 50px !important;
+        line-height: 50px !important;
+        font-size: 14px !important;
+        
+        span {
+          color: #FFFFFF !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          display: inline !important;
+        }
+        
+        i {
+          color: #FFFFFF !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        
+        &:hover {
+          background-color: #3F5A6E !important;
+          color: #5DADE2 !important;
+          
+          span {
+            color: #5DADE2 !important;
+          }
+          
+          i {
+            color: #5DADE2 !important;
+          }
+        }
+        
+        &.is-active {
+          background-color: #5DADE2 !important;
+          color: #FFFFFF !important;
+          border-right: 3px solid #3498DB !important;
+          
+          span {
+            color: #FFFFFF !important;
+          }
+          
+          i {
+            color: #FFFFFF !important;
+          }
+        }
+      }
+    }
+    
+    // 三级菜单支持
+    .nest-menu .el-submenu .el-menu {
+      .el-menu-item {
+        background-color: #3F5A6E !important;
+        padding-left: 40px !important;
+        
+        &:hover {
+          background-color: #4A6278 !important;
+          color: #5DADE2 !important;
+          
+          span {
+            color: #5DADE2 !important;
+          }
+        }
+        
+        &.is-active {
+          background-color: #5DADE2 !important;
+          color: #FFFFFF !important;
+          
+          span {
+            color: #FFFFFF !important;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 禁用悬浮菜单
+.el-menu--popup {
+  display: none !important;
+}
+
+// 强制覆盖所有可能的菜单样式
+.el-menu--vertical .el-submenu .el-menu .el-menu-item {
+  background-color: #34495E !important;
+  color: #FFFFFF !important;
+  
+  span {
+    color: #FFFFFF !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  &:hover {
+    background-color: #3F5A6E !important;
+    color: #5DADE2 !important;
+    
+    span {
+      color: #5DADE2 !important;
+    }
+  }
+  
+  &.is-active {
+    background-color: #5DADE2 !important;
+    color: #FFFFFF !important;
+    
+    span {
+      color: #FFFFFF !important;
+    }
+  }
+}
+
+// 确保主容器有正确的边距
+.main-container {
+  margin-left: 100px !important;  // 放开模式宽度缩小1/3
+}
+
+.hideSidebar .main-container {
+  margin-left: 80px !important;  // 缩进模式宽度增加
+}

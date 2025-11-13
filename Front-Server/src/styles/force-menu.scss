@@ -1,0 +1,120 @@
+// 最强制的菜单样式覆盖，确保子菜单文字可见
+
+// 全局强制覆盖所有菜单项文字颜色
+.el-menu-item,
+.el-submenu__title,
+.el-submenu .el-menu-item {
+  color: #FFFFFF !important;
+  
+  span {
+    color: #FFFFFF !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: inline !important;
+  }
+  
+  i {
+    color: #FFFFFF !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+}
+
+// 悬停状态
+.el-menu-item:hover,
+.el-submenu__title:hover,
+.el-submenu .el-menu-item:hover {
+  color: #5DADE2 !important;
+  
+  span {
+    color: #5DADE2 !important;
+  }
+  
+  i {
+    color: #5DADE2 !important;
+  }
+}
+
+// 激活状态
+.el-menu-item.is-active,
+.el-submenu .el-menu-item.is-active {
+  color: #FFFFFF !important;
+  background-color: #5DADE2 !important;
+  
+  span {
+    color: #FFFFFF !important;
+  }
+  
+  i {
+    color: #FFFFFF !important;
+  }
+}
+
+// 专门针对侧边栏容器内的菜单
+.sidebar-container {
+  .el-menu-item,
+  .el-submenu__title,
+  .el-submenu .el-menu-item {
+    color: #FFFFFF !important;
+    
+    span {
+      color: #FFFFFF !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      display: inline !important;
+      font-size: 14px !important;
+    }
+  }
+  
+  .el-menu-item:hover,
+  .el-submenu__title:hover,
+  .el-submenu .el-menu-item:hover {
+    color: #5DADE2 !important;
+    
+    span {
+      color: #5DADE2 !important;
+    }
+  }
+  
+  .el-menu-item.is-active,
+  .el-submenu .el-menu-item.is-active {
+    color: #FFFFFF !important;
+    background-color: #5DADE2 !important;
+    
+    span {
+      color: #FFFFFF !important;
+    }
+  }
+}
+
+// 强制设置子菜单背景色
+.el-submenu .el-menu {
+  background-color: #34495E !important;
+}
+
+.el-submenu .el-menu .el-menu-item {
+  background-color: #34495E !important;
+  color: #FFFFFF !important;
+  
+  &:hover {
+    background-color: #3F5A6E !important;
+    color: #5DADE2 !important;
+  }
+  
+  &.is-active {
+    background-color: #5DADE2 !important;
+    color: #FFFFFF !important;
+  }
+}
+
+// 确保所有文字元素都可见
+* {
+  .el-menu-item span,
+  .el-submenu__title span,
+  .el-submenu .el-menu-item span {
+    color: inherit !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: inline !important;
+  }
+}

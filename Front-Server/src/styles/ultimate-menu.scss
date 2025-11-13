@@ -1,0 +1,240 @@
+@import "~@/styles/variables.scss";
+
+// 终极菜单样式覆盖 - 使用最高优先级
+html body .app-wrapper .sidebar-container {
+  background-color: #2C3E50 !important;
+  width: $sideBarWidth !important;
+  
+  // 强制覆盖所有菜单样式
+  .el-scrollbar .scrollbar-wrapper .el-menu {
+    background-color: #2C3E50 !important;
+    border: none !important;
+    
+    // 一级菜单项
+    .el-menu-item {
+      background-color: #2C3E50 !important;
+      color: #FFFFFF !important;
+      min-height: 56px !important;
+      line-height: 56px !important;
+      font-size: 15px !important;
+      
+      span {
+        color: #FFFFFF !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+      
+      i {
+        color: #FFFFFF !important;
+      }
+      
+      &:hover {
+        background-color: #34495E !important;
+        color: #5DADE2 !important;
+        
+        span {
+          color: #5DADE2 !important;
+        }
+        
+        i {
+          color: #5DADE2 !important;
+        }
+      }
+      
+      &.is-active {
+        background-color: #5DADE2 !important;
+        color: #FFFFFF !important;
+        
+        span {
+          color: #FFFFFF !important;
+        }
+        
+        i {
+          color: #FFFFFF !important;
+        }
+      }
+    }
+    
+    // 子菜单标题
+    .el-submenu .el-submenu__title {
+      background-color: #2C3E50 !important;
+      color: #FFFFFF !important;
+      min-height: 56px !important;
+      line-height: 56px !important;
+      font-size: 15px !important;
+      
+      span {
+        color: #FFFFFF !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+      
+      i {
+        color: #FFFFFF !important;
+      }
+      
+      .el-submenu__icon-arrow {
+        color: #FFFFFF !important;
+      }
+      
+      &:hover {
+        background-color: #34495E !important;
+        color: #5DADE2 !important;
+        
+        span {
+          color: #5DADE2 !important;
+        }
+        
+        i {
+          color: #5DADE2 !important;
+        }
+        
+        .el-submenu__icon-arrow {
+          color: #5DADE2 !important;
+        }
+      }
+    }
+    
+    // 展开状态的子菜单标题
+    .el-submenu.is-opened .el-submenu__title {
+      background-color: #34495E !important;
+      color: #5DADE2 !important;
+      
+      span {
+        color: #5DADE2 !important;
+      }
+      
+      i {
+        color: #5DADE2 !important;
+      }
+      
+      .el-submenu__icon-arrow {
+        color: #5DADE2 !important;
+        transform: rotateZ(90deg);
+      }
+    }
+    
+    // 子菜单容器 - 关键部分
+    .el-submenu .el-menu {
+      background-color: #34495E !important;
+      position: static !important;
+      box-shadow: none !important;
+      border: none !important;
+      width: 100% !important;
+      left: 0 !important;
+      top: auto !important;
+      transform: none !important;
+      
+      // 二级菜单项
+      .el-menu-item {
+        background-color: #34495E !important;
+        color: #FFFFFF !important;
+        padding-left: 60px !important;
+        min-height: 50px !important;
+        line-height: 50px !important;
+        font-size: 14px !important;
+        
+        span {
+          color: #FFFFFF !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          display: inline !important;
+        }
+        
+        i {
+          color: #FFFFFF !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        
+        &:hover {
+          background-color: #3F5A6E !important;
+          color: #5DADE2 !important;
+          
+          span {
+            color: #5DADE2 !important;
+          }
+          
+          i {
+            color: #5DADE2 !important;
+          }
+        }
+        
+        &.is-active {
+          background-color: #5DADE2 !important;
+          color: #FFFFFF !important;
+          border-right: 3px solid #3498DB !important;
+          
+          span {
+            color: #FFFFFF !important;
+          }
+          
+          i {
+            color: #FFFFFF !important;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 强制覆盖主容器边距
+html body .app-wrapper .main-container {
+  margin-left: 150px !important;
+}
+
+html body .app-wrapper.hideSidebar .main-container {
+  margin-left: 54px !important;
+}
+
+// 禁用悬浮菜单
+.el-menu--popup {
+  display: none !important;
+}
+
+// 使用更高优先级的选择器强制覆盖Element UI样式
+html body .el-menu--vertical .el-submenu .el-menu .el-menu-item {
+  background-color: #34495E !important;
+  color: #FFFFFF !important;
+  
+  span {
+    color: #FFFFFF !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  &:hover {
+    background-color: #3F5A6E !important;
+    color: #5DADE2 !important;
+    
+    span {
+      color: #5DADE2 !important;
+    }
+  }
+  
+  &.is-active {
+    background-color: #5DADE2 !important;
+    color: #FFFFFF !important;
+    
+    span {
+      color: #FFFFFF !important;
+    }
+  }
+}
+
+// 针对特定的菜单项文字强制设置
+html body .sidebar-container .el-menu .el-submenu .el-menu .el-menu-item span {
+  color: #FFFFFF !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: inline !important;
+  font-size: 14px !important;
+}
+
+html body .sidebar-container .el-menu .el-submenu .el-menu .el-menu-item:hover span {
+  color: #5DADE2 !important;
+}
+
+html body .sidebar-container .el-menu .el-submenu .el-menu .el-menu-item.is-active span {
+  color: #FFFFFF !important;
+}

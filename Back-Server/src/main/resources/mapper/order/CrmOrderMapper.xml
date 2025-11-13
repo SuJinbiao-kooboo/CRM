@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.crm.order.mapper.CrmOrderMapper">
+    
+    <sql id="selectCrmOrderVo">
+        select id, order_code, customer_id, supplier_id, order_date, supplier_ship_date, supplier_arrival_date, our_ship_date, customer_receive_date, delivery_date, order_status, order_type, urgency_level, salesman, total_amount, profit, profit_rate, payment_method, logistics_method, delivery_address, special_requirements, create_by, create_time, update_by, update_time, remark from crm_order
+    </sql>
+
+    <select id="selectCrmOrderList" parameterType="CrmOrder" resultType="CrmOrder">
+        <include refid="selectCrmOrderVo"/>
+        <where>  
+            <if test="orderCode != null  and orderCode != ''"> and order_code like concat('%', #{orderCode}, '%')</if>
+            <if test="customerId != null "> and customer_id = #{customerId}</if>
+            <if test="supplierId != null "> and supplier_id = #{supplierId}</if>
+            <if test="orderDate != null "> and order_date = #{orderDate}</if>
+            <if test="deliveryDate != null "> and delivery_date = #{deliveryDate}</if>
+            <if test="orderStatus != null  and orderStatus != ''"> and order_status = #{orderStatus}</if>
+            <if test="orderType != null  and orderType != ''"> and order_type = #{orderType}</if>
+            <if test="salesman != null "> and salesman = #{salesman}</if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectCrmOrderById" parameterType="Long" resultType="CrmOrder">
+        <include refid="selectCrmOrderVo"/>
+        where id = #{id}
+    </select>
+        
+    <insert id="insertCrmOrder" parameterType="CrmOrder" useGeneratedKeys="true" keyProperty="id">
+        insert into crm_order
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="orderCode != null">order_code,</if>
+            <if test="customerId != null">customer_id,</if>
+            <if test="supplierId != null">supplier_id,</if>
+            <if test="orderDate != null">order_date,</if>
+            <if test="supplierShipDate != null">supplier_ship_date,</if>
+            <if test="supplierArrivalDate != null">supplier_arrival_date,</if>
+            <if test="ourShipDate != null">our_ship_date,</if>
+            <if test="customerReceiveDate != null">customer_receive_date,</if>
+            <if test="deliveryDate != null">delivery_date,</if>
+            <if test="orderStatus != null">order_status,</if>
+            <if test="orderType != null">order_type,</if>
+            <if test="urgencyLevel != null">urgency_level,</if>
+            <if test="salesman != null">salesman,</if>
+            <if test="totalAmount != null">total_amount,</if>
+            <if test="profit != null">profit,</if>
+            <if test="profitRate != null">profit_rate,</if>
+            <if test="paymentMethod != null">payment_method,</if>
+            <if test="logisticsMethod != null">logistics_method,</if>
+            <if test="deliveryAddress != null">delivery_address,</if>
+            <if test="specialRequirements != null">special_requirements,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="orderCode != null">#{orderCode},</if>
+            <if test="customerId != null">#{customerId},</if>
+            <if test="supplierId != null">#{supplierId},</if>
+            <if test="orderDate != null">#{orderDate},</if>
+            <if test="supplierShipDate != null">#{supplierShipDate},</if>
+            <if test="supplierArrivalDate != null">#{supplierArrivalDate},</if>
+            <if test="ourShipDate != null">#{ourShipDate},</if>
+            <if test="customerReceiveDate != null">#{customerReceiveDate},</if>
+            <if test="deliveryDate != null">#{deliveryDate},</if>
+            <if test="orderStatus != null">#{orderStatus},</if>
+            <if test="orderType != null">#{orderType},</if>
+            <if test="urgencyLevel != null">#{urgencyLevel},</if>
+            <if test="salesman != null">#{salesman},</if>
+            <if test="totalAmount != null">#{totalAmount},</if>
+            <if test="profit != null">#{profit},</if>
+            <if test="profitRate != null">#{profitRate},</if>
+            <if test="paymentMethod != null">#{paymentMethod},</if>
+            <if test="logisticsMethod != null">#{logisticsMethod},</if>
+            <if test="deliveryAddress != null">#{deliveryAddress},</if>
+            <if test="specialRequirements != null">#{specialRequirements},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateCrmOrder" parameterType="CrmOrder">
+        update crm_order
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="orderCode != null">order_code = #{orderCode},</if>
+            <if test="customerId != null">customer_id = #{customerId},</if>
+            <if test="supplierId != null">supplier_id = #{supplierId},</if>
+            <if test="orderDate != null">order_date = #{orderDate},</if>
+            <if test="supplierShipDate != null">supplier_ship_date = #{supplierShipDate},</if>
+            <if test="supplierArrivalDate != null">supplier_arrival_date = #{supplierArrivalDate},</if>
+            <if test="ourShipDate != null">our_ship_date = #{ourShipDate},</if>
+            <if test="customerReceiveDate != null">customer_receive_date = #{customerReceiveDate},</if>
+            <if test="deliveryDate != null">delivery_date = #{deliveryDate},</if>
+            <if test="orderStatus != null">order_status = #{orderStatus},</if>
+            <if test="orderType != null">order_type = #{orderType},</if>
+            <if test="urgencyLevel != null">urgency_level = #{urgencyLevel},</if>
+            <if test="salesman != null">salesman = #{salesman},</if>
+            <if test="totalAmount != null">total_amount = #{totalAmount},</if>
+            <if test="profit != null">profit = #{profit},</if>
+            <if test="profitRate != null">profit_rate = #{profitRate},</if>
+            <if test="paymentMethod != null">payment_method = #{paymentMethod},</if>
+            <if test="logisticsMethod != null">logistics_method = #{logisticsMethod},</if>
+            <if test="deliveryAddress != null">delivery_address = #{deliveryAddress},</if>
+            <if test="specialRequirements != null">special_requirements = #{specialRequirements},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteCrmOrderById" parameterType="Long">
+        delete from crm_order where id = #{id}
+    </delete>
+
+    <delete id="deleteCrmOrderByIds" parameterType="String">
+        delete from crm_order where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

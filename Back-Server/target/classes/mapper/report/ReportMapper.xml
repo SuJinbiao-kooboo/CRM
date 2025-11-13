@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.crm.report.mapper.ReportMapper">
+
+    <!-- 基础统计数据 -->
+    <select id="getTotalLeads" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM crm_lead WHERE del_flag = '0'
+    </select>
+
+    <select id="getTotalCustomers" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM crm_customer WHERE del_flag = '0'
+    </select>
+
+    <select id="getTotalOrders" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM crm_order WHERE del_flag = '0'
+    </select>
+
+    <select id="getTotalSales" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(total_amount), 0) FROM crm_order 
+        WHERE del_flag = '0' AND order_status IN ('completed', 'delivered')
+    </select>
+
+    <!-- 今日数据 -->
+    <select id="getTodayLeads" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM crm_lead 
+        WHERE del_flag = '0' AND DATE(create_time) = #{today}
+    </select>
+
+    <select id="getTodayOrders" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM crm_order 
+        WHERE del_flag = '0' AND DATE(order_date) = #{today}
+    </select>
+
+    <select id="getTodaySales" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(total_amount), 0) FROM crm_order 
+        WHERE del_flag = '0' AND DATE(order_date) = #{today}
+        AND order_status IN ('completed', 'delivered')
+    </select>
+
+    <!-- 本月数据 -->
+    <select id="getMonthLeads" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM crm_lead 
+        WHERE del_flag = '0' AND DATE(create_time) BETWEEN #{monthStart} AND #{monthEnd}
+    </select>
+
+    <select id="getMonthOrders" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM crm_order 
+        WHERE del_flag = '0' AND DATE(order_date) BETWEEN #{monthStart} AND #{monthEnd}
+    </select>
+
+    <select id="getMonthSales" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(total_amount), 0) FROM crm_order 
+        WHERE del_flag = '0' AND DATE(order_date) BETWEEN #{monthStart} AND #{monthEnd}
+        AND order_status IN ('completed', 'delivered')
+    </select>
+
+    <!-- 销售趋势 -->
+    <select id="getSalesTrend" resultType="java.util.Map">
+        SELECT 
+            DATE(order_date) as date,
+            COUNT(*) as orderCount,
+            COALESCE(SUM(total_amount), 0) as salesAmount
+        FROM crm_order 
+        WHERE del_flag = '0' 
+        AND order_date &gt;= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+        AND order_status IN ('completed', 'delivered')
+        GROUP BY DATE(order_date)
+        ORDER BY date DESC
+    </select>
+
+    <!-- 订单状态分布 -->
+    <select id="getOrderStatusDistribution" resultType="java.util.Map">
+        SELECT 
+            order_status as status,
+            COUNT(*) as count,
+            ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM crm_order WHERE del_flag = '0'), 2) as percentage
+        FROM crm_order 
+        WHERE del_flag = '0'
+        GROUP BY order_status
+        ORDER BY count DESC
+    </select>
+
+    <!-- 热门产品 -->
+    <select id="getTopProducts" resultType="java.util.Map">
+        SELECT 
+            oi.product_name,
+            oi.brand,
+            SUM(oi.quantity) as totalQuantity,
+            SUM(oi.total_price) as totalSales,
+            COUNT(DISTINCT oi.order_id) as orderCount
+        FROM crm_order_item oi
+        INNER JOIN crm_order o ON oi.order_id = o.order_id
+        WHERE o.del_flag = '0' AND o.order_status IN ('completed', 'delivered')
+        GROUP BY oi.product_name, oi.brand
+        ORDER BY totalSales DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 优质客户 -->
+    <select id="getTopCustomers" resultType="java.util.Map">
+        SELECT 
+            c.customer_name,
+            c.customer_code,
+            COUNT(o.order_id) as orderCount,
+            COALESCE(SUM(o.total_amount), 0) as totalSales,
+            COALESCE(SUM(o.profit), 0) as totalProfit
+        FROM crm_customer c
+        LEFT JOIN crm_order o ON c.customer_id = o.customer_id AND o.del_flag = '0'
+        WHERE c.del_flag = '0'
+        GROUP BY c.customer_id, c.customer_name, c.customer_code
+        HAVING totalSales > 0
+        ORDER BY totalSales DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 销售报表相关 -->
+    <select id="getSalesAmount" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(total_amount), 0) FROM crm_order 
+        WHERE del_flag = '0' 
+        AND order_date BETWEEN #{startDate} AND #{endDate}
+        AND order_status IN ('completed', 'delivered')
+    </select>
+
+    <select id="getOrderCount" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM crm_order 
+        WHERE del_flag = '0' 
+        AND order_date BETWEEN #{startDate} AND #{endDate}
+    </select>
+
+    <select id="getTotalProfit" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(profit), 0) FROM crm_order 
+        WHERE del_flag = '0' 
+        AND order_date BETWEEN #{startDate} AND #{endDate}
+        AND order_status IN ('completed', 'delivered')
+    </select>
+
+    <select id="getAvgOrderAmount" resultType="java.math.BigDecimal">
+        SELECT COALESCE(AVG(total_amount), 0) FROM crm_order 
+        WHERE del_flag = '0' 
+        AND order_date BETWEEN #{startDate} AND #{endDate}
+        AND order_status IN ('completed', 'delivered')
+    </select>
+
+    <!-- 按日销售趋势 -->
+    <select id="getSalesTrendByDay" resultType="java.util.Map">
+        SELECT 
+            DATE(order_date) as date,
+            COUNT(*) as orderCount,
+            COALESCE(SUM(total_amount), 0) as salesAmount,
+            COALESCE(SUM(profit), 0) as profit
+        FROM crm_order 
+        WHERE del_flag = '0' 
+        AND order_date BETWEEN #{startDate} AND #{endDate}
+        AND order_status IN ('completed', 'delivered')
+        GROUP BY DATE(order_date)
+        ORDER BY date
+    </select>
+
+    <!-- 按月销售趋势 -->
+    <select id="getSalesTrendByMonth" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(order_date, '%Y-%m') as month,
+            COUNT(*) as orderCount,
+            COALESCE(SUM(total_amount), 0) as salesAmount,
+            COALESCE(SUM(profit), 0) as profit
+        FROM crm_order 
+        WHERE del_flag = '0' 
+        AND order_date BETWEEN #{startDate} AND #{endDate}
+        AND order_status IN ('completed', 'delivered')
+        GROUP BY DATE_FORMAT(order_date, '%Y-%m')
+        ORDER BY month
+    </select>
+
+    <!-- 按业务员销售统计 -->
+    <select id="getSalesBySalesman" resultType="java.util.Map">
+        SELECT 
+            o.salesman,
+            COUNT(*) as orderCount,
+            COALESCE(SUM(o.total_amount), 0) as salesAmount,
+            COALESCE(SUM(o.profit), 0) as profit,
+            ROUND(COALESCE(SUM(o.profit), 0) / COALESCE(SUM(o.total_amount), 1) * 100, 2) as profitRate
+        FROM crm_order o
+        WHERE o.del_flag = '0' 
+        AND o.order_date BETWEEN #{startDate} AND #{endDate}
+        AND o.order_status IN ('completed', 'delivered')
+        GROUP BY o.salesman
+        ORDER BY salesAmount DESC
+    </select>
+
+    <!-- 按产品分类销售统计 -->
+    <select id="getSalesByCategory" resultType="java.util.Map">
+        SELECT 
+            oi.category,
+            SUM(oi.quantity) as totalQuantity,
+            COALESCE(SUM(oi.total_price), 0) as salesAmount,
+            COUNT(DISTINCT oi.order_id) as orderCount
+        FROM crm_order_item oi
+        INNER JOIN crm_order o ON oi.order_id = o.order_id
+        WHERE o.del_flag = '0' 
+        AND o.order_date BETWEEN #{startDate} AND #{endDate}
+        AND o.order_status IN ('completed', 'delivered')
+        GROUP BY oi.category
+        ORDER BY salesAmount DESC
+    </select>
+
+    <!-- 按客户销售统计 -->
+    <select id="getSalesByCustomer" resultType="java.util.Map">
+        SELECT 
+            c.customer_name,
+            c.customer_code,
+            COUNT(o.order_id) as orderCount,
+            COALESCE(SUM(o.total_amount), 0) as salesAmount,
+            COALESCE(SUM(o.profit), 0) as profit
+        FROM crm_customer c
+        INNER JOIN crm_order o ON c.customer_id = o.customer_id
+        WHERE c.del_flag = '0' AND o.del_flag = '0'
+        AND o.order_date BETWEEN #{startDate} AND #{endDate}
+        AND o.order_status IN ('completed', 'delivered')
+        GROUP BY c.customer_id, c.customer_name, c.customer_code
+        ORDER BY salesAmount DESC
+        LIMIT 20
+    </select>
+
+    <!-- 客户分析相关 -->
+    <select id="getCustomerCount" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM crm_customer 
+        WHERE del_flag = '0' 
+        AND create_time BETWEEN #{startDate} AND #{endDate}
+    </select>
+
+    <select id="getNewCustomerCount" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM crm_customer 
+        WHERE del_flag = '0' 
+        AND DATE(create_time) BETWEEN #{startDate} AND #{endDate}
+    </select>
+
+    <select id="getActiveCustomerCount" resultType="java.lang.Integer">
+        SELECT COUNT(DISTINCT customer_id) FROM crm_order 
+        WHERE del_flag = '0' 
+        AND order_date BETWEEN #{startDate} AND #{endDate}
+    </select>
+
+    <select id="getCustomerRetentionRate" resultType="java.math.BigDecimal">
+        SELECT 
+            ROUND(
+                COUNT(DISTINCT CASE WHEN repeat_customer = 1 THEN customer_id END) * 100.0 / 
+                COUNT(DISTINCT customer_id), 2
+            ) as retentionRate
+        FROM (
+            SELECT 
+                customer_id,
+                CASE WHEN COUNT(*) > 1 THEN 1 ELSE 0 END as repeat_customer
+            FROM crm_order 
+            WHERE del_flag = '0' 
+            AND order_date BETWEEN #{startDate} AND #{endDate}
+            GROUP BY customer_id
+        ) t
+    </select>
+
+    <!-- 客户地区分布 -->
+    <select id="getCustomerByRegion" resultType="java.util.Map">
+        SELECT 
+            country as region,
+            COUNT(*) as customerCount,
+            ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM crm_customer WHERE del_flag = '0'), 2) as percentage
+        FROM crm_customer 
+        WHERE del_flag = '0'
+        GROUP BY country
+        ORDER BY customerCount DESC
+    </select>
+
+    <!-- 客户类型分布 -->
+    <select id="getCustomerByType" resultType="java.util.Map">
+        SELECT 
+            customer_type as type,
+            COUNT(*) as customerCount,
+            ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM crm_customer WHERE del_flag = '0'), 2) as percentage
+        FROM crm_customer 
+        WHERE del_flag = '0'
+        GROUP BY customer_type
+        ORDER BY customerCount DESC
+    </select>
+
+    <!-- 客户价值分析 -->
+    <select id="getCustomerValueAnalysis" resultType="java.util.Map">
+        SELECT 
+            CASE 
+                WHEN totalSales &gt;= 100000 THEN 'A级客户'
+                WHEN totalSales &gt;= 50000 THEN 'B级客户'
+                WHEN totalSales &gt;= 10000 THEN 'C级客户'
+                ELSE 'D级客户'
+            END as customerLevel,
+            COUNT(*) as customerCount,
+            COALESCE(SUM(totalSales), 0) as totalSalesAmount
+        FROM (
+            SELECT 
+                c.customer_id,
+                COALESCE(SUM(o.total_amount), 0) as totalSales
+            FROM crm_customer c
+            LEFT JOIN crm_order o ON c.customer_id = o.customer_id 
+                AND o.del_flag = '0' 
+                AND o.order_date BETWEEN #{startDate} AND #{endDate}
+                AND o.order_status IN ('completed', 'delivered')
+            WHERE c.del_flag = '0'
+            GROUP BY c.customer_id
+        ) t
+        GROUP BY customerLevel
+        ORDER BY totalSalesAmount DESC
+    </select>
+
+    <!-- 产品销售排行 -->
+    <select id="getProductSalesRanking" resultType="java.util.Map">
+        SELECT 
+            oi.product_name,
+            oi.brand,
+            oi.category,
+            SUM(oi.quantity) as totalQuantity,
+            COALESCE(SUM(oi.total_price), 0) as totalSales,
+            COUNT(DISTINCT oi.order_id) as orderCount,
+            ROUND(AVG(oi.unit_price), 2) as avgPrice
+        FROM crm_order_item oi
+        INNER JOIN crm_order o ON oi.order_id = o.order_id
+        WHERE o.del_flag = '0' 
+        AND o.order_date BETWEEN #{startDate} AND #{endDate}
+        AND o.order_status IN ('completed', 'delivered')
+        GROUP BY oi.product_name, oi.brand, oi.category
+        ORDER BY totalSales DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 库存分析相关 -->
+    <select id="getTotalProducts" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM inv_stock WHERE del_flag = '0'
+    </select>
+
+    <select id="getTotalInventoryValue" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(stock_quantity * purchase_price), 0) FROM inv_stock WHERE del_flag = '0'
+    </select>
+
+    <select id="getLowStockProductCount" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM inv_stock 
+        WHERE del_flag = '0' AND stock_quantity &lt;= safety_stock AND safety_stock &gt; 0
+    </select>
+
+    <select id="getOutOfStockProductCount" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM inv_stock 
+        WHERE del_flag = '0' AND stock_quantity = 0
+    </select>
+
+    <!-- 库存预警 -->
+    <select id="getInventoryAlerts" resultType="java.util.Map">
+        SELECT 
+            part_number,
+            product_name,
+            brand,
+            stock_quantity,
+            safety_stock,
+            'LOW_STOCK' as alertType
+        FROM inv_stock 
+        WHERE del_flag = '0' 
+        AND stock_quantity &lt;= safety_stock 
+        AND safety_stock &gt; 0
+        AND stock_quantity &gt; 0
+        UNION ALL
+        SELECT 
+            part_number,
+            product_name,
+            brand,
+            stock_quantity,
+            safety_stock,
+            'OUT_OF_STOCK' as alertType
+        FROM inv_stock 
+        WHERE del_flag = '0' AND stock_quantity = 0
+        ORDER BY stock_quantity ASC
+    </select>
+
+    <!-- 库存分类分布 -->
+    <select id="getInventoryByCategory" resultType="java.util.Map">
+        SELECT 
+            category,
+            COUNT(*) as productCount,
+            SUM(stock_quantity) as totalQuantity,
+            COALESCE(SUM(stock_quantity * purchase_price), 0) as totalValue
+        FROM inv_stock 
+        WHERE del_flag = '0'
+        GROUP BY category
+        ORDER BY totalValue DESC
+    </select>
+
+    <!-- 库存品牌分布 -->
+    <select id="getInventoryByBrand" resultType="java.util.Map">
+        SELECT 
+            brand,
+            COUNT(*) as productCount,
+            SUM(stock_quantity) as totalQuantity,
+            COALESCE(SUM(stock_quantity * purchase_price), 0) as totalValue
+        FROM inv_stock 
+        WHERE del_flag = '0'
+        GROUP BY brand
+        ORDER BY totalValue DESC
+    </select>
+
+    <!-- 财务分析相关 -->
+    <select id="getTotalRevenue" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(total_amount), 0) FROM crm_order 
+        WHERE del_flag = '0' 
+        AND order_date BETWEEN #{startDate} AND #{endDate}
+        AND order_status IN ('completed', 'delivered')
+    </select>
+
+    <select id="getTotalCost" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(total_amount - profit), 0) FROM crm_order 
+        WHERE del_flag = '0' 
+        AND order_date BETWEEN #{startDate} AND #{endDate}
+        AND order_status IN ('completed', 'delivered')
+    </select>
+
+    <select id="getProfitMargin" resultType="java.math.BigDecimal">
+        SELECT 
+            ROUND(
+                COALESCE(SUM(profit), 0) / COALESCE(SUM(total_amount), 1) * 100, 2
+            ) as profitMargin
+        FROM crm_order 
+        WHERE del_flag = '0' 
+        AND order_date BETWEEN #{startDate} AND #{endDate}
+        AND order_status IN ('completed', 'delivered')
+    </select>
+
+    <!-- 利润趋势 -->
+    <select id="getProfitTrend" resultType="java.util.Map">
+        SELECT 
+            DATE(order_date) as date,
+            COALESCE(SUM(total_amount), 0) as revenue,
+            COALESCE(SUM(profit), 0) as profit,
+            ROUND(COALESCE(SUM(profit), 0) / COALESCE(SUM(total_amount), 1) * 100, 2) as profitMargin
+        FROM crm_order 
+        WHERE del_flag = '0' 
+        AND order_date BETWEEN #{startDate} AND #{endDate}
+        AND order_status IN ('completed', 'delivered')
+        GROUP BY DATE(order_date)
+        ORDER BY date
+    </select>
+
+</mapper>

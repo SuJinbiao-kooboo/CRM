@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.crm.customer.mapper.CrmCustomerMapper">
+    
+    <sql id="selectCrmCustomerVo">
+        select id, customer_code, customer_name, customer_short_name, country, customer_type, website, main_business, company_size, input_by, follow_by, customer_status, customer_level, intended_products, customer_source, introduction, credit_limit, next_follow_time, lead_id, create_by, create_time, update_by, update_time, remark from crm_customer
+    </sql>
+
+    <select id="selectCrmCustomerList" parameterType="CrmCustomer" resultType="CrmCustomer">
+        <include refid="selectCrmCustomerVo"/>
+        <where>  
+            <if test="customerCode != null  and customerCode != ''"> and customer_code like concat('%', #{customerCode}, '%')</if>
+            <if test="customerName != null  and customerName != ''"> and customer_name like concat('%', #{customerName}, '%')</if>
+            <if test="customerType != null  and customerType != ''"> and customer_type = #{customerType}</if>
+            <if test="country != null  and country != ''"> and country = #{country}</if>
+            <if test="customerStatus != null  and customerStatus != ''"> and customer_status = #{customerStatus}</if>
+            <if test="customerLevel != null  and customerLevel != ''"> and customer_level = #{customerLevel}</if>
+            <if test="followBy != null"> and follow_by = #{followBy}</if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectCrmCustomerById" parameterType="Long" resultType="CrmCustomer">
+        <include refid="selectCrmCustomerVo"/>
+        where id = #{id}
+    </select>
+        
+    <insert id="insertCrmCustomer" parameterType="CrmCustomer" useGeneratedKeys="true" keyProperty="id">
+        insert into crm_customer
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="customerCode != null and customerCode != ''">customer_code,</if>
+            <if test="customerName != null and customerName != ''">customer_name,</if>
+            <if test="customerShortName != null">customer_short_name,</if>
+            <if test="country != null">country,</if>
+            <if test="customerType != null">customer_type,</if>
+            <if test="website != null">website,</if>
+            <if test="mainBusiness != null">main_business,</if>
+            <if test="companySize != null">company_size,</if>
+            <if test="inputBy != null">input_by,</if>
+            <if test="followBy != null">follow_by,</if>
+            <if test="customerStatus != null">customer_status,</if>
+            <if test="customerLevel != null">customer_level,</if>
+            <if test="intendedProducts != null">intended_products,</if>
+            <if test="customerSource != null">customer_source,</if>
+            <if test="introduction != null">introduction,</if>
+            <if test="creditLimit != null">credit_limit,</if>
+            <if test="nextFollowTime != null">next_follow_time,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="customerCode != null and customerCode != ''">#{customerCode},</if>
+            <if test="customerName != null and customerName != ''">#{customerName},</if>
+            <if test="customerShortName != null">#{customerShortName},</if>
+            <if test="country != null">#{country},</if>
+            <if test="customerType != null">#{customerType},</if>
+            <if test="website != null">#{website},</if>
+            <if test="mainBusiness != null">#{mainBusiness},</if>
+            <if test="companySize != null">#{companySize},</if>
+            <if test="inputBy != null">#{inputBy},</if>
+            <if test="followBy != null">#{followBy},</if>
+            <if test="customerStatus != null">#{customerStatus},</if>
+            <if test="customerLevel != null">#{customerLevel},</if>
+            <if test="intendedProducts != null">#{intendedProducts},</if>
+            <if test="customerSource != null">#{customerSource},</if>
+            <if test="introduction != null">#{introduction},</if>
+            <if test="creditLimit != null">#{creditLimit},</if>
+            <if test="nextFollowTime != null">#{nextFollowTime},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateCrmCustomer" parameterType="CrmCustomer">
+        update crm_customer
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="customerCode != null and customerCode != ''">customer_code = #{customerCode},</if>
+            <if test="customerName != null and customerName != ''">customer_name = #{customerName},</if>
+            <if test="customerShortName != null">customer_short_name = #{customerShortName},</if>
+            <if test="country != null">country = #{country},</if>
+            <if test="customerType != null">customer_type = #{customerType},</if>
+            <if test="website != null">website = #{website},</if>
+            <if test="mainBusiness != null">main_business = #{mainBusiness},</if>
+            <if test="companySize != null">company_size = #{companySize},</if>
+            <if test="inputBy != null">input_by = #{inputBy},</if>
+            <if test="followBy != null">follow_by = #{followBy},</if>
+            <if test="customerStatus != null">customer_status = #{customerStatus},</if>
+            <if test="customerLevel != null">customer_level = #{customerLevel},</if>
+            <if test="intendedProducts != null">intended_products = #{intendedProducts},</if>
+            <if test="customerSource != null">customer_source = #{customerSource},</if>
+            <if test="introduction != null">introduction = #{introduction},</if>
+            <if test="creditLimit != null">credit_limit = #{creditLimit},</if>
+            <if test="nextFollowTime != null">next_follow_time = #{nextFollowTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteCrmCustomerById" parameterType="Long">
+        delete from crm_customer where id = #{id}
+    </delete>
+
+    <delete id="deleteCrmCustomerByIds" parameterType="String">
+        delete from crm_customer where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

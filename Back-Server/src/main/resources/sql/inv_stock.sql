@@ -12,6 +12,9 @@ CREATE TABLE `inv_stock` (
   `remark` varchar(500) DEFAULT NULL COMMENT '备注',
   `sheet_name` varchar(100) DEFAULT NULL COMMENT '工作表名称',
   `tags` varchar(200) DEFAULT NULL COMMENT '标签',
+  `product_type` varchar(100) DEFAULT NULL COMMENT '产品类型',
+  `product_detail_code` varchar(100) DEFAULT NULL COMMENT '产品明细编号',
+  `inq_offer_type` varchar(100) DEFAULT NULL COMMENT 'Inq/Offer类型',
   `status` varchar(20) DEFAULT 'active' COMMENT '状态（active/inactive）',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -19,5 +22,8 @@ CREATE TABLE `inv_stock` (
   KEY `idx_product_code` (`product_code`),
   KEY `idx_stock_date` (`stock_date`),
   KEY `idx_supplier` (`supplier`),
-  KEY `idx_brand` (`brand`)
+  KEY `idx_brand` (`brand`),
+  KEY `idx_product_type` (`product_type`),
+  KEY `idx_product_detail_code` (`product_detail_code`),
+  KEY `idx_inq_offer_type` (`inq_offer_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='库存信息表';

@@ -58,6 +58,15 @@ public class InvStock extends BaseEntity {
     /** 标签 */
     private String tags;
     
+    /** 产品类型 */
+    private String productType;
+    
+    /** 产品明细编号 */
+    private String productDetailCode;
+    
+    /** Inq/Offer类型 */
+    private String inqOfferType;
+    
     /** 状态 0-无效 1-有效 */
     private Integer status;
 

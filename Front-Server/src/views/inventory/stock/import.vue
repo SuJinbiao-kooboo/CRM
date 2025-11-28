@@ -25,6 +25,34 @@
           <el-input v-model="form.sheetName" placeholder="默认为第一个工作表" style="width: 200px"/>
         </el-form-item>
 
+        <!-- Inq/Offer设置 -->
+        <el-form-item label="Inq/Offer" prop="inqOffer" required>
+          <el-select v-model="form.inqOffer" placeholder="请选择Inq或Offer" clearable>
+            <el-option label="Inq" value="Inq"/>
+            <el-option label="Offer" value="Offer"/>
+          </el-select>
+        </el-form-item>
+
+        <!-- 供应商设置 -->
+        <el-form-item label="供应商" prop="supplierName" required>
+          <el-select
+            v-model="form.supplierName"
+            filterable
+            remote
+            reserve-keyword
+            placeholder="请输入供应商名称"
+            :remote-method="searchSupplier"
+            :loading="supplierLoading"
+          >
+            <el-option
+              v-for="item in supplierOptions"
+              :key="item.id"
+              :label="item.supplierName"
+              :value="item.supplierName"
+            />
+          </el-select>
+        </el-form-item>
+
         <!-- 更新选项 -->
         <el-form-item label="更新选项" prop="updateSupport">
           <el-checkbox v-model="form.updateSupport">更新已存在的数据</el-checkbox>
@@ -67,6 +95,7 @@
 
 <script>
 import { importStockData } from '@/api/inventory/stock'
+import { listSupplier } from '@/api/supplier/supplier'
 
 export default {
   name: 'StockImport',
@@ -74,21 +103,24 @@ export default {
     return {
       loading: false,
       fileList: [],
+      supplierLoading: false,
+      supplierOptions: [],
       form: {
         file: null,
         sheetName: '',
         updateSupport: false,
+        inqOffer: '',
+        supplierName: '',
         columnMapping: {}
       },
       columnFields: [
-        { field: 'productCode', name: '料号', required: true },
         { field: 'stockDate', name: '库存日期', required: true },
-        { field: 'productName', name: '物料详情', required: false },
+        { field: 'productCode', name: '产品编码', required: true },
+        { field: 'productName', name: '产品详情', required: false },
         { field: 'price', name: '单价', required: false },
         { field: 'quantity', name: '数量', required: false },
-        { field: 'deliveryTime', name: '交期', required: false },
+        { field: 'deliveryTime', name: '交货时间', required: false },
         { field: 'remark', name: '备注', required: false },
-        { field: 'supplierName', name: '供应商', required: false },
         { field: 'brand', name: '品牌', required: false }
       ],
       columnOptions: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
@@ -99,9 +131,35 @@ export default {
       this.form.file = file.raw
     },
     
+    // 供应商模糊搜索
+    searchSupplier(query) {
+      if (query !== '') {
+        this.supplierLoading = true
+        listSupplier({ supplierName: query, pageSize: 10 }).then(response => {
+          this.supplierOptions = response.rows
+          this.supplierLoading = false
+        }).catch(() => {
+          this.supplierLoading = false
+        })
+      } else {
+        this.supplierOptions = []
+      }
+    },
+    
     async handleImport() {
       if (!this.form.file) {
         this.$message.error('请选择Excel文件')
+        return
+      }
+
+      // 检查必填字段
+      if (!this.form.inqOffer) {
+        this.$message.error('请选择Inq/Offer')
+        return
+      }
+      
+      if (!this.form.supplierName) {
+        this.$message.error('请选择供应商')
         return
       }
 
@@ -120,8 +178,10 @@ export default {
         formData.append('file', this.form.file)
         formData.append('updateSupport', this.form.updateSupport)
         formData.append('sheetName', this.form.sheetName)
+        formData.append('inqOffer', this.form.inqOffer)
+        formData.append('supplierName', this.form.supplierName)
         
-        // 添加列映射参数（使用正确的参数名）
+        // 添加列映射参数
         Object.keys(this.form.columnMapping).forEach(key => {
           if (this.form.columnMapping[key]) {
             formData.append(`columnMapping.${key}`, this.form.columnMapping[key])

@@ -78,7 +78,7 @@
       color: #FFFFFF !important;
       min-height: 56px !important;
       line-height: 56px !important;
-      padding: 0 20px !important;
+      padding: 0 11px !important; // 再向左缩进3px，从14px改为11px
       border: none !important;
       font-size: 15px !important;
       font-weight: 500 !important;
@@ -108,7 +108,7 @@
       color: #FFFFFF !important;
       min-height: 56px !important;
       line-height: 56px !important;
-      padding: 0 20px !important;
+      padding: 0 11px !important; // 再向左缩进3px，从14px改为11px
       border: none !important;
       font-size: 15px !important;
       font-weight: 500 !important;
@@ -165,7 +165,7 @@
       .el-menu-item {
         background-color: #34495E !important;
         color: #FFFFFF !important;
-        padding: 0 20px 0 4px !important; // 左侧缩进调整为4px
+        padding: 0 17px 0 12px !important; // 右侧再缩进5px，总共8px
         min-height: 50px !important;
         line-height: 50px !important;
         font-size: 14px !important;
@@ -209,7 +209,7 @@
     .nest-menu .el-submenu .el-menu {
       .el-menu-item {
         background-color: #3F5A6E !important;
-        padding: 0 20px 0 4px !important; // 三级菜单缩进调整为4px
+        padding: 0 17px 0 12px !important; // 右侧再缩进5px，总共8px
         
         &:hover {
           background-color: #4A6278 !important;

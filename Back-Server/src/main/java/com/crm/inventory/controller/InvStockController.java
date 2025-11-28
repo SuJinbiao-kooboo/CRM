@@ -42,7 +42,8 @@ public class InvStockController extends BaseController {
      * 导出库存信息
      */
     @GetMapping("/export")
-    public void export(HttpServletResponse response, InvStock invStock) {
+    public void export(HttpServletResponse response, InvStock invStock, 
+                       @RequestParam(value = "exportFields", required = false) String exportFields) {
         List<InvStock> list = invStockService.selectInvStockList(invStock);
         try {
             // 设置响应头
@@ -53,18 +54,78 @@ public class InvStockController extends BaseController {
             
             // 使用EasyExcel导出
             EasyExcel.write(response.getOutputStream())
-                .head(head())
+                .head(head(exportFields))
                 .sheet("库存数据")
-                .doWrite(dataList(list));
+                .doWrite(dataList(list, exportFields));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     /**
-     * 定义表头
+     * 获取可导出字段列表
      */
-    private List<List<String>> head() {
+    @GetMapping("/exportFields")
+    public AjaxResult getExportFields() {
+        List<Map<String, Object>> fields = new ArrayList<>();
+        
+        // 从数据库实体类中读取所有字段信息
+        fields.add(createFieldInfo("stockDate", "库存日期", "Date"));
+        fields.add(createFieldInfo("productCode", "产品编码", "String"));
+        fields.add(createFieldInfo("productDetail", "产品详情", "String"));
+        fields.add(createFieldInfo("price", "单价", "BigDecimal"));
+        fields.add(createFieldInfo("quantity", "数量", "Integer"));
+        fields.add(createFieldInfo("deliveryTime", "交货时间", "String"));
+        fields.add(createFieldInfo("supplier", "供应商", "String"));
+        fields.add(createFieldInfo("brand", "品牌", "String"));
+        fields.add(createFieldInfo("productType", "产品类型", "String"));
+        fields.add(createFieldInfo("productDetailCode", "产品明细编号", "String"));
+        fields.add(createFieldInfo("inqOfferType", "Inq/Offer类型", "String"));
+        fields.add(createFieldInfo("remark", "备注", "String"));
+        fields.add(createFieldInfo("sheetName", "工作表名称", "String"));
+        fields.add(createFieldInfo("tags", "标签", "String"));
+        fields.add(createFieldInfo("status", "状态", "Integer"));
+        
+        return success(fields);
+    }
+
+    /**
+     * 创建字段信息
+     */
+    private Map<String, Object> createFieldInfo(String fieldName, String displayName, String dataType) {
+        Map<String, Object> field = new HashMap<>();
+        field.put("fieldName", fieldName);
+        field.put("displayName", displayName);
+        field.put("dataType", dataType);
+        field.put("defaultSelected", true); // 默认选中
+        return field;
+    }
+
+    /**
+     * 定义表头（支持字段选择）
+     */
+    private List<List<String>> head(String exportFields) {
+        List<List<String>> list = new ArrayList<>();
+        
+        // 如果没有指定字段，则使用默认字段
+        if (exportFields == null || exportFields.isEmpty()) {
+            return getDefaultHead();
+        }
+        
+        // 解析选中的字段
+        String[] fields = exportFields.split(",");
+        for (String field : fields) {
+            String displayName = getFieldDisplayName(field);
+            list.add(Arrays.asList(displayName));
+        }
+        
+        return list;
+    }
+
+    /**
+     * 获取默认表头
+     */
+    private List<List<String>> getDefaultHead() {
         List<List<String>> list = new ArrayList<>();
         list.add(Arrays.asList("库存日期"));
         list.add(Arrays.asList("产品编码"));
@@ -74,15 +135,66 @@ public class InvStockController extends BaseController {
         list.add(Arrays.asList("交货时间"));
         list.add(Arrays.asList("供应商"));
         list.add(Arrays.asList("品牌"));
+        list.add(Arrays.asList("产品类型"));
+        list.add(Arrays.asList("产品明细编号"));
+        list.add(Arrays.asList("Inq/Offer类型"));
         list.add(Arrays.asList("备注"));
         list.add(Arrays.asList("状态"));
         return list;
     }
 
     /**
-     * 准备数据
+     * 根据字段名获取显示名称
      */
-    private List<List<Object>> dataList(List<InvStock> list) {
+    private String getFieldDisplayName(String fieldName) {
+        Map<String, String> fieldMap = new HashMap<>();
+        fieldMap.put("stockDate", "库存日期");
+        fieldMap.put("productCode", "产品编码");
+        fieldMap.put("productDetail", "产品详情");
+        fieldMap.put("price", "单价");
+        fieldMap.put("quantity", "数量");
+        fieldMap.put("deliveryTime", "交货时间");
+        fieldMap.put("supplier", "供应商");
+        fieldMap.put("brand", "品牌");
+        fieldMap.put("productType", "产品类型");
+        fieldMap.put("productDetailCode", "产品明细编号");
+        fieldMap.put("inqOfferType", "Inq/Offer类型");
+        fieldMap.put("remark", "备注");
+        fieldMap.put("sheetName", "工作表名称");
+        fieldMap.put("tags", "标签");
+        fieldMap.put("status", "状态");
+        
+        return fieldMap.getOrDefault(fieldName, fieldName);
+    }
+
+    /**
+     * 准备数据（支持字段选择）
+     */
+    private List<List<Object>> dataList(List<InvStock> list, String exportFields) {
+        List<List<Object>> dataList = new ArrayList<>();
+        
+        // 如果没有指定字段，则使用默认字段
+        if (exportFields == null || exportFields.isEmpty()) {
+            return getDefaultDataList(list);
+        }
+        
+        // 解析选中的字段
+        String[] fields = exportFields.split(",");
+        
+        for (InvStock stock : list) {
+            List<Object> data = new ArrayList<>();
+            for (String field : fields) {
+                data.add(getFieldValue(stock, field));
+            }
+            dataList.add(data);
+        }
+        return dataList;
+    }
+
+    /**
+     * 获取默认数据列表
+     */
+    private List<List<Object>> getDefaultDataList(List<InvStock> list) {
         List<List<Object>> dataList = new ArrayList<>();
         for (InvStock stock : list) {
             List<Object> data = new ArrayList<>();
@@ -94,11 +206,38 @@ public class InvStockController extends BaseController {
             data.add(stock.getDeliveryTime());
             data.add(stock.getSupplier());
             data.add(stock.getBrand());
+            data.add(stock.getProductType());
+            data.add(stock.getProductDetailCode());
+            data.add(stock.getInqOfferType());
             data.add(stock.getRemark());
             data.add(stock.getStatus() == 1 ? "有效" : "无效");
             dataList.add(data);
         }
         return dataList;
+    }
+
+    /**
+     * 根据字段名获取字段值
+     */
+    private Object getFieldValue(InvStock stock, String fieldName) {
+        switch (fieldName) {
+            case "stockDate": return stock.getStockDate();
+            case "productCode": return stock.getProductCode();
+            case "productDetail": return stock.getProductDetail();
+            case "price": return stock.getPrice();
+            case "quantity": return stock.getQuantity();
+            case "deliveryTime": return stock.getDeliveryTime();
+            case "supplier": return stock.getSupplier();
+            case "brand": return stock.getBrand();
+            case "productType": return stock.getProductType();
+            case "productDetailCode": return stock.getProductDetailCode();
+            case "inqOfferType": return stock.getInqOfferType();
+            case "remark": return stock.getRemark();
+            case "sheetName": return stock.getSheetName();
+            case "tags": return stock.getTags();
+            case "status": return stock.getStatus() == 1 ? "有效" : "无效";
+            default: return "";
+        }
     }
 
     /**
@@ -123,6 +262,33 @@ public class InvStockController extends BaseController {
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(invStockService.removeByIds(java.util.Arrays.asList(ids)));
+    }
+
+    /**
+     * 批量更新库存信息
+     */
+    @PutMapping("/batchUpdate")
+    public AjaxResult batchUpdate(@RequestBody Map<String, Object> updateData) {
+        try {
+            List<Long> ids = (List<Long>) updateData.get("ids");
+            Map<String, Object> updateFields = (Map<String, Object>) updateData.get("updateFields");
+            
+            // 过滤掉空值
+            Map<String, Object> filteredFields = new HashMap<>();
+            for (Map.Entry<String, Object> entry : updateFields.entrySet()) {
+                if (entry.getValue() != null && !entry.getValue().toString().isEmpty()) {
+                    filteredFields.put(entry.getKey(), entry.getValue());
+                }
+            }
+            
+            if (filteredFields.isEmpty()) {
+                return error("请至少填写一个要更新的字段");
+            }
+            
+            return toAjax(invStockService.batchUpdate(ids, filteredFields));
+        } catch (Exception e) {
+            return error("批量更新失败: " + e.getMessage());
+        }
     }
 
     /**

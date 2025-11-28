@@ -53,6 +53,14 @@ export function exportStock(query) {
   })
 }
 
+// 获取可导出字段列表
+export function getExportFields() {
+  return request({
+    url: '/inventory/stock/exportFields',
+    method: 'get'
+  })
+}
+
 // 下载库存导入模板
 export function importTemplate() {
   return request({
@@ -71,5 +79,14 @@ export function importStockData(data) {
     headers: {
       'Content-Type': 'multipart/form-data'
     }
+  })
+}
+
+// 批量更新库存信息
+export function batchUpdateStock(data) {
+  return request({
+    url: '/inventory/stock/batchUpdate',
+    method: 'put',
+    data: data
   })
 }

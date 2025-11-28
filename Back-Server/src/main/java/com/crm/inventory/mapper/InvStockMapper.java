@@ -3,6 +3,7 @@ package com.crm.inventory.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.crm.inventory.domain.InvStock;
 import java.util.List;
+import org.apache.ibatis.annotations.Param;
 
 public interface InvStockMapper extends BaseMapper<InvStock> {
     /**
@@ -18,4 +19,12 @@ public interface InvStockMapper extends BaseMapper<InvStock> {
      * @return 插入数量
      */
     int batchInsert(List<InvStock> stockList);
+
+    /**
+     * 批量更新库存信息
+     * @param ids 要更新的ID列表
+     * @param updateEntity 更新实体
+     * @return 更新数量
+     */
+    int batchUpdate(@Param("ids") List<Long> ids, @Param("updateEntity") InvStock updateEntity);
 }

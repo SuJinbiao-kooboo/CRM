@@ -22,9 +22,7 @@
       <el-col :span="1.5">
         <el-button type="primary" plain icon="el-icon-plus" size="mini" @click="handleAdd">新增</el-button>
       </el-col>
-      <el-col :span="1.5">
-        <el-button type="success" plain icon="el-icon-upload" size="mini" @click="handleImport">导入</el-button>
-      </el-col>
+
       <el-col :span="1.5">
         <el-button type="warning" plain icon="el-icon-download" size="mini" @click="handleExport">导出</el-button>
       </el-col>
@@ -106,88 +104,13 @@
       </div>
     </el-dialog>
 
-    <!-- 导入对话框 -->
-    <el-dialog title="库存导入" :visible.sync="importVisible" width="600px">
-      <el-form :model="importForm" label-width="120px">
-        <el-form-item label="Excel文件" required>
-          <el-upload
-            class="upload-demo"
-            action=""
-            :on-change="handleFileChange"
-            :auto-upload="false"
-            :show-file-list="false"
-          >
-            <el-button size="small" type="primary">点击上传</el-button>
-            <div slot="tip" class="el-upload__tip">请上传Excel文件</div>
-          </el-upload>
-        </el-form-item>
-        
-        <el-form-item label="库存日期列" required>
-          <el-select v-model="importForm.stockDateCol" placeholder="请选择">
-            <el-option v-for="item in columnOptions" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="产品编码列" required>
-          <el-select v-model="importForm.productCodeCol" placeholder="请选择">
-            <el-option v-for="item in columnOptions" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
-        
-        <!-- 其他选填列 -->
-        <el-form-item label="产品详情列">
-          <el-select v-model="importForm.productDetailCol" placeholder="请选择">
-            <el-option v-for="item in columnOptions" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="单价列">
-          <el-select v-model="importForm.priceCol" placeholder="请选择">
-            <el-option v-for="item in columnOptions" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="数量列">
-          <el-select v-model="importForm.quantityCol" placeholder="请选择">
-            <el-option v-for="item in columnOptions" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="交货时间列">
-          <el-select v-model="importForm.deliveryTimeCol" placeholder="请选择">
-            <el-option v-for="item in columnOptions" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="备注列">
-          <el-select v-model="importForm.remarkCol" placeholder="请选择">
-            <el-option v-for="item in columnOptions" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="供应商列">
-          <el-select v-model="importForm.supplierCol" placeholder="请选择">
-            <el-option v-for="item in columnOptions" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="品牌列">
-          <el-select v-model="importForm.brandCol" placeholder="请选择">
-            <el-option v-for="item in columnOptions" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="importVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitImport">确定</el-button>
-      </div>
-    </el-dialog>
+
+
   </div>
 </template>
 
 <script>
-import { listStock, getStock, addStock, updateStock, delStock, exportStock, importStockData } from '@/api/inventory/stock'
+import { listStock, getStock, addStock, updateStock, delStock, exportStock } from '@/api/inventory/stock'
 import { resetForm, parseTime } from '@/utils/ruoyi'
 
 export default {
@@ -233,21 +156,7 @@ export default {
           { required: true, message: '库存日期不能为空', trigger: 'change' }
         ]
       },
-      // 导入相关
-      importVisible: false,
-      importForm: {
-        file: null,
-        stockDateCol: 'A',
-        productCodeCol: 'B',
-        productDetailCol: '',
-        priceCol: '',
-        quantityCol: '',
-        deliveryTimeCol: '',
-        remarkCol: '',
-        supplierCol: '',
-        brandCol: ''
-      },
-      columnOptions: ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
+
     }
   },
   created() {
@@ -352,45 +261,7 @@ export default {
         }
       })
     },
-    // 导入
-    handleImport() {
-      this.importVisible = true
-    },
-    // 文件改变
-    handleFileChange(file) {
-      this.importForm.file = file.raw
-    },
-    // 提交导入
-    submitImport() {
-      if (!this.importForm.file) {
-        this.$message.error('请上传文件')
-        return
-      }
-      if (!this.importForm.stockDateCol || !this.importForm.productCodeCol) {
-        this.$message.error('请选择必填列')
-        return
-      }
-      
-      const formData = new FormData()
-      formData.append('file', this.importForm.file)
-      formData.append('stockDateCol', this.importForm.stockDateCol)
-      formData.append('productCodeCol', this.importForm.productCodeCol)
-      formData.append('productDetailCol', this.importForm.productDetailCol)
-      formData.append('priceCol', this.importForm.priceCol)
-      formData.append('quantityCol', this.importForm.quantityCol)
-      formData.append('deliveryTimeCol', this.importForm.deliveryTimeCol)
-      formData.append('remarkCol', this.importForm.remarkCol)
-      formData.append('supplierCol', this.importForm.supplierCol)
-      formData.append('brandCol', this.importForm.brandCol)
-      
-      importStockData(formData).then(response => {
-        this.$message.success('导入成功')
-        this.importVisible = false
-        this.getList()
-      }).catch(error => {
-        this.$message.error('导入失败')
-      })
-    },
+
     // 导出
     handleExport() {
       exportStock(this.queryParams).then(response => {

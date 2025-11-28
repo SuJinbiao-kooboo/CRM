@@ -23,4 +23,12 @@ public interface IInvStockService extends IService<InvStock> {
      * @return 导入结果
      */
     String importStock(MultipartFile file, Map<String, Integer> columnMapping);
+
+    /**
+     * 批量更新库存信息
+     * @param ids 要更新的库存ID列表
+     * @param updateFields 更新字段映射
+     * @return 更新结果
+     */
+    boolean batchUpdate(List<Long> ids, Map<String, Object> updateFields);
 }

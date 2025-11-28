@@ -5,7 +5,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 <mapper namespace="com.crm.inventory.mapper.InvStockMapper">
     
     <sql id="selectInvStockVo">
-        select id, stock_date, product_code, product_detail, price, quantity, delivery_time, supplier, brand, remark, sheet_name, tags, status, create_time, update_time, create_by, update_by from inv_stock
+        select id, stock_date, product_code, product_detail, price, quantity, delivery_time, supplier, brand, product_type, product_detail_code, inq_offer_type, remark, sheet_name, tags, status, create_time, update_time, create_by, update_by from inv_stock
     </sql>
 
     <select id="selectInvStockList" parameterType="InvStock" resultType="InvStock">
@@ -14,6 +14,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="productCode != null  and productCode != ''"> and product_code like concat('%', #{productCode}, '%')</if>
             <if test="supplier != null  and supplier != ''"> and supplier like concat('%', #{supplier}, '%')</if>
             <if test="brand != null  and brand != ''"> and brand = #{brand}</if>
+            <if test="productType != null  and productType != ''"> and product_type = #{productType}</if>
+            <if test="productDetailCode != null  and productDetailCode != ''"> and product_detail_code = #{productDetailCode}</if>
+            <if test="inqOfferType != null  and inqOfferType != ''"> and inq_offer_type = #{inqOfferType}</if>
             <if test="status != null"> and status = #{status}</if>
             <if test="stockDate != null"> and stock_date = #{stockDate}</if>
         </where>
@@ -36,6 +39,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="deliveryTime != null">delivery_time,</if>
             <if test="supplier != null">supplier,</if>
             <if test="brand != null">brand,</if>
+            <if test="productType != null">product_type,</if>
+            <if test="productDetailCode != null">product_detail_code,</if>
+            <if test="inqOfferType != null">inq_offer_type,</if>
             <if test="remark != null">remark,</if>
             <if test="sheetName != null">sheet_name,</if>
             <if test="tags != null">tags,</if>
@@ -54,6 +60,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="deliveryTime != null">#{deliveryTime},</if>
             <if test="supplier != null">#{supplier},</if>
             <if test="brand != null">#{brand},</if>
+            <if test="productType != null">#{productType},</if>
+            <if test="productDetailCode != null">#{productDetailCode},</if>
+            <if test="inqOfferType != null">#{inqOfferType},</if>
             <if test="remark != null">#{remark},</if>
             <if test="sheetName != null">#{sheetName},</if>
             <if test="tags != null">#{tags},</if>
@@ -76,6 +85,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="deliveryTime != null">delivery_time = #{deliveryTime},</if>
             <if test="supplier != null">supplier = #{supplier},</if>
             <if test="brand != null">brand = #{brand},</if>
+            <if test="productType != null">product_type = #{productType},</if>
+            <if test="productDetailCode != null">product_detail_code = #{productDetailCode},</if>
+            <if test="inqOfferType != null">inq_offer_type = #{inqOfferType},</if>
             <if test="remark != null">remark = #{remark},</if>
             <if test="sheetName != null">sheet_name = #{sheetName},</if>
             <if test="tags != null">tags = #{tags},</if>
@@ -98,11 +110,33 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </delete>
 
     <insert id="batchInsert" parameterType="java.util.List">
-        insert into inv_stock (stock_date, product_code, product_detail, price, quantity, delivery_time, supplier, brand, remark, sheet_name, tags, status, create_by, create_time)
+        insert into inv_stock (stock_date, product_code, product_detail, price, quantity, delivery_time, supplier, brand, product_type, product_detail_code, inq_offer_type, remark, sheet_name, tags, status, create_by, create_time)
         values
         <foreach collection="list" item="item" separator=",">
-            (#{item.stockDate}, #{item.productCode}, #{item.productDetail}, #{item.price}, #{item.quantity}, #{item.deliveryTime}, #{item.supplier}, #{item.brand}, #{item.remark}, #{item.sheetName}, #{item.tags}, #{item.status}, #{item.createBy}, #{item.createTime})
+            (#{item.stockDate}, #{item.productCode}, #{item.productDetail}, #{item.price}, #{item.quantity}, #{item.deliveryTime}, #{item.supplier}, #{item.brand}, #{item.productType}, #{item.productDetailCode}, #{item.inqOfferType}, #{item.remark}, #{item.sheetName}, #{item.tags}, #{item.status}, #{item.createBy}, #{item.createTime})
         </foreach>
     </insert>
+
+    <update id="batchUpdate" parameterType="map">
+        update inv_stock
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="updateEntity.productDetail != null">product_detail = #{updateEntity.productDetail},</if>
+            <if test="updateEntity.price != null">price = #{updateEntity.price},</if>
+            <if test="updateEntity.quantity != null">quantity = #{updateEntity.quantity},</if>
+            <if test="updateEntity.deliveryTime != null">delivery_time = #{updateEntity.deliveryTime},</if>
+            <if test="updateEntity.supplier != null">supplier = #{updateEntity.supplier},</if>
+            <if test="updateEntity.brand != null">brand = #{updateEntity.brand},</if>
+            <if test="updateEntity.productType != null">product_type = #{updateEntity.productType},</if>
+            <if test="updateEntity.productDetailCode != null">product_detail_code = #{updateEntity.productDetailCode},</if>
+            <if test="updateEntity.inqOfferType != null">inq_offer_type = #{updateEntity.inqOfferType},</if>
+            <if test="updateEntity.remark != null">remark = #{updateEntity.remark},</if>
+            <if test="updateEntity.updateBy != null">update_by = #{updateEntity.updateBy},</if>
+            <if test="updateEntity.updateTime != null">update_time = #{updateEntity.updateTime},</if>
+        </trim>
+        where id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
 
 </mapper>

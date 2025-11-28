@@ -27,7 +27,7 @@ export default {
   /* 50 = navbar  50  */
   min-height: calc(100vh - 50px);
   width: calc(100% - 150px);
-  margin-left: 150px;
+  margin-left: -0px;
   position: relative;
   overflow: hidden;
   transition: width 0.3s ease-in-out, margin-left 0.3s ease-in-out;

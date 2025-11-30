@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.crm.mapper.CrmAttachmentMapper">
+
+    <resultMap id="CrmAttachmentMap" type="com.ruoyi.crm.domain.CrmAttachment">
+        <id column="id" property="id" />
+        <result column="from_type" property="fromType" />
+        <result column="from_id" property="fromId" />
+        <result column="file_name" property="fileName" />
+        <result column="file_url" property="fileUrl" />
+        <result column="remark" property="remark" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <select id="selectBy" resultMap="CrmAttachmentMap">
+        select * from crm_attachment where from_type = #{fromType} and from_id = #{fromId}
+    </select>
+
+    <insert id="insertBatch" parameterType="java.util.List">
+        insert into crm_attachment(from_type, from_id, file_name, file_url, remark, create_by, create_time, update_by, update_time) values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.fromType}, #{item.fromId}, #{item.fileName}, #{item.fileUrl}, #{item.remark}, #{item.createBy}, now(), #{item.updateBy}, now())
+        </foreach>
+    </insert>
+
+    <delete id="deleteBy">
+        delete from crm_attachment where from_type = #{fromType} and from_id = #{fromId}
+    </delete>
+
+</mapper>
+

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.crm.mapper.CrmSupplierContactMapper">
+
+    <resultMap id="CrmSupplierContactMap" type="com.ruoyi.crm.domain.CrmSupplierContact">
+        <id column="id" property="id" />
+        <result column="supplier_id" property="supplierId" />
+        <result column="contact_name" property="contactName" />
+        <result column="post" property="post" />
+        <result column="position" property="position" />
+        <result column="phone" property="phone" />
+        <result column="email" property="email" />
+        <result column="whatsapp" property="whatsapp" />
+        <result column="wechat" property="wechat" />
+        <result column="qq" property="qq" />
+        <result column="other_contact_first" property="otherContactFirst" />
+        <result column="other_contact_second" property="otherContactSecond" />
+        <result column="remark_first" property="remarkFirst" />
+        <result column="remark_second" property="remarkSecond" />
+        <result column="is_primary" property="isPrimary" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <select id="selectBySupplierId" parameterType="long" resultMap="CrmSupplierContactMap">
+        select * from crm_supplier_contact where supplier_id = #{supplierId} order by is_primary desc, id asc
+    </select>
+
+    <insert id="insertBatch" parameterType="java.util.List">
+        insert into crm_supplier_contact(
+            supplier_id, contact_name, post, position, phone, email, whatsapp, wechat, qq,
+            other_contact_first, other_contact_second, remark_first, remark_second, is_primary, create_by, create_time, update_by, update_time
+        ) values
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.supplierId}, #{item.contactName}, #{item.post}, #{item.position}, #{item.phone}, #{item.email}, #{item.whatsapp}, #{item.wechat}, #{item.qq},
+                #{item.otherContactFirst}, #{item.otherContactSecond}, #{item.remarkFirst}, #{item.remarkSecond}, #{item.isPrimary}, #{item.createBy}, now(), #{item.updateBy}, now()
+            )
+        </foreach>
+    </insert>
+
+    <delete id="deleteBySupplierId" parameterType="long">
+        delete from crm_supplier_contact where supplier_id = #{supplierId}
+    </delete>
+
+</mapper>
+

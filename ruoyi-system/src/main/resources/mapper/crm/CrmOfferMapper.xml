@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.crm.mapper.CrmOfferMapper">
+
+    <resultMap id="CrmOfferMap" type="com.ruoyi.crm.domain.CrmOffer">
+        <id column="id" property="id" />
+        <result column="product_code" property="productCode" />
+        <result column="product_brand" property="productBrand" />
+        <result column="stock_date" property="stockDate" />
+        <result column="product_detail" property="productDetail" />
+        <result column="price_cost" property="priceCost" />
+        <result column="price_offer" property="priceOffer" />
+        <result column="price_unit" property="priceUnit" />
+        <result column="quantity" property="quantity" />
+        <result column="delivery_time" property="deliveryTime" />
+        <result column="remark" property="remark" />
+        <result column="sheet_name" property="sheetName" />
+        <result column="supplier_code" property="supplierCode" />
+        <result column="supplier_name" property="supplierName" />
+        <result column="tags_first" property="tagsFirst" />
+        <result column="tags_second" property="tagsSecond" />
+        <result column="tags_third" property="tagsThird" />
+        <result column="tags_si" property="tagsSi" />
+        <result column="status" property="status" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+        <result column="create_by" property="createBy" />
+        <result column="update_by" property="updateBy" />
+        <result column="product_type" property="productType" />
+        <result column="product_detail_code" property="productDetailCode" />
+        <result column="inq_offer_type" property="inqOfferType" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, product_code, product_brand, stock_date, product_detail, price_cost, price_offer, price_unit,
+        quantity, delivery_time, remark, sheet_name, supplier_code, supplier_name, tags_first, tags_second, tags_third, tags_si,
+        status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type
+    </sql>
+
+    <select id="selectOfferList" parameterType="com.ruoyi.crm.domain.CrmOffer" resultMap="CrmOfferMap">
+        select <include refid="Base_Column_List"/> from crm_offer
+        <where>
+            <if test="productCode != null and productCode != ''">and product_code like concat('%', #{productCode}, '%')</if>
+            <if test="params != null and params['supplierCodeList'] != null and params['supplierCodeList'].length() > 0">
+                and (
+                <foreach collection="params.supplierCodeList.split(',')" item="sc" separator=" or ">
+                    supplier_code = #{sc}
+                </foreach>
+                )
+            </if>
+            <if test="inqOfferType != null and inqOfferType != ''">and inq_offer_type = #{inqOfferType}</if>
+            <if test="params != null and params['productBrandList'] != null and params['productBrandList'].length() > 0">
+                and (
+                <foreach collection="params.productBrandList.split(',')" item="pb" separator=" or ">
+                    product_brand like concat('%', #{pb}, '%')
+                </foreach>
+                )
+            </if>
+            <if test="params != null and params['productTypeList'] != null and params['productTypeList'].length() > 0">
+                and (
+                <foreach collection="params.productTypeList.split(',')" item="pt" separator=" or ">
+                    product_type like concat('%', #{pt}, '%')
+                </foreach>
+                )
+            </if>
+            <if test="tagsFirst != null and tagsFirst != ''">and tags_first like concat('%', #{tagsFirst}, '%')</if>
+            <if test="tagsSecond != null and tagsSecond != ''">and tags_second like concat('%', #{tagsSecond}, '%')</if>
+            <if test="tagsThird != null and tagsThird != ''">and tags_third like concat('%', #{tagsThird}, '%')</if>
+            <if test="tagsSi != null and tagsSi != ''">and tags_si like concat('%', #{tagsSi}, '%')</if>
+            <if test="params != null and params['beginStockDate'] != null">and stock_date &gt;= #{params.beginStockDate}</if>
+            <if test="params != null and params['endStockDate'] != null">and stock_date &lt;= #{params.endStockDate}</if>
+            <if test="params != null and params['minPriceCost'] != null">and price_cost &gt;= #{params.minPriceCost}</if>
+            <if test="params != null and params['maxPriceCost'] != null">and price_cost &lt;= #{params.maxPriceCost}</if>
+            <if test="params != null and params['minPriceOffer'] != null">and price_offer &gt;= #{params.minPriceOffer}</if>
+            <if test="params != null and params['maxPriceOffer'] != null">and price_offer &lt;= #{params.maxPriceOffer}</if>
+            <if test="params != null and params['minQuantity'] != null">and quantity &gt;= #{params.minQuantity}</if>
+            <if test="params != null and params['maxQuantity'] != null">and quantity &lt;= #{params.maxQuantity}</if>
+        </where>
+        order by update_time desc
+    </select>
+
+    <select id="selectOfferById" parameterType="long" resultMap="CrmOfferMap">
+        select <include refid="Base_Column_List"/> from crm_offer where id = #{id}
+    </select>
+
+    <insert id="insertOffer" parameterType="com.ruoyi.crm.domain.CrmOffer" useGeneratedKeys="true" keyProperty="id">
+        insert into crm_offer(
+            product_code, product_brand, stock_date, product_detail, price_cost, price_offer, price_unit,
+            quantity, delivery_time, remark, sheet_name, supplier_code, supplier_name,
+            tags_first, tags_second, tags_third, tags_si, status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type
+        ) values (
+            #{productCode}, #{productBrand}, #{stockDate}, #{productDetail}, #{priceCost}, #{priceOffer}, #{priceUnit},
+            #{quantity}, #{deliveryTime}, #{remark}, #{sheetName}, #{supplierCode}, #{supplierName},
+            #{tagsFirst}, #{tagsSecond}, #{tagsThird}, #{tagsSi}, #{status}, now(), now(), #{createBy}, #{updateBy}, #{productType}, #{productDetailCode}, #{inqOfferType}
+        )
+    </insert>
+
+    <update id="updateOffer" parameterType="com.ruoyi.crm.domain.CrmOffer">
+        update crm_offer
+        <set>
+            <if test="productCode != null">product_code = #{productCode},</if>
+            <if test="productBrand != null">product_brand = #{productBrand},</if>
+            <if test="stockDate != null">stock_date = #{stockDate},</if>
+            <if test="productDetail != null">product_detail = #{productDetail},</if>
+            <if test="priceCost != null">price_cost = #{priceCost},</if>
+            <if test="priceOffer != null">price_offer = #{priceOffer},</if>
+            <if test="priceUnit != null">price_unit = #{priceUnit},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="deliveryTime != null">delivery_time = #{deliveryTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="sheetName != null">sheet_name = #{sheetName},</if>
+            <if test="supplierCode != null">supplier_code = #{supplierCode},</if>
+            <if test="supplierName != null">supplier_name = #{supplierName},</if>
+            <if test="tagsFirst != null">tags_first = #{tagsFirst},</if>
+            <if test="tagsSecond != null">tags_second = #{tagsSecond},</if>
+            <if test="tagsThird != null">tags_third = #{tagsThird},</if>
+            <if test="tagsSi != null">tags_si = #{tagsSi},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="productType != null">product_type = #{productType},</if>
+            <if test="productDetailCode != null">product_detail_code = #{productDetailCode},</if>
+            <if test="inqOfferType != null">inq_offer_type = #{inqOfferType},</if>
+            update_by = #{updateBy},
+            update_time = now()
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteOfferByIds" parameterType="long">
+        delete from crm_offer where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+
+    <delete id="deleteOfferById" parameterType="long">
+        delete from crm_offer where id = #{id}
+    </delete>
+
+    <update id="batchUpdate">
+        update crm_offer
+        <set>
+            <if test="offer.productBrand != null and offer.productBrand != ''">product_brand = #{offer.productBrand},</if>
+            <if test="offer.stockDate != null">stock_date = #{offer.stockDate},</if>
+            <if test="offer.productDetail != null and offer.productDetail != ''">product_detail = #{offer.productDetail},</if>
+            <if test="offer.priceCost != null and offer.priceCost != 0">price_cost = #{offer.priceCost},</if>
+            <if test="offer.priceOffer != null and offer.priceOffer != 0">price_offer = #{offer.priceOffer},</if>
+            <if test="offer.priceUnit != null and offer.priceUnit != ''">price_unit = #{offer.priceUnit},</if>
+            <if test="offer.quantity != null and offer.quantity != 0">quantity = #{offer.quantity},</if>
+            <if test="offer.deliveryTime != null and offer.deliveryTime != ''">delivery_time = #{offer.deliveryTime},</if>
+            <if test="offer.remark != null and offer.remark != ''">remark = #{offer.remark},</if>
+            <if test="offer.tagsFirst != null and offer.tagsFirst != ''">tags_first = #{offer.tagsFirst},</if>
+            <if test="offer.tagsSecond != null and offer.tagsSecond != ''">tags_second = #{offer.tagsSecond},</if>
+            <if test="offer.tagsThird != null and offer.tagsThird != ''">tags_third = #{offer.tagsThird},</if>
+            <if test="offer.tagsSi != null and offer.tagsSi != ''">tags_si = #{offer.tagsSi},</if>
+            <if test="offer.productType != null and offer.productType != ''">product_type = #{offer.productType},</if>
+            <if test="offer.productDetailCode != null and offer.productDetailCode != ''">product_detail_code = #{offer.productDetailCode},</if>
+            <if test="offer.inqOfferType != null and offer.inqOfferType != ''">inq_offer_type = #{offer.inqOfferType},</if>
+            update_time = now()
+        </set>
+        where id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </update>
+
+</mapper>

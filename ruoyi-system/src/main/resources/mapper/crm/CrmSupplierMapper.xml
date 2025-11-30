@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.crm.mapper.CrmSupplierMapper">
+
+    <resultMap id="CrmSupplierMap" type="com.ruoyi.crm.domain.CrmSupplier">
+        <id column="id" property="id" />
+        <result column="supplier_code" property="supplierCode" />
+        <result column="supplier_name" property="supplierName" />
+        <result column="supplier_short_name" property="supplierShortName" />
+        <result column="supplier_type" property="supplierType" />
+        <result column="brands" property="brands" />
+        <result column="country" property="country" />
+        <result column="address" property="address" />
+        <result column="website" property="website" />
+        <result column="main_products" property="mainProducts" />
+        <result column="cooperation_level" property="cooperationLevel" />
+        <result column="risk_level" property="riskLevel" />
+        <result column="payment_terms" property="paymentTerms" />
+        <result column="cooperation_status" property="cooperationStatus" />
+        <result column="business_license" property="businessLicense" />
+        <result column="tax_number" property="taxNumber" />
+        <result column="bank_info" property="bankInfo" />
+        <result column="bank_account" property="bankAccount" />
+        <result column="introduction" property="introduction" />
+        <result column="remark" property="remark" />
+        <result column="remark_second" property="remarkSecond" />
+        <result column="status" property="status" />
+        <result column="follow_up_by" property="followUpBy" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+        <result column="tags_first" property="tagsFirst" />
+        <result column="tags_second" property="tagsSecond" />
+        <result column="tags_third" property="tagsThird" />
+        <result column="tags_si" property="tagsSi" />
+        <result column="contact_name" property="contactName" />
+        <result column="post" property="post" />
+        <result column="phone" property="phone" />
+        <result column="email" property="email" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        s.id, s.supplier_code, s.supplier_name, s.supplier_short_name, s.supplier_type, s.brands,
+        s.country, s.address, s.website, s.main_products, s.cooperation_level, s.risk_level,
+        s.payment_terms, s.cooperation_status, s.business_license, s.tax_number, s.bank_info, s.bank_account,
+        s.introduction, s.remark, s.remark_second, s.status, s.follow_up_by, s.create_by, s.create_time,
+        s.update_by, s.update_time, s.tags_first, s.tags_second, s.tags_third, s.tags_si
+    </sql>
+
+    <select id="selectSupplierListJoined" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultMap="CrmSupplierMap">
+        select
+        <include refid="Base_Column_List"/>,
+        c.contact_name as contact_name, c.post as post, c.phone as phone, c.email as email
+        from crm_supplier s
+        left join crm_supplier_contact c on c.supplier_id = s.id
+        <where>
+            <if test="supplierName != null and supplierName != ''">
+                and s.supplier_name like concat('%', #{supplierName}, '%')
+            </if>
+            <if test="contactName != null and contactName != ''">
+                and c.contact_name like concat('%', #{contactName}, '%')
+            </if>
+            <if test="params != null and params['supplierTypeList'] != null and params['supplierTypeList'].length() > 0">
+                and (
+                <foreach collection="params.supplierTypeList.split(',')" item="t" separator=" or ">
+                    s.supplier_type like concat('%', #{t}, '%')
+                </foreach>
+                )
+            </if>
+            <if test="params != null and params['brandsList'] != null and params['brandsList'].length() > 0">
+                and (
+                <foreach collection="params.brandsList.split(',')" item="t" separator=" or ">
+                    s.brands like concat('%', #{t}, '%')
+                </foreach>
+                )
+            </if>
+            <if test="params != null and params['mainProductsList'] != null and params['mainProductsList'].length() > 0">
+                and (
+                <foreach collection="params.mainProductsList.split(',')" item="t" separator=" or ">
+                    s.main_products like concat('%', #{t}, '%')
+                </foreach>
+                )
+            </if>
+            <if test="params != null and params['cooperationLevelList'] != null and params['cooperationLevelList'].length() > 0">
+                and (
+                <foreach collection="params.cooperationLevelList.split(',')" item="t" separator=" or ">
+                    s.cooperation_level like concat('%', #{t}, '%')
+                </foreach>
+                )
+            </if>
+            <if test="params != null and params['riskLevelList'] != null and params['riskLevelList'].length() > 0">
+                and (
+                <foreach collection="params.riskLevelList.split(',')" item="t" separator=" or ">
+                    s.risk_level like concat('%', #{t}, '%')
+                </foreach>
+                )
+            </if>
+            <if test="params != null and params['paymentTermsList'] != null and params['paymentTermsList'].length() > 0">
+                and (
+                <foreach collection="params.paymentTermsList.split(',')" item="t" separator=" or ">
+                    s.payment_terms like concat('%', #{t}, '%')
+                </foreach>
+                )
+            </if>
+            <if test="tagsFirst != null and tagsFirst != ''">and s.tags_first like concat('%', #{tagsFirst}, '%')</if>
+            <if test="tagsSecond != null and tagsSecond != ''">and s.tags_second like concat('%', #{tagsSecond}, '%')</if>
+            <if test="tagsThird != null and tagsThird != ''">and s.tags_third like concat('%', #{tagsThird}, '%')</if>
+            <if test="tagsSi != null and tagsSi != ''">and s.tags_si like concat('%', #{tagsSi}, '%')</if>
+            <if test="params != null and params['beginTime'] != null">
+                and s.create_time &gt;= #{params.beginTime}
+            </if>
+            <if test="params != null and params['endTime'] != null">
+                and s.create_time &lt;= #{params.endTime}
+            </if>
+            <if test="status != null">and s.status = #{status}</if>
+        </where>
+        order by s.create_time desc
+    </select>
+
+    <select id="selectSupplierById" parameterType="long" resultMap="CrmSupplierMap">
+        select <include refid="Base_Column_List"/> from crm_supplier s where s.id = #{id}
+    </select>
+
+    <insert id="insertSupplier" parameterType="com.ruoyi.crm.domain.CrmSupplier" useGeneratedKeys="true" keyProperty="id">
+        insert into crm_supplier(
+            supplier_code, supplier_name, supplier_short_name, supplier_type, brands,
+            country, address, website, main_products, cooperation_level, risk_level,
+            payment_terms, cooperation_status, business_license, tax_number, bank_info, bank_account,
+            introduction, remark, remark_second, status, follow_up_by, create_by, create_time,
+            update_by, update_time, tags_first, tags_second, tags_third, tags_si
+        ) values(
+            #{supplierCode}, #{supplierName}, #{supplierShortName}, #{supplierType}, #{brands},
+            #{country}, #{address}, #{website}, #{mainProducts}, #{cooperationLevel}, #{riskLevel},
+            #{paymentTerms}, #{cooperationStatus}, #{businessLicense}, #{taxNumber}, #{bankInfo}, #{bankAccount},
+            #{introduction}, #{remark}, #{remarkSecond}, #{status}, #{followUpBy}, #{createBy}, now(),
+            #{updateBy}, now(), #{tagsFirst}, #{tagsSecond}, #{tagsThird}, #{tagsSi}
+        )
+    </insert>
+
+    <update id="updateSupplier" parameterType="com.ruoyi.crm.domain.CrmSupplier">
+        update crm_supplier
+        <set>
+            <if test="supplierCode != null">supplier_code = #{supplierCode},</if>
+            <if test="supplierName != null">supplier_name = #{supplierName},</if>
+            <if test="supplierShortName != null">supplier_short_name = #{supplierShortName},</if>
+            <if test="supplierType != null">supplier_type = #{supplierType},</if>
+            <if test="brands != null">brands = #{brands},</if>
+            <if test="country != null">country = #{country},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="website != null">website = #{website},</if>
+            <if test="mainProducts != null">main_products = #{mainProducts},</if>
+            <if test="cooperationLevel != null">cooperation_level = #{cooperationLevel},</if>
+            <if test="riskLevel != null">risk_level = #{riskLevel},</if>
+            <if test="paymentTerms != null">payment_terms = #{paymentTerms},</if>
+            <if test="cooperationStatus != null">cooperation_status = #{cooperationStatus},</if>
+            <if test="businessLicense != null">business_license = #{businessLicense},</if>
+            <if test="taxNumber != null">tax_number = #{taxNumber},</if>
+            <if test="bankInfo != null">bank_info = #{bankInfo},</if>
+            <if test="bankAccount != null">bank_account = #{bankAccount},</if>
+            <if test="introduction != null">introduction = #{introduction},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="remarkSecond != null">remark_second = #{remarkSecond},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="followUpBy != null">follow_up_by = #{followUpBy},</if>
+            update_by = #{updateBy},
+            update_time = now(),
+            <if test="tagsFirst != null">tags_first = #{tagsFirst},</if>
+            <if test="tagsSecond != null">tags_second = #{tagsSecond},</if>
+            <if test="tagsThird != null">tags_third = #{tagsThird},</if>
+            <if test="tagsSi != null">tags_si = #{tagsSi}</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <select id="selectSupplierOptions" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultType="com.ruoyi.crm.domain.CrmSupplier">
+        select min(s.id) as id, s.supplier_code as supplier_code, s.supplier_name as supplier_name
+        from crm_supplier s
+        <where>
+            <if test="supplierName != null and supplierName != ''">and s.supplier_name like concat('%', #{supplierName}, '%')</if>
+            <if test="supplierCode != null and supplierCode != ''">and s.supplier_code like concat('%', #{supplierCode}, '%')</if>
+        </where>
+        group by s.supplier_code, s.supplier_name
+        order by s.supplier_code asc
+    </select>
+
+    <delete id="deleteSupplierByIds" parameterType="long">
+        delete from crm_supplier where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+
+    <delete id="deleteSupplierById" parameterType="long">
+        delete from crm_supplier where id = #{id}
+    </delete>
+
+    <delete id="deleteContactsBySupplierId" parameterType="long">
+        delete from crm_supplier_contact where supplier_id = #{supplierId}
+    </delete>
+
+    <delete id="deleteAttachmentsBySupplier">
+        delete from crm_attachment where from_type = #{fromType} and from_id = #{fromId}
+    </delete>
+
+</mapper>

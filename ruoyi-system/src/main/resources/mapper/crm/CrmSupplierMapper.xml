@@ -107,6 +107,7 @@
             <if test="tagsSecond != null and tagsSecond != ''">and s.tags_second like concat('%', #{tagsSecond}, '%')</if>
             <if test="tagsThird != null and tagsThird != ''">and s.tags_third like concat('%', #{tagsThird}, '%')</if>
             <if test="tagsSi != null and tagsSi != ''">and s.tags_si like concat('%', #{tagsSi}, '%')</if>
+            <if test="cooperationStatus != null and cooperationStatus != ''">and s.cooperation_status = #{cooperationStatus}</if>
             <if test="params != null and params['beginTime'] != null">
                 and s.create_time &gt;= #{params.beginTime}
             </if>

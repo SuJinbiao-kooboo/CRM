@@ -62,6 +62,11 @@
             <el-option v-for="d in dictProductBrand" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
           </el-select>
         </el-form-item>
+        <el-form-item label="合作状态">
+          <el-select v-model="queryParams.cooperationStatus" filterable clearable placeholder="请选择">
+            <el-option v-for="d in dictCooperationStatus" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="合作等级">
           <el-select v-model="queryParams.cooperationLevelArr" multiple collapse-tags filterable placeholder="请选择">
             <el-option v-for="d in dictCooperationLevel" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
@@ -228,6 +233,13 @@
             <el-form-item label="付款条件" prop="paymentTerms">
               <el-select v-model="form.paymentTermsArr" multiple collapse-tags filterable placeholder="请选择付款条件">
                 <el-option v-for="d in dictPaymentTerms" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="合作状态" prop="cooperationStatus">
+              <el-select v-model="form.cooperationStatus" filterable placeholder="请选择合作状态">
+                <el-option v-for="d in dictCooperationStatus" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -426,7 +438,7 @@ export default {
       uploadUrl: process.env.VUE_APP_BASE_API + '/common/upload',
       uploadHeaders: { Authorization: 'Bearer ' + getToken() },
       uploadFiles: [],
-      queryParams: { pageNum: 1, pageSize: 10, supplierName: '', contactName: '', supplierTypeArr: [], brandsArr: [], mainProductsArr: [], cooperationLevelArr: [], riskLevelArr: [], paymentTermsArr: [], params: {} },
+      queryParams: { pageNum: 1, pageSize: 10, supplierName: '', contactName: '', cooperationStatus: '', supplierTypeArr: [], brandsArr: [], mainProductsArr: [], cooperationLevelArr: [], riskLevelArr: [], paymentTermsArr: [], params: {} },
       form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationStatus: '', businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
       dictSupplierType: [], dictMainProducts: [], dictCooperationLevel: [], dictRiskLevel: [], dictPaymentTerms: [], dictProductBrand: [], dictCooperationStatus: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       userOptions: []

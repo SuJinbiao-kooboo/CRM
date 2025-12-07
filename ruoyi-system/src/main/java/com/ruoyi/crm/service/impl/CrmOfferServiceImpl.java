@@ -70,7 +70,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             int lastRow = sheet.getLastRowNum();
             int idxProduct = letterToIndex(colMap.getOrDefault("productCode", ""));
             if (idxProduct < 0) return summary(success, fails);
-            Integer idxDetail = optIndex(colMap.get("productDetail"));
+            String productDetailLetters = colMap.get("productDetail");
             Integer idxBrand = optIndex(colMap.get("productBrand"));
             Integer idxType = optIndex(colMap.get("productType"));
             Integer idxPriceCost = optIndex(colMap.get("priceCost"));
@@ -78,6 +78,9 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             Integer idxQuantity = optIndex(colMap.get("quantity"));
             Integer idxDeliveryTime = optIndex(colMap.get("deliveryTime"));
             Integer idxRemark = optIndex(colMap.get("remark"));
+            Integer idxMoq = optIndex(colMap.get("moqQuantity"));
+            Integer idxWarranty = optIndex(colMap.get("warrantyDetail"));
+            Integer idxDc = optIndex(colMap.get("dc"));
             Date now = new Date();
 
             for (int r = sheet.getFirstRowNum(); r <= lastRow; r++) {
@@ -92,7 +95,8 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 offer.setInqOfferType(inqOfferType);
                 offer.setStockDate(now);
                 offer.setSheetName(sheetName);
-                if (idxDetail != null) offer.setProductDetail(getString(row.getCell(idxDetail)));
+                String mergedDetail = mergeColumns(row, productDetailLetters);
+                if (mergedDetail != null) offer.setProductDetail(mergedDetail);
                 if (idxBrand != null) offer.setProductBrand(getString(row.getCell(idxBrand)));
                 Double cost = idxPriceCost != null ? getDouble(row.getCell(idxPriceCost)) : null;
                 offer.setPriceCost(cost);
@@ -107,6 +111,15 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 offer.setQuantity(qty);
                 if (idxDeliveryTime != null) offer.setDeliveryTime(getString(row.getCell(idxDeliveryTime)));
                 if (idxRemark != null) offer.setRemark(getString(row.getCell(idxRemark)));
+                if (idxMoq != null) offer.setMoqQuantity(getInteger(row.getCell(idxMoq)));
+                if (idxWarranty != null) offer.setWarrantyDetail(getString(row.getCell(idxWarranty)));
+                if (idxDc != null) {
+                    String dcVal = getString(row.getCell(idxDc));
+                    if (dcVal != null) {
+                        dcVal = dcVal.trim();
+                        offer.setDc(dcVal.length() > 32 ? dcVal.substring(0, 32) : dcVal);
+                    }
+                }
                 offer.setStatus(1);
                 try {
                     success += offerMapper.insertOffer(offer);
@@ -118,6 +131,21 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             fails.add(fail(0, e.getMessage()));
         }
         return summary(success, fails);
+    }
+
+    private String mergeColumns(Row row, String lettersCsv) {
+        if (lettersCsv == null || lettersCsv.trim().isEmpty()) return null;
+        String[] parts = lettersCsv.split(",");
+        List<String> vals = new ArrayList<>();
+        for (String p : parts) {
+            int idx = letterToIndex(p);
+            if (idx >= 0) {
+                String v = getString(row.getCell(idx));
+                if (v != null && !v.trim().isEmpty()) vals.add(v.trim());
+            }
+        }
+        if (vals.isEmpty()) return null;
+        return String.join(" ", vals);
     }
 
     private Map<String, Object> summary(int success, List<Map<String, Object>> fails) {

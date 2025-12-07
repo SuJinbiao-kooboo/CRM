@@ -35,6 +35,12 @@ public class CrmOffer extends BaseEntity {
     private String remark;
     @Excel(name = "来源表名")
     private String sheetName;
+    @Excel(name = "MOQ数量")
+    private Integer moqQuantity;
+    @Excel(name = "质保详情")
+    private String warrantyDetail;
+    @Excel(name = "DC")
+    private String dc;
     @Excel(name = "供应商编码")
     private String supplierCode;
     @Excel(name = "供应商名称")
@@ -75,6 +81,9 @@ public class CrmOffer extends BaseEntity {
                 .append("deliveryTime", getDeliveryTime())
                 .append("remark", getRemark())
                 .append("sheetName", getSheetName())
+                .append("moqQuantity", getMoqQuantity())
+                .append("warrantyDetail", getWarrantyDetail())
+                .append("dc", getDc())
                 .append("supplierCode", getSupplierCode())
                 .append("supplierName", getSupplierName())
                 .append("tagsFirst", getTagsFirst())
@@ -92,4 +101,3 @@ public class CrmOffer extends BaseEntity {
                 .toString();
     }
 }
-

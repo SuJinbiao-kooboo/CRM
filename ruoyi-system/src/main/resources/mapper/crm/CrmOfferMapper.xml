@@ -89,7 +89,7 @@
     <insert id="insertOffer" parameterType="com.ruoyi.crm.domain.CrmOffer" useGeneratedKeys="true" keyProperty="id">
         insert into crm_offer(
             product_code, product_brand, stock_date, product_detail, price_cost, price_offer, price_unit,
-            quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, supplier_code, supplier_name,
+            quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, dc, supplier_code, supplier_name,
             tags_first, tags_second, tags_third, tags_si, status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type
         ) values (
             #{productCode}, #{productBrand}, #{stockDate}, #{productDetail}, #{priceCost}, #{priceOffer}, #{priceUnit},

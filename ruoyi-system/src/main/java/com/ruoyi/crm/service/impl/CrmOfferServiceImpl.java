@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.mapper.CrmOfferMapper;
 import com.ruoyi.crm.service.ICrmOfferService;
+import com.ruoyi.common.utils.SecurityUtils;
 
 @Service
 public class CrmOfferServiceImpl implements ICrmOfferService {
@@ -38,8 +39,15 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
 
     @Override
     public int insertOffer(CrmOffer offer) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMDDHHmmss");
-        offer.setSheetName(sdf.format(new Date()));
+        String userName = SecurityUtils.getUsername();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss");
+        offer.setSheetName(userName + "_" + sdf.format(new Date()));
+        offer.setStatus(1);
+        offer.setCreateBy(userName);
+        offer.setUpdateBy(userName);
+        if (offer.getPriceCost() != null) {
+            offer.setPriceOffer(round2(offer.getPriceCost() * 1.03d));
+        }
         return offerMapper.insertOffer(offer);
     }
 

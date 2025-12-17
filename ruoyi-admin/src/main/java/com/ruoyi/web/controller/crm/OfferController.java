@@ -4,6 +4,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
+
+import com.ruoyi.crm.service.util.SimpleTextParser;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +30,7 @@ import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.service.ICrmOfferService;
 
+@Slf4j
 @RestController
 @RequestMapping("/crm/offer")
 public class OfferController extends BaseController {
@@ -118,4 +122,16 @@ public class OfferController extends BaseController {
         String msg = "成功导入" + result.getOrDefault("successCount", 0) + "条，失败" + result.getOrDefault("failCount", 0) + "条";
         return AjaxResult.success(msg, result);
     }
+
+    @PreAuthorize("@ss.hasPermi('crm:offer:parse')")
+    @Log(title = "Offer管理", businessType = BusinessType.OTHER)
+    @PostMapping("/parse")
+    public AjaxResult parse(@RequestBody Map<String, Object> body) {
+
+        SimpleTextParser simpleTextParser = new SimpleTextParser();
+        List<CrmOffer> crmOffers = simpleTextParser.parseTextToCrmOffers(body);
+        return AjaxResult.success(crmOffers);
+    }
+
+
 }

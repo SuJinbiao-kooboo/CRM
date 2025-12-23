@@ -180,7 +180,7 @@ public class SimpleTextParser {
             case "质保详情":
                 offer.setWarrantyDetail(fieldValue);
                 break;
-            case "MOQ":
+            case "MOQ数量":
                 offer.setMoqQuantity(parseInteger(fieldValue));
                 break;
             case "价格单位":

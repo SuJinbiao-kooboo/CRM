@@ -30,8 +30,6 @@ import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.service.ICrmOfferService;
 
-@Slf4j
-@RestController
 @RequestMapping("/crm/offer")
 public class OfferController extends BaseController {
 
@@ -39,35 +37,6 @@ public class OfferController extends BaseController {
     private ICrmOfferService offerService;
 
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")
-    @GetMapping("/list")
-    public TableDataInfo list(CrmOffer offer) {
-        startPage();
-        List<CrmOffer> list = offerService.selectOfferList(offer);
-        return getDataTable(list);
-    }
-
-    @PreAuthorize("@ss.hasPermi('crm:offer:export')")
-    @Log(title = "Offer管理", businessType = BusinessType.EXPORT)
-    @PostMapping("/export")
-    public void export(HttpServletResponse response, CrmOffer offer, @RequestParam(value = "ids", required = false) Long[] ids) {
-        List<CrmOffer> list = offerService.selectOfferList(offer);
-        if (ids != null && ids.length > 0) {
-            list.removeIf(o -> !contains(ids, o.getId()));
-        }
-        ExcelUtil<CrmOffer> util = new ExcelUtil<>(CrmOffer.class);
-        util.exportExcel(response, list, "Offer数据");
-    }
-
-    private boolean contains(Long[] ids, Long id) {
-        for (Long v : ids) { if (v != null && v.equals(id)) return true; }
-        return false;
-    }
-
-    @PreAuthorize("@ss.hasPermi('crm:offer:query')")
-    @GetMapping(value = "/{id}")
-    public AjaxResult getInfo(@PathVariable Long id) {
-        return AjaxResult.success(offerService.selectOfferById(id));
-    }
 
     @PreAuthorize("@ss.hasPermi('crm:offer:add')")
     @Log(title = "Offer管理", businessType = BusinessType.INSERT)

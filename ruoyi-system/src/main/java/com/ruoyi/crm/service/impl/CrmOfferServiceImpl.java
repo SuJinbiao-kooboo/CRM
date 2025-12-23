@@ -20,12 +20,84 @@ import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.mapper.CrmOfferMapper;
 import com.ruoyi.crm.service.ICrmOfferService;
 import com.ruoyi.common.utils.SecurityUtils;
+
+@Service
+public class CrmOfferServiceImpl implements ICrmOfferService {
+
+    @Autowired
+    private CrmOfferMapper offerMapper;
+
     @Override
     public List<CrmOffer> selectOfferList(CrmOffer offer) {
         return offerMapper.selectOfferList(offer);
     }
+
+    @Override
+    public CrmOffer selectOfferById(Long id) {
+        return offerMapper.selectOfferById(id);
+    }
+
     @Override
     public int insertOffer(CrmOffer offer) {
+        String userName = SecurityUtils.getUsername();
+        SimpleDateFormat sdf = new SimpleDateFormat("MMddHHmmss");
+        offer.setSheetName(userName + "_" + sdf.format(new Date()));
+        offer.setStatus(1);
+        offer.setCreateBy(userName);
+        offer.setUpdateBy(userName);
+        if (offer.getPriceCost() != null) {
+            offer.setPriceOffer(round2(offer.getPriceCost() * 1.03d));
+        }
+        return offerMapper.insertOffer(offer);
+    }
+
+    @Override
+    public int updateOffer(CrmOffer offer) {
+        return offerMapper.updateOffer(offer);
+    }
+
+    @Override
+    public int deleteOfferByIds(Long[] ids) {
+        return offerMapper.deleteOfferByIds(ids);
+    }
+
+    @Override
+    public int batchUpdate(List<Long> ids, CrmOffer offer) {
+        return offerMapper.batchUpdate(ids, offer);
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> importOffers(MultipartFile file, String supplierCode, String supplierName, String inqOfferType, Map<String, String> colMap) {
+        int success = 0;
+        List<Map<String, Object>> fails = new ArrayList<>();
+        try (InputStream is = file.getInputStream(); Workbook wb = WorkbookFactory.create(is)) {
+            Sheet sheet = wb.getSheetAt(0);
+            if (sheet == null) return summary(success, fails);
+            String sheetName = (file.getOriginalFilename() == null ? "" : file.getOriginalFilename()) + "_" + sheet.getSheetName();
+            int lastRow = sheet.getLastRowNum();
+            int idxProduct = letterToIndex(colMap.getOrDefault("productCode", ""));
+            if (idxProduct < 0) return summary(success, fails);
+            String productDetailLetters = colMap.get("productDetail");
+            Integer idxBrand = optIndex(colMap.get("productBrand"));
+            Integer idxType = optIndex(colMap.get("productType"));
+            Integer idxPriceCost = optIndex(colMap.get("priceCost"));
+            Integer idxPriceOffer = optIndex(colMap.get("priceOffer"));
+            Integer idxQuantity = optIndex(colMap.get("quantity"));
+            Integer idxDeliveryTime = optIndex(colMap.get("deliveryTime"));
+            Integer idxRemark = optIndex(colMap.get("remark"));
+            Integer idxMoq = optIndex(colMap.get("moqQuantity"));
+            Integer idxWarranty = optIndex(colMap.get("warrantyDetail"));
+            Integer idxDc = optIndex(colMap.get("dc"));
+            Date now = new Date();
+
+            for (int r = sheet.getFirstRowNum(); r <= lastRow; r++) {
+                Row row = sheet.getRow(r);
+                if (row == null) continue;
+                String productCode = getString(row.getCell(idxProduct));
+                if (productCode == null || productCode.trim().isEmpty()) { fails.add(fail(r+1, "产品编码为空")); continue; }
+                CrmOffer offer = new CrmOffer();
+                offer.setProductCode(productCode.trim());
                 offer.setSupplierCode(supplierCode);
                 offer.setSupplierName(supplierName);
                 offer.setInqOfferType(inqOfferType);

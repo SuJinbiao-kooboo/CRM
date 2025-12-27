@@ -306,16 +306,18 @@
         </el-form-item>
         <el-table :data="parsedRows" height="260" border style="width:100%">
           <el-table-column type="index" width="60" label="#" />
-          <el-table-column label="产品编码" prop="productCode"><template slot-scope="scope"><el-input v-model="scope.row.productCode" /></template></el-table-column>
-          <el-table-column label="数量" prop="quantity"><template slot-scope="scope"><el-input-number v-model="scope.row.quantity" :controls="false" :precision="0" :min="0" /></template></el-table-column>
-          <el-table-column label="单价" prop="priceOffer"><template slot-scope="scope"><el-input-number v-model="scope.row.priceOffer" :controls="false" :precision="2" :min="0" /></template></el-table-column>
-          <el-table-column label="交货时间" prop="deliveryTime"><template slot-scope="scope"><el-input v-model="scope.row.deliveryTime" /></template></el-table-column>
-          <el-table-column label="产品详情" prop="productDetail"><template slot-scope="scope"><el-input v-model="scope.row.productDetail" /></template></el-table-column>
-          <el-table-column label="品牌" prop="productBrand"><template slot-scope="scope"><el-input v-model="scope.row.productBrand" /></template></el-table-column>
-          <el-table-column label="MOQ数量" prop="moqQuantity"><template slot-scope="scope"><el-input-number v-model="scope.row.moqQuantity" :controls="false" :precision="0" :min="0" /></template></el-table-column>
-          <el-table-column label="质保详情" prop="warrantyDetail"><template slot-scope="scope"><el-input v-model="scope.row.warrantyDetail" /></template></el-table-column>
-          <el-table-column label="DC" prop="dc"><template slot-scope="scope"><el-input v-model="scope.row.dc" maxlength="32" /></template></el-table-column>
-          <el-table-column label="产品类型" prop="productType"><template slot-scope="scope"><el-input v-model="scope.row.productType" /></template></el-table-column>
+          <el-table-column label="产品编码" prop="productCode" width="140"><template slot-scope="scope"><el-input v-model="scope.row.productCode" size="mini" /></template></el-table-column>
+          <el-table-column label="数量" prop="quantity" width="100"><template slot-scope="scope"><el-input-number v-model="scope.row.quantity" :controls="false" :precision="0" :min="0" size="mini" style="width: 100%" /></template></el-table-column>
+          <el-table-column label="单价" prop="priceOffer" width="100"><template slot-scope="scope"><el-input-number v-model="scope.row.priceOffer" :controls="false" :precision="2" :min="0" size="mini" style="width: 100%" /></template></el-table-column>
+          <el-table-column label="单位" prop="priceUnit" width="80"><template slot-scope="scope"><el-input v-model="scope.row.priceUnit" size="mini" /></template></el-table-column>
+          <el-table-column label="交货时间" prop="deliveryTime" width="120"><template slot-scope="scope"><el-input v-model="scope.row.deliveryTime" size="mini" /></template></el-table-column>
+          <el-table-column label="产品详情" prop="productDetail" min-width="150"><template slot-scope="scope"><el-input v-model="scope.row.productDetail" size="mini" /></template></el-table-column>
+          <el-table-column label="品牌" prop="productBrand" width="100"><template slot-scope="scope"><el-input v-model="scope.row.productBrand" size="mini" /></template></el-table-column>
+          <el-table-column label="MOQ" prop="moqQuantity" width="80"><template slot-scope="scope"><el-input-number v-model="scope.row.moqQuantity" :controls="false" :precision="0" :min="0" size="mini" style="width: 100%" /></template></el-table-column>
+          <el-table-column label="质保" prop="warrantyDetail" width="100"><template slot-scope="scope"><el-input v-model="scope.row.warrantyDetail" size="mini" /></template></el-table-column>
+          <el-table-column label="DC" prop="dc" width="80"><template slot-scope="scope"><el-input v-model="scope.row.dc" maxlength="32" size="mini" /></template></el-table-column>
+          <el-table-column label="产品类型" prop="productType" width="100"><template slot-scope="scope"><el-input v-model="scope.row.productType" size="mini" /></template></el-table-column>
+          <el-table-column label="备注" prop="remark" min-width="120"><template slot-scope="scope"><el-input v-model="scope.row.remark" size="mini" /></template></el-table-column>
         </el-table>
       </el-form>
       <div slot="footer" class="dialog-footer">
@@ -327,9 +329,10 @@
 </template>
 
 <script>
-import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer } from '@/api/crm/offer'
+import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer } from '@/api/crm/offer'
 import { listSupplierOptions } from '@/api/crm/supplier'
 import { getDicts } from '@/api/system/dict/data'
+import { parseTime } from "@/utils/ruoyi"
 
 export default {
   name: 'CrmOffer',
@@ -418,13 +421,84 @@ export default {
     openBatchEdit() { this.openBatchDialog = true },
     openBatchAdd() { this.openBatchAddDialog = true; this.remoteSupplier(''); this.loadParseDicts() },
     loadParseDicts() { getDicts('Offer_formate_text').then(res => { this.dictFormatTemplates = res.data || [] }); getDicts('Offer_formate_Inq_fields').then(res => { this.dictInqFields = res.data || []; if (!this.dictInqFields.some(x => (x.dictValue || x.dictLabel) === 'DC')) { this.dictInqFields.push({ dictValue: 'DC', dictLabel: 'DC' }) } }); getDicts('Offer_formate_Inq_seperate_tag').then(res => { this.dictSeps = res.data || [] }) },
-    addFieldToken(val) { if (!val) return; this.formatSequence.push({ type: 'field', value: val }) },
+    addFieldToken(val) { 
+      if (!val) return; 
+      this.formatSequence.push({ type: 'field', value: val });
+      // 自动拼接一个空格作为分隔符
+      this.formatSequence.push({ type: 'sep', value: '空格' });
+    },
     addSepToken(val) { if (!val) return; this.formatSequence.push({ type: 'sep', value: val }) },
+    removeToken(i) { this.formatSequence.splice(i, 1) },
     removeLastToken() { if (this.formatSequence.length) this.formatSequence.pop() },
     clearTokens() { this.formatSequence = [] },
     loadTemplate(val) { this.selectedTemplate = val; if (!val) { this.clearTokens(); return } const raw = val.split('+'); this.clearTokens(); raw.forEach(t => { const v = t.trim(); if (this.dictInqFields.some(d => d.dictLabel === v || d.dictValue === v)) { this.formatSequence.push({ type: 'field', value: v }) } else if (this.dictSeps.some(d => d.dictLabel === v || d.dictValue === v)) { this.formatSequence.push({ type: 'sep', value: v }) } }) },
-    parsePasted() { const seq = this.formatSequence.slice(); if (!seq.length || !this.pasteText) { this.$modal.msgError('请先定义解析表达式并粘贴文本'); return } const sepRegex = v => v === '空格' ? '[ ]+' : v === '下划线' ? '_+' : '(?:\\r?\\n)+'; let pattern = ''; const fields = []; seq.forEach(tok => { if (tok.type === 'sep') { pattern += sepRegex(tok.value) } else { pattern += '([\\s\\S]+?)'; fields.push(tok.value) } }); const last = seq[seq.length - 1]; if (!(last && last.type === 'sep' && last.value === '换行符')) { pattern += '(?:\\r?\\n)+' } const re = new RegExp(pattern, 'g'); const out = []; let m; while ((m = re.exec(this.pasteText)) !== null) { const rec = {}; let gi = 1; fields.forEach(f => { const val = m[gi++] || ''; if (f === '产品编码') rec.productCode = val.trim(); else if (f === '数量') rec.quantity = val.trim(); else if (f === '单价') rec.priceOffer = val.trim(); else if (f === '交货时间') rec.deliveryTime = val.trim(); else if (f === '产品详情') rec.productDetail = val.trim(); else if (f === '品牌') rec.productBrand = val.trim(); else if (f === 'MOQ') rec.moqQuantity = val.trim(); else if (f === '质保详情') rec.warrantyDetail = val.trim(); else if (f === '产品类型') rec.productType = val.trim(); else if (f === 'DC') rec.dc = val.trim(); }); out.push(rec) } this.parsedRows = out },
-    confirmBatchAdd() { if (!this.batchAddSupplier || !this.batchAddInqOfferType) { this.$modal.msgError('请选择供应商和类型'); return } if (!this.parsedRows.length) { this.$modal.msgError('没有可新增的数据'); return } const sup = this.batchAddSupplier; const now = new Date(); const tasks = this.parsedRows.map(r => { const data = { supplierCode: sup.supplierCode, supplierName: sup.supplierName, productCode: r.productCode || '', productBrand: r.productBrand || '', productDetail: r.productDetail || '', priceOffer: this.toNumberOrNull(r.priceOffer), quantity: this.toNumberOrNull(r.quantity), deliveryTime: r.deliveryTime || '', moqQuantity: this.toNumberOrNull(r.moqQuantity), warrantyDetail: r.warrantyDetail || '', dc: r.dc || '', stockDate: now, inqOfferType: this.batchAddInqOfferType }; return addOffer(data) }); Promise.all(tasks).then(() => { this.$modal.msgSuccess('批量新增成功'); this.openBatchAddDialog = false; this.parsedRows = []; this.getList() }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '批量新增失败') }) },
+    parsePasted() {
+      if (!this.formatSequence.length || !this.pasteText) {
+        this.$modal.msgError('请先定义解析表达式并粘贴文本');
+        return;
+      }
+      const data = {
+        text: this.pasteText,
+        sequence: this.formatSequence
+      };
+      parseOffer(data).then(res => {
+        this.parsedRows = res.data || [];
+        if (this.parsedRows.length === 0) {
+          this.$modal.msgWarning('解析结果为空，请检查文本和表达式');
+        } else {
+          this.$modal.msgSuccess(`成功解析 ${this.parsedRows.length} 条数据`);
+        }
+      }).catch(err => {
+        this.$modal.msgError('解析失败: ' + (err.msg || '未知错误'));
+      });
+    },
+    confirmBatchAdd() {
+      if (!this.batchAddSupplier || !this.batchAddInqOfferType) {
+        this.$modal.msgError('请选择供应商和类型');
+        return;
+      }
+      if (!this.parsedRows.length) {
+        this.$modal.msgError('没有可新增的数据');
+        return;
+      }
+      const sup = this.batchAddSupplier;
+      const now = new Date();
+      // 拼接来源表名: 供应商+年月日时分秒
+      const timeStr = parseTime(now, '{y}{m}{d}{h}{i}{s}');
+      const sheetName = `${sup.supplierName}${timeStr}`;
+
+      const tasks = this.parsedRows.map(r => {
+        const data = {
+          supplierCode: sup.supplierCode,
+          supplierName: sup.supplierName,
+          productCode: r.productCode || '',
+          productBrand: r.productBrand || '',
+          productDetail: r.productDetail || '',
+          priceOffer: this.toNumberOrNull(r.priceOffer),
+          quantity: this.toNumberOrNull(r.quantity),
+          deliveryTime: r.deliveryTime || '',
+          moqQuantity: this.toNumberOrNull(r.moqQuantity),
+          warrantyDetail: r.warrantyDetail || '',
+          dc: r.dc || '',
+          productType: r.productType || '',
+          remark: r.remark || '',
+          priceUnit: r.priceUnit || '',
+          stockDate: now,
+          inqOfferType: this.batchAddInqOfferType,
+          sheetName: sheetName
+        };
+        return addOffer(data);
+      });
+
+      Promise.all(tasks).then(() => {
+        this.$modal.msgSuccess('批量新增成功');
+        this.openBatchAddDialog = false;
+        this.parsedRows = [];
+        this.getList();
+      }).catch(err => {
+        this.$modal.msgError(err && err.msg ? err.msg : '批量新增失败');
+      });
+    },
     toNumberOrNull(v) { if (v == null) return null; const s = String(v).match(/\d+(\.\d+)?/); return s ? Number(s[0]) : null },
     submitBatch() { batchEditOffer(this.ids, this.batchForm).then(() => { this.$modal.msgSuccess('批量编辑成功'); this.openBatchDialog = false; this.getList() }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '批量编辑失败') }) },
     cancel() { this.open = false },
@@ -465,4 +539,3 @@ export default {
 <style scoped>
 .form-header { font-size: 15px; color: #6379bb; border-bottom: 1px solid #ddd; margin: 8px 10px 25px 10px; padding-bottom: 5px }
 </style>
-    removeToken(i) { this.formatSequence.splice(i, 1) },

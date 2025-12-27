@@ -95,7 +95,7 @@ public class SimpleTextParser {
                         fieldValue = text.substring(0, sepIndexLast).trim();
                         text = text.replaceFirst(Pattern.quote(fieldValue), "");
                         while (!text.isEmpty() && text.startsWith(" ")) {
-                            text = text.substring(" ".length()).trim();
+                            text = text.replaceFirst(" ", "");
                         }
                     } else {
                         // 没有找到分隔符，使用剩余所有文本

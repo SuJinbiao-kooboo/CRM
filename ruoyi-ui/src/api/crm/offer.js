@@ -32,3 +32,7 @@ export function batchEditOffer(ids, data) {
 export function importOffer(formData) {
   return request({ url: '/crm/offer/import', method: 'post', data: formData, headers: { 'Content-Type': 'multipart/form-data' } })
 }
+
+export function parseOffer(data) {
+  return request({ url: '/crm/offer/parse', method: 'post', data: data })
+}

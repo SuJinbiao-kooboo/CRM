@@ -6,6 +6,7 @@ import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 
 import com.ruoyi.crm.service.util.SimpleTextParser;
+import io.swagger.annotations.ApiParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,14 +31,44 @@ import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.service.ICrmOfferService;
 
+@RestController
 @RequestMapping("/crm/offer")
 public class OfferController extends BaseController {
 
     @Autowired
     private ICrmOfferService offerService;
 
-    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
 
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @GetMapping("/list")
+    public TableDataInfo list(@ApiParam CrmOffer offer) {
+        startPage();
+        List<CrmOffer> list = offerService.selectOfferList(offer);
+        return getDataTable(list);
+    }
+
+    @PreAuthorize("@ss.hasPermi('crm:offer:export')")
+    @Log(title = "Offer管理", businessType = BusinessType.EXPORT)
+    @PostMapping("/export")
+    public void export(HttpServletResponse response, CrmOffer offer, @RequestParam(value = "ids", required = false) Long[] ids) {
+        List<CrmOffer> list = offerService.selectOfferList(offer);
+        if (ids != null && ids.length > 0) {
+            list.removeIf(o -> !contains(ids, o.getId()));
+        }
+        ExcelUtil<CrmOffer> util = new ExcelUtil<>(CrmOffer.class);
+        util.exportExcel(response, list, "Offer数据");
+    }
+
+    private boolean contains(Long[] ids, Long id) {
+        for (Long v : ids) { if (v != null && v.equals(id)) return true; }
+        return false;
+    }
+
+    @PreAuthorize("@ss.hasPermi('crm:offer:query')")
+    @GetMapping(value = "/{id}")
+    public AjaxResult getInfo(@PathVariable Long id) {
+        return AjaxResult.success(offerService.selectOfferById(id));
+    }
     @PreAuthorize("@ss.hasPermi('crm:offer:add')")
     @Log(title = "Offer管理", businessType = BusinessType.INSERT)
     @PostMapping

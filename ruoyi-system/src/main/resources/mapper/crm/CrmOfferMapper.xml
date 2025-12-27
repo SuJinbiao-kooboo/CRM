@@ -44,7 +44,14 @@
         select <include refid="Base_Column_List"/> from crm_offer
         <where>
             <if test="productCode != null and productCode != ''">and product_code like concat('%', #{productCode}, '%')</if>
-            <if test="params != null and params['supplierCodeList'] != null and params['supplierCodeList'].length() > 0">
+            <if test="sheetName != null and sheetName != ''">and sheet_name like concat('%', #{sheetName}, '%')</if>
+            <if test="params != null and params.productCodeList != null and params.productCodeList.length() > 0">
+                and
+                <foreach collection="params.productCodeList.split(',')" item="code" open="(" separator=" or " close=")">
+                    product_code = #{code}
+                </foreach>
+            </if>
+            <if test="params != null and params.supplierCodeList != null and params.supplierCodeList.length() > 0">
                 and (
                 <foreach collection="params.supplierCodeList.split(',')" item="sc" separator=" or ">
                     supplier_code = #{sc}
@@ -52,14 +59,14 @@
                 )
             </if>
             <if test="inqOfferType != null and inqOfferType != ''">and inq_offer_type = #{inqOfferType}</if>
-            <if test="params != null and params['productBrandList'] != null and params['productBrandList'].length() > 0">
+            <if test="params != null and params.productBrandList != null and params.productBrandList.length() > 0">
                 and (
                 <foreach collection="params.productBrandList.split(',')" item="pb" separator=" or ">
                     product_brand like concat('%', #{pb}, '%')
                 </foreach>
                 )
             </if>
-            <if test="params != null and params['productTypeList'] != null and params['productTypeList'].length() > 0">
+            <if test="params != null and params.productTypeList != null and params.productTypeList.length() > 0">
                 and (
                 <foreach collection="params.productTypeList.split(',')" item="pt" separator=" or ">
                     product_type like concat('%', #{pt}, '%')

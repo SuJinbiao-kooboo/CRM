@@ -4,9 +4,12 @@
       <el-form-item label="产品编码" prop="productCode">
         <el-input v-model="queryParams.productCode" placeholder="请输入产品编码" clearable @keyup.enter.native="handleQuery" />
       </el-form-item>
+      <el-form-item label="来源表名" prop="sheetName">
+        <el-input v-model="queryParams.sheetName" placeholder="请输入来源表名" clearable @keyup.enter.native="handleQuery" />
+      </el-form-item>
       <el-form-item label="供应商">
-        <el-select v-model="queryParams.supplierCodes" multiple collapse-tags filterable remote reserve-keyword placeholder="请选择供应商" :remote-method="remoteSupplierQuery" value-key="supplierCode">
-          <el-option v-for="item in supplierOptionsQuery" :key="item.supplierCode" :label="item.supplierName" :value="item.supplierCode" />
+        <el-select v-model="queryParams.supplierCodes" multiple collapse-tags filterable placeholder="请选择供应商" value-key="supplierCode">
+          <el-option v-for="item in supplierOptions" :key="item.id" :label="item.supplierName" :value="item.supplierCode" />
         </el-select>
       </el-form-item>
       <el-form-item label="类型" prop="inqOfferType">
@@ -90,8 +93,8 @@
 
     <el-table v-loading="loading" :data="offerList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="产品编码" align="center" prop="productCode" min-width="300" show-overflow-tooltip />
-      <el-table-column label="供应商名称" align="center" prop="supplierName" min-width="300" show-overflow-tooltip />
+      <el-table-column label="产品编码" align="center" prop="productCode" width="180" show-overflow-tooltip />
+      <el-table-column label="供应商名称" align="center" prop="supplierName" width="180" show-overflow-tooltip />
       <el-table-column label="成本" align="center" prop="priceCost" show-overflow-tooltip />
       <el-table-column label="报价" align="center" prop="priceOffer" show-overflow-tooltip />
       <el-table-column label="数量" align="center" prop="quantity" show-overflow-tooltip />
@@ -354,6 +357,7 @@ export default {
       openImportDialog: false,
       openBatchDialog: false,
       supplierOptions: [],
+      supplierListOptions: [],
       supplierOptionsQuery: [],
       formSupplier: null,
       importSupplier: null,
@@ -366,7 +370,7 @@ export default {
       dictProductBrand: [], dictPriceUnit: [], dictProductType: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       importForm: { inqOfferType: 'Offer' },
       uploadAction: process.env.VUE_APP_BASE_API + '/crm/offer/import',
-      batchForm: { productBrand: '', stockDate: undefined, productDetail: '', priceCost: 0, priceOffer: 0, priceUnit: '', quantity: 0, deliveryTime: '', remark: '', inqOfferType: '' },
+      batchForm: { productBrand: '', stockDate: undefined, productDetail: '', priceCost: undefined, priceOffer: undefined, priceUnit: '', quantity: undefined, deliveryTime: '', remark: '', inqOfferType: '' },
       tmpField: '',
       tmpSep: '',
       openBatchAddDialog: false,
@@ -383,7 +387,22 @@ export default {
   },
   created() { this.getList(); this.loadDicts() },
   methods: {
-    getList() { this.loading = true; this.queryParams.params.beginStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[0] : undefined; this.queryParams.params.endStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[1] : undefined; this.queryParams.params.supplierCodeList = this.queryParams.supplierCodes || []; this.queryParams.params.productBrandList = this.queryParams.productBrandArr || []; this.queryParams.params.productTypeList = this.queryParams.productTypeArr || []; listOffer(this.queryParams).then(res => { this.offerList = res.rows; this.total = res.total; this.loading = false }) },
+    getList() { 
+      this.loading = true; 
+      this.queryParams.params.beginStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[0] : undefined; 
+      this.queryParams.params.endStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[1] : undefined; 
+      this.queryParams.params.supplierCodeList = (this.queryParams.supplierCodes || []).join(','); 
+      this.queryParams.params.productBrandList = this.queryParams.productBrandArr || []; 
+      this.queryParams.params.productTypeList = this.queryParams.productTypeArr || []; 
+      
+      const query = JSON.parse(JSON.stringify(this.queryParams));
+      if (query.productCode && /[\n, ]/.test(query.productCode)) {
+        query.params.productCodeList = query.productCode.split(/[\n, ]+/).filter(x => x);
+        query.productCode = undefined;
+      }
+      
+      listOffer(query).then(res => { this.offerList = res.rows; this.total = res.total; this.loading = false }) 
+    },
     handleQuery() { this.queryParams.pageNum = 1; this.getList() },
     resetQuery() { this.stockDateRange = []; this.queryParams.supplierCodes = []; this.queryParams.productBrandArr = []; this.queryParams.productTypeArr = []; this.resetForm('queryForm'); this.handleQuery() },
     handleSelectionChange(selection) { this.ids = selection.map(item => item.id); this.single = selection.length != 1; this.multiple = !selection.length },
@@ -403,6 +422,10 @@ export default {
     handleSendOffer() {
       this.$modal.confirm('是否确认发送Offer？').then(() => {
         const params = { ...this.queryParams };
+        if (this.ids && this.ids.length > 0) {
+            params.params = params.params || {};
+            params.params.ids = this.ids.join(',');
+        }
         // 后端接收 CrmOffer 对象，queryParams 结构应该兼容
         // 如果后端需要 List<CrmOffer> 或者是查询条件，这里传递 queryParams 作为对象
         // 注意: sendOffer(params) 会把 params 作为 body 发送

@@ -135,8 +135,24 @@ public class OfferController extends BaseController {
 
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @PostMapping("/sendOffer")
-    public AjaxResult sendOffer(@RequestBody CrmOffer offer, @RequestParam(value = "ids", required = false) Long[] ids) {
+    public AjaxResult sendOffer(@RequestBody CrmOffer offer) {
         List<CrmOffer> list = offerService.selectOfferList(offer);
+        if (offer.getParams() != null && offer.getParams().containsKey("ids")) {
+            Object idsObj = offer.getParams().get("ids");
+            if (idsObj != null) {
+                String idsStr = idsObj.toString();
+                if (!idsStr.isEmpty()) {
+                    String[] idArray = idsStr.split(",");
+                    List<Long> targetIds = new java.util.ArrayList<>();
+                    for (String s : idArray) {
+                        try { targetIds.add(Long.valueOf(s.trim())); } catch (Exception ignored) {}
+                    }
+                    if (!targetIds.isEmpty()) {
+                        list.removeIf(o -> !targetIds.contains(o.getId()));
+                    }
+                }
+            }
+        }
         // TODO: Implement send offer logic
         return AjaxResult.success("发送成功", list.size());
     }

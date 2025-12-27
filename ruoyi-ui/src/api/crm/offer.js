@@ -36,3 +36,7 @@ export function importOffer(formData) {
 export function parseOffer(data) {
   return request({ url: '/crm/offer/parse', method: 'post', data: data })
 }
+
+export function sendOffer(data) {
+  return request({ url: '/crm/offer/sendOffer', method: 'post', data: data })
+}

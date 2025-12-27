@@ -83,33 +83,36 @@
       <el-col :span="1.5">
         <el-button type="primary" plain icon="el-icon-plus" size="mini" @click="openBatchAdd" v-hasPermi="['crm:offer:add']">批量新增</el-button>
       </el-col>
+      <el-col :span="1.5">
+        <el-button type="primary" plain icon="el-icon-s-promotion" size="mini" @click="handleSendOffer" v-hasPermi="['crm:offer:list']">发送Offer</el-button>
+      </el-col>
     </el-row>
 
     <el-table v-loading="loading" :data="offerList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="产品编码" align="center" prop="productCode" />
-      <el-table-column label="供应商名称" align="center" prop="supplierName" />
-      <el-table-column label="成本" align="center" prop="priceCost" />
-      <el-table-column label="报价" align="center" prop="priceOffer" />
-      <el-table-column label="数量" align="center" prop="quantity" />
-      <el-table-column label="库存日期" align="center" prop="stockDate" width="180">
+      <el-table-column label="产品编码" align="center" prop="productCode" min-width="300" show-overflow-tooltip />
+      <el-table-column label="供应商名称" align="center" prop="supplierName" min-width="300" show-overflow-tooltip />
+      <el-table-column label="成本" align="center" prop="priceCost" show-overflow-tooltip />
+      <el-table-column label="报价" align="center" prop="priceOffer" show-overflow-tooltip />
+      <el-table-column label="数量" align="center" prop="quantity" show-overflow-tooltip />
+      <el-table-column label="库存日期" align="center" prop="stockDate" width="180" show-overflow-tooltip>
         <template slot-scope="scope">
           <span>{{ parseTime(scope.row.stockDate) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="品牌" align="center" prop="productBrand" />
-      <el-table-column label="价格单位" align="center" prop="priceUnit" />
-      <el-table-column label="产品类型" align="center" prop="productType" />
-      <el-table-column label="DC" align="center" prop="dc" />
-      <el-table-column label="类型" align="center" prop="inqOfferType" />
-      <el-table-column label="标签1" align="center" prop="tagsFirst" />
-      <el-table-column label="标签2" align="center" prop="tagsSecond" />
-      <el-table-column label="标签3" align="center" prop="tagsThird" />
-      <el-table-column label="标签4" align="center" prop="tagsSi" />
-      <el-table-column label="备注" align="center" prop="remark" />
-      <el-table-column label="MOQ数量" align="center" prop="moqQuantity" />
-      <el-table-column label="质保详情" align="center" prop="warrantyDetail" />
-      <el-table-column label="来源表名" align="center" prop="sheetName" />
+      <el-table-column label="品牌" align="center" prop="productBrand" show-overflow-tooltip />
+      <el-table-column label="价格单位" align="center" prop="priceUnit" show-overflow-tooltip />
+      <el-table-column label="产品类型" align="center" prop="productType" show-overflow-tooltip />
+      <el-table-column label="DC" align="center" prop="dc" show-overflow-tooltip />
+      <el-table-column label="类型" align="center" prop="inqOfferType" show-overflow-tooltip />
+      <el-table-column label="标签1" align="center" prop="tagsFirst" show-overflow-tooltip />
+      <el-table-column label="标签2" align="center" prop="tagsSecond" show-overflow-tooltip />
+      <el-table-column label="标签3" align="center" prop="tagsThird" show-overflow-tooltip />
+      <el-table-column label="标签4" align="center" prop="tagsSi" show-overflow-tooltip />
+      <el-table-column label="备注" align="center" prop="remark" show-overflow-tooltip />
+      <el-table-column label="MOQ数量" align="center" prop="moqQuantity" show-overflow-tooltip />
+      <el-table-column label="质保详情" align="center" prop="warrantyDetail" show-overflow-tooltip />
+      <el-table-column label="来源表名" align="center" prop="sheetName" min-width="300" show-overflow-tooltip />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template slot-scope="scope">
           <el-button size="mini" type="text" icon="el-icon-edit" @click="handleUpdate(scope.row)" v-hasPermi="['crm:offer:edit']">修改</el-button>
@@ -271,11 +274,7 @@
           </el-select>
         </el-form-item>
         <div class="form-header">询报价解析表达式</div>
-        <el-form-item label="旧模板">
-          <el-select v-model="selectedTemplate" placeholder="选择旧模板" @change="loadTemplate">
-            <el-option v-for="d in dictFormatTemplates" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
-          </el-select>
-        </el-form-item>
+        <!-- 移除模板选择 -->
         <el-row :gutter="10">
           <el-col :span="12">
             <div>字段：</div>
@@ -308,6 +307,7 @@
           <el-table-column type="index" width="60" label="#" />
           <el-table-column label="产品编码" prop="productCode" width="140"><template slot-scope="scope"><el-input v-model="scope.row.productCode" size="mini" /></template></el-table-column>
           <el-table-column label="数量" prop="quantity" width="100"><template slot-scope="scope"><el-input-number v-model="scope.row.quantity" :controls="false" :precision="0" :min="0" size="mini" style="width: 100%" /></template></el-table-column>
+          <el-table-column label="成本" prop="priceCost" width="100"><template slot-scope="scope"><el-input-number v-model="scope.row.priceCost" :controls="false" :precision="2" :min="0" size="mini" style="width: 100%" /></template></el-table-column>
           <el-table-column label="单价" prop="priceOffer" width="100"><template slot-scope="scope"><el-input-number v-model="scope.row.priceOffer" :controls="false" :precision="2" :min="0" size="mini" style="width: 100%" /></template></el-table-column>
           <el-table-column label="单位" prop="priceUnit" width="80"><template slot-scope="scope"><el-input v-model="scope.row.priceUnit" size="mini" /></template></el-table-column>
           <el-table-column label="交货时间" prop="deliveryTime" width="120"><template slot-scope="scope"><el-input v-model="scope.row.deliveryTime" size="mini" /></template></el-table-column>
@@ -329,13 +329,17 @@
 </template>
 
 <script>
-import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer } from '@/api/crm/offer'
+import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer } from '@/api/crm/offer'
 import { listSupplierOptions } from '@/api/crm/supplier'
 import { getDicts } from '@/api/system/dict/data'
 import { parseTime } from "@/utils/ruoyi"
+import { mapGetters } from 'vuex'
 
 export default {
   name: 'CrmOffer',
+  computed: {
+    ...mapGetters(['name'])
+  },
   data() {
     return {
       loading: false,
@@ -389,7 +393,28 @@ export default {
     handleAdd() { this.resetFormData(); this.open = true; this.title = '新增Offer' },
     handleUpdate(row) { const id = row.id || this.ids[0]; getOffer(id).then(res => { this.form = res.data || {}; this.splitToArrays(); this.open = true; this.title = '修改Offer' }) },
     handleDelete(row) { const ids = row.id ? [row.id] : this.ids; this.$modal.confirm('是否确认删除选中数据项？').then(() => { return delOffer(ids) }).then(() => { this.getList(); this.$modal.msgSuccess('删除成功') }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '删除失败') }) },
-    handleExport() { this.download('/crm/offer/export', { ids: this.ids }, `offer_${new Date().getTime()}.xlsx`) },
+    handleExport() {
+      const params = { ...this.queryParams };
+      if (this.ids && this.ids.length > 0) {
+        params.ids = this.ids.join(',');
+      }
+      this.download('/crm/offer/export', params, `offer_${new Date().getTime()}.xlsx`)
+    },
+    handleSendOffer() {
+      this.$modal.confirm('是否确认发送Offer？').then(() => {
+        const params = { ...this.queryParams };
+        // 后端接收 CrmOffer 对象，queryParams 结构应该兼容
+        // 如果后端需要 List<CrmOffer> 或者是查询条件，这里传递 queryParams 作为对象
+        // 注意: sendOffer(params) 会把 params 作为 body 发送
+        return sendOffer(params);
+      }).then(res => {
+        this.$modal.msgSuccess(`发送成功: ${res.msg || ''}`);
+      }).catch(err => {
+        if (err !== 'cancel') {
+          this.$modal.msgError(err && err.msg ? err.msg : '发送失败');
+        }
+      })
+    },
     openImport() { this.openImportDialog = true; this.remoteSupplier('') },
     submitImport() {
       if (!this.importSupplier || !this.importForm.inqOfferType) { this.$modal.msgError('请选择供应商和类型'); return }
@@ -446,6 +471,12 @@ export default {
         if (this.parsedRows.length === 0) {
           this.$modal.msgWarning('解析结果为空，请检查文本和表达式');
         } else {
+          // 默认单位 USD
+          this.parsedRows.forEach(row => {
+            if (!row.priceUnit) {
+              row.priceUnit = 'USD';
+            }
+          });
           this.$modal.msgSuccess(`成功解析 ${this.parsedRows.length} 条数据`);
         }
       }).catch(err => {
@@ -463,9 +494,10 @@ export default {
       }
       const sup = this.batchAddSupplier;
       const now = new Date();
-      // 拼接来源表名: 供应商+年月日时分秒
-      const timeStr = parseTime(now, '{y}{m}{d}{h}{i}{s}');
-      const sheetName = `${sup.supplierName}${timeStr}`;
+      // 拼接来源表名: 年月日时分+供应商名称+用户名称
+      const timeStr = parseTime(now, '{y}{m}{d}{h}{i}');
+      const userName = this.name || '';
+      const sheetName = `${timeStr}${sup.supplierName}${userName}`;
 
       const tasks = this.parsedRows.map(r => {
         const data = {
@@ -475,6 +507,7 @@ export default {
           productBrand: r.productBrand || '',
           productDetail: r.productDetail || '',
           priceOffer: this.toNumberOrNull(r.priceOffer),
+          priceCost: this.toNumberOrNull(r.priceCost), // Added priceCost mapping
           quantity: this.toNumberOrNull(r.quantity),
           deliveryTime: r.deliveryTime || '',
           moqQuantity: this.toNumberOrNull(r.moqQuantity),

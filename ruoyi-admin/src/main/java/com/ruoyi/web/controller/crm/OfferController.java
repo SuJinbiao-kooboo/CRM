@@ -133,5 +133,13 @@ public class OfferController extends BaseController {
         return AjaxResult.success(crmOffers);
     }
 
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @PostMapping("/sendOffer")
+    public AjaxResult sendOffer(@RequestBody CrmOffer offer, @RequestParam(value = "ids", required = false) Long[] ids) {
+        List<CrmOffer> list = offerService.selectOfferList(offer);
+        // TODO: Implement send offer logic
+        return AjaxResult.success("发送成功", list.size());
+    }
+
 
 }

@@ -73,6 +73,13 @@
                 </foreach>
                 )
             </if>
+            <if test="params != null and params.ids != null and params.ids.size() > 0">
+                and id in
+                <foreach collection="params.ids" item="pt" separator="," open="(" close=")">
+                     #{pt}
+                </foreach>
+                )
+            </if>
             <if test="tagsFirst != null and tagsFirst != ''">and tags_first like concat('%', #{tagsFirst}, '%')</if>
             <if test="tagsSecond != null and tagsSecond != ''">and tags_second like concat('%', #{tagsSecond}, '%')</if>
             <if test="tagsThird != null and tagsThird != ''">and tags_third like concat('%', #{tagsThird}, '%')</if>

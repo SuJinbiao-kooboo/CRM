@@ -48,7 +48,7 @@
             <if test="params != null and params.productCodeList != null and params.productCodeList.length() > 0">
                 and
                 <foreach collection="params.productCodeList.split(',')" item="code" open="(" separator=" or " close=")">
-                    product_code = #{code}
+                    product_code like concat(#{code}, '%')
                 </foreach>
             </if>
             <if test="params != null and params.supplierCodeList != null and params.supplierCodeList.length() > 0">
@@ -78,7 +78,6 @@
                 <foreach collection="params.ids" item="pt" separator="," open="(" close=")">
                      #{pt}
                 </foreach>
-                )
             </if>
             <if test="tagsFirst != null and tagsFirst != ''">and tags_first like concat('%', #{tagsFirst}, '%')</if>
             <if test="tagsSecond != null and tagsSecond != ''">and tags_second like concat('%', #{tagsSecond}, '%')</if>
@@ -165,6 +164,8 @@
             <if test="offer.priceUnit != null and offer.priceUnit != ''">price_unit = #{offer.priceUnit},</if>
             <if test="offer.quantity != null and offer.quantity != 0">quantity = #{offer.quantity},</if>
             <if test="offer.deliveryTime != null and offer.deliveryTime != ''">delivery_time = #{offer.deliveryTime},</if>
+            <if test="offer.moqQuantity != null">moq_quantity = #{offer.moqQuantity},</if>
+            <if test="offer.warrantyDetail != null and offer.warrantyDetail != ''">warranty_detail = #{offer.warrantyDetail},</if>
             <if test="offer.remark != null and offer.remark != ''">remark = #{offer.remark},</if>
             <if test="offer.tagsFirst != null and offer.tagsFirst != ''">tags_first = #{offer.tagsFirst},</if>
             <if test="offer.tagsSecond != null and offer.tagsSecond != ''">tags_second = #{offer.tagsSecond},</if>

@@ -258,6 +258,13 @@
         <el-form-item label="价格单位"><el-input v-model="batchForm.priceUnit" placeholder="不填不更新" /></el-form-item>
         <el-form-item label="数量"><el-input-number v-model="batchForm.quantity" :controls="false" :precision="0" :min="0" placeholder="填0或不填不更新" style="width:100%" /></el-form-item>
         <el-form-item label="交货时间"><el-input v-model="batchForm.deliveryTime" placeholder="不填不更新" /></el-form-item>
+        <el-form-item label="MOQ数量"><el-input-number v-model="batchForm.moqQuantity" :controls="false" :precision="0" :min="0" placeholder="填0或不填不更新" style="width:100%" /></el-form-item>
+        <el-form-item label="质保详情"><el-input v-model="batchForm.warrantyDetail" placeholder="不填不更新" /></el-form-item>
+        <el-form-item label="产品类型">
+          <el-select v-model="batchForm.productType" clearable placeholder="不填不更新">
+            <el-option v-for="d in dictProductType" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="备注"><el-input v-model="batchForm.remark" placeholder="不填不更新" /></el-form-item>
         <el-form-item label="类型"><el-select v-model="batchForm.inqOfferType" clearable placeholder="不填不更新"><el-option label="Inq" value="Inq" /><el-option label="Offer" value="Offer" /></el-select></el-form-item>
       </el-form>
@@ -374,7 +381,7 @@ export default {
       dictProductBrand: [], dictPriceUnit: [], dictProductType: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       importForm: { inqOfferType: 'Offer' },
       uploadAction: process.env.VUE_APP_BASE_API + '/crm/offer/import',
-      batchForm: { productBrand: '', stockDate: undefined, productDetail: '', priceCost: undefined, priceOffer: undefined, priceUnit: '', quantity: undefined, deliveryTime: '', remark: '', inqOfferType: '' },
+      batchForm: { productBrand: '', stockDate: undefined, productDetail: '', priceCost: undefined, priceOffer: undefined, priceUnit: '', quantity: undefined, deliveryTime: '', moqQuantity: undefined, warrantyDetail: '', productType: '', remark: '', inqOfferType: '' },
       tmpField: '',
       tmpSep: '',
       openBatchAddDialog: false,
@@ -391,23 +398,70 @@ export default {
   },
   created() { this.getList(); this.loadDicts() },
   methods: {
-    getList() { 
-      this.loading = true; 
-      this.queryParams.params.beginStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[0] : undefined; 
-      this.queryParams.params.endStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[1] : undefined; 
-      this.queryParams.params.supplierCodeList = (this.queryParams.supplierCodes || []).join(','); 
-      this.queryParams.params.productBrandList = this.queryParams.productBrandArr || []; 
-      this.queryParams.params.productTypeList = this.queryParams.productTypeArr || []; 
-      
-      const query = JSON.parse(JSON.stringify(this.queryParams));
-      if (query.productCode && /[\n, ]/.test(query.productCode)) {
-        query.params.productCodeList = query.productCode.split(/[\n, ]+/).filter(x => x);
-        query.productCode = undefined;
+    getQueryParams() {
+      const qp = JSON.parse(JSON.stringify(this.queryParams));
+      qp.params = qp.params || {};
+
+      qp.params.beginStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[0] : undefined;
+      qp.params.endStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[1] : undefined;
+
+      if (this.queryParams.supplierCodes && this.queryParams.supplierCodes.length > 0) {
+        qp.params.supplierCodeList = this.queryParams.supplierCodes.join(',');
       }
-      
-      listOffer(query).then(res => { this.offerList = res.rows; this.total = res.total; this.loading = false }) 
+      if (this.queryParams.productBrandArr && this.queryParams.productBrandArr.length > 0) {
+        qp.params.productBrandList = this.queryParams.productBrandArr.join(',');
+      }
+      if (this.queryParams.productTypeArr && this.queryParams.productTypeArr.length > 0) {
+        qp.params.productTypeList = this.queryParams.productTypeArr.join(',');
+      }
+
+      if (this.queryParams.productCode) {
+        const codes = this.queryParams.productCode.split(/[\n, ]+/).map(s => s.trim()).filter(s => s.length > 0);
+        if (codes.length > 0) {
+          qp.params.productCodeList = codes.join(',');
+          qp.productCode = undefined;
+        }
+      }
+      return qp;
     },
-    handleQuery() { this.queryParams.pageNum = 1; this.getList() },
+    /** 查询Offer列表 */
+    getList() {
+      this.loading = true;
+      const qp = JSON.parse(JSON.stringify(this.queryParams));
+      qp.params = qp.params || {};
+
+      qp.params.beginStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[0] : undefined;
+      qp.params.endStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[1] : undefined;
+
+      if (this.queryParams.supplierCodes && this.queryParams.supplierCodes.length > 0) {
+        qp.params["supplierCodeList"] = this.queryParams.supplierCodes.join(",");
+      }
+      if (this.queryParams.productBrandArr && this.queryParams.productBrandArr.length > 0) {
+        qp.params["productBrandList"] = this.queryParams.productBrandArr.join(",");
+      }
+      if (this.queryParams.productTypeArr && this.queryParams.productTypeArr.length > 0) {
+        qp.params["productTypeList"] = this.queryParams.productTypeArr.join(",");
+      }
+
+      if (this.queryParams.productCode) {
+        const codes = this.queryParams.productCode.split(/[\n, ]+/).map(s => s.trim()).filter(s => s.length > 0);
+        if (codes.length > 0) {
+          qp.params["productCodeList"] = codes.join(",");
+          qp.productCode = undefined;
+        }
+      }
+
+      listOffer(qp).then(response => {
+        this.offerList = response.rows;
+        this.total = response.total;
+        this.loading = false;
+      });
+    },
+    /** 搜索按钮操作 */
+    handleQuery() {
+      this.queryParams.pageNum = 1;
+      this.getList();
+    },
     resetQuery() { this.stockDateRange = []; this.queryParams.supplierCodes = []; this.queryParams.productBrandArr = []; this.queryParams.productTypeArr = []; this.resetForm('queryForm'); this.handleQuery() },
     handleSelectionChange(selection) { this.ids = selection.map(item => item.id); this.single = selection.length != 1; this.multiple = !selection.length },
     remoteSupplier(query) { listSupplierOptions({ supplierName: query, pageNum: 1, pageSize: 20 }).then(res => { this.supplierOptions = res.data }) },
@@ -417,7 +471,7 @@ export default {
     handleUpdate(row) { const id = row.id || this.ids[0]; getOffer(id).then(res => { this.form = res.data || {}; this.splitToArrays(); this.open = true; this.title = '修改Offer' }) },
     handleDelete(row) { const ids = row.id ? [row.id] : this.ids; this.$modal.confirm('是否确认删除选中数据项？').then(() => { return delOffer(ids) }).then(() => { this.getList(); this.$modal.msgSuccess('删除成功') }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '删除失败') }) },
     handleExport() {
-      const params = { ...this.queryParams };
+      const params = this.getQueryParams();
       if (this.ids && this.ids.length > 0) {
         params.ids = this.ids.join(',');
       }
@@ -425,17 +479,14 @@ export default {
     },
     handleSendOffer() {
       this.$modal.confirm('是否确认发送Offer？').then(() => {
-        const params = { ...this.queryParams };
+        const params = this.getQueryParams();
         if (this.ids && this.ids.length > 0) {
-            params.params = params.params || {};
-            params.params.ids = this.ids.join(',');
+          params.params = params.params || {};
+          params.params.ids = this.ids.join(',');
         }
-        // 后端接收 CrmOffer 对象，queryParams 结构应该兼容
-        // 如果后端需要 List<CrmOffer> 或者是查询条件，这里传递 queryParams 作为对象
-        // 注意: sendOffer(params) 会把 params 作为 body 发送
         return sendOffer(params);
       }).then(res => {
-        this.$modal.msgSuccess(`发送成功: ${res.msg || ''}`);
+        this.$modal.msgSuccess('发送成功');
       }).catch(err => {
         if (err !== 'cancel') {
           this.$modal.msgError(err && err.msg ? err.msg : '发送失败');

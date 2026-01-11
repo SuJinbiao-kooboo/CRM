@@ -10,4 +10,5 @@ public interface ICrmSupplierService {
     int updateSupplier(CrmSupplier supplier);
     int deleteSupplierByIds(Long[] ids);
     java.util.List<CrmSupplier> selectSupplierOptions(CrmSupplier supplier);
+    List<CrmSupplier> selectSupplierSimpleList(CrmSupplier supplier);
 }

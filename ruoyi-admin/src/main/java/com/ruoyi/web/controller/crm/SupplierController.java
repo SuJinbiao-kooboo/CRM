@@ -38,6 +38,14 @@ public class SupplierController extends BaseController {
         return getDataTable(list);
     }
 
+    @PreAuthorize("@ss.hasPermi('crm:supplier:list')")
+    @GetMapping("/simpleList")
+    public TableDataInfo simpleList(CrmSupplier supplier) {
+        startPage();
+        List<CrmSupplier> list = supplierService.selectSupplierSimpleList(supplier);
+        return getDataTable(list);
+    }
+
     @PreAuthorize("@ss.hasPermi('crm:supplier:export')")
     @Log(title = "供应商管理", businessType = BusinessType.EXPORT)
     @PostMapping("/export")

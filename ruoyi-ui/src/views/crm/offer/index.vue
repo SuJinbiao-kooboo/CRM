@@ -8,8 +8,11 @@
         <el-input v-model="queryParams.sheetName" placeholder="请输入来源表名" clearable @keyup.enter.native="handleQuery" />
       </el-form-item>
       <el-form-item label="供应商">
-        <el-select v-model="queryParams.supplierCodes" multiple collapse-tags filterable placeholder="请选择供应商" value-key="supplierCode">
-          <el-option v-for="item in supplierOptions" :key="item.id" :label="item.supplierName" :value="item.supplierCode" />
+        <el-select v-model="queryParams.supplierCodes" multiple collapse-tags filterable remote :remote-method="searchSupplier" :loading="supplierLoading" placeholder="请选择供应商" @focus="searchSupplier('')">
+          <el-option v-for="item in supplierListOptions" :key="item.id" :label="item.supplierName" :value="item.supplierCode">
+            <span style="float: left">{{ item.supplierName }}</span>
+            <span style="float: right; color: #8492a6; font-size: 13px; margin-left: 10px">{{ item.supplierCode }}</span>
+          </el-option>
         </el-select>
       </el-form-item>
       <el-form-item label="类型" prop="inqOfferType">
@@ -333,7 +336,7 @@
 
 <script>
 import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer } from '@/api/crm/offer'
-import { listSupplierOptions } from '@/api/crm/supplier'
+import { listSupplierOptions, listSupplier, listSupplierSimple } from '@/api/crm/supplier'
 import { getDicts } from '@/api/system/dict/data'
 import { parseTime } from "@/utils/ruoyi"
 import { mapGetters } from 'vuex'
@@ -356,6 +359,7 @@ export default {
       open: false,
       openImportDialog: false,
       openBatchDialog: false,
+      supplierLoading: false,
       supplierOptions: [],
       supplierListOptions: [],
       supplierOptionsQuery: [],
@@ -560,7 +564,15 @@ export default {
     cancel() { this.open = false },
     resetFormData() { this.form = { id: undefined, supplierCode: '', supplierName: '', productCode: '', productBrand: '', productBrandArr: [], stockDate: new Date(), priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, deliveryTime: '', remark: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer' } },
     submitForm() { if (!this.form.productCode) { this.$modal.msgError('产品编码不能为空'); return } this.joinFromArrays(); const data = Object.assign({}, this.form); (data.id ? updateOffer(data) : addOffer(data)).then(() => { this.$modal.msgSuccess(this.form.id ? '修改成功' : '新增成功'); this.open = false; this.getList() }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '提交失败') }) }
+    ,searchSupplier(query) {
+      this.supplierLoading = true;
+      listSupplierSimple({ pageNum: 1, pageSize: 1000, params: { keyword: query } }).then(res => {
+        this.supplierListOptions = res.rows;
+        this.supplierLoading = false;
+      })
+    }
     ,loadDicts() {
+      this.searchSupplier('')
       getDicts('crm_product_brand').then(res => { this.dictProductBrand = res.data })
       getDicts('crm_price_unit').then(res => { this.dictPriceUnit = res.data })
       getDicts('crm_product_type').then(res => { this.dictProductType = res.data })

@@ -27,3 +27,7 @@ export function exportSupplier(params) {
 export function listSupplierOptions(query) {
   return request({ url: '/crm/supplier/options', method: 'get', params: query })
 }
+
+export function listSupplierSimple(query) {
+  return request({ url: '/crm/supplier/simpleList', method: 'get', params: query })
+}

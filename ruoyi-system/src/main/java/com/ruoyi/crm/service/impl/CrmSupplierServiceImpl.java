@@ -34,6 +34,11 @@ public class CrmSupplierServiceImpl implements ICrmSupplierService {
     }
 
     @Override
+    public List<CrmSupplier> selectSupplierSimpleList(CrmSupplier supplier) {
+        return supplierMapper.selectSupplierSimpleList(supplier);
+    }
+
+    @Override
     public CrmSupplier selectSupplierById(Long id) {
         CrmSupplier s = supplierMapper.selectSupplierById(id);
         if (s != null) {

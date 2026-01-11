@@ -14,4 +14,5 @@ public interface CrmSupplierMapper {
     int deleteContactsBySupplierId(Long supplierId);
     int deleteAttachmentsBySupplier(@Param("fromType") String fromType, @Param("fromId") Long fromId);
     List<CrmSupplier> selectSupplierOptions(CrmSupplier supplier);
+    List<CrmSupplier> selectSupplierSimpleList(CrmSupplier supplier);
 }

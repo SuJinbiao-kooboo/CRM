@@ -21,6 +21,8 @@
         <result column="tax_number" property="taxNumber" />
         <result column="bank_info" property="bankInfo" />
         <result column="bank_account" property="bankAccount" />
+        <result column="bill_to" property="billTo" />
+        <result column="ship_to" property="shipTo" />
         <result column="introduction" property="introduction" />
         <result column="remark" property="remark" />
         <result column="remark_second" property="remarkSecond" />
@@ -34,6 +36,7 @@
         <result column="tags_second" property="tagsSecond" />
         <result column="tags_third" property="tagsThird" />
         <result column="tags_si" property="tagsSi" />
+        <result column="teams" property="teams" />
         <result column="contact_name" property="contactName" />
         <result column="post" property="post" />
         <result column="phone" property="phone" />
@@ -43,7 +46,7 @@
     <sql id="Base_Column_List">
         s.id, s.supplier_code, s.supplier_name, s.supplier_short_name, s.supplier_type, s.brands,
         s.country, s.address, s.website, s.main_products, s.cooperation_level, s.risk_level,
-        s.payment_terms, s.cooperation_status, s.business_license, s.tax_number, s.bank_info, s.bank_account,
+        s.payment_terms, s.cooperation_status, s.business_license, s.tax_number, s.bank_info, s.bank_account, s.bill_to, s.ship_to,
         s.introduction, s.remark, s.remark_second, s.status, s.follow_up_by, s.create_by, s.create_time,
         s.update_by, s.update_time, s.tags_first, s.tags_second, s.tags_third, s.tags_si
     </sql>
@@ -51,7 +54,7 @@
     <select id="selectSupplierListJoined" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultMap="CrmSupplierMap">
         select
         <include refid="Base_Column_List"/>,
-        c.contact_name as contact_name, c.post as post, c.phone as phone, c.email as email
+        c.contact_name as contact_name, c.post as post, c.phone as phone, c.email as email, c.qq as teams
         from crm_supplier s
         left join crm_supplier_contact c on c.supplier_id = s.id
         <where>
@@ -127,13 +130,13 @@
         insert into crm_supplier(
             supplier_code, supplier_name, supplier_short_name, supplier_type, brands,
             country, address, website, main_products, cooperation_level, risk_level,
-            payment_terms, cooperation_status, business_license, tax_number, bank_info, bank_account,
+            payment_terms, cooperation_status, business_license, tax_number, bank_info, bank_account, bill_to, ship_to,
             introduction, remark, remark_second, status, follow_up_by, create_by, create_time,
             update_by, update_time, tags_first, tags_second, tags_third, tags_si
         ) values(
             #{supplierCode}, #{supplierName}, #{supplierShortName}, #{supplierType}, #{brands},
             #{country}, #{address}, #{website}, #{mainProducts}, #{cooperationLevel}, #{riskLevel},
-            #{paymentTerms}, #{cooperationStatus}, #{businessLicense}, #{taxNumber}, #{bankInfo}, #{bankAccount},
+            #{paymentTerms}, #{cooperationStatus}, #{businessLicense}, #{taxNumber}, #{bankInfo}, #{bankAccount}, #{billTo}, #{shipTo},
             #{introduction}, #{remark}, #{remarkSecond}, #{status}, #{followUpBy}, #{createBy}, now(),
             #{updateBy}, now(), #{tagsFirst}, #{tagsSecond}, #{tagsThird}, #{tagsSi}
         )
@@ -159,6 +162,8 @@
             <if test="taxNumber != null">tax_number = #{taxNumber},</if>
             <if test="bankInfo != null">bank_info = #{bankInfo},</if>
             <if test="bankAccount != null">bank_account = #{bankAccount},</if>
+            <if test="billTo != null">bill_to = #{billTo},</if>
+            <if test="shipTo != null">ship_to = #{shipTo},</if>
             <if test="introduction != null">introduction = #{introduction},</if>
             <if test="remark != null">remark = #{remark},</if>
             <if test="remarkSecond != null">remark_second = #{remarkSecond},</if>

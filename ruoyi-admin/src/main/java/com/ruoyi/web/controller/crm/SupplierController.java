@@ -72,6 +72,12 @@ public class SupplierController extends BaseController {
         return AjaxResult.success(supplierService.selectSupplierById(id));
     }
 
+    @PreAuthorize("@ss.hasPermi('crm:supplier:query')")
+    @GetMapping(value = "/detail/{id}")
+    public AjaxResult getDetail(@PathVariable Long id) {
+        return AjaxResult.success(supplierService.selectSupplierById(id));
+    }
+
     @PreAuthorize("@ss.hasPermi('crm:supplier:add')")
     @Log(title = "供应商管理", businessType = BusinessType.INSERT)
     @PostMapping

@@ -12,7 +12,7 @@
         <result column="email" property="email" />
         <result column="whatsapp" property="whatsapp" />
         <result column="wechat" property="wechat" />
-        <result column="qq" property="qq" />
+        <result column="qq" property="teams" />
         <result column="other_contact_first" property="otherContactFirst" />
         <result column="other_contact_second" property="otherContactSecond" />
         <result column="remark_first" property="remarkFirst" />
@@ -35,7 +35,7 @@
         ) values
         <foreach collection="list" item="item" separator=",">
             (
-                #{item.supplierId}, #{item.contactName}, #{item.post}, #{item.position}, #{item.phone}, #{item.email}, #{item.whatsapp}, #{item.wechat}, #{item.qq},
+                #{item.supplierId}, #{item.contactName}, #{item.post}, #{item.position}, #{item.phone}, #{item.email}, #{item.whatsapp}, #{item.wechat}, #{item.teams},
                 #{item.otherContactFirst}, #{item.otherContactSecond}, #{item.remarkFirst}, #{item.remarkSecond}, #{item.isPrimary}, #{item.createBy}, now(), #{item.updateBy}, now()
             )
         </foreach>

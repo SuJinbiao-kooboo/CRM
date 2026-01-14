@@ -5,6 +5,9 @@ import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 
+import com.ruoyi.crm.domain.dto.SendEmailReq;
+import com.ruoyi.crm.service.ICrmSendOfferService;
+import com.ruoyi.crm.service.impl.CrmSendOfferServiceImpl;
 import com.ruoyi.crm.service.util.SimpleTextParser;
 import io.swagger.annotations.ApiParam;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +33,27 @@ import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.service.ICrmOfferService;
+import com.ruoyi.system.service.ISysDictDataService;
+import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.write.metadata.style.WriteCellStyle;
+import com.alibaba.excel.write.style.HorizontalCellStyleStrategy;
+import com.alibaba.excel.write.metadata.WriteSheet;
+import org.apache.commons.lang3.StringUtils;
+import javax.mail.Session;
+import javax.mail.Transport;
+import javax.mail.Message;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeBodyPart;
+import javax.mail.internet.MimeMultipart;
+import javax.mail.Multipart;
+import javax.mail.BodyPart;
+import javax.mail.PasswordAuthentication;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.io.File;
+import java.text.SimpleDateFormat;
 
 @RestController
 @RequestMapping("/crm/offer")
@@ -38,6 +62,11 @@ public class OfferController extends BaseController {
     @Autowired
     private ICrmOfferService offerService;
 
+    @Autowired
+    private ISysDictDataService dictDataService;
+
+    @Autowired
+    private ICrmSendOfferService crmSendOfferService;
 
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @GetMapping("/list")
@@ -50,12 +79,23 @@ public class OfferController extends BaseController {
     @PreAuthorize("@ss.hasPermi('crm:offer:export')")
     @Log(title = "Offer管理", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, CrmOffer offer, @RequestParam(value = "ids", required = false) Long[] ids) {
+    public void export(HttpServletResponse response, CrmOffer offer,
+                       @RequestParam(value = "ids", required = false) Long[] ids,
+                       @RequestParam(value = "exportFields", required = false) String exportFields) {
         List<CrmOffer> list = offerService.selectOfferList(offer);
         if (ids != null && ids.length > 0) {
             list.removeIf(o -> !contains(ids, o.getId()));
         }
         ExcelUtil<CrmOffer> util = new ExcelUtil<>(CrmOffer.class);
+        if (exportFields != null && !exportFields.trim().isEmpty()) {
+            String[] cols = java.util.Arrays.stream(exportFields.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .toArray(String[]::new);
+            if (cols.length > 0) {
+                util.showColumn(cols);
+            }
+        }
         util.exportExcel(response, list, "Offer数据");
     }
 
@@ -155,6 +195,12 @@ public class OfferController extends BaseController {
         }
         // TODO: Implement send offer logic
         return AjaxResult.success("发送成功", list.size());
+    }
+
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @PostMapping("/sendExcelEmail")
+    public AjaxResult sendExcelEmail(@RequestBody SendEmailReq req) {
+        return crmSendOfferService.sendExcelEmail(req);
     }
 
 

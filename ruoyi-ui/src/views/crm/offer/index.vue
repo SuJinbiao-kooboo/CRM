@@ -338,6 +338,18 @@
         <el-button @click="openBatchAddDialog=false">取 消</el-button>
       </div>
     </el-dialog>
+
+    <el-dialog title="选择导出字段" :visible.sync="exportDialogVisible" width="600px" append-to-body>
+      <div>
+        <el-checkbox-group v-model="selectedExportFields">
+          <el-checkbox v-for="f in exportFieldsDict" :key="f.value" :label="f.value">{{ f.label }}</el-checkbox>
+        </el-checkbox-group>
+      </div>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="exportDialogVisible=false">取 消</el-button>
+        <el-button type="primary" @click="confirmExport">确 定</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -394,6 +406,9 @@ export default {
       formatSequence: [],
       pasteText: '',
       parsedRows: []
+      ,exportDialogVisible: false
+      ,exportFieldsDict: []
+      ,selectedExportFields: []
     }
   },
   created() { this.getList(); this.loadDicts() },
@@ -471,11 +486,22 @@ export default {
     handleUpdate(row) { const id = row.id || this.ids[0]; getOffer(id).then(res => { this.form = res.data || {}; this.splitToArrays(); this.open = true; this.title = '修改Offer' }) },
     handleDelete(row) { const ids = row.id ? [row.id] : this.ids; this.$modal.confirm('是否确认删除选中数据项？').then(() => { return delOffer(ids) }).then(() => { this.getList(); this.$modal.msgSuccess('删除成功') }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '删除失败') }) },
     handleExport() {
+      getDicts('offer_export_dict').then(res => {
+        this.exportFieldsDict = (res.data || []).map(d => ({ label: d.dictLabel, value: d.dictValue }))
+        this.selectedExportFields = this.exportFieldsDict.map(x => x.value)
+        this.exportDialogVisible = true
+      })
+    },
+    confirmExport() {
       const params = this.getQueryParams();
       if (this.ids && this.ids.length > 0) {
         params.ids = this.ids.join(',');
       }
+      if (this.selectedExportFields && this.selectedExportFields.length > 0) {
+        params.exportFields = this.selectedExportFields.join(',')
+      }
       this.download('/crm/offer/export', params, `offer_${new Date().getTime()}.xlsx`)
+      this.exportDialogVisible = false
     },
     handleSendOffer() {
       this.$modal.confirm('是否确认发送Offer？').then(() => {
@@ -631,6 +657,7 @@ export default {
       getDicts('crm_tags_second').then(res => { this.dictTagsSecond = res.data })
       getDicts('crm_tags_third').then(res => { this.dictTagsThird = res.data })
       getDicts('crm_tags_si').then(res => { this.dictTagsSi = res.data })
+      getDicts('offer_export_dict').then(res => { this.exportFieldsDict = (res.data || []).map(d => ({ label: d.dictLabel, value: d.dictValue })) })
     }
     ,split(s) { return s ? s.split(',') : [] }
     ,splitToArrays() {

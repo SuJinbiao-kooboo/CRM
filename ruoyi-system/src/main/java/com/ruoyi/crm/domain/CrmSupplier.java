@@ -48,6 +48,10 @@ public class CrmSupplier extends BaseEntity {
     private String bankInfo;
     @Excel(name = "银行账号")
     private String bankAccount;
+    @Excel(name = "Bill to")
+    private String billTo;
+    @Excel(name = "Ship to")
+    private String shipTo;
     @Excel(name = "介绍信息")
     private String introduction;
     @Excel(name = "备注1")
@@ -82,6 +86,8 @@ public class CrmSupplier extends BaseEntity {
     private String phone;
     @Excel(name = "邮箱")
     private String email;
+    @Excel(name = "Teams")
+    private String teams;
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)

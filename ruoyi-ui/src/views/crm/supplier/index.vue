@@ -82,7 +82,7 @@
             <el-option v-for="d in dictPaymentTerms" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
           </el-select>
         </el-form-item>
-        <el-form-item label="标签1">
+        <el-form-item label="合作状态">
           <el-select v-model="queryParams.tagsFirst" clearable filterable placeholder="请选择">
             <el-option v-for="d in dictTagsFirst" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
           </el-select>
@@ -108,6 +108,99 @@
         <el-button @click="showMoreQuery=false">取 消</el-button>
       </div>
     </el-dialog>
+    <el-dialog :title="detailTitle" :visible.sync="detailOpen" width="1000px" append-to-body>
+      <div>
+        <div class="form-header">基本信息</div>
+        <el-descriptions :column="3" border size="small">
+          <el-descriptions-item label="供应商名称">{{ detailData.supplierName }}</el-descriptions-item>
+          <el-descriptions-item label="供应商编号">{{ detailData.supplierCode }}</el-descriptions-item>
+          <el-descriptions-item label="供应商简称">{{ detailData.supplierShortName }}</el-descriptions-item>
+          <el-descriptions-item label="类型">{{ detailData.supplierType }}</el-descriptions-item>
+          <el-descriptions-item label="国家">{{ detailData.country }}</el-descriptions-item>
+          <el-descriptions-item label="地址" :span="3">{{ detailData.address }}</el-descriptions-item>
+          <el-descriptions-item label="官网地址" :span="3">
+            <el-link v-if="detailData.website" :href="detailData.website" target="_blank">{{ detailData.website }}</el-link>
+            <span v-else>—</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="品牌" :span="3">{{ detailData.brands }}</el-descriptions-item>
+          <el-descriptions-item label="主营产品" :span="3">{{ detailData.mainProducts }}</el-descriptions-item>
+        </el-descriptions>
+
+        <div class="form-header mt10">合作信息</div>
+        <el-descriptions :column="3" border size="small">
+          <el-descriptions-item label="合作等级">{{ detailData.cooperationLevel }}</el-descriptions-item>
+          <el-descriptions-item label="风险等级">{{ detailData.riskLevel }}</el-descriptions-item>
+          <el-descriptions-item label="付款条件">{{ detailData.paymentTerms }}</el-descriptions-item>
+          <el-descriptions-item label="合作状态">{{ detailData.cooperationStatus }}</el-descriptions-item>
+          <el-descriptions-item label="跟进人">{{ detailData.followUpBy }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{ detailData.status === 1 ? '正常' : '停用' }}</el-descriptions-item>
+          <el-descriptions-item label="创建时间">{{ parseTime(detailData.createTime) }}</el-descriptions-item>
+          <el-descriptions-item label="更新时间">{{ parseTime(detailData.updateTime) }}</el-descriptions-item>
+        </el-descriptions>
+
+        <div class="form-header mt10">财务信息</div>
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="银行信息" :span="2">{{ detailData.bankInfo }}</el-descriptions-item>
+          <el-descriptions-item label="银行账号" :span="2">{{ detailData.bankAccount }}</el-descriptions-item>
+        </el-descriptions>
+
+        <div class="form-header mt10">地址信息</div>
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="Bill to" :span="2"><div style="white-space: pre-wrap;">{{ detailData.billTo }}</div></el-descriptions-item>
+          <el-descriptions-item label="Ship to" :span="2"><div style="white-space: pre-wrap;">{{ detailData.shipTo }}</div></el-descriptions-item>
+        </el-descriptions>
+
+        <div class="form-header mt10">其他信息</div>
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="介绍信息" :span="2">{{ detailData.introduction }}</el-descriptions-item>
+          <el-descriptions-item label="备注1" :span="2">{{ detailData.remark }}</el-descriptions-item>
+          <el-descriptions-item label="备注2" :span="2">{{ detailData.remarkSecond }}</el-descriptions-item>
+          <el-descriptions-item label="标签1">{{ detailData.tagsFirst }}</el-descriptions-item>
+          <el-descriptions-item label="标签2">{{ detailData.tagsSecond }}</el-descriptions-item>
+          <el-descriptions-item label="标签3">{{ detailData.tagsThird }}</el-descriptions-item>
+          <el-descriptions-item label="标签4">{{ detailData.tagsSi }}</el-descriptions-item>
+        </el-descriptions>
+
+        <div class="form-header mt10">联系人</div>
+        <el-table :data="detailData.contacts || []" size="mini" stripe>
+          <el-table-column label="姓名" prop="contactName" width="120" />
+          <el-table-column label="岗位" prop="post" width="120" />
+          <el-table-column label="职位" prop="position" width="120" />
+          <el-table-column label="手机号" prop="phone" width="140" />
+          <el-table-column label="邮箱" prop="email" width="200" />
+          <el-table-column label="WhatsApp" prop="whatsapp" width="120" />
+          <el-table-column label="微信" prop="wechat" width="120" />
+          <el-table-column label="Teams" prop="teams" width="120" />
+          <el-table-column label="其他1" prop="otherContactFirst" width="160" />
+          <el-table-column label="其他2" prop="otherContactSecond" width="160" />
+          <el-table-column label="备注1" prop="remarkFirst" width="160" />
+          <el-table-column label="备注2" prop="remarkSecond" width="160" />
+          <el-table-column label="主要联系人" prop="isPrimary" width="100">
+            <template slot-scope="scope">
+              <el-tag :type="scope.row.isPrimary === 1 ? 'success' : 'info'">{{ scope.row.isPrimary === 1 ? '是' : '否' }}</el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="form-header mt10">附件</div>
+        <el-table :data="detailData.attachments || []" size="mini" stripe>
+          <el-table-column label="附件名称" prop="fileName">
+            <template slot-scope="scope">
+              <el-link :href="scope.row.fileUrl" target="_blank">{{ scope.row.fileName }}</el-link>
+            </template>
+          </el-table-column>
+          <el-table-column label="备注" prop="remark" />
+          <el-table-column label="上传时间" prop="createTime" width="180">
+            <template slot-scope="scope">
+              <span>{{ parseTime(scope.row.createTime) }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" @click="detailOpen=false">关 闭</el-button>
+      </div>
+    </el-dialog>
 
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
@@ -126,7 +219,11 @@
 
     <el-table v-loading="loading" :data="supplierList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="供应商名称" align="center" prop="supplierName" />
+      <el-table-column label="供应商名称" align="center" prop="supplierName">
+        <template slot-scope="scope">
+          <el-link type="primary" @click="openDetail(scope.row)">{{ scope.row.supplierName }}</el-link>
+        </template>
+      </el-table-column>
       <el-table-column label="类型" align="center" prop="supplierType" />
       <el-table-column label="品牌" align="center" prop="brands" />
       <el-table-column label="国家" align="center" prop="country" />
@@ -142,9 +239,10 @@
         </template>
       </el-table-column>
       <el-table-column label="跟进人" align="center" prop="followUpBy" />
-      <el-table-column label="联系人" align="center" prop="contactName" />
-      <el-table-column label="手机号" align="center" prop="phone" />
-      <el-table-column label="邮箱" align="center" prop="email" />
+      <el-table-column label="联系人" align="center" prop="contactName" width="200" />
+      <el-table-column label="手机号" align="center" prop="phone" width="200" />
+      <el-table-column label="邮箱" align="center" prop="email" width="240" />
+      <el-table-column label="Teams" align="center" prop="teams" width="200" />
       <el-table-column label="创建时间" align="center" prop="createTime" width="180">
         <template slot-scope="scope">
           <span>{{ parseTime(scope.row.createTime) }}</span>
@@ -255,12 +353,22 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="银行信息" prop="bankInfo">
-              <el-input v-model="form.bankInfo" placeholder="请输入银行信息" />
+              <el-input v-model="form.bankInfo" type="textarea" placeholder="请输入银行信息" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="银行账号" prop="bankAccount">
               <el-input v-model="form.bankAccount" placeholder="请输入银行账号" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="24">
+            <el-form-item label="Bill to" prop="billTo">
+              <Editor v-model="form.billTo" :minHeight="120" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="24">
+            <el-form-item label="Ship to" prop="shipTo">
+              <Editor v-model="form.shipTo" :minHeight="120" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
@@ -279,8 +387,8 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="标签1" prop="tagsFirst">
-              <el-select v-model="form.tagsFirstArr" multiple collapse-tags filterable placeholder="请选择标签1"><el-option v-for="d in dictTagsFirst" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" /></el-select>
+            <el-form-item label="合作状态" prop="tagsFirst">
+              <el-select v-model="form.tagsFirstArr" multiple collapse-tags filterable placeholder="请选择合作状态"><el-option v-for="d in dictTagsFirst" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" /></el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -315,27 +423,27 @@
         <div class="form-header">联系人</div>
         <el-button type="primary" size="mini" icon="el-icon-plus" @click="addContact">新增联系人</el-button>
         <el-table :data="form.contacts" size="mini" class="mt10">
-          <el-table-column label="姓名" prop="contactName">
+          <el-table-column label="姓名" prop="contactName" width="200">
             <template slot-scope="scope">
               <el-input v-model="scope.row.contactName" placeholder="姓名" />
             </template>
           </el-table-column>
-          <el-table-column label="岗位" prop="post">
+          <el-table-column label="岗位" prop="post" width="200">
             <template slot-scope="scope">
               <el-input v-model="scope.row.post" placeholder="岗位" />
             </template>
           </el-table-column>
-          <el-table-column label="职位" prop="position">
+          <el-table-column label="职位" prop="position" width="200">
             <template slot-scope="scope">
               <el-input v-model="scope.row.position" placeholder="职位" />
             </template>
           </el-table-column>
-          <el-table-column label="手机号" prop="phone">
+          <el-table-column label="手机号" prop="phone" width="200">
             <template slot-scope="scope">
               <el-input v-model="scope.row.phone" placeholder="手机号" />
             </template>
           </el-table-column>
-          <el-table-column label="邮箱" prop="email">
+          <el-table-column label="邮箱" prop="email" width="240">
             <template slot-scope="scope">
               <el-input v-model="scope.row.email" placeholder="邮箱" />
             </template>
@@ -350,27 +458,27 @@
               <el-input v-model="scope.row.wechat" placeholder="微信" />
             </template>
           </el-table-column>
-          <el-table-column label="QQ" prop="qq">
+          <el-table-column label="Teams" prop="teams" width="200">
             <template slot-scope="scope">
-              <el-input v-model="scope.row.qq" placeholder="QQ" />
+              <el-input v-model="scope.row.teams" placeholder="Teams" />
             </template>
           </el-table-column>
-          <el-table-column label="其他1" prop="other_contact_first">
+          <el-table-column label="其他1" prop="other_contact_first" width="200">
             <template slot-scope="scope">
               <el-input v-model="scope.row.otherContactFirst" placeholder="其他联系方式1" />
             </template>
           </el-table-column>
-          <el-table-column label="其他2" prop="other_contact_second">
+          <el-table-column label="其他2" prop="other_contact_second" width="200">
             <template slot-scope="scope">
               <el-input v-model="scope.row.otherContactSecond" placeholder="其他联系方式2" />
             </template>
           </el-table-column>
-          <el-table-column label="备注1" prop="remark_first">
+          <el-table-column label="备注1" prop="remark_first" width="240">
             <template slot-scope="scope">
               <el-input v-model="scope.row.remarkFirst" placeholder="备注1" />
             </template>
           </el-table-column>
-          <el-table-column label="备注2" prop="remark_second">
+          <el-table-column label="备注2" prop="remark_second" width="240">
             <template slot-scope="scope">
               <el-input v-model="scope.row.remarkSecond" placeholder="备注2" />
             </template>
@@ -416,13 +524,14 @@
 </template>
 
 <script>
-import { listSupplier, getSupplier, addSupplier, updateSupplier, delSupplier } from '@/api/crm/supplier'
+import { listSupplier, getSupplier, addSupplier, updateSupplier, delSupplier, getSupplierDetail } from '@/api/crm/supplier'
 import { listUser } from '@/api/system/user'
 import { getDicts } from '@/api/system/dict/data'
 import { getToken } from '@/utils/auth'
 
 export default {
   name: 'CrmSupplier',
+  components: { Editor: () => import('@/components/Editor') },
   data() {
     return {
       loading: false,
@@ -435,17 +544,31 @@ export default {
       multiple: true,
       title: '',
       open: false,
+      detailTitle: '供应商详情',
+      detailOpen: false,
+      detailData: {},
       uploadUrl: process.env.VUE_APP_BASE_API + '/common/upload',
       uploadHeaders: { Authorization: 'Bearer ' + getToken() },
       uploadFiles: [],
       queryParams: { pageNum: 1, pageSize: 10, supplierName: '', contactName: '', cooperationStatus: '', supplierTypeArr: [], brandsArr: [], mainProductsArr: [], cooperationLevelArr: [], riskLevelArr: [], paymentTermsArr: [], params: {} },
-      form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationStatus: '', businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
+      form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationStatus: '', businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
       dictSupplierType: [], dictMainProducts: [], dictCooperationLevel: [], dictRiskLevel: [], dictPaymentTerms: [], dictProductBrand: [], dictCooperationStatus: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       userOptions: []
     }
   },
   created() { this.getList() },
   methods: {
+    openDetail(row) {
+      const id = row.id
+      getSupplierDetail(id).then(res => {
+        this.detailData = res.data || {}
+        if (!this.detailData.contacts) this.detailData.contacts = []
+        if (!this.detailData.attachments) this.detailData.attachments = []
+        this.detailOpen = true
+      }).catch(err => {
+        this.$modal.msgError(err && err.msg ? err.msg : '获取详情失败')
+      })
+    },
     getList() {
       this.loading = true
       this.queryParams.params.supplierTypeList = this.queryParams.supplierTypeArr
@@ -482,7 +605,7 @@ export default {
       this.download('/crm/supplier/export', { ids: this.ids }, `supplier_${new Date().getTime()}.xlsx`)
     },
     cancel() { this.open = false },
-    resetFormData() { this.form = { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] } },
+    resetFormData() { this.form = { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] } },
     addContact() { this.form.contacts.push({ contactName: '', post: '', phone: '', email: '', isPrimary: 0 }) },
     removeContact(index) { this.form.contacts.splice(index, 1) },
     onUploadSuccess(resp, file) {

@@ -8,6 +8,10 @@ export function getSupplier(id) {
   return request({ url: '/crm/supplier/' + id, method: 'get' })
 }
 
+export function getSupplierDetail(id) {
+  return request({ url: '/crm/supplier/detail/' + id, method: 'get' })
+}
+
 export function addSupplier(data) {
   return request({ url: '/crm/supplier', method: 'post', data: data })
 }

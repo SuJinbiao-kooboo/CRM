@@ -27,8 +27,8 @@ public class CrmSupplierContact extends BaseEntity {
     private String whatsapp;
     @Excel(name = "微信")
     private String wechat;
-    @Excel(name = "QQ")
-    private String qq;
+    @Excel(name = "Teams")
+    private String teams;
     @Excel(name = "其他联系方式1")
     private String otherContactFirst;
     @Excel(name = "其他联系方式2")
@@ -56,7 +56,6 @@ public class CrmSupplierContact extends BaseEntity {
                 .append("email", getEmail())
                 .append("whatsapp", getWhatsapp())
                 .append("wechat", getWechat())
-                .append("qq", getQq())
                 .append("otherContactFirst", getOtherContactFirst())
                 .append("otherContactSecond", getOtherContactSecond())
                 .append("remarkFirst", getRemarkFirst())

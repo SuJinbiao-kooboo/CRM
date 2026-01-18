@@ -1,16 +1,16 @@
 package com.ruoyi.web.controller.crm;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 
+import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.crm.domain.dto.SendEmailReq;
 import com.ruoyi.crm.service.ICrmSendOfferService;
-import com.ruoyi.crm.service.impl.CrmSendOfferServiceImpl;
 import com.ruoyi.crm.service.util.SimpleTextParser;
 import io.swagger.annotations.ApiParam;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,26 +34,6 @@ import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.service.ICrmOfferService;
 import com.ruoyi.system.service.ISysDictDataService;
-import com.alibaba.excel.EasyExcel;
-import com.alibaba.excel.write.metadata.style.WriteCellStyle;
-import com.alibaba.excel.write.style.HorizontalCellStyleStrategy;
-import com.alibaba.excel.write.metadata.WriteSheet;
-import org.apache.commons.lang3.StringUtils;
-import javax.mail.Session;
-import javax.mail.Transport;
-import javax.mail.Message;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeMessage;
-import javax.mail.internet.MimeBodyPart;
-import javax.mail.internet.MimeMultipart;
-import javax.mail.Multipart;
-import javax.mail.BodyPart;
-import javax.mail.PasswordAuthentication;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.io.File;
-import java.text.SimpleDateFormat;
 
 @RestController
 @RequestMapping("/crm/offer")
@@ -173,7 +153,8 @@ public class OfferController extends BaseController {
         return AjaxResult.success(crmOffers);
     }
 
-    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @Anonymous
+//    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @PostMapping("/sendOffer")
     public AjaxResult sendOffer(@RequestBody CrmOffer offer) {
         List<CrmOffer> list = offerService.selectOfferList(offer);
@@ -193,11 +174,17 @@ public class OfferController extends BaseController {
                 }
             }
         }
-        // TODO: Implement send offer logic
+        // 准备数据
+        SendEmailReq sendEmailReq = new SendEmailReq();
+        sendEmailReq.setOffers(list);
+        sendEmailReq.setEmailGroups(Arrays.asList("eke@meelectronic.cn,may@meelectronic.cn", "18959290646@163.com"));
+
+        // 发送消息
+        crmSendOfferService.sendExcelEmail(sendEmailReq);
+
         return AjaxResult.success("发送成功", list.size());
     }
 
-    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @PostMapping("/sendExcelEmail")
     public AjaxResult sendExcelEmail(@RequestBody SendEmailReq req) {
         return crmSendOfferService.sendExcelEmail(req);

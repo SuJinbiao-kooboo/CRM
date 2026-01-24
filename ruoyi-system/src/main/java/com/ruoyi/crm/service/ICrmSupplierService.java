@@ -2,9 +2,10 @@ package com.ruoyi.crm.service;
 
 import java.util.List;
 import com.ruoyi.crm.domain.CrmSupplier;
+import com.ruoyi.crm.domain.dto.CrmSupplierVO;
 
 public interface ICrmSupplierService {
-    List<CrmSupplier> selectSupplierListJoined(CrmSupplier supplier);
+    List<CrmSupplierVO> selectSupplierListJoined(CrmSupplier supplier);
     CrmSupplier selectSupplierById(Long id);
     int insertSupplier(CrmSupplier supplier);
     int updateSupplier(CrmSupplier supplier);

@@ -9,6 +9,7 @@ import javax.servlet.http.HttpServletResponse;
 import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.crm.domain.dto.SendEmailReq;
 import com.ruoyi.crm.service.ICrmSendOfferService;
+import com.ruoyi.crm.service.ICrmSupplierSendOfferService;
 import com.ruoyi.crm.service.util.SimpleTextParser;
 import io.swagger.annotations.ApiParam;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +48,9 @@ public class OfferController extends BaseController {
 
     @Autowired
     private ICrmSendOfferService crmSendOfferService;
+
+    @Autowired
+    private ICrmSupplierSendOfferService crmSupplierSendOfferService;
 
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @GetMapping("/list")
@@ -177,7 +181,9 @@ public class OfferController extends BaseController {
         // 准备数据
         SendEmailReq sendEmailReq = new SendEmailReq();
         sendEmailReq.setOffers(list);
-        sendEmailReq.setEmailGroups(Arrays.asList("eke@meelectronic.cn,may@meelectronic.cn", "18959290646@163.com"));
+        sendEmailReq.setEmailGroups(crmSupplierSendOfferService.listToOfferEmail());
+//        sendEmailReq.setEmailGroups(Arrays.asList("eke@meelectronic.cn,jin@meelectronic.cn", "18959290646@163.com"));
+//        sendEmailReq.setEmailGroups(Arrays.asList("eke@meelectronic.cn"));
 
         // 发送消息
         crmSendOfferService.sendExcelEmail(sendEmailReq);

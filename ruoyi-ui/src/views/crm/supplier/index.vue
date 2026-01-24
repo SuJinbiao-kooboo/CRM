@@ -171,7 +171,7 @@
           <el-table-column label="WhatsApp" prop="whatsapp" width="120" />
           <el-table-column label="微信" prop="wechat" width="120" />
           <el-table-column label="Teams" prop="teams" width="120" />
-          <el-table-column label="其他1" prop="otherContactFirst" width="160" />
+          <el-table-column label="发送组合" prop="otherContactFirst" width="160" />
           <el-table-column label="其他2" prop="otherContactSecond" width="160" />
           <el-table-column label="备注1" prop="remarkFirst" width="160" />
           <el-table-column label="备注2" prop="remarkSecond" width="160" />

@@ -2,6 +2,8 @@ package com.ruoyi.crm.service.impl;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import com.ruoyi.crm.domain.dto.CrmSupplierVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,7 +26,7 @@ public class CrmSupplierServiceImpl implements ICrmSupplierService {
     private CrmAttachmentMapper attachmentMapper;
 
     @Override
-    public List<CrmSupplier> selectSupplierListJoined(CrmSupplier supplier) {
+    public List<CrmSupplierVO> selectSupplierListJoined(CrmSupplier supplier) {
         return supplierMapper.selectSupplierListJoined(supplier);
     }
 

@@ -52,6 +52,11 @@
                 <version>1.6.2</version>
             </dependency>
 
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>5.8.28</version>
+            </dependency>
             <!-- 覆盖SpringFramework的依赖配置-->
             <dependency>
                 <groupId>org.springframework</groupId>
@@ -227,6 +232,11 @@
                 <groupId>com.ruoyi</groupId>
                 <artifactId>ruoyi-common</artifactId>
                 <version>${ruoyi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sun.mail</groupId>
+                <artifactId>javax.mail</artifactId>
+                <version>1.6.2</version>
             </dependency>
 
         </dependencies>

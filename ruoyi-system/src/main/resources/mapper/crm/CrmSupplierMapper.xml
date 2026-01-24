@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ruoyi.crm.mapper.CrmSupplierMapper">
 
-    <resultMap id="CrmSupplierMap" type="com.ruoyi.crm.domain.CrmSupplier">
+    <resultMap id="CrmSupplierMap" type="com.ruoyi.crm.domain.dto.CrmSupplierVO">
         <id column="id" property="id" />
         <result column="supplier_code" property="supplierCode" />
         <result column="supplier_name" property="supplierName" />
@@ -41,6 +41,12 @@
         <result column="post" property="post" />
         <result column="phone" property="phone" />
         <result column="email" property="email" />
+        <result column="teams" property="email" />
+        <result column="whatsApp" property="whatsapp" />
+        <result column="other_contact_first" property="otherContactFirst" />
+        <result column="other_contact_second" property="otherContactSecond" />
+        <result column="remark_first" property="contactRemarkFirst" />
+        <result column="remark_second" property="contactRemarkSecond" />
     </resultMap>
 
     <sql id="Base_Column_List">
@@ -54,7 +60,7 @@
     <select id="selectSupplierListJoined" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultMap="CrmSupplierMap">
         select
         <include refid="Base_Column_List"/>,
-        c.contact_name as contact_name, c.post as post, c.phone as phone, c.email as email, c.qq as teams
+        c.contact_name as contact_name, c.post as post, c.phone as phone, c.email as email, c.qq as teams, c.other_contact_first,  c.other_contact_second,c.remark_first, c.remark_second
         from crm_supplier s
         left join crm_supplier_contact c on c.supplier_id = s.id
         <where>

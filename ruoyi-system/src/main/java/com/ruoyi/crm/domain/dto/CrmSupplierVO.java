@@ -1,18 +1,17 @@
-package com.ruoyi.crm.domain;
+package com.ruoyi.crm.domain.dto;
+
+import com.ruoyi.common.annotation.Excel;
+import com.ruoyi.common.core.domain.BaseEntity;
+import com.ruoyi.crm.domain.CrmAttachment;
+import com.ruoyi.crm.domain.CrmSupplierContact;
+import lombok.Data;
 
 import java.util.Date;
 import java.util.List;
 
-import lombok.Data;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
-import com.ruoyi.common.annotation.Excel;
-import com.ruoyi.common.annotation.Excel.ColumnType;
-import com.ruoyi.common.core.domain.BaseEntity;
-
 @Data
-public class CrmSupplier extends BaseEntity {
-    @Excel(name = "供应商ID", cellType = ColumnType.NUMERIC)
+public class CrmSupplierVO extends BaseEntity {
+    @Excel(name = "供应商ID", cellType = Excel.ColumnType.NUMERIC)
     private Long id;
     @Excel(name = "供应商编号")
     private String supplierCode;
@@ -80,12 +79,28 @@ public class CrmSupplier extends BaseEntity {
 
     @Excel(name = "联系人姓名")
     private String contactName;
-    @Excel(name = "岗位")
+    @Excel(name = "联系人岗位")
     private String post;
-    @Excel(name = "手机号")
+    @Excel(name = "联系人职位")
+    private String position;
+    @Excel(name = "联系人手机号")
     private String phone;
-    @Excel(name = "邮箱")
+    @Excel(name = "联系人邮箱")
     private String email;
-    @Excel(name = "Teams")
+    @Excel(name = "联系人WhatsApp")
+    private String whatsapp;
+    @Excel(name = "联系人微信")
+    private String wechat;
+    @Excel(name = "联系人Teams")
     private String teams;
+    @Excel(name = "联系人其他联系方式1")
+    private String otherContactFirst;
+    @Excel(name = "联系人其他联系方式2")
+    private String otherContactSecond;
+    @Excel(name = "联系人备注1")
+    private String contactRemarkFirst;
+    @Excel(name = "联系人备注2")
+    private String contactRemarkSecond;
+    @Excel(name = "是否主要", readConverterExp = "1=是,0=否")
+    private Integer isPrimary;
 }

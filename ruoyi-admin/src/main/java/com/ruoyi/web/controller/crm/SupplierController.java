@@ -2,6 +2,8 @@ package com.ruoyi.web.controller.crm;
 
 import java.util.List;
 import javax.servlet.http.HttpServletResponse;
+
+import com.ruoyi.crm.domain.dto.CrmSupplierVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,7 +36,7 @@ public class SupplierController extends BaseController {
     @GetMapping("/list")
     public TableDataInfo list(CrmSupplier supplier) {
         startPage();
-        List<CrmSupplier> list = supplierService.selectSupplierListJoined(supplier);
+        List<CrmSupplierVO> list = supplierService.selectSupplierListJoined(supplier);
         return getDataTable(list);
     }
 
@@ -50,14 +52,14 @@ public class SupplierController extends BaseController {
     @Log(title = "供应商管理", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(HttpServletResponse response, CrmSupplier supplier, @RequestParam(value = "ids", required = false) Long[] ids) {
-        List<CrmSupplier> list;
+        List<CrmSupplierVO> list;
         if (ids != null && ids.length > 0) {
             list = supplierService.selectSupplierListJoined(new CrmSupplier());
             list.removeIf(s -> !contains(ids, s.getId()));
         } else {
             list = supplierService.selectSupplierListJoined(supplier);
         }
-        ExcelUtil<CrmSupplier> util = new ExcelUtil<>(CrmSupplier.class);
+        ExcelUtil<CrmSupplierVO> util = new ExcelUtil<>(CrmSupplierVO.class);
         util.exportExcel(response, list, "供应商数据");
     }
 

@@ -92,6 +92,9 @@
       <el-col :span="1.5">
         <el-button type="primary" plain icon="el-icon-s-promotion" size="mini" @click="handleSendOffer" v-hasPermi="['crm:offer:list']">发送Offer</el-button>
       </el-col>
+      <el-col :span="1.8">
+        <el-button type="info" plain icon="el-icon-view" size="mini" @click="openOfferProgress" v-hasPermi="['crm:offer:list']">查看Offer进度</el-button>
+      </el-col>
     </el-row>
 
     <el-table v-loading="loading" :data="offerList" @selection-change="handleSelectionChange">
@@ -350,11 +353,38 @@
         <el-button type="primary" @click="confirmExport">确 定</el-button>
       </div>
     </el-dialog>
+
+    <el-dialog title="Offer进度" :visible.sync="offerProgressDialogVisible" width="900px" append-to-body>
+      <div style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+        <div>成功：{{ progressSuccessCount }}，失败：{{ progressFailCount }}</div>
+        <div>
+          <el-button size="mini" type="primary" v-clipboard="copyAllText" v-clipboard:success="onCopyOk">复制全部</el-button>
+        </div>
+      </div>
+      <el-table :data="emailResultList" height="420" border style="width:100%">
+        <el-table-column prop="id" label="ID" width="90" />
+        <el-table-column prop="batchNo" label="批次号" width="180" show-overflow-tooltip />
+        <el-table-column prop="email" label="邮箱" width="220" show-overflow-tooltip />
+        <el-table-column prop="result" label="结果" width="120" />
+        <el-table-column prop="msg" label="失败原因" min-width="240" show-overflow-tooltip />
+        <el-table-column prop="updateTime" label="更新时间" width="180">
+          <template slot-scope="scope"><span>{{ parseTime(scope.row.updateTime) }}</span></template>
+        </el-table-column>
+        <el-table-column label="操作" width="120">
+          <template slot-scope="scope">
+            <el-button type="text" size="mini" v-clipboard="getRowCopyText(scope.row)" v-clipboard:success="onCopyOk">复制</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="offerProgressDialogVisible=false">关 闭</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer } from '@/api/crm/offer'
+import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer, listEmailResults } from '@/api/crm/offer'
 import { listSupplierOptions, listSupplier, listSupplierSimple } from '@/api/crm/supplier'
 import { getDicts } from '@/api/system/dict/data'
 import { parseTime } from "@/utils/ruoyi"
@@ -409,6 +439,11 @@ export default {
       ,exportDialogVisible: false
       ,exportFieldsDict: []
       ,selectedExportFields: []
+      ,offerProgressDialogVisible: false
+      ,emailResultList: []
+      ,progressSuccessCount: 0
+      ,progressFailCount: 0
+      ,copyAllText: ''
     }
   },
   created() { this.getList(); this.loadDicts() },
@@ -678,6 +713,43 @@ export default {
       this.form.tagsThird = (this.form.tagsThirdArr || []).join(',')
       this.form.tagsSi = (this.form.tagsSiArr || []).join(',')
     }
+    ,openOfferProgress() {
+      listEmailResults().then(res => {
+        const list = res.data || []
+        this.emailResultList = list
+        this.progressSuccessCount = list.filter(x => String(x.result).indexOf('成功') !== -1).length
+        this.progressFailCount = list.filter(x => String(x.result).indexOf('失败') !== -1).length
+        this.copyAllText = this.buildAllCopyText(list)
+        this.offerProgressDialogVisible = true
+      })
+    }
+    ,buildAllCopyText(list) {
+      const lines = []
+      lines.push(`成功：${this.progressSuccessCount}，失败：${this.progressFailCount}`)
+      list.forEach(r => {
+        const t = [
+          `ID=${r.id}`,
+          `批次号=${r.batchNo || ''}`,
+          `邮箱=${r.email || ''}`,
+          `结果=${r.result || ''}`,
+          `原因=${r.msg || ''}`,
+          `更新时间=${r.updateTime ? this.parseTime(r.updateTime) : ''}`
+        ].join(' | ')
+        lines.push(t)
+      })
+      return lines.join('\n')
+    }
+    ,getRowCopyText(row) {
+      return [
+        `ID=${row.id}`,
+        `批次号=${row.batchNo || ''}`,
+        `邮箱=${row.email || ''}`,
+        `结果=${row.result || ''}`,
+        `原因=${row.msg || ''}`,
+        `更新时间=${row.updateTime ? this.parseTime(row.updateTime) : ''}`
+      ].join(' | ')
+    }
+    ,onCopyOk() { this.$modal.msgSuccess('已复制') }
   }
 }
 </script>

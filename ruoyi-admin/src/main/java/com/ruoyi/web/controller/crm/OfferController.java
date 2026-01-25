@@ -196,5 +196,11 @@ public class OfferController extends BaseController {
         return crmSendOfferService.sendExcelEmail(req);
     }
 
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @GetMapping("/emailResults")
+    public AjaxResult emailResults() {
+        return AjaxResult.success(crmSupplierSendOfferService.listEmailSendResults());
+    }
+
 
 }

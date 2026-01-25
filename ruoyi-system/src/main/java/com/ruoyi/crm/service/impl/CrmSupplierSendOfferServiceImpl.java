@@ -3,6 +3,7 @@ package com.ruoyi.crm.service.impl;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
 import com.ruoyi.crm.domain.CrmSupplier;
+import com.ruoyi.crm.domain.dto.CrmSendEmailTaskDTO;
 import com.ruoyi.crm.domain.dto.CrmSupplierVO;
 import com.ruoyi.crm.domain.dto.SubscribeEmailDTO;
 import com.ruoyi.crm.mapper.CrmSupplierMapper;
@@ -48,5 +49,10 @@ public class CrmSupplierSendOfferServiceImpl implements ICrmSupplierSendOfferSer
         supplierMapper.batchInsertWithDefault(DateUtil.formatDateTime(new Date()), contactList);
 
         return contactList;
+    }
+
+    @Override
+    public List<CrmSendEmailTaskDTO> listEmailSendResults() {
+        return supplierMapper.selectEmailResultList();
     }
 }

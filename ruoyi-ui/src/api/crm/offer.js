@@ -40,3 +40,7 @@ export function parseOffer(data) {
 export function sendOffer(data) {
   return request({ url: '/crm/offer/sendOffer', method: 'post', data: data })
 }
+
+export function listEmailResults() {
+  return request({ url: '/crm/offer/emailResults', method: 'get' })
+}

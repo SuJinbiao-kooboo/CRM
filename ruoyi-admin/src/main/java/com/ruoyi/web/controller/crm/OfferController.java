@@ -181,9 +181,9 @@ public class OfferController extends BaseController {
         // 准备数据
         SendEmailReq sendEmailReq = new SendEmailReq();
         sendEmailReq.setOffers(list);
-        sendEmailReq.setEmailGroups(crmSupplierSendOfferService.listToOfferEmail());
+//        sendEmailReq.setEmailGroups(crmSupplierSendOfferService.listToOfferEmail());
 //        sendEmailReq.setEmailGroups(Arrays.asList("eke@meelectronic.cn,jin@meelectronic.cn", "18959290646@163.com"));
-//        sendEmailReq.setEmailGroups(Arrays.asList("eke@meelectronic.cn"));
+        sendEmailReq.setEmailGroups(Arrays.asList("eke@meelectronic.cn"));
 
         // 发送消息
         crmSendOfferService.sendExcelEmail(sendEmailReq);

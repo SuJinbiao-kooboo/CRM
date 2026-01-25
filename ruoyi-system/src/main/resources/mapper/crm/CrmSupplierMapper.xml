@@ -223,4 +223,36 @@
         delete from crm_attachment where from_type = #{fromType} and from_id = #{fromId}
     </delete>
 
+
+    <!-- 批量插入，支持默认值 -->
+    <insert id="batchInsertWithDefault">
+        INSERT INTO crm_send_email_task
+        (batch_no, email, result, update_time)
+        VALUES
+        <foreach collection="emailList" item="email" separator=",">
+            (
+            #{batchNo},
+            #{email},
+            '未发送',
+            NOW()
+            )
+        </foreach>
+    </insert>
+    <!-- 批量插入，支持默认值 -->
+    <insert id="deleteAllTask">
+        delete from crm_send_email_task where 1=1;
+    </insert>
+    <!-- 批量插入，支持默认值 -->
+    <insert id="updateSendResult">
+        update crm_send_email_task set result=#{result},msg=#{msg} where email=#{email};
+    </insert>
+    <!-- 批量插入，支持默认值 -->
+    <select id="selectEmailResultList" resultType="com.ruoyi.crm.domain.dto.CrmSendEmailTaskDTO">
+        select * from crm_send_email_task order by update_time desc;
+    </select>
+    <!-- 批量插入，支持默认值 -->
+    <select id="selectSubscribeEmailList" resultType="com.ruoyi.crm.domain.dto.SubscribeEmailDTO">
+        select * from portal.t_subscription;
+    </select>
+
 </mapper>

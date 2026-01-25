@@ -1,6 +1,7 @@
 package com.ruoyi.crm.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.StrUtil;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.metadata.Head;
@@ -19,6 +20,7 @@ import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.domain.dto.CrmOfferImportDTO;
 import com.ruoyi.crm.domain.dto.SendEmailReq;
 import com.ruoyi.crm.mapper.CrmOfferMapper;
+import com.ruoyi.crm.mapper.CrmSupplierMapper;
 import com.ruoyi.crm.service.ICrmOfferService;
 import com.ruoyi.crm.service.ICrmSendOfferService;
 import com.ruoyi.system.service.ISysDictDataService;
@@ -58,6 +60,8 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
     @Autowired
     private ISysDictDataService dictDataService;
 
+    @Autowired
+    private CrmSupplierMapper crmSupplierMapper;
 
     @Autowired
     private ICrmOfferService offerService;
@@ -74,9 +78,6 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
             return AjaxResult.error("需要发送的emailGroup为空");
         }
 
-        String emailSign = dictDataService.selectDictLabel("crm_email_template_dict", "email_sign");
-        String emailTitle = dictDataService.selectDictLabel("crm_email_template_dict", "email_title");
-        String emailBody = dictDataService.selectDictLabel("crm_email_template_dict", "email_body");
         String emailAccount = dictDataService.selectDictLabel("crm_email_template_dict", "email_account");
         String emailPassword = dictDataService.selectDictLabel("crm_email_template_dict", "email_password");
         String emailSmtp = dictDataService.selectDictLabel("crm_email_template_dict", "email_smtp");
@@ -105,13 +106,19 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
             for (int t = 0; t < 3 && !ok; t++) {
                 attempts++;
                 try {
-                    EmailSender.sendEmail(emailSmtp, emailSmtpPort, emailAccount, emailPassword, addrs, emailTitle, combineHtml(emailBody, emailSign, tableHtml), df);
+                    String emailTitle = dictDataService.selectDictLabel("crm_email_template_dict", "email_title");
+                    EmailSender.sendEmail(emailSmtp, emailSmtpPort, emailAccount, emailPassword, addrs, emailTitle, combineHtml(addrs, tableHtml), df);
                     log.info("成功发送："+addrs);
                     ok = true;
                 } catch (Exception ex) {
                     log.error("发送邮件错误， msg={}", ex.getMessage(), ex);
-                    err = ex.getMessage();
+                    err = StrUtil.subWithLength(ex.getMessage(), 0, 100);
                 }
+            }
+            if(ok){
+                crmSupplierMapper.updateSendResult(group, "发送成功", "");
+            }else{
+                crmSupplierMapper.updateSendResult(group, "发送失败", err);
             }
             item.put("success", ok);
             item.put("attempts", attempts);
@@ -138,22 +145,22 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
         ExcelWriter writer = null;
         try {
             String excelAddr = dictDataService.selectDictLabel("crm_email_template_dict", "excel_addr");
-
+//
             df = downloadFile(excelAddr);
-            log.info(df.getPath());
+//            log.info(df.getPath());
             HorizontalCellStyleStrategy styleStrategy = getHorizontalCellStyleStrategy();
             WriteHandler columnWidthHandler = getColumnWidthHandler();
 
             // 1. 核心修改：使用模板文件模式，而不是直接写入目标文件
             // 将下载的文件作为模板，写入时保留原有内容
             writer = EasyExcel.write(df, CrmOfferImportDTO.class)
-                    .withTemplate(df) // 关键：设置模板文件
+//                    .withTemplate(df) // 关键：设置模板文件
                     .registerWriteHandler(styleStrategy)
                     .registerWriteHandler(columnWidthHandler)
                     .build();
 
             WriteSheet writeSheet = EasyExcel.writerSheet(0)
-                    .relativeHeadRowIndex(2) // 从模板的第3行开始写入（0-based索引）
+                    .relativeHeadRowIndex(0) // 从模板的第3行开始写入（0-based索引）
                     .build();
 
             // 2. 写入数据：这会从模板的第三行开始追加，不会清除前两行
@@ -250,12 +257,17 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
         return styleStrategy;
     }
 
-    private String combineHtml(String body, String sign, String tableHtml) {
+    private String combineHtml(List<String> addrs, String tableHtml) {
         StringBuilder sb = new StringBuilder();
+        String toCancelUrl = dictDataService.selectDictLabel("crm_email_template_dict", "email_cancel_url");
+        String emailSign = dictDataService.selectDictLabel("crm_email_template_dict", "email_sign");
+        String emailBody = dictDataService.selectDictLabel("crm_email_template_dict", "email_body");
+        toCancelUrl = toCancelUrl.replace("{toCancelEmail}", addrs.get(0));
         sb.append("<div>");
-        if (StringUtils.isNotBlank(body)) sb.append(body);
+        if (StringUtils.isNotBlank(emailBody)) sb.append(emailBody);
         if (StringUtils.isNotBlank(tableHtml)) sb.append(tableHtml);
-        if (StringUtils.isNotBlank(sign)) sb.append(sign);
+        if (StringUtils.isNotBlank(toCancelUrl)) sb.append(toCancelUrl);
+        if (StringUtils.isNotBlank(emailSign)) sb.append(emailSign);
         sb.append("</div>");
         return sb.toString();
     }

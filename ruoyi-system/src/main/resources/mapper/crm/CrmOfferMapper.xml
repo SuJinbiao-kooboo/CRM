@@ -73,9 +73,9 @@
                 </foreach>
                 )
             </if>
-            <if test="params != null and params.ids != null and params.ids.size() > 0">
+            <if test="params != null and params.ids != null and params.ids.length() > 0">
                 and id in
-                <foreach collection="params.ids" item="pt" separator="," open="(" close=")">
+                <foreach collection="params.ids.split(',')" item="pt" separator="," open="(" close=")">
                      #{pt}
                 </foreach>
             </if>

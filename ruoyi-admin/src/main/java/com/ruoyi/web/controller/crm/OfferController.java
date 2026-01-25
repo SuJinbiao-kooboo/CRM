@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 
+import cn.hutool.core.date.DateUtil;
 import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.crm.domain.dto.SendEmailReq;
 import com.ruoyi.crm.service.ICrmSendOfferService;
@@ -13,6 +14,7 @@ import com.ruoyi.crm.service.ICrmSupplierSendOfferService;
 import com.ruoyi.crm.service.util.SimpleTextParser;
 import io.swagger.annotations.ApiParam;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -51,6 +53,9 @@ public class OfferController extends BaseController {
 
     @Autowired
     private ICrmSupplierSendOfferService crmSupplierSendOfferService;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @GetMapping("/list")
@@ -181,9 +186,8 @@ public class OfferController extends BaseController {
         // 准备数据
         SendEmailReq sendEmailReq = new SendEmailReq();
         sendEmailReq.setOffers(list);
-//        sendEmailReq.setEmailGroups(crmSupplierSendOfferService.listToOfferEmail());
-//        sendEmailReq.setEmailGroups(Arrays.asList("eke@meelectronic.cn,jin@meelectronic.cn", "18959290646@163.com"));
-        sendEmailReq.setEmailGroups(Arrays.asList("eke@meelectronic.cn"));
+
+        sendEmailReq.setEmailGroups(crmSupplierSendOfferService.listToOfferEmail());
 
         // 发送消息
         crmSendOfferService.sendExcelEmail(sendEmailReq);

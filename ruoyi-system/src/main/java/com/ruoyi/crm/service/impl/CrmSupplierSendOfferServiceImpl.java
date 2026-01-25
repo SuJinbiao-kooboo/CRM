@@ -9,6 +9,7 @@ import com.ruoyi.crm.domain.dto.SubscribeEmailDTO;
 import com.ruoyi.crm.mapper.CrmSupplierMapper;
 import com.ruoyi.crm.service.ICrmSupplierSendOfferService;
 import com.ruoyi.crm.service.ICrmSupplierService;
+import com.ruoyi.system.service.ISysDictDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -22,16 +23,36 @@ public class CrmSupplierSendOfferServiceImpl implements ICrmSupplierSendOfferSer
     private ICrmSupplierService crmSupplierService;
     @Autowired
     private CrmSupplierMapper supplierMapper;
+    @Autowired
+    private ISysDictDataService dictDataService;
 
     @Override
     public List<String> listToOfferEmail() {
+        List<String> contactList = new ArrayList<>();
+        String emailAccount = dictDataService.selectDictLabel("crm_email_template_dict", "email_test_date");
+        // 字典里面的这个要设置成当前日期，才是发送正式Offer，否则都是测试Offer
+        if(DateUtil.today().equals(emailAccount)){
+            contactList.add("这个是正式发送");
+            fillContactList(contactList);
+        }else{
+            contactList.add("这个测试发送");
+            contactList.add(dictDataService.selectDictLabel("crm_email_template_dict", "email_test_account"));
+        }
 
+        contactList = contactList.stream().filter(StrUtil::isNotEmpty).collect(Collectors.toList());
+
+        supplierMapper.deleteAllTask();
+        supplierMapper.batchInsertWithDefault(DateUtil.formatDateTime(new Date()), contactList);
+
+        return contactList;
+    }
+
+    private void fillContactList(List<String> contactList) {
         List<SubscribeEmailDTO> subscribeEmailDTOS = supplierMapper.selectSubscribeEmailList();
         List<String> cancelEmailList = subscribeEmailDTOS.stream().filter(o -> 0 == o.getStatus()).map(SubscribeEmailDTO::getEmail).collect(Collectors.toList());
         List<String> subscribeEmailList = subscribeEmailDTOS.stream().filter(o -> 1 == o.getStatus()).map(SubscribeEmailDTO::getEmail).collect(Collectors.toList());
         List<CrmSupplierVO> crmSuppliers = crmSupplierService.selectSupplierListJoined(new CrmSupplier());
         Map<String, List<CrmSupplierVO>> supplierMap = crmSuppliers.stream().filter(o -> !cancelEmailList.contains(o.getEmail())).collect(Collectors.groupingBy(CrmSupplierVO::getSupplierCode));
-        List<String> contactList = new ArrayList<>();
 
         for (Map.Entry<String, List<CrmSupplierVO>> entry : supplierMap.entrySet()) {
             List<CrmSupplierVO> valueList = entry.getValue();
@@ -44,11 +65,6 @@ public class CrmSupplierSendOfferServiceImpl implements ICrmSupplierSendOfferSer
         }
 
         contactList.addAll(subscribeEmailList);
-
-        supplierMapper.deleteAllTask();
-        supplierMapper.batchInsertWithDefault(DateUtil.formatDateTime(new Date()), contactList);
-
-        return contactList;
     }
 
     @Override

@@ -63,7 +63,7 @@ public class CrmOffer extends BaseEntity {
     private String productType;
     @Excel(name = "产品明细编号")
     private String productDetailCode;
-    @Excel(name = "询报价类型")
+    @Excel(name = "询报价类型 Offer/Inq")
     private String inqOfferType;
 
       @Override

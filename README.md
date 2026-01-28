@@ -10,6 +10,8 @@
     const port = process.env.port || process.env.npm_config_port || 81 // 端口
 4. 前端复制代码过去的时候要解压 unzip 压缩包
     还需要赋值执行权限 
+    unzip ruoyi-ui.zip
+
     sudo chmod -R 755 /opt/soft/crm/ruoyi-ui/node_modules
 5. 启动脚本：
     前端：/usr/bin/nohup npm run dev & 

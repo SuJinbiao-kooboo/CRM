@@ -166,6 +166,7 @@ public class OfferController extends BaseController {
 //    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @PostMapping("/sendOffer")
     public AjaxResult sendOffer(@RequestBody CrmOffer offer) {
+        offer.setInqOfferType("Offer"); // Offer/Inq
         List<CrmOffer> list = offerService.selectOfferList(offer);
         if (offer.getParams() != null && offer.getParams().containsKey("ids")) {
             Object idsObj = offer.getParams().get("ids");

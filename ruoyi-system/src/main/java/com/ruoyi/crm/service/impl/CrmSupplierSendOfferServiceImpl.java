@@ -51,8 +51,13 @@ public class CrmSupplierSendOfferServiceImpl implements ICrmSupplierSendOfferSer
         List<SubscribeEmailDTO> subscribeEmailDTOS = supplierMapper.selectSubscribeEmailList();
         List<String> cancelEmailList = subscribeEmailDTOS.stream().filter(o -> 0 == o.getStatus()).map(SubscribeEmailDTO::getEmail).collect(Collectors.toList());
         List<String> subscribeEmailList = subscribeEmailDTOS.stream().filter(o -> 1 == o.getStatus()).map(SubscribeEmailDTO::getEmail).collect(Collectors.toList());
-        List<CrmSupplierVO> crmSuppliers = crmSupplierService.selectSupplierListJoined(new CrmSupplier());
-        Map<String, List<CrmSupplierVO>> supplierMap = crmSuppliers.stream().filter(o -> !cancelEmailList.contains(o.getEmail())).collect(Collectors.groupingBy(CrmSupplierVO::getSupplierCode));
+        String emailSupplier = dictDataService.selectDictLabel("crm_email_template_dict", "email_add_supplier");
+
+        Map<String, List<CrmSupplierVO>> supplierMap = new HashMap<>();
+        if(Boolean.TRUE.toString().equals(emailSupplier)){
+            List<CrmSupplierVO> crmSuppliers = crmSupplierService.selectSupplierListJoined(new CrmSupplier());
+            supplierMap = crmSuppliers.stream().filter(o -> !cancelEmailList.contains(o.getEmail())).collect(Collectors.groupingBy(CrmSupplierVO::getSupplierCode));
+        }
 
         for (Map.Entry<String, List<CrmSupplierVO>> entry : supplierMap.entrySet()) {
             List<CrmSupplierVO> valueList = entry.getValue();

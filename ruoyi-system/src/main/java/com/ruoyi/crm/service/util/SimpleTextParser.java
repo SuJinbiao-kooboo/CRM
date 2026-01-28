@@ -1,5 +1,6 @@
 package com.ruoyi.crm.service.util;
 
+import cn.hutool.core.util.NumberUtil;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.crm.domain.CrmOffer;
 import java.util.*;
@@ -158,6 +159,7 @@ public class SimpleTextParser {
                 break;
             case "单价":
                 offer.setPriceCost(parseDouble(fieldValue));
+                offer.setPriceOffer(NumberUtil.round(parseDouble(fieldValue)*1.02, 0).doubleValue());
                 break;
             case "DC":
                 offer.setDc(fieldValue);

@@ -2,37 +2,32 @@ package com.ruoyi.crm.domain.dto;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.ruoyi.common.annotation.Excel;
-import com.ruoyi.common.annotation.Excel.ColumnType;
-import com.ruoyi.common.core.domain.BaseEntity;
 import lombok.Data;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.io.Serializable;
-import java.util.Date;
 
 @Data
 public class CrmOfferImportDTO implements Serializable {
-    @Excel(name = "PN")
+    @Excel(name = "P/N")
+    @ExcelProperty("P/N")
     private String productCode;
-    @Excel(name = "Brand")
-    private String productBrand;
-    @Excel(name = "Desc")
-    private String productDetail;
-    @Excel(name = "Price")
+//    @Excel(name = "MFG/Brand")
+//    @ExcelProperty("MFG/Brand")
+//    private String productBrand;
+//    @Excel(name = "Desp.")
+//    @ExcelProperty("Desp.")
+//    private String productDetail;
+    @Excel(name = "EXW U/P USD")
+    @ExcelProperty("EXW U/P USD")
     private Double priceOffer;
-    @Excel(name = "Unit")
-    private String priceUnit;
-    @Excel(name = "Quantity")
+    @Excel(name = "QTY")
+    @ExcelProperty("QTY")
     private Integer quantity;
-    @Excel(name = "LT")
+    @Excel(name = "Lead time")
+    @ExcelProperty("Lead time")
     private String deliveryTime;
     @Excel(name = "Remark")
+    @ExcelProperty("Remark")
     private String remark;
-    @Excel(name = "MOQ")
-    private Integer moqQuantity;
-    @Excel(name = "warranty")
-    private String warrantyDetail;
-    @Excel(name = "DC")
-    private String dc;
+
 }

@@ -102,26 +102,27 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
             item.put("recipients", addrs);
             boolean ok = false;
             String err = "";
-            int attempts = 0;
-            for (int t = 0; t < 3 && !ok; t++) {
-                attempts++;
+//            int attempts = 0;
+//            for (int t = 0; t < 3 && !ok; t++) {
+//                attempts++;
                 try {
                     String emailTitle = dictDataService.selectDictLabel("crm_email_template_dict", "email_title");
                     EmailSender.sendEmail(emailSmtp, emailSmtpPort, emailAccount, emailPassword, addrs, emailTitle, combineHtml(addrs, tableHtml), df);
                     log.info("成功发送："+addrs);
                     ok = true;
+                    Thread.sleep(3000);
                 } catch (Exception ex) {
                     log.error("发送邮件错误， msg={}", ex.getMessage(), ex);
                     err = StrUtil.subWithLength(ex.getMessage(), 0, 100);
                 }
-            }
+//            }
             if(ok){
                 crmSupplierMapper.updateSendResult(group, "发送成功", "");
             }else{
                 crmSupplierMapper.updateSendResult(group, "发送失败", err);
             }
             item.put("success", ok);
-            item.put("attempts", attempts);
+//            item.put("attempts", attempts);
             item.put("error", err);
             if (ok) success++;
             else fail++;

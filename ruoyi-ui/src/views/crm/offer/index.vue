@@ -225,6 +225,9 @@
             <el-option label="Offer" value="Offer" />
           </el-select>
         </el-form-item>
+        <el-form-item label="利润比例(%)" prop="profitRatio">
+          <el-input-number v-model="importForm.profitRatio" :controls="false" :precision="2" :min="0" placeholder="默认2" style="width: 100%" />
+        </el-form-item>
         <el-form-item label="Excel文件">
           <el-upload ref="importUpload" :action="uploadAction" :http-request="doImport" :show-file-list="true" :limit="1" :auto-upload="false">
             <el-button size="small" type="primary">选择文件</el-button>
@@ -311,6 +314,9 @@
             <el-button size="mini" @click="clearTokens">清空</el-button>
           </div>
         </el-form-item>
+        <el-form-item label="利润比例(%)">
+          <el-input-number v-model="batchProfitRatio" :controls="false" :precision="2" :min="0" placeholder="默认2" style="width: 100%" />
+        </el-form-item>
         <div class="form-header">粘贴文本</div>
         <el-form-item label="文本">
           <el-input type="textarea" v-model="pasteText" :rows="8" placeholder="粘贴询报价文本" />
@@ -358,6 +364,7 @@
       <div style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
         <div>成功：{{ progressSuccessCount }}，失败：{{ progressFailCount }}</div>
         <div>
+          <el-button size="mini" type="primary" @click="refreshOfferProgress">查询</el-button>
           <el-button size="mini" type="primary" v-clipboard="copyAllText" v-clipboard:success="onCopyOk">复制全部</el-button>
         </div>
       </div>
@@ -421,7 +428,7 @@ export default {
       stockDateRange: [],
       form: { id: undefined, supplierCode: '', supplierName: '', productCode: '', productBrand: '', productBrandArr: [], stockDate: undefined, priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, deliveryTime: '', remark: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer' },
       dictProductBrand: [], dictPriceUnit: [], dictProductType: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
-      importForm: { inqOfferType: 'Offer' },
+      importForm: { inqOfferType: 'Offer', profitRatio: 2 },
       uploadAction: process.env.VUE_APP_BASE_API + '/crm/offer/import',
       batchForm: { productBrand: '', stockDate: undefined, productDetail: '', priceCost: undefined, priceOffer: undefined, priceUnit: '', quantity: undefined, deliveryTime: '', moqQuantity: undefined, warrantyDetail: '', productType: '', remark: '', inqOfferType: '' },
       tmpField: '',
@@ -429,6 +436,8 @@ export default {
       openBatchAddDialog: false,
       batchAddSupplier: null,
       batchAddInqOfferType: 'Offer',
+      batchProfitRatio: 2,
+      batchProfitRatio: 2,
       dictFormatTemplates: [],
       dictInqFields: [],
       dictSeps: [],
@@ -452,8 +461,8 @@ export default {
       const qp = JSON.parse(JSON.stringify(this.queryParams));
       qp.params = qp.params || {};
 
-      qp.params.beginStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[0] : undefined;
-      qp.params.endStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[1] : undefined;
+      qp.params.beginStockDate = this.stockDateRange && this.stockDateRange.length ? parseTime(this.stockDateRange[0], '{y}-{m}-{d}') : undefined;
+      qp.params.endStockDate = this.stockDateRange && this.stockDateRange.length ? parseTime(this.stockDateRange[1], '{y}-{m}-{d}') : undefined;
 
       if (this.queryParams.supplierCodes && this.queryParams.supplierCodes.length > 0) {
         qp.params.supplierCodeList = this.queryParams.supplierCodes.join(',');
@@ -480,8 +489,8 @@ export default {
       const qp = JSON.parse(JSON.stringify(this.queryParams));
       qp.params = qp.params || {};
 
-      qp.params.beginStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[0] : undefined;
-      qp.params.endStockDate = this.stockDateRange && this.stockDateRange.length ? this.stockDateRange[1] : undefined;
+      qp.params.beginStockDate = this.stockDateRange && this.stockDateRange.length ? parseTime(this.stockDateRange[0], '{y}-{m}-{d}') : undefined;
+      qp.params.endStockDate = this.stockDateRange && this.stockDateRange.length ? parseTime(this.stockDateRange[1], '{y}-{m}-{d}') : undefined;
 
       if (this.queryParams.supplierCodes && this.queryParams.supplierCodes.length > 0) {
         qp.params["supplierCodeList"] = this.queryParams.supplierCodes.join(",");
@@ -571,6 +580,7 @@ export default {
       fd.append('supplierCode', this.importSupplier.supplierCode || '')
       fd.append('supplierName', this.importSupplier.supplierName || '')
       fd.append('inqOfferType', this.importForm.inqOfferType)
+      fd.append('profitRatio', String(this.importForm.profitRatio == null ? 2 : this.importForm.profitRatio))
       fd.append('colMapJson', JSON.stringify(this.colMap))
       importOffer(fd).then(res => {
         const d = res.data || {}
@@ -603,7 +613,8 @@ export default {
       }
       const data = {
         text: this.pasteText,
-        sequence: this.formatSequence
+        sequence: this.formatSequence,
+        profitRatio: this.batchProfitRatio == null ? 2 : this.batchProfitRatio
       };
       parseOffer(data).then(res => {
         this.parsedRows = res.data || [];
@@ -721,6 +732,15 @@ export default {
         this.progressFailCount = list.filter(x => String(x.result).indexOf('失败') !== -1).length
         this.copyAllText = this.buildAllCopyText(list)
         this.offerProgressDialogVisible = true
+      })
+    }
+    ,refreshOfferProgress() {
+      listEmailResults().then(res => {
+        const list = res.data || []
+        this.emailResultList = list
+        this.progressSuccessCount = list.filter(x => String(x.result).indexOf('成功') !== -1).length
+        this.progressFailCount = list.filter(x => String(x.result).indexOf('失败') !== -1).length
+        this.copyAllText = this.buildAllCopyText(list)
       })
     }
     ,buildAllCopyText(list) {

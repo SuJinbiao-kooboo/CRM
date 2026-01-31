@@ -7,6 +7,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import cn.hutool.core.util.NumberUtil;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -45,7 +47,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         offer.setStatus(1);
         offer.setCreateBy(userName);
         offer.setUpdateBy(userName);
-        if (offer.getPriceCost() != null) {
+        if (offer.getPriceOffer() == null && offer.getPriceCost() != null) {
             offer.setPriceOffer(round2(offer.getPriceCost() * 1.03d));
         }
         return offerMapper.insertOffer(offer);
@@ -68,7 +70,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
 
     @Override
     @Transactional
-    public Map<String, Object> importOffers(MultipartFile file, String supplierCode, String supplierName, String inqOfferType, Map<String, String> colMap) {
+    public Map<String, Object> importOffers(MultipartFile file, String supplierCode, String supplierName, String inqOfferType, Map<String, String> colMap, Double profitRatio) {
         int success = 0;
         List<Map<String, Object>> fails = new ArrayList<>();
         try (InputStream is = file.getInputStream(); Workbook wb = WorkbookFactory.create(is)) {
@@ -110,7 +112,8 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 offer.setPriceCost(cost);
                 Double price = idxPriceOffer != null ? getDouble(row.getCell(idxPriceOffer)) : null;
                 if (price == null && cost != null) {
-                    price = round2(cost * 1.02d);
+                    double ratio = profitRatio == null ? 2d : profitRatio.doubleValue();
+                    price = round2(cost * (1d + ratio / 100d));
                 }
                 offer.setPriceOffer(price);
                 offer.setPriceUnit("USD");

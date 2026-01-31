@@ -28,6 +28,13 @@ public class SimpleTextParser {
             return offerList;
         }
 
+        Double profitRatio = 2d;
+        Object pr = params.get("profitRatio");
+        if (pr instanceof Number) { profitRatio = ((Number) pr).doubleValue(); }
+        else if (pr instanceof String && ((String) pr).trim().length() > 0) {
+            try { profitRatio = Double.parseDouble(((String) pr).trim()); } catch (Exception ignored) {}
+        }
+
         // 按换行符分割文本
         String[] lines = text.split("\n");
 
@@ -39,7 +46,7 @@ public class SimpleTextParser {
                 continue;
             }
             CrmOffer offer = new CrmOffer();
-            text = parseText(text, sequence, offer);
+            text = parseText(text, sequence, offer, profitRatio);
             if (offer != null && StringUtils.isNotEmpty(offer.getProductCode())) {
                 offerList.add(offer);
             }
@@ -51,7 +58,7 @@ public class SimpleTextParser {
     /**
      * 解析单行文本
      */
-    private String parseText(String text, List<Map<String, Object>> sequence, CrmOffer offer ) {
+    private String parseText(String text, List<Map<String, Object>> sequence, CrmOffer offer , Double profitRatio) {
         List<String> productDetails = new ArrayList<>();
 
         // 遍历解析规则
@@ -110,7 +117,7 @@ public class SimpleTextParser {
                 }
 
                 // 映射字段
-                mapField(fieldName, fieldValue, offer, productDetails);
+                mapField(fieldName, fieldValue, offer, productDetails, profitRatio);
             }
 
         }
@@ -139,7 +146,7 @@ public class SimpleTextParser {
     /**
      * 映射字段值
      */
-    private void mapField(String fieldName, String fieldValue, CrmOffer offer, List<String> productDetails) {
+    private void mapField(String fieldName, String fieldValue, CrmOffer offer, List<String> productDetails, Double profitRatio) {
         if (fieldValue == null || fieldValue.isEmpty()) {
             return;
         }
@@ -159,7 +166,10 @@ public class SimpleTextParser {
                 break;
             case "单价":
                 offer.setPriceCost(parseDouble(fieldValue));
-                offer.setPriceOffer(NumberUtil.round(parseDouble(fieldValue)*1.02, 0).doubleValue());
+                if (offer.getPriceOffer() == null && offer.getPriceCost() != null) {
+                    double ratio = profitRatio == null ? 2d : profitRatio.doubleValue();
+                    offer.setPriceOffer(NumberUtil.round(offer.getPriceCost() * (1d + ratio / 100d), 2).doubleValue());
+                }
                 break;
             case "DC":
                 offer.setDc(fieldValue);

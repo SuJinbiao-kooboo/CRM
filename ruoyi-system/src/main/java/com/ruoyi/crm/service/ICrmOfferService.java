@@ -18,5 +18,5 @@ public interface ICrmOfferService {
 
     int batchUpdate(List<Long> ids, CrmOffer offer);
 
-    Map<String, Object> importOffers(MultipartFile file, String supplierCode, String supplierName, String inqOfferType, Map<String, String> colMap);
+    Map<String, Object> importOffers(MultipartFile file, String supplierCode, String supplierName, String inqOfferType, Map<String, String> colMap, Double profitRatio);
 }

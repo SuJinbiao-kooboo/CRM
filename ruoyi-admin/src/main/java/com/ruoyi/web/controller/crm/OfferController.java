@@ -142,12 +142,14 @@ public class OfferController extends BaseController {
                                  @RequestParam("supplierCode") String supplierCode,
                                  @RequestParam("supplierName") String supplierName,
                                  @RequestParam("inqOfferType") String inqOfferType,
-                                 @RequestParam("colMapJson") String colMapJson) {
+                                 @RequestParam("colMapJson") String colMapJson,
+                                 @RequestParam(value = "profitRatio", required = false) Double profitRatio) {
         Map<String, String> colMap = new HashMap<>();
         if (colMapJson != null && !colMapJson.isEmpty()) {
             colMap = JSON.parseObject(colMapJson, Map.class);
         }
-        Map<String, Object> result = offerService.importOffers(file, supplierCode, supplierName, inqOfferType, colMap);
+        if (profitRatio == null) profitRatio = 2d;
+        Map<String, Object> result = offerService.importOffers(file, supplierCode, supplierName, inqOfferType, colMap, profitRatio);
         String msg = "成功导入" + result.getOrDefault("successCount", 0) + "条，失败" + result.getOrDefault("failCount", 0) + "条";
         return AjaxResult.success(msg, result);
     }

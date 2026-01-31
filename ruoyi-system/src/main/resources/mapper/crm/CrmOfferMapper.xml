@@ -83,8 +83,8 @@
             <if test="tagsSecond != null and tagsSecond != ''">and tags_second like concat('%', #{tagsSecond}, '%')</if>
             <if test="tagsThird != null and tagsThird != ''">and tags_third like concat('%', #{tagsThird}, '%')</if>
             <if test="tagsSi != null and tagsSi != ''">and tags_si like concat('%', #{tagsSi}, '%')</if>
-            <if test="params != null and params['beginStockDate'] != null">and stock_date &gt;= #{params.beginStockDate}</if>
-            <if test="params != null and params['endStockDate'] != null">and stock_date &lt;= #{params.endStockDate}</if>
+            <if test="params != null and params['beginStockDate'] != null">and stock_date &gt;= concat(#{params.beginStockDate}, ' 00:00:00')</if>
+            <if test="params != null and params['endStockDate'] != null">and stock_date &lt;= concat(#{params.endStockDate}, ' 23:59:59')</if>
             <if test="params != null and params['minPriceCost'] != null">and price_cost &gt;= #{params.minPriceCost}</if>
             <if test="params != null and params['maxPriceCost'] != null">and price_cost &lt;= #{params.maxPriceCost}</if>
             <if test="params != null and params['minPriceOffer'] != null">and price_offer &gt;= #{params.minPriceOffer}</if>

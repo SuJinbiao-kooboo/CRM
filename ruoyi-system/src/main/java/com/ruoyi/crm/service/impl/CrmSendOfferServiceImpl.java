@@ -1,6 +1,7 @@
 package com.ruoyi.crm.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelWriter;
@@ -110,7 +111,9 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
                     EmailSender.sendEmail(emailSmtp, emailSmtpPort, emailAccount, emailPassword, addrs, emailTitle, combineHtml(addrs, tableHtml), df);
                     log.info("成功发送："+addrs);
                     ok = true;
-                    Thread.sleep(3000);
+                    if(i%5==0){
+                        Thread.sleep(30000+ RandomUtil.randomInt(20)*1000);
+                    }
                 } catch (Exception ex) {
                     log.error("发送邮件错误， msg={}", ex.getMessage(), ex);
                     err = StrUtil.subWithLength(ex.getMessage(), 0, 100);

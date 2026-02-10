@@ -236,6 +236,6 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
     }
 
     private Double round2(double v) {
-        return Math.round(v * 100.0d) / 100.0d;
+        return NumberUtil.round(Math.round(v * 100.0d) / 100.0d, 0).doubleValue();
     }
 }

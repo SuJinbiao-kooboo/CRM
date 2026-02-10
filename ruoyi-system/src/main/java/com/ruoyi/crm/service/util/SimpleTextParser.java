@@ -168,7 +168,7 @@ public class SimpleTextParser {
                 offer.setPriceCost(parseDouble(fieldValue));
                 if (offer.getPriceOffer() == null && offer.getPriceCost() != null) {
                     double ratio = profitRatio == null ? 2d : profitRatio.doubleValue();
-                    offer.setPriceOffer(NumberUtil.round(offer.getPriceCost() * (1d + ratio / 100d), 2).doubleValue());
+                    offer.setPriceOffer(NumberUtil.round(offer.getPriceCost() * (1d + ratio / 100d), 0).doubleValue());
                 }
                 break;
             case "DC":

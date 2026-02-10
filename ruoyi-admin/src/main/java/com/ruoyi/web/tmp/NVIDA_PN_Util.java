@@ -21,6 +21,9 @@ public class NVIDA_PN_Util {
 
     public static void main(String[] args) {
         Map<String, String> inputMap = NVIDAUtil.getTargetMap();
+        for (Map.Entry<String, String> entry : inputMap.entrySet()) {
+            System.out.println(entry.getKey() + "\t" + entry.getValue());
+        }
         List<PartnerInfo> partnerInfoList = new ArrayList<>();
         ObjectMapper objectMapper = new ObjectMapper();
 

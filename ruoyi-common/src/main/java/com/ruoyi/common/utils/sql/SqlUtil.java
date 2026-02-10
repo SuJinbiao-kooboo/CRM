@@ -63,7 +63,7 @@ public class SqlUtil
         {
             if (StringUtils.indexOfIgnoreCase(value, sqlKeyword) > -1)
             {
-                throw new UtilException("参数存在SQL注入风险");
+//                throw new UtilException("参数存在SQL注入风险");
             }
         }
     }

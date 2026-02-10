@@ -79,6 +79,12 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
             return AjaxResult.error("需要发送的emailGroup为空");
         }
 
+        for (CrmOfferImportDTO offer : offers) {
+            if(StrUtil.isEmpty(offer.getDeliveryTime())){
+                offer.setDeliveryTime("3-5d");
+            }
+        }
+
         String emailAccount = dictDataService.selectDictLabel("crm_email_template_dict", "email_account");
         String emailPassword = dictDataService.selectDictLabel("crm_email_template_dict", "email_password");
         String emailSmtp = dictDataService.selectDictLabel("crm_email_template_dict", "email_smtp");

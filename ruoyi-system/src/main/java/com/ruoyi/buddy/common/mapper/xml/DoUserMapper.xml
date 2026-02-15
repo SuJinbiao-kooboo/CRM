@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.buddy.common.mapper.DoUserMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.ruoyi.buddy.common.bean.DoUser">
+        <id column="id" property="id" />
+        <result column="openid" property="openid" />
+        <result column="unionid" property="unionid" />
+        <result column="nickname" property="nickname" />
+        <result column="avatar" property="avatar" />
+        <result column="email" property="email" />
+        <result column="phone" property="phone" />
+        <result column="last_login_time" property="lastLoginTime" />
+        <result column="first_login_time" property="firstLoginTime" />
+        <result column="created_at" property="createdAt" />
+        <result column="updated_at" property="updatedAt" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, openid, unionid, nickname, avatar, email, phone, last_login_time, first_login_time, created_at, updated_at
+    </sql>
+
+</mapper>

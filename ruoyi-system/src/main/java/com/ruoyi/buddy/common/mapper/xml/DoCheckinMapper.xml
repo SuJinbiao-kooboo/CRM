@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.buddy.common.mapper.DoCheckinMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.ruoyi.buddy.common.bean.DoCheckin">
+        <id column="id" property="id" />
+        <result column="plan_id" property="planId" />
+        <result column="user_id" property="userId" />
+        <result column="content" property="content" />
+        <result column="media_url" property="mediaUrl" />
+        <result column="mood" property="mood" />
+        <result column="difficulty" property="difficulty" />
+        <result column="check_status" property="checkStatus" />
+        <result column="is_supplement" property="isSupplement" />
+        <result column="check_date" property="checkDate" />
+        <result column="check_period" property="checkPeriod" />
+        <result column="created_at" property="createdAt" />
+        <result column="updated_at" property="updatedAt" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, plan_id, user_id, content, media_url, mood, difficulty, check_status, is_supplement, check_date, check_period, created_at, updated_at
+    </sql>
+
+</mapper>

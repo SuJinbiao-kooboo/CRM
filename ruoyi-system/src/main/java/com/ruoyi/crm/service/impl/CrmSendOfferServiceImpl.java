@@ -81,7 +81,7 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
 
         for (CrmOfferImportDTO offer : offers) {
             if(StrUtil.isEmpty(offer.getDeliveryTime())){
-                offer.setDeliveryTime("3-5d");
+                offer.setDeliveryTime("Ready Stock(3-5d)");
             }
         }
 
@@ -117,7 +117,7 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
                     EmailSender.sendEmail(emailSmtp, emailSmtpPort, emailAccount, emailPassword, addrs, emailTitle, combineHtml(addrs, tableHtml), df);
                     log.info("成功发送："+addrs);
                     ok = true;
-                    if(i%5==0){
+                    if(i%10==0){
                         Thread.sleep(30000+ RandomUtil.randomInt(20)*1000);
                     }
                 } catch (Exception ex) {

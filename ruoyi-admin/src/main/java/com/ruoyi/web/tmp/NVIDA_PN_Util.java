@@ -14,13 +14,46 @@ import java.util.*;
 public class NVIDA_PN_Util {
 
     // 完全使用Postman中的Cookie
-    private static final String COOKIE = "_abck=E90767F14B1B8E7A01A10F90BFC1EEE3~-1~YAAQNv7DFwEdbQqcAQAAwuIZGQ8e1miWnb0YZB3/nK4ijWZGH1/AsJL7RjoIgIkKwIYb7BU0zKPaPJkk054TJJ0zAucV3ghire8lzp+K7PWf5b4Y8P1JR2wSY7lwP9kIVE2qJdUgOvCdNoOLhcW/KqOsNEhPl+uNGw66+UwlWtnt5HBtkHuG4DNJt+cmQBMVEsQC/Ssdfu6cEOyFyhc+UZECf97j4zE7N2eJvGf+Tnmn1+B+zeRDi/326IfvfJrziarLwJbnJA7cQ4jzsgmXKn3jUtrndWU+/uDOteb9xK44+i9Zu80BsYr1qA2/nHShjRBQVvSuzaECA97E6lNVpM9iFjomiB9UGvLson/mzkoO8TPhSutaAT4W/1+Y2Xw8dL8eVPSyiLs9jXJOQ3w2ofDh4NoqRz2UySLCsSuLl71pvDDNu9b0nUDTe7WafV/vPdQNGlig9DM=~-1~-1~-1~-1~-1; bm_sz=E96784EEC5167E8F3CE4E6137438618A~YAAQNv7DFwMdbQqcAQAAwuIZGR6FDpKFMTDTFdX54GR8nkNB7VId4Ja60MYBm2wn6tIXAMUKXukM4jYvhX7Z4Vo820JQU7iACxIrvlWa/MqA24aR/6a20T0w+fifwGc//WJpnl9wmaNBCmSHtBiTlypjQDq+BK0+rXxHf2POyVdfjPue3SG0Qp1+l8/0NnJAJnzUigrFIkvXPydz3s25UBL8/Ee8m0SJZukX2rzqxhw78WyZZ8u1XBUwzi00Q14Yhn2GUm/f7m8gcm8sFpO0zm0fqvr42JrI+HbcxPy95HG/M/fFhviwt1m/XtYT7csDvlVhHhDyf6EYG8DxUGJHl+2YSO4bf5qc7U7Ua+s=~4276537~4604217; ak_bmsc=F5DE8B4AD3883A03284DF329E4DFAF6D~000000000000000000000000000000~YAAQNv7DF/lIbwqcAQAA2ICKGR7B/Qv9QnShuPygdZtM5eN08vgMj98UyzBH5FDj6+ZTCHz5lHQ9JutJfe1ucpYIEPdRAkwXr2L1q5rbv1nBp5/E8y1iCkbAupwS9mNEgLSGyQbRtQw6llWEWJA26j+WwuiBq7Z4076OnzM9wC6rrh7cYM7FQLbR4ydU5OtcsitTlimovxeYr8CbwLSuk1YNf7pLcfuQW9XxbXsXR81KxFo1XlLHGkfHg5/64o+4fy9Rgb/StKhA/dWjiqvhJs9nPPtA59dWSgvxJKLWaXYrCo9SEbPmTJCajnwKe6ZXniAUbYyn74lvYuG4BQXTQcSTYDeB/Lu9YgLiF1p63yN0; bm_sv=544897E8C21E937E00D040F32E121AA1~YAAQIqTBF87m0debAQAA1SSkGR4lizTTVx85mgvAU/PXGuH98zzAu3myqTLUDfTyqYEYw0vsTgph7d1wVA71IDrB1lBY73MBRsxu98JIyjKWjeKwttoz3FIuovjyG6uYjZqgbbtsq0t3TePrrO10MhqIOIxZ58RAgSn5vw2VhpUL3H0gVAQE2xlCaB3AfSKbNJ8rnDxl4NVbofx9KapGcjJLQl9U+7AzFMJphkmAOJbLGBNy1P1ljEzNYnf/n7F0EKb85+XD~1";
+    private static final String COOKIE = "_abck=E90767F14B1B8E7A01A10F90BFC1EEE3~-1~YAAQFtgjF7Rm7w6cAQAAA/lRSw+hW8X1wGERwyvShy/+i7GzXG8SYGeYjiGli9TcP8dw0xcNaicqp1vocwCprefmSwPV4owPAd+lnhv6I03lyvl+9obn/T+rbJlQfbjqIiC6wittlSf5fAU69xp4tG0tAX+oGkeCzF6UblmcCqzhg+7qedtUJT7sm4mNHiX1OqnnDlMNAZR5pZqRwi4c2oTVSfvAaltpQSs5qS01fu80FMDhSHK/ObarpcQVw5Phod1IB6dbfZCwWExn0OcPLCd81lPU9aqfr7SjchoaR3Ow4CXiYPtB9JUMCvr8mGXOmtpBIslSPX7BoWCwUVLISnuJW/TvhGLjVnLA3eYYPejPEZMFLD2Woze2BBqsPJ1fy+Vpqd8uNbHFt3ElFYvH5ywtqGbZP5WzV0mFgTCwPEjgX+4geerk2rmNg1ayFDfaLTiqgx57AJIxJhurTI7wzG6RH9shTA==~-1~-1~-1~-1~-1; bm_sz=61D0DF6491C1887A202B29DE05C240C6~YAAQFtgjF7Zm7w6cAQAAA/lRSx5HlazwBmuM/fAo4Ab5gdTJR1xd+DwN8VC0peoRUMsZ/lnVtfIgKrpXg9+aR0nch9fJPceg2u+fvzjdnYmm+8abAoPjoBWM1kVxR0kbfYH7qWqPv3f3OwPMYqjvjtrQQTkW/R1ONLuH1hLZrzSg1PbIt4LjF0QDwbzEA/QqVhqp/0gZA9LXh5wq0lb2rfMboez2CEXDOX1dPk6HivmXMb9IrDq54x8vnssdsujfxc87fjg3r9Y2WdpYk3jy3du7X2C56c4GUXnrjNXcwG6cE/uX6nyXlciRvVvCL2SR1mCMYAaHTsbiRFoWui/npJFOfWDppULvZch+X2i+~3686967~3555889; ak_bmsc=5D98DD78381B0344758EE5F86BEBACA9~000000000000000000000000000000~YAAQKATYF98pOTucAQAAgGEFTB69GGzRD3PeJnqFNpcFS+udP8VlymUmp/qk9W70SMIl1uscEUk0eWm+FTP7o5QG+BXkIXlE6balsvrEcrtLin8uKBcrnkoPnqctbvVJm7H4kXWfx+IdQO6qXsI9/4zcmr5yb+mzUq0hyo/nONL6duFzi/RZFU4I/Q9uj5ToeN8pzQEj0VLyh2+chHIHWrH70z3L8JLjqQJCkBALA9jAtKDCpFfbhE8SqChPfxNgEDBpSKK6lESMB7XszwarCoBxJB5tX5f8KmxwG5NwNnBdNKclMEvjm11XYotFtuGf+7pIHu3Vs+MorUgQQDoqOnHhFp2uWyAUGJuv6npilh8Avp8=";
+    private static String decodeWithCharset(byte[] bytes) {
+        // 尝试常见的中文编码
+        String[] charsets = {"UTF-8", "GBK", "GB2312", "ISO-8859-1", "GB18030"};
+
+        for (String charset : charsets) {
+            try {
+                String result = new String(bytes, charset);
+                // 简单验证是否包含常见中文字符
+                if (isLikelyChineseText(result)) {
+                    System.out.println("检测到编码: " + charset);
+                    return result;
+                }
+            } catch (Exception e) {
+                // 继续尝试下一种编码
+            }
+        }
+
+        // 如果都不行，回退到UTF-8
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+
+    private static boolean isLikelyChineseText(String text) {
+        // 检查是否包含常见中文字符
+        if (text.length() > 100) {
+            text = text.substring(0, 100);
+        }
+        long chineseChars = text.codePoints()
+                .filter(cp -> cp >= 0x4E00 && cp <= 0x9FFF) // 基本汉字范围
+                .count();
+        return chineseChars > 3; // 包含至少3个中文字符
+    }
 
     // 创建OkHttpClient，模拟Postman的行为
-    private static final OkHttpClient client = createOkHttpClient();
+    private static OkHttpClient client = createOkHttpClient();
 
     public static void main(String[] args) {
-        Map<String, String> inputMap = NVIDAUtil.getTargetMap();
+//        Map<String, String> inputMap = NVIDAUtil.getTargetMap();
+        Map<String, String> inputMap = CompanyCodeMap.getCompanyCodeMap();
         for (Map.Entry<String, String> entry : inputMap.entrySet()) {
             System.out.println(entry.getKey() + "\t" + entry.getValue());
         }
@@ -61,63 +94,34 @@ public class NVIDA_PN_Util {
             processed++;
             String countryCode = entry.getKey();
             String partnerCode = entry.getValue();
+//            String partnerCode = "beantech";
 
             System.out.printf("\n[%d/%d] 处理: %s - %s%n", processed, inputMap.size(), countryCode, partnerCode);
 
             try {
                 // 添加延迟
                 if (processed > 1) {
-                    Thread.sleep(1000);
+//                    Thread.sleep(1000);
                 }
 
                 // 每处理5个休息一下
                 if (processed % 5 == 0) {
                     System.out.println("已处理" + processed + "条，等待2秒...");
+                    client = createOkHttpClient();
                     Thread.sleep(2000);
                 }
 
                 Request request = createRequest(partnerCode);
-                try (Response response = client.newCall(request).execute()) {
-                    System.out.println("  HTTP状态码: " + response.code());
-
-                    if (response.isSuccessful() && response.body() != null) {
-                        String responseBody = response.body().string();
-
-                        if (responseBody != null && !responseBody.trim().isEmpty()) {
-                            try {
-                                JsonNode rootNode = objectMapper.readTree(responseBody);
-
-                                // 检查是否有该国家的数据
-                                JsonNode countryNode = rootNode.path(countryCode);
-                                if (!countryNode.isMissingNode()) {
-                                    PartnerInfo info = parsePartnerInfo(countryNode, countryCode, partnerCode);
-                                    partnerInfoList.add(info);
-                                    System.out.println("✓ 成功获取: " + info.getPartnerName());
-                                } else {
-                                    // 如果没有找到特定国家，使用第一个国家的数据
-                                    Iterator<Map.Entry<String, JsonNode>> fields = rootNode.fields();
-                                    if (fields.hasNext()) {
-                                        Map.Entry<String, JsonNode> firstField = fields.next();
-                                        PartnerInfo info = parsePartnerInfo(firstField.getValue(), firstField.getKey(), partnerCode);
-                                        partnerInfoList.add(info);
-                                        System.out.println("⚠ 使用 " + firstField.getKey() + " 的数据: " + info.getPartnerName());
-                                    } else {
-                                        System.out.println("✗ 返回数据为空");
-                                    }
-                                }
-                            } catch (Exception e) {
-                                System.err.println("✗ JSON解析失败: " + e.getMessage());
-                            }
-                        } else {
-                            System.out.println("✗ API返回为空");
-                        }
-                    } else {
-                        System.out.println("✗ HTTP请求失败: " + response.code());
-                        if (response.body() != null) {
-                            System.out.println("错误信息: " + response.body().string());
-                        }
+                int times = 0;
+                while (times<6){
+                    try{
+                        extracted(request, objectMapper, countryCode, partnerCode, partnerInfoList);
+                        break;
+                    }catch (Exception ex){
+                        times++;
                     }
                 }
+
 
             } catch (Exception e) {
                 System.err.println("✗ 处理失败: " + e.getMessage());
@@ -127,6 +131,47 @@ public class NVIDA_PN_Util {
 
         generateCSV(partnerInfoList);
         System.out.println("\n处理完成! 成功获取 " + partnerInfoList.size() + " 条记录");
+    }
+
+    private static void extracted(Request request, ObjectMapper objectMapper, String countryCode, String partnerCode, List<PartnerInfo> partnerInfoList) throws IOException {
+        try (Response response = client.newCall(request).execute()) {
+            System.out.println("  HTTP状态码: " + response.code());
+
+            if (response.isSuccessful() && response.body() != null) {
+                String responseBody = response.body().string();
+
+                if (responseBody != null && !responseBody.trim().isEmpty()) {
+                    JsonNode rootNode = objectMapper.readTree(responseBody);
+
+                    // 检查是否有该国家的数据
+                    JsonNode countryNode = rootNode.path(countryCode);
+                    if (!countryNode.isMissingNode()) {
+                        PartnerInfo info = parsePartnerInfo(countryNode, countryCode, partnerCode);
+                        partnerInfoList.add(info);
+                        System.out.println("✓ 成功获取: " + info.getPartnerName());
+                    } else {
+                        // 如果没有找到特定国家，使用第一个国家的数据
+                        Iterator<Map.Entry<String, JsonNode>> fields = rootNode.fields();
+                        if (fields.hasNext()) {
+                            Map.Entry<String, JsonNode> firstField = fields.next();
+                            PartnerInfo info = parsePartnerInfo(firstField.getValue(), firstField.getKey(), partnerCode);
+                            partnerInfoList.add(info);
+                            System.out.println("⚠ 使用 " + firstField.getKey() + " 的数据: " + info.getPartnerName());
+                        } else {
+                            System.out.println("✗ 返回数据为空");
+                        }
+                    }
+
+                } else {
+                    System.out.println("✗ API返回为空");
+                }
+            } else {
+                System.out.println("✗ HTTP请求失败: " + response.code());
+                if (response.body() != null) {
+                    System.out.println("错误信息: " + response.body().string());
+                }
+            }
+        }
     }
 
     private static OkHttpClient createOkHttpClient() {

@@ -16,6 +16,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 邮件发送工具类（支持连接复用）
@@ -89,7 +90,7 @@ public class EmailSender {
         EmailConnection connection = null;
         try {
             // 1. 获取或创建连接
-            connection = createNewSSLConnection(smtp, port, account, password);
+            connection = EmailConnectionPool.getConnection(smtp, port, account, password);
 
             // 2. 创建邮件
             MimeMessage message = createMessage(connection.getSession(), account,
@@ -112,26 +113,6 @@ public class EmailSender {
         }
     }
 
-    /**
-     * 获取邮件连接（缓存或新建）
-     */
-    private static synchronized EmailConnection getConnection(String smtp, String port,
-                                                              String account, String password)
-            throws MessagingException {
-        String key = generateKey(smtp, port, account);
-        EmailConnection connection = connectionCache.get(key);
-
-        if (connection == null || !connection.isValid()) {
-            // 创建新的连接
-            if (connection != null) {
-                closeConnection(connection);
-            }
-            connection = createNewConnection(smtp, port, account, password);
-            connectionCache.put(key, connection);
-        }
-
-        return connection;
-    }
 
     /**
      * 创建新的SSL连接
@@ -153,9 +134,9 @@ public class EmailSender {
         props.put("mail.smtp.socketFactory.fallback", "false");
 
         // 超时设置
-        props.put("mail.smtp.connectiontimeout", "30000");
-        props.put("mail.smtp.timeout", "60000");
-        props.put("mail.smtp.writetimeout", "30000");
+        props.put("mail.smtp.connectiontimeout", "3000");
+        props.put("mail.smtp.timeout", "300000");
+        props.put("mail.smtp.writetimeout", "300000");
 
         // 调试信息
         props.put("mail.debug", "true");
@@ -369,6 +350,40 @@ public class EmailSender {
             } catch (Exception e) {
                 return false;
             }
+        }
+    }
+
+    public static class EmailConnectionPool {
+        private static final Map<String, EmailConnection> connectionPool = new ConcurrentHashMap<>();
+        private static final long MAX_CONNECTION_AGE = 5 * 60 * 1000; // 5分钟
+
+        private static AtomicInteger atomicInteger = new AtomicInteger(0);
+        /**
+         * 获取或创建连接（优化后的方法）
+         */
+        public static EmailConnection getConnection(String smtp, String port,
+                                                    String account, String password)
+                throws MessagingException {
+            String key = smtp + ":" + port + ":" + account;
+            EmailConnection conn = connectionPool.get(key);
+
+            // 检查连接是否有效
+            if (conn != null && atomicInteger.getAndIncrement() % 30 != 0) {
+                System.out.println("复用现有连接: " + key);
+                return conn;
+            }
+
+            // 关闭旧连接
+            if (conn != null) {
+                closeConnection(conn);
+                connectionPool.remove(key);
+            }
+
+            // 创建新连接
+            System.out.println("创建新连接: " + key);
+            conn = createNewSSLConnection(smtp, port, account, password);
+            connectionPool.put(key, conn);
+            return conn;
         }
     }
 }

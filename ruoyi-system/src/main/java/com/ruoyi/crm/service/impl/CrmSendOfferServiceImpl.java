@@ -83,6 +83,7 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
             if(StrUtil.isEmpty(offer.getDeliveryTime())){
                 offer.setDeliveryTime("Ready Stock(3-5d)");
             }
+
         }
 
         String emailAccount = dictDataService.selectDictLabel("crm_email_template_dict", "email_account");
@@ -117,8 +118,9 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
                     EmailSender.sendEmail(emailSmtp, emailSmtpPort, emailAccount, emailPassword, addrs, emailTitle, combineHtml(addrs, tableHtml), df);
                     log.info("成功发送："+addrs);
                     ok = true;
-                    if(i%10==0){
-                        Thread.sleep(30000+ RandomUtil.randomInt(20)*1000);
+                    if(i > 0 && i%20 == 0){
+                        log.info("开始睡眠");
+                        Thread.sleep(3000+ RandomUtil.randomInt(10)*1000);
                     }
                 } catch (Exception ex) {
                     log.error("发送邮件错误， msg={}", ex.getMessage(), ex);

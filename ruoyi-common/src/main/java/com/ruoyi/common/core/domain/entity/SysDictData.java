@@ -73,7 +73,7 @@ public class SysDictData extends BaseEntity
     }
 
     @NotBlank(message = "字典标签不能为空")
-    @Size(min = 0, max = 100, message = "字典标签长度不能超过100个字符")
+    @Size(min = 0, max = 4000, message = "字典标签长度不能超过4000个字符")
     public String getDictLabel()
     {
         return dictLabel;

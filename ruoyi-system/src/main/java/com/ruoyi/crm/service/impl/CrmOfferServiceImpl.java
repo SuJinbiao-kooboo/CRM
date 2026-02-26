@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import cn.hutool.core.util.NumberUtil;
+import com.ruoyi.common.utils.PatternUtil;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -94,6 +95,10 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             Date now = new Date();
 
             for (int r = sheet.getFirstRowNum(); r <= lastRow; r++) {
+                if(r==0){
+                    continue;
+                }
+
                 Row row = sheet.getRow(r);
                 if (row == null) continue;
                 String productCode = getString(row.getCell(idxProduct));
@@ -208,7 +213,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 case STRING: {
                     String s = cell.getStringCellValue();
                     if (s == null || s.trim().isEmpty()) return null;
-                    return Double.valueOf(s.trim());
+                    return Double.valueOf(PatternUtil.extractNumbersAndFirstDot(s));
                 }
                 case NUMERIC: return cell.getNumericCellValue();
                 default: return null;
@@ -225,7 +230,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 case STRING: {
                     String s = cell.getStringCellValue();
                     if (s == null || s.trim().isEmpty()) return null;
-                    return Integer.valueOf(s.trim());
+                    return Integer.valueOf(PatternUtil.extractNumbersAndFirstDot(s));
                 }
                 case NUMERIC: return (int) Math.round(cell.getNumericCellValue());
                 default: return null;

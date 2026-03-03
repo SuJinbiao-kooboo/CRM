@@ -11,9 +11,9 @@ public class CrmOfferImportDTO implements Serializable {
     @Excel(name = "P/N")
     @ExcelProperty("P/N")
     private String productCode;
-//    @Excel(name = "MFG/Brand")
-//    @ExcelProperty("MFG/Brand")
-//    private String productBrand;
+    @Excel(name = "MFG/Brand")
+    @ExcelProperty("MFG/Brand")
+    private String productBrand;
 //    @Excel(name = "Desp.")
 //    @ExcelProperty("Desp.")
 //    private String productDetail;

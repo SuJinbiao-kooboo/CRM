@@ -32,10 +32,8 @@ public class CrmSupplierSendOfferServiceImpl implements ICrmSupplierSendOfferSer
         String emailAccount = dictDataService.selectDictLabel("crm_email_template_dict", "email_test_date");
         // 字典里面的这个要设置成当前日期，才是发送正式Offer，否则都是测试Offer
         if(DateUtil.today().equals(emailAccount)){
-            contactList.add("这个是正式发送，记得检查需要排除的email");
             fillContactList(contactList);
         }else{
-            contactList.add("这个测试发送,记得检查需要排除的email");
             contactList.add(dictDataService.selectDictLabel("crm_email_template_dict", "email_test_account"));
         }
 

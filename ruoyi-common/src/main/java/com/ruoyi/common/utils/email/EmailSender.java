@@ -1,6 +1,5 @@
 package com.ruoyi.common.utils.email;
 
-import javax.annotation.PreDestroy;
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
@@ -11,8 +10,6 @@ import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.internet.MimeUtility;
-import javax.validation.constraints.Size;
-import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -106,6 +103,8 @@ public class EmailSender {
             if (connection != null) {
                 closeConnection(connection);
                 removeConnection(smtp, port, account);
+
+                EmailConnectionPool.resetConnection(smtp, port, account, password);
             }
             throw e;
         } catch (Exception e) {
@@ -368,10 +367,32 @@ public class EmailSender {
             EmailConnection conn = connectionPool.get(key);
 
             // 检查连接是否有效
-            if (conn != null && atomicInteger.getAndIncrement() % 30 != 0) {
+            if (conn != null && atomicInteger.getAndIncrement() % 30 != 0 && conn.lastUsedTime < System.currentTimeMillis()-30000) {
                 System.out.println("复用现有连接: " + key);
                 return conn;
             }
+
+            // 关闭旧连接
+            if (conn != null) {
+                closeConnection(conn);
+                connectionPool.remove(key);
+            }
+
+            // 创建新连接
+            System.out.println("创建新连接: " + key);
+            conn = createNewSSLConnection(smtp, port, account, password);
+            connectionPool.put(key, conn);
+            return conn;
+        }
+
+    /**
+         * 获取或创建连接（优化后的方法）
+         */
+        public static EmailConnection resetConnection(String smtp, String port,
+                                                    String account, String password)
+                throws MessagingException {
+            String key = smtp + ":" + port + ":" + account;
+            EmailConnection conn = connectionPool.get(key);
 
             // 关闭旧连接
             if (conn != null) {

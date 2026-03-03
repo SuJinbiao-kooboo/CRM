@@ -32,7 +32,10 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
 
     @Override
     public List<CrmOffer> selectOfferList(CrmOffer offer) {
-        return offerMapper.selectOfferList(offer);
+
+        List<CrmOffer> crmOffers = offerMapper.selectOfferList(offer);
+
+        return crmOffers;
     }
 
     @Override

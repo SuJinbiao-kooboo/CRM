@@ -1,12 +1,12 @@
 package com.ruoyi.web.controller.crm;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletResponse;
 
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.util.NumberUtil;
+import cn.hutool.core.util.StrUtil;
 import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.crm.domain.dto.SendEmailReq;
 import com.ruoyi.crm.service.ICrmSendOfferService;
@@ -169,14 +169,44 @@ public class OfferController extends BaseController {
     @PostMapping("/sendOffer")
     public AjaxResult sendOffer(@RequestBody CrmOffer offer) {
         offer.setInqOfferType("Offer"); // Offer/Inq
-        List<CrmOffer> list = offerService.selectOfferList(offer);
+
+        Collection<CrmOffer> list = doSendEmailOfferOrInq(offer);
+
+        return AjaxResult.success("发送成功", list.size());
+    }
+
+    private Collection<CrmOffer> doSendEmailOfferOrInq(CrmOffer offer) {
+        String lastHours = dictDataService.selectDictLabel("crm_email_template_dict", "crm_email_last_hours");
+        // 限制只能发送最近16小时录入的Offer
+        offer.getParams().put("lastCreateTime", DateUtil.offsetHour(new Date(), -Integer.valueOf(lastHours)));
+
+        Collection<CrmOffer> list = offerService.selectOfferList(offer);
+        if("Offer".equals(offer.getInqOfferType())){
+            list = list.stream()
+                    .sorted(Comparator.comparing(o-> StrUtil.nullToDefault(o.getProductBrand(), "")))
+                    .collect(Collectors.toList());
+            LinkedHashMap<String, CrmOffer> offerMap = new LinkedHashMap<>();
+            for (CrmOffer crmOffer : list) {
+                if(!offerMap.containsKey(crmOffer.getProductCode())){
+                    offerMap.put(crmOffer.getProductCode(), crmOffer);
+                    continue;
+                }
+                if(NumberUtil.compare(NumberUtil.nullToZero(crmOffer.getPriceCost()), NumberUtil.nullToZero(offerMap.get(crmOffer.getProductCode()).getPriceCost())) < 0){
+                    offerMap.put(crmOffer.getProductCode(), crmOffer);
+                }
+            }
+
+            list = offerMap.values();
+
+        }
+
         if (offer.getParams() != null && offer.getParams().containsKey("ids")) {
             Object idsObj = offer.getParams().get("ids");
             if (idsObj != null) {
                 String idsStr = idsObj.toString();
                 if (!idsStr.isEmpty()) {
                     String[] idArray = idsStr.split(",");
-                    List<Long> targetIds = new java.util.ArrayList<>();
+                    List<Long> targetIds = new ArrayList<>();
                     for (String s : idArray) {
                         try { targetIds.add(Long.valueOf(s.trim())); } catch (Exception ignored) {}
                     }
@@ -194,6 +224,14 @@ public class OfferController extends BaseController {
 
         // 发送消息
         crmSendOfferService.sendExcelEmail(sendEmailReq);
+        return list;
+    }
+
+    @Anonymous
+    @PostMapping("/sendInq")
+    public AjaxResult sendInq(@RequestBody CrmOffer offer) {
+        offer.setInqOfferType("Inq"); // Offer/Inq
+        Collection<CrmOffer> list = doSendEmailOfferOrInq(offer);
 
         return AjaxResult.success("发送成功", list.size());
     }

@@ -1,7 +1,6 @@
 package com.ruoyi.crm.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelWriter;
@@ -17,7 +16,6 @@ import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.email.EmailSender;
-import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.domain.dto.CrmOfferImportDTO;
 import com.ruoyi.crm.domain.dto.SendEmailReq;
 import com.ruoyi.crm.mapper.CrmOfferMapper;
@@ -31,11 +29,6 @@ import org.apache.poi.ss.usermodel.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.mail.*;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeBodyPart;
-import javax.mail.internet.MimeMessage;
-import javax.mail.internet.MimeMultipart;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -71,20 +64,21 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
     @Override
     public AjaxResult sendExcelEmail(SendEmailReq req) {
         List<CrmOfferImportDTO> offers = BeanUtil.copyToList(req.getOffers(), CrmOfferImportDTO.class);
-        List<String> emailGroups = req.getEmailGroups();
         if (offers == null) {
             return AjaxResult.error("需要发送的Offer为空");
-        }
-        if (emailGroups == null) {
-            return AjaxResult.error("需要发送的emailGroup为空");
         }
 
         for (CrmOfferImportDTO offer : offers) {
             if(StrUtil.isEmpty(offer.getDeliveryTime())){
                 offer.setDeliveryTime("Ready Stock(3-5d)");
             }
-
         }
+
+        List<String> emailGroups = req.getEmailGroups();
+        if (emailGroups == null) {
+            return AjaxResult.error("需要发送的emailGroup为空");
+        }
+
 
         String emailAccount = dictDataService.selectDictLabel("crm_email_template_dict", "email_account");
         String emailPassword = dictDataService.selectDictLabel("crm_email_template_dict", "email_password");
@@ -93,47 +87,49 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
 
         File df = getAttachFile(offers);
 
-        String tableHtml = buildHtmlTable(offers);
         List<Map<String, Object>> details = new java.util.ArrayList<>();
         int success = 0;
         int fail = 0;
         for (int i = 0; i < emailGroups.size(); i++) {
             String group = emailGroups.get(i) == null ? "" : emailGroups.get(i);
-            String[] parts = group.split(",");
-            java.util.List<String> addrs = new java.util.ArrayList<>();
-            for (String p : parts) {
-                String s = p == null ? "" : p.trim();
-                if (!s.isEmpty()) addrs.add(s);
-            }
+            List<String> addrs = getEmailAddrs(group);
+
+            String tableHtml = buildHtmlTable(addrs, offers);
+
             Map<String, Object> item = new java.util.HashMap<>();
             item.put("batchIndex", i + 1);
             item.put("recipients", addrs);
             boolean ok = false;
             String err = "";
-//            int attempts = 0;
-//            for (int t = 0; t < 3 && !ok; t++) {
-//                attempts++;
+            int attempts = 0;
+            for (int t = 0; t < 3 && !ok; t++) {
+                attempts++;
                 try {
                     String emailTitle = dictDataService.selectDictLabel("crm_email_template_dict", "email_title");
                     EmailSender.sendEmail(emailSmtp, emailSmtpPort, emailAccount, emailPassword, addrs, emailTitle, combineHtml(addrs, tableHtml), df);
                     log.info("成功发送："+addrs);
+                    err = null;
                     ok = true;
-                    if(i > 0 && i%20 == 0){
-                        log.info("开始睡眠");
-                        Thread.sleep(3000+ RandomUtil.randomInt(10)*1000);
-                    }
+                    break;
                 } catch (Exception ex) {
                     log.error("发送邮件错误， msg={}", ex.getMessage(), ex);
+                    try {
+                        Thread.sleep(3000+ attempts * 1000L);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+
                     err = StrUtil.subWithLength(ex.getMessage(), 0, 100);
                 }
-//            }
+            }
+
             if(ok){
                 crmSupplierMapper.updateSendResult(group, "发送成功", "");
             }else{
                 crmSupplierMapper.updateSendResult(group, "发送失败", err);
             }
+
             item.put("success", ok);
-//            item.put("attempts", attempts);
             item.put("error", err);
             if (ok) success++;
             else fail++;
@@ -150,6 +146,16 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
         }
 
         return AjaxResult.success(result);
+    }
+
+    private static List<String> getEmailAddrs(String group) {
+        String[] parts = group.split(",");
+        List<String> addrs = new java.util.ArrayList<>();
+        for (String p : parts) {
+            String s = p == null ? "" : p.trim();
+            if (!s.isEmpty()) addrs.add(s);
+        }
+        return addrs;
     }
 
     private File getAttachFile(List<CrmOfferImportDTO> offers) {
@@ -276,15 +282,15 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
         String emailBody = dictDataService.selectDictLabel("crm_email_template_dict", "email_body");
         toCancelUrl = toCancelUrl.replace("{toCancelEmail}", addrs.get(0));
         sb.append("<div>");
-        if (StringUtils.isNotBlank(emailBody)) sb.append(emailBody);
-        if (StringUtils.isNotBlank(tableHtml)) sb.append(tableHtml);
-        if (StringUtils.isNotBlank(toCancelUrl)) sb.append(toCancelUrl);
+        if (StringUtils.isNotBlank(emailBody)) sb.append(emailBody).append("</br>");
+        if (StringUtils.isNotBlank(tableHtml)) sb.append(tableHtml).append("</br>");
+        if (StringUtils.isNotBlank(toCancelUrl)) sb.append(toCancelUrl).append("</br>");
         if (StringUtils.isNotBlank(emailSign)) sb.append(emailSign);
         sb.append("</div>");
         return sb.toString();
     }
 
-    private String buildHtmlTable(List<CrmOfferImportDTO> offers) {
+    private String buildHtmlTable(List<String> addrs, List<CrmOfferImportDTO> offers) {
         java.util.List<java.lang.reflect.Field> fields = new java.util.ArrayList<>();
         for (java.lang.reflect.Field f : offers.get(0).getClass().getDeclaredFields()) {
             fields.add(f);

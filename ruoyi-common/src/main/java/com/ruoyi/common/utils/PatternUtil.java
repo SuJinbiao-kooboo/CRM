@@ -15,6 +15,11 @@ public class PatternUtil {
             return "";
         }
 
+        if(input.contains("-")){
+            int indexOf = input.indexOf("-");
+            input = input.substring(0, indexOf);
+        }
+
         // 正则表达式：匹配数字和小数点
         // [0-9.] 表示匹配数字0-9和小数点
         Pattern pattern = Pattern.compile("[0-9.]");

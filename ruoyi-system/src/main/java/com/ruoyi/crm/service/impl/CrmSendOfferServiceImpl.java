@@ -282,9 +282,9 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
         String emailBody = dictDataService.selectDictLabel("crm_email_template_dict", "email_body");
         toCancelUrl = toCancelUrl.replace("{toCancelEmail}", addrs.get(0));
         sb.append("<div>");
-        if (StringUtils.isNotBlank(emailBody)) sb.append(emailBody).append("</br>");
-        if (StringUtils.isNotBlank(tableHtml)) sb.append(tableHtml).append("</br>");
-        if (StringUtils.isNotBlank(toCancelUrl)) sb.append(toCancelUrl).append("</br>");
+        if (StringUtils.isNotBlank(emailBody)) sb.append(emailBody).append("<br/>");
+        if (StringUtils.isNotBlank(tableHtml)) sb.append(tableHtml).append("<br/>");
+        if (StringUtils.isNotBlank(toCancelUrl)) sb.append(toCancelUrl).append("<br/>");
         if (StringUtils.isNotBlank(emailSign)) sb.append(emailSign);
         sb.append("</div>");
         return sb.toString();

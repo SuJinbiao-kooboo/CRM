@@ -4,10 +4,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletResponse;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.StrUtil;
 import com.ruoyi.common.annotation.Anonymous;
+import com.ruoyi.crm.domain.dto.CrmOfferExportDTO;
 import com.ruoyi.crm.domain.dto.SendEmailReq;
 import com.ruoyi.crm.service.ICrmSendOfferService;
 import com.ruoyi.crm.service.ICrmSupplierSendOfferService;
@@ -75,7 +77,7 @@ public class OfferController extends BaseController {
         if (ids != null && ids.length > 0) {
             list.removeIf(o -> !contains(ids, o.getId()));
         }
-        ExcelUtil<CrmOffer> util = new ExcelUtil<>(CrmOffer.class);
+        ExcelUtil<CrmOfferExportDTO> util = new ExcelUtil<>(CrmOfferExportDTO.class);
         if (exportFields != null && !exportFields.trim().isEmpty()) {
             String[] cols = java.util.Arrays.stream(exportFields.split(","))
                     .map(String::trim)
@@ -85,7 +87,7 @@ public class OfferController extends BaseController {
                 util.showColumn(cols);
             }
         }
-        util.exportExcel(response, list, "Offer数据");
+        util.exportExcel(response, BeanUtil.copyToList(list, CrmOfferExportDTO.class), "M&E_内部Offer数据"+DateUtil.today());
     }
 
     private boolean contains(Long[] ids, Long id) {
@@ -187,6 +189,8 @@ public class OfferController extends BaseController {
                     .collect(Collectors.toList());
             LinkedHashMap<String, CrmOffer> offerMap = new LinkedHashMap<>();
             for (CrmOffer crmOffer : list) {
+                // 特殊逻辑 注释掉报价 TODO 报价
+//                crmOffer.setPriceOffer(null);
                 if(!offerMap.containsKey(crmOffer.getProductCode())){
                     offerMap.put(crmOffer.getProductCode(), crmOffer);
                     continue;

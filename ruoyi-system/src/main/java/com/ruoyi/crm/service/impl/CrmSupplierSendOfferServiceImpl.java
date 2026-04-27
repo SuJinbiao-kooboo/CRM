@@ -41,7 +41,7 @@ public class CrmSupplierSendOfferServiceImpl implements ICrmSupplierSendOfferSer
 
         supplierMapper.deleteAllTask();
         supplierMapper.batchInsertWithDefault(DateUtil.formatDateTime(new Date()), contactList);
-
+//        return contactList.subList(58, contactList.size());
         return contactList;
     }
 

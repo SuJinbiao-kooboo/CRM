@@ -279,11 +279,13 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
         StringBuilder sb = new StringBuilder();
         String toCancelUrl = dictDataService.selectDictLabel("crm_email_template_dict", "email_cancel_url");
         String emailSign = dictDataService.selectDictLabel("crm_email_template_dict", "email_sign");
+        String hiTeam = dictDataService.selectDictLabel("crm_email_template_dict", "email_hi_team");
         String emailBody = dictDataService.selectDictLabel("crm_email_template_dict", "email_body");
         toCancelUrl = toCancelUrl.replace("{toCancelEmail}", addrs.get(0));
         sb.append("<div>");
-        if (StringUtils.isNotBlank(emailBody)) sb.append(emailBody).append("<br/>");
-        if (StringUtils.isNotBlank(tableHtml)) sb.append(tableHtml).append("<br/>");
+        if (StringUtils.isNotBlank(hiTeam)) sb.append(hiTeam).append("</br>").append("</br>");
+        if (StringUtils.isNotBlank(emailBody)) sb.append(emailBody).append("<br/>").append("<br/>");
+        if (StringUtils.isNotBlank(tableHtml)) sb.append(tableHtml).append("<br/>").append("<br/>");
         if (StringUtils.isNotBlank(toCancelUrl)) sb.append(toCancelUrl).append("<br/>");
         if (StringUtils.isNotBlank(emailSign)) sb.append(emailSign);
         sb.append("</div>");
@@ -305,7 +307,7 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
             }
         }
         StringBuilder sb = new StringBuilder();
-        sb.append("<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\" style=\"border-collapse:collapse;font-size:12px;\">");
+        sb.append("<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\" style=\"border-collapse:collapse;font-size:10.5pt;\">");
         sb.append("<thead><tr>");
         for (String h : headers) {
             sb.append("<th style=\"background:#f5f7fa;\">").append(escapeHtml(h)).append("</th>");

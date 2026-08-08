@@ -8,34 +8,24 @@
             <table cellspacing="0" style="width: 100%">
               <tbody>
                 <tr>
-                  <td class="el-table__cell is-leaf"><div class="cell">Redis版本</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.info">{{ cache.info.redis_version }}</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell">运行模式</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.info">{{ cache.info.redis_mode == "standalone" ? "单机" : "集群" }}</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell">端口</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.info">{{ cache.info.tcp_port }}</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell">客户端数</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.info">{{ cache.info.connected_clients }}</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell">缓存类型</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.capacity">本地缓存 (Hutool LFU)</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell">淘汰策略</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.capacity">LFU 最不经常使用</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell">缓存容量</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.capacity">{{ cache.capacity }} 条</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell">当前条目数</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.size">{{ cache.size }} 条</div></td>
                 </tr>
                 <tr>
-                  <td class="el-table__cell is-leaf"><div class="cell">运行时间(天)</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.info">{{ cache.info.uptime_in_days }}</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell">使用内存</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.info">{{ cache.info.used_memory_human }}</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell">使用CPU</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.info">{{ parseFloat(cache.info.used_cpu_user_children).toFixed(2) }}</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell">内存配置</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.info">{{ cache.info.maxmemory_human }}</div></td>
-                </tr>
-                <tr>
-                  <td class="el-table__cell is-leaf"><div class="cell">AOF是否开启</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.info">{{ cache.info.aof_enabled == "0" ? "否" : "是" }}</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell">RDB是否成功</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.info">{{ cache.info.rdb_last_bgsave_status }}</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell">Key数量</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.dbSize">{{ cache.dbSize }} </div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell">网络入口/出口</div></td>
-                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.info">{{ cache.info.instantaneous_input_kbps }}kps/{{cache.info.instantaneous_output_kbps}}kps</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell">缓存使用率</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.capacity">{{ usage }}%</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell">过期机制</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.capacity">支持按Key设置过期</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell">定时清理</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.capacity">后台线程每小时清理过期键</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell">命名空间数</div></td>
+                  <td class="el-table__cell is-leaf"><div class="cell" v-if="cache.namespaces">{{ cache.namespaces.length }}</div></td>
                 </tr>
               </tbody>
             </table>
@@ -45,18 +35,18 @@
 
       <el-col :span="12" class="card-box">
         <el-card>
-          <div slot="header"><span><i class="el-icon-pie-chart"></i> 命令统计</span></div>
+          <div slot="header"><span><i class="el-icon-pie-chart"></i> 命名空间分布</span></div>
           <div class="el-table el-table--enable-row-hover el-table--medium">
-            <div ref="commandstats" style="height: 420px" />
+            <div ref="namespaces" style="height: 420px" />
           </div>
         </el-card>
       </el-col>
 
       <el-col :span="12" class="card-box">
         <el-card>
-          <div slot="header"><span><i class="el-icon-odometer"></i> 内存信息</span></div>
+          <div slot="header"><span><i class="el-icon-odometer"></i> 容量使用率</span></div>
           <div class="el-table el-table--enable-row-hover el-table--medium">
-            <div ref="usedmemory" style="height: 420px" />
+            <div ref="usage" style="height: 420px" />
           </div>
         </el-card>
       </el-col>
@@ -72,12 +62,14 @@ export default {
   name: "Cache",
   data() {
     return {
-      // 统计命令信息
-      commandstats: null,
-      // 使用内存
-      usedmemory: null,
+      // 命名空间分布图
+      namespaceChart: null,
+      // 容量使用率图
+      usageChart: null,
       // cache信息
-      cache: []
+      cache: {},
+      // 缓存使用率（百分比）
+      usage: 0
     }
   },
   created() {
@@ -85,57 +77,65 @@ export default {
     this.openLoading()
   },
   methods: {
-    /** 查缓存询信息 */
+    /** 查询缓存信息 */
     getList() {
       getCache().then((response) => {
         this.cache = response.data
         this.$modal.closeLoading()
+        // 计算缓存使用率（当前条目数 / 总容量 * 100）
+        this.usage = this.cache.capacity ? (this.cache.size / this.cache.capacity * 100).toFixed(2) : 0
 
-        this.commandstats = echarts.init(this.$refs.commandstats, "macarons")
-        this.commandstats.setOption({
+        // 命名空间分布饼图（按各业务命名空间的条目数占比展示）
+        this.namespaceChart = echarts.init(this.$refs.namespaces, "macarons")
+        this.namespaceChart.setOption({
           tooltip: {
             trigger: "item",
-            formatter: "{a} <br/>{b} : {c} ({d}%)",
+            formatter: "{a} <br/>{b} : {c} 条 ({d}%)",
+          },
+          legend: {
+            bottom: 0,
+            data: this.cache.namespaces.map(item => item.remark)
           },
           series: [
             {
-              name: "命令",
+              name: "命名空间",
               type: "pie",
               roseType: "radius",
               radius: [15, 95],
               center: ["50%", "38%"],
-              data: response.data.commandStats,
+              data: this.cache.namespaces.map(item => ({ name: item.remark, value: item.count })),
               animationEasing: "cubicInOut",
               animationDuration: 1000,
             }
           ]
         })
-        this.usedmemory = echarts.init(this.$refs.usedmemory, "macarons")
-        this.usedmemory.setOption({
+        // 容量使用率仪表盘（百分比）
+        this.usageChart = echarts.init(this.$refs.usage, "macarons")
+        this.usageChart.setOption({
           tooltip: {
-            formatter: "{b} <br/>{a} : " + this.cache.info.used_memory_human,
+            formatter: "{b} <br/>{a} : " + this.usage + "%",
           },
           series: [
             {
-              name: "峰值",
+              name: "容量使用率",
               type: "gauge",
               min: 0,
-              max: 1000,
+              max: 100,
               detail: {
-                formatter: this.cache.info.used_memory_human,
+                formatter: this.usage + "%",
               },
               data: [
                 {
-                  value: parseFloat(this.cache.info.used_memory_human),
-                  name: "内存消耗",
+                  value: parseFloat(this.usage),
+                  name: "缓存占用",
                 }
               ]
             }
           ]
         })
         window.addEventListener("resize", () => {
-          this.commandstats.resize()
-          this.usedmemory.resize()
+          this.namespaceChart.resize()
+          this.usageChart.resize()
         })
       })
     },

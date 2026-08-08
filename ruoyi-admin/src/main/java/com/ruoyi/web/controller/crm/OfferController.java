@@ -16,7 +16,6 @@ import com.ruoyi.crm.service.ICrmSupplierSendOfferService;
 import com.ruoyi.crm.service.util.SimpleTextParser;
 import io.swagger.annotations.ApiParam;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -55,9 +54,6 @@ public class OfferController extends BaseController {
 
     @Autowired
     private ICrmSupplierSendOfferService crmSupplierSendOfferService;
-
-    @Autowired
-    private StringRedisTemplate stringRedisTemplate;
 
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @GetMapping("/list")

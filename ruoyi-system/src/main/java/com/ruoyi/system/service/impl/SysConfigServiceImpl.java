@@ -149,6 +149,33 @@ public class SysConfigServiceImpl implements ISysConfigService
     }
 
     /**
+     * 根据键名修改参数配置值，键不存在时自动新增
+     * 
+     * @param configKey 参数键名
+     * @param configValue 参数键值
+     * @return 结果
+     */
+    @Override
+    public int updateConfigByKey(String configKey, String configValue)
+    {
+        SysConfig query = new SysConfig();
+        query.setConfigKey(configKey);
+        SysConfig config = configMapper.selectConfig(query);
+        if (StringUtils.isNull(config))
+        {
+            // 键不存在时自动新增（非内置参数，允许在系统管理-参数设置中修改）
+            SysConfig newConfig = new SysConfig();
+            newConfig.setConfigName(configKey);
+            newConfig.setConfigKey(configKey);
+            newConfig.setConfigValue(configValue);
+            newConfig.setConfigType("N");
+            return insertConfig(newConfig);
+        }
+        config.setConfigValue(configValue);
+        return updateConfig(config);
+    }
+
+    /**
      * 批量删除参数信息
      * 
      * @param configIds 需要删除的参数ID

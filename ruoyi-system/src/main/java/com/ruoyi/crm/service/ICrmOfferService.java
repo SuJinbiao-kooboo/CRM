@@ -19,4 +19,7 @@ public interface ICrmOfferService {
     int batchUpdate(List<Long> ids, CrmOffer offer);
 
     Map<String, Object> importOffers(MultipartFile file, String supplierCode, String supplierName, String inqOfferType, Map<String, String> colMap, Double profitRatio);
+
+    /** AI智能录入：调用AI把物料内容整理为结构化数据并批量入库，返回成功条数 */
+    int aiEntryOffers(String supplierCode, String supplierName, String inqOfferType, Double profitRatio, String content);
 }

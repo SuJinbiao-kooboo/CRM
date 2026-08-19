@@ -20,6 +20,8 @@ public class CrmSupplier extends BaseEntity {
     private String supplierName;
     @Excel(name = "供应商简称")
     private String supplierShortName;
+    @Excel(name = "公司别名")
+    private String supplierAlias;
     @Excel(name = "供应商类型")
     private String supplierType;
     @Excel(name = "品牌")

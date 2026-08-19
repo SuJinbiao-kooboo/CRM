@@ -1,0 +1,47 @@
+[1] 读取Excel完成: 数据行 355 行
+[2] 公司聚合完成: 133 家, 空公司行 37 行
+[挂靠失败] 行3 无公司且无法挂靠: 陈主管（记账）
+[挂靠失败] 行4 无公司且无法挂靠: 荣姐-男姐的姐姐（工资表）
+[挂靠失败] 行9 无公司且无法挂靠: 何梦霞
+[挂靠失败] 行10 无公司且无法挂靠: 张伟
+[挂靠失败] 行11 无公司且无法挂靠: 全空
+[挂靠失败] 行19 无公司且无法挂靠: 王金枝
+[挂靠失败] 行82 无公司且无法挂靠: Assi Bachar
+[挂靠失败] 行84 无公司且无法挂靠: Orlys
+[挂靠失败] 行93 无公司且无法挂靠: 陈玉珊
+[挂靠失败] 行94 无公司且无法挂靠: 玉紫
+[挂靠失败] 行111 无公司且无法挂靠: 吴美欣
+[挂靠失败] 行112 无公司且无法挂靠: 邱美玉
+[挂靠失败] 行147 无公司且无法挂靠: Ivy Yee-商务Customer Service-back office-做
+[挂靠失败] 行149 无公司且无法挂靠: Cordelia Chee-商务
+[挂靠失败] 行224 无公司且无法挂靠: Meshal Altamimi-Ecommerce Coordinator
+[挂靠失败] 行225 无公司且无法挂靠: lokesh.sivakumar@infiniarc.com
+[挂靠失败] 行226 无公司且无法挂靠: ahmed.ragab@infiniarc.com
+[挂靠失败] 行227 无公司且无法挂靠: Mohammed Alamer
+[挂靠失败] 行228 无公司且无法挂靠: Mohammed Olayabdullah-Ecommerce Coordina
+[挂靠失败] 行234 无公司且无法挂靠: Abdulaziz Alzarah-DHL下单人
+[挂靠失败] 行249 无公司且无法挂靠: 赵荷枝
+[挂靠失败] 行251 无公司且无法挂靠: Nier-跟单
+[挂靠失败] 行274 无公司且无法挂靠: 李晨 Blake Lee
+[挂靠失败] 行275 无公司且无法挂靠: 全空
+[挂靠失败] 行277 无公司且无法挂靠: 尹蕾Anne-商务（给水单）
+[挂靠失败] 行278 无公司且无法挂靠: 田圆淳-商务（下PO)
+[挂靠失败] 行279 无公司且无法挂靠: 熊杏
+[挂靠失败] 行290 无公司且无法挂靠: AVON-finance
+[挂靠失败] 行305 无公司且无法挂靠: Zoey-CPU
+[挂靠失败] 行321 无公司且无法挂靠: Richard
+[挂靠失败] 行325 无公司且无法挂靠: 孙利伟
+[挂靠失败] 行331 无公司且无法挂靠: Mico
+[挂靠失败] 行360 无公司且无法挂靠: 全空
+[挂靠失败] 行364 无公司且无法挂靠: Tom
+[3] 空公司行挂靠 3 行: 行28(Rannie) -> 挂靠 深圳市极光通讯科技有限公司; 行196(finance@cigulf.com) -> 挂靠 CI Gulf Distribution FZCO; 行304(Sunny Huang) -> 挂靠 TOP GREAT TECHNOLOGY (HK) CO., LIMITED
+[4] 备份表 crm_supplier/crm_supplier_contact -> *_bak_060813 ...
+    备份 crm_supplier_bak_060813 完成, 行数=55
+    备份 crm_supplier_contact_bak_060813 完成, 行数=4
+[5] 将删除 27 家已存在供应商: 2:ASTREON COMPUTERS L.L.C(ATN000001); 3:Star Seed Technologies ME FZE    (ST0001); 4:MA-LABS(ML001); 5:诚誉(CY001); 9:赞禾(zanHe); 11:DickerData(DD001); 12:Taurus(Taurus001); 15:彼富(pf001); 16:Honch(Honch); 18:STES(STES); 20:山东怡然/HuaShu(HuaShu); 22:融科(融科); 24:LinkView(LinkView); 25:星能(星能); 27:E2K(E2K); 28:NXE(NXE); 29:CI Gulf(CG); 31:xinhao(鑫浩); 32:新欣(新欣); 33:VastSystem(VastSystem); 38:Servergst(Servergst); 40:Tier(Tier); 41:华储(华储); 46:Syno smoothroute(Syno smoothroute); 47:远信(远信); 55:宝通(宝通); 57:广达/grandtect(广达/grandtect)
+    删除完成: 供应商 27 条(含其联系人)
+    [截断] 公司"深圳市极光通讯科技有限公司": 深圳市南山区南新路1024号阳光科创中心B座2706
+B27... 长度200->截断100
+[6-7] 插入完成: 公司 133 家
+[8] 验证: crm_supplier 现有 161 条, crm_supplier_contact 现有 315 条
+    无重名供应商 ✓

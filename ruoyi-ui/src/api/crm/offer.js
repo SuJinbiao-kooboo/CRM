@@ -37,6 +37,11 @@ export function parseOffer(data) {
   return request({ url: '/crm/offer/parse', method: 'post', data: data })
 }
 
+// AI智能录入：粘贴物料内容，后端调用DeepSeek整理后批量入库
+export function aiEntry(data) {
+  return request({ url: '/crm/offer/aiEntry', method: 'post', data: data })
+}
+
 export function sendOffer(data) {
   return request({ url: '/crm/offer/sendOffer', method: 'post', data: data })
 }

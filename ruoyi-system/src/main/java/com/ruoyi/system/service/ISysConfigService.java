@@ -58,6 +58,15 @@ public interface ISysConfigService
     public int updateConfig(SysConfig config);
 
     /**
+     * 根据键名修改参数配置值，键不存在时自动新增
+     * 
+     * @param configKey 参数键名
+     * @param configValue 参数键值
+     * @return 结果
+     */
+    public int updateConfigByKey(String configKey, String configValue);
+
+    /**
      * 批量删除参数信息
      * 
      * @param configIds 需要删除的参数ID

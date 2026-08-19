@@ -1,0 +1,18 @@
+行370 公司名称=[Anchor Innovative IT Solutions FZC LLC] 原Company=[Anchor Innovative IT Solutions FZC LLC]
+行371 公司名称=[Anchor Innovative IT Solutions FZC LLC] 原Company=[Computer Solution INC.-Anchor美国关联公司]
+PASS 行106 期望=[HONCKONG HONCH INTERNATIONAL LIMITED香港鴻啟國際有限公司] 实际=[HONCKONG HONCH INTERNATIONAL LIMITED香港鴻啟國際有限公司]
+PASS 行110 期望=[HONCKONG HONCH INTERNATIONAL LIMITED香港鴻啟國際有限公司] 实际=[HONCKONG HONCH INTERNATIONAL LIMITED香港鴻啟國際有限公司]
+PASS 行111 期望=[HONCKONG HONCH INTERNATIONAL LIMITED香港鴻啟國際有限公司] 实际=[HONCKONG HONCH INTERNATIONAL LIMITED香港鴻啟國際有限公司]
+PASS 行201 期望=[HONGKONG NETZONE TECHNOLOGY CO., LIMITED] 实际=[HONGKONG NETZONE TECHNOLOGY CO., LIMITED]
+PASS 行207 期望=[JOINT-HARVEST INTERNATION HOLDINGS LIMITED] 实际=[JOINT-HARVEST INTERNATION HOLDINGS LIMITED]
+PASS 行208 期望=[JOINT-HARVEST INTERNATION HOLDINGS LIMITED] 实际=[JOINT-HARVEST INTERNATION HOLDINGS LIMITED]
+PASS 行314 期望=[AMAX] 实际=[AMAX]
+PASS 行345 期望=[Powerleader Computer System Co., Ltd.] 实际=[Powerleader Computer System Co., Ltd.]
+PASS 行354 期望=[杭州易成讯创电子科技有限公司] 实际=[杭州易成讯创电子科技有限公司]
+PASS 行363 期望=[融核（上海）科技有限公司] 实际=[融核（上海）科技有限公司]
+PASS 行364 期望=[融核（上海）科技有限公司] 实际=[融核（上海）科技有限公司]
+PASS 行367 期望=[芯通科技有限公司] 实际=[芯通科技有限公司]
+抽查通过: 12/12
+输出总行数: 372 (含空行, 应为372)
+说明组: 名称=[Anchor Innovative IT Solutions FZC LLC] 行数=2 行号=[370,371]
+说明sheet含分组的行数: 57

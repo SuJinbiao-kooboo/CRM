@@ -72,6 +72,9 @@
         <el-button type="primary" plain icon="el-icon-plus" size="mini" @click="handleAdd" v-hasPermi="['crm:offer:add']">新增</el-button>
       </el-col>
       <el-col :span="1.5">
+        <el-button type="primary" plain icon="el-icon-magic-stick" size="mini" @click="openAiEntry" v-hasPermi="['crm:offer:add']">AI录入</el-button>
+      </el-col>
+      <el-col :span="1.5">
         <el-button type="success" plain icon="el-icon-edit" size="mini" :disabled="single" @click="handleUpdate" v-hasPermi="['crm:offer:edit']">修改</el-button>
       </el-col>
       <el-col :span="1.5">
@@ -254,6 +257,36 @@
       </div>
     </el-dialog>
 
+    <el-dialog title="AI智能录入" :visible.sync="openAiEntryDialog" width="700px" append-to-body>
+      <el-form :model="aiEntryForm" label-width="120px">
+        <el-form-item label="供应商">
+          <el-select v-model="aiSupplier" filterable remote reserve-keyword placeholder="请输入供应商名称或别名搜索" :remote-method="remoteSupplier" value-key="supplierCode" style="width: 100%">
+            <el-option v-for="item in supplierOptions" :key="item.id" :label="item.supplierName" :value="item">
+              <span style="float: left">{{ item.supplierName }}</span>
+              <span v-if="item.supplierAlias" style="float: right; color: #8492a6; font-size: 13px">{{ item.supplierAlias }}</span>
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="aiEntryForm.inqOfferType" placeholder="请选择类型" style="width: 100%">
+            <el-option label="Inq" value="Inq" />
+            <el-option label="Offer" value="Offer" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="利润比例(%)">
+          <el-input-number v-model="aiEntryForm.profitRatio" :controls="false" :precision="0" :min="1" :max="100" placeholder="1-100" style="width: 100%" />
+          <div style="color: #909399; font-size: 12px; line-height: 1.5">类型为Offer时必填，报价价 = 供应商价格 × (1 + 利润比例/100)</div>
+        </el-form-item>
+        <el-form-item label="物料内容">
+          <el-input type="textarea" v-model="aiEntryForm.content" :rows="10" placeholder="粘贴供应商的物料信息（品牌、料号、型号、规格、数量、报价等），AI将自动整理入库" />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" :loading="aiEntryLoading" @click="submitAiEntry">确 定</el-button>
+        <el-button @click="openAiEntryDialog=false">取 消</el-button>
+      </div>
+    </el-dialog>
+
     <el-dialog title="批量编辑" :visible.sync="openBatchDialog" width="700px" append-to-body>
       <el-form :model="batchForm" label-width="120px">
         <el-form-item label="产品品牌"><el-input v-model="batchForm.productBrand" placeholder="不填不更新" /></el-form-item>
@@ -391,7 +424,7 @@
 </template>
 
 <script>
-import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer, listEmailResults } from '@/api/crm/offer'
+import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer, listEmailResults, aiEntry } from '@/api/crm/offer'
 import { listSupplierOptions, listSupplier, listSupplierSimple } from '@/api/crm/supplier'
 import { getDicts } from '@/api/system/dict/data'
 import { parseTime } from "@/utils/ruoyi"
@@ -414,6 +447,10 @@ export default {
       title: '',
       open: false,
       openImportDialog: false,
+      openAiEntryDialog: false,
+      aiEntryLoading: false,
+      aiSupplier: null,
+      aiEntryForm: { inqOfferType: '', profitRatio: undefined, content: '' },
       openBatchDialog: false,
       supplierLoading: false,
       supplierOptions: [],
@@ -564,6 +601,29 @@ export default {
       })
     },
     openImport() { this.openImportDialog = true; this.remoteSupplier('') },
+    /** 打开AI智能录入弹窗 */
+    openAiEntry() { this.aiSupplier = null; this.aiEntryForm = { inqOfferType: '', profitRatio: undefined, content: '' }; this.openAiEntryDialog = true; this.remoteSupplier('') },
+    /** 提交AI智能录入：粘贴内容交给后端DeepSeek整理后批量入库 */
+    submitAiEntry() {
+      if (!this.aiSupplier) { this.$modal.msgError('请选择供应商'); return }
+      if (!this.aiEntryForm.inqOfferType) { this.$modal.msgError('请选择类型'); return }
+      if (!this.aiEntryForm.content || !this.aiEntryForm.content.trim()) { this.$modal.msgError('请粘贴物料内容'); return }
+      const ratio = this.aiEntryForm.profitRatio;
+      if (this.aiEntryForm.inqOfferType === 'Offer' && (ratio == null || ratio < 1 || ratio > 100)) { this.$modal.msgError('类型为Offer时请输入1-100的利润比例'); return }
+      this.aiEntryLoading = true;
+      aiEntry({
+        supplierCode: this.aiSupplier.supplierCode || '',
+        supplierName: this.aiSupplier.supplierName || '',
+        inqOfferType: this.aiEntryForm.inqOfferType,
+        profitRatio: ratio,
+        content: this.aiEntryForm.content
+      }).then(res => {
+        this.$modal.msgSuccess(res.msg || 'AI录入成功');
+        this.openAiEntryDialog = false;
+        this.getList();
+      }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : 'AI录入失败') })
+      .finally(() => { this.aiEntryLoading = false })
+    },
     submitImport() {
       if (!this.importSupplier || !this.importForm.inqOfferType) { this.$modal.msgError('请选择供应商和类型'); return }
       if (!this.colMap.productCode) { this.$modal.msgError('请选择产品编码列'); return }

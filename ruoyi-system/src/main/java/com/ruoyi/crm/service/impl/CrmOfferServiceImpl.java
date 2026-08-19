@@ -10,6 +10,8 @@ import java.util.Map;
 
 import cn.hutool.core.util.NumberUtil;
 import com.ruoyi.common.utils.PatternUtil;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.crm.service.ai.DeepSeekAiService;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -29,6 +31,9 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
 
     @Autowired
     private CrmOfferMapper offerMapper;
+
+    @Autowired
+    private DeepSeekAiService deepSeekAiService;
 
     @Override
     public List<CrmOffer> selectOfferList(CrmOffer offer) {
@@ -245,5 +250,58 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
 
     private Double round2(double v) {
         return NumberUtil.round(Math.round(v * 100.0d) / 100.0d, 0).doubleValue();
+    }
+
+    @Override
+    @Transactional
+    public int aiEntryOffers(String supplierCode, String supplierName, String inqOfferType, Double profitRatio, String content) {
+        if (content == null || content.trim().isEmpty()) {
+            throw new ServiceException("粘贴的物料内容不能为空");
+        }
+        if (supplierCode == null || supplierCode.trim().isEmpty()) {
+            throw new ServiceException("供应商信息不能为空");
+        }
+        if (!"Offer".equals(inqOfferType) && !"Inq".equals(inqOfferType)) {
+            throw new ServiceException("类型必须为Inq或Offer");
+        }
+        double ratio = profitRatio == null ? 2d : profitRatio.doubleValue();
+        // 调用AI把无规则文本整理为结构化物料列表（品牌/料号/型号/规格型号/数量/报价）
+        List<Map<String, Object>> items = deepSeekAiService.parseMaterialContent(content);
+
+        String userName = SecurityUtils.getUsername();
+        Date now = new Date();
+        // 来源表名：AI+时间+供应商名+操作人，便于追溯录入批次
+        String sheetName = "AI_" + new SimpleDateFormat("yyyyMMddHHmm").format(now) + "_" + supplierName + "_" + userName;
+
+        int success = 0;
+        for (Map<String, Object> item : items) {
+            CrmOffer offer = new CrmOffer();
+            offer.setProductCode(str(item.get("partNumber")));
+            offer.setProductBrand(str(item.get("brand")));
+            offer.setProductDetailCode(str(item.get("model")));
+            offer.setProductDetail(str(item.get("spec")));
+            offer.setQuantity((Integer) item.get("quantity"));
+            Double cost = (Double) item.get("price");
+            offer.setPriceCost(cost);
+            // OFFER时按利润比例计算报价价：供应商价格×(1+利润比例/100)；INQ仅记录供应商价格
+            if ("Offer".equals(inqOfferType) && cost != null) {
+                offer.setPriceOffer(round2(cost * (1d + ratio / 100d)));
+            }
+            offer.setPriceUnit("USD");
+            offer.setStockDate(now);
+            offer.setSheetName(sheetName);
+            offer.setSupplierCode(supplierCode);
+            offer.setSupplierName(supplierName);
+            offer.setInqOfferType(inqOfferType);
+            offer.setStatus(1);
+            offer.setCreateBy(userName);
+            offer.setUpdateBy(userName);
+            success += offerMapper.insertOffer(offer);
+        }
+        return success;
+    }
+
+    private String str(Object v) {
+        return v == null ? "" : String.valueOf(v).trim();
     }
 }

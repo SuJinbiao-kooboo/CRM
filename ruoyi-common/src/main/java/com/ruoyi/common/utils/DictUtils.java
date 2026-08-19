@@ -2,7 +2,6 @@ package com.ruoyi.common.utils;
 
 import java.util.Collection;
 import java.util.List;
-import com.alibaba.fastjson2.JSONArray;
 import com.ruoyi.common.constant.CacheConstants;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.redis.RedisCache;
@@ -39,10 +38,12 @@ public class DictUtils
      */
     public static List<SysDictData> getDictCache(String key)
     {
-        JSONArray arrayCache = SpringUtils.getBean(RedisCache.class).getCacheObject(getCacheKey(key));
-        if (StringUtils.isNotNull(arrayCache))
+        Object cacheObj = SpringUtils.getBean(RedisCache.class).getCacheObject(getCacheKey(key));
+        if (StringUtils.isNotNull(cacheObj))
         {
-            return arrayCache.toList(SysDictData.class);
+            // 本地缓存直接存储对象引用，按写入时的 List 类型还原即可
+            // （原 Redis 实现经 FastJson 反序列化会得到 JSONArray，此处不再依赖该类型）
+            return (List<SysDictData>) cacheObj;
         }
         return null;
     }

@@ -152,6 +152,33 @@ public class OfferController extends BaseController {
         return AjaxResult.success(msg, result);
     }
 
+    @PreAuthorize("@ss.hasPermi('crm:offer:add')")
+    @Log(title = "Offer管理", businessType = BusinessType.INSERT)
+    @PostMapping("/aiEntry")
+    public AjaxResult aiEntry(@RequestBody Map<String, Object> body) {
+        String supplierCode = strOf(body.get("supplierCode"));
+        String supplierName = strOf(body.get("supplierName"));
+        String inqOfferType = strOf(body.get("inqOfferType"));
+        String content = strOf(body.get("content"));
+        Double profitRatio = toDouble(body.get("profitRatio"));
+        if (profitRatio == null) profitRatio = 2d;
+        int count = offerService.aiEntryOffers(supplierCode, supplierName, inqOfferType, profitRatio, content);
+        return AjaxResult.success("AI录入成功" + count + "条", count);
+    }
+
+    private String strOf(Object o) {
+        return o == null ? "" : o.toString().trim();
+    }
+
+    private Double toDouble(Object o) {
+        if (o == null) return null;
+        try {
+            return Double.valueOf(o.toString().trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     @PreAuthorize("@ss.hasPermi('crm:offer:parse')")
     @Log(title = "Offer管理", businessType = BusinessType.OTHER)
     @PostMapping("/parse")

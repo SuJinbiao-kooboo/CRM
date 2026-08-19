@@ -9,6 +9,9 @@
       <el-form-item label="供应商名称">
         <el-input v-model="queryParams.supplierName" placeholder="请输入供应商名称" clearable @keyup.enter.native="handleQuery" />
       </el-form-item>
+      <el-form-item label="公司别名">
+        <el-input v-model="queryParams.supplierAlias" placeholder="请输入公司别名" clearable @keyup.enter.native="handleQuery" />
+      </el-form-item>
       <el-form-item label="联系人名称">
         <el-input v-model="queryParams.contactName" placeholder="请输入联系人名称" clearable @keyup.enter.native="handleQuery" />
       </el-form-item>
@@ -115,6 +118,7 @@
           <el-descriptions-item label="供应商名称">{{ detailData.supplierName }}</el-descriptions-item>
           <el-descriptions-item label="供应商编号">{{ detailData.supplierCode }}</el-descriptions-item>
           <el-descriptions-item label="供应商简称">{{ detailData.supplierShortName }}</el-descriptions-item>
+          <el-descriptions-item label="公司别名">{{ detailData.supplierAlias }}</el-descriptions-item>
           <el-descriptions-item label="类型">{{ detailData.supplierType }}</el-descriptions-item>
           <el-descriptions-item label="国家">{{ detailData.country }}</el-descriptions-item>
           <el-descriptions-item label="地址" :span="3">{{ detailData.address }}</el-descriptions-item>
@@ -140,8 +144,8 @@
 
         <div class="form-header mt10">财务信息</div>
         <el-descriptions :column="2" border size="small">
-          <el-descriptions-item label="银行信息" :span="2">{{ detailData.bankInfo }}</el-descriptions-item>
-          <el-descriptions-item label="银行账号" :span="2">{{ detailData.bankAccount }}</el-descriptions-item>
+          <el-descriptions-item label="银行信息" :span="2"><div style="white-space: pre-wrap;">{{ detailData.bankInfo }}</div></el-descriptions-item>
+          <el-descriptions-item label="银行账号" :span="2"><div style="white-space: pre-wrap;">{{ detailData.bankAccount }}</div></el-descriptions-item>
         </el-descriptions>
 
         <div class="form-header mt10">地址信息</div>
@@ -186,10 +190,14 @@
         <el-table :data="detailData.attachments || []" size="mini" stripe>
           <el-table-column label="附件名称" prop="fileName">
             <template slot-scope="scope">
-              <el-link :href="scope.row.fileUrl" target="_blank">{{ scope.row.fileName }}</el-link>
+              <el-link type="primary" @click="previewAttachment(scope.row)">{{ scope.row.fileName }}</el-link>
             </template>
           </el-table-column>
-          <el-table-column label="备注" prop="remark" />
+          <el-table-column label="操作" width="80" align="center">
+            <template slot-scope="scope">
+              <el-button type="text" size="mini" @click="downloadAttachment(scope.row)">下载</el-button>
+            </template>
+          </el-table-column>
           <el-table-column label="上传时间" prop="createTime" width="180">
             <template slot-scope="scope">
               <span>{{ parseTime(scope.row.createTime) }}</span>
@@ -200,6 +208,11 @@
       <div slot="footer" class="dialog-footer">
         <el-button type="primary" @click="detailOpen=false">关 闭</el-button>
       </div>
+    </el-dialog>
+
+    <!-- 附件预览弹窗（Excel/Word/文本等由后端解析为 HTML 展示） -->
+    <el-dialog :title="previewTitle" :visible.sync="previewOpen" width="80%" top="5vh" append-to-body>
+      <div class="preview-content" v-html="previewHtml" />
     </el-dialog>
 
     <el-row :gutter="10" class="mb8">
@@ -224,6 +237,7 @@
           <el-link type="primary" @click="openDetail(scope.row)">{{ scope.row.supplierName }}</el-link>
         </template>
       </el-table-column>
+      <el-table-column label="公司别名" align="center" prop="supplierAlias" show-overflow-tooltip />
       <el-table-column label="类型" align="center" prop="supplierType" />
       <el-table-column label="品牌" align="center" prop="brands" />
       <el-table-column label="国家" align="center" prop="country" />
@@ -243,6 +257,7 @@
       <el-table-column label="手机号" align="center" prop="phone" width="200" />
       <el-table-column label="邮箱" align="center" prop="email" width="240" />
       <el-table-column label="Teams" align="center" prop="teams" width="200" />
+      <el-table-column label="WhatsApp" align="center" prop="whatsapp" width="200" />
       <el-table-column label="创建时间" align="center" prop="createTime" width="180">
         <template slot-scope="scope">
           <span>{{ parseTime(scope.row.createTime) }}</span>
@@ -275,6 +290,11 @@
           <el-col :span="12">
             <el-form-item label="供应商简称" prop="supplierShortName">
               <el-input v-model="form.supplierShortName" placeholder="请输入供应商简称" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="公司别名" prop="supplierAlias">
+              <el-input v-model="form.supplierAlias" placeholder="请输入公司别名" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -351,14 +371,14 @@
               <el-input v-model="form.taxNumber" placeholder="请输入税号" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="24">
             <el-form-item label="银行信息" prop="bankInfo">
-              <el-input v-model="form.bankInfo" type="textarea" placeholder="请输入银行信息" />
+              <Editor v-model="form.bankInfo" :minHeight="120" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="24">
             <el-form-item label="银行账号" prop="bankAccount">
-              <el-input v-model="form.bankAccount" placeholder="请输入银行账号" />
+              <Editor v-model="form.bankAccount" :minHeight="120" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
@@ -496,19 +516,21 @@
         </el-table>
 
         <div class="form-header">附件</div>
-        <el-upload :action="uploadUrl" :headers="uploadHeaders" :on-success="onUploadSuccess" :file-list="uploadFiles" :limit="10" :show-file-list="true">
+        <!-- 附件上传：文件内容直接入库（crm_supplier_attachment 表），编辑已有供应商时携带供应商ID -->
+        <el-upload :action="uploadUrl" :headers="uploadHeaders" :data="uploadAttachmentData" :on-success="onUploadSuccess" :file-list="uploadFiles" :limit="10" :show-file-list="true">
           <el-button size="small" type="primary">上传附件</el-button>
         </el-upload>
         <el-table :data="form.attachments" size="mini" class="mt10">
           <el-table-column label="附件名称" prop="fileName" />
-          <el-table-column label="地址" prop="fileUrl" />
-          <el-table-column label="备注" prop="remark">
+          <el-table-column label="上传时间" prop="createTime" width="160">
             <template slot-scope="scope">
-              <el-input v-model="scope.row.remark" placeholder="备注" />
+              <span>{{ parseTime(scope.row.createTime) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="80">
+          <el-table-column label="操作" width="150">
             <template slot-scope="scope">
+              <el-button type="text" size="mini" @click="previewAttachment(scope.row)">预览</el-button>
+              <el-button type="text" size="mini" @click="downloadAttachment(scope.row)">下载</el-button>
               <el-button type="text" size="mini" @click="removeAttachment(scope.$index)">删除</el-button>
             </template>
           </el-table-column>
@@ -524,7 +546,8 @@
 </template>
 
 <script>
-import { listSupplier, getSupplier, addSupplier, updateSupplier, delSupplier, getSupplierDetail } from '@/api/crm/supplier'
+import { listSupplier, getSupplier, addSupplier, updateSupplier, delSupplier, getSupplierDetail, delSupplierAttachment } from '@/api/crm/supplier'
+import request from '@/utils/request'
 import { listUser } from '@/api/system/user'
 import { getDicts } from '@/api/system/dict/data'
 import { getToken } from '@/utils/auth'
@@ -547,11 +570,14 @@ export default {
       detailTitle: '供应商详情',
       detailOpen: false,
       detailData: {},
-      uploadUrl: process.env.VUE_APP_BASE_API + '/common/upload',
+      previewOpen: false,
+      previewTitle: '',
+      previewHtml: '',
+      uploadUrl: process.env.VUE_APP_BASE_API + '/crm/supplier/attachment/upload',
       uploadHeaders: { Authorization: 'Bearer ' + getToken() },
       uploadFiles: [],
-      queryParams: { pageNum: 1, pageSize: 10, supplierName: '', contactName: '', cooperationStatus: '', supplierTypeArr: [], brandsArr: [], mainProductsArr: [], cooperationLevelArr: [], riskLevelArr: [], paymentTermsArr: [], params: {} },
-      form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationStatus: '', businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
+      queryParams: { pageNum: 1, pageSize: 10, supplierName: '', supplierAlias: '', contactName: '', cooperationStatus: '', supplierTypeArr: [], brandsArr: [], mainProductsArr: [], cooperationLevelArr: [], riskLevelArr: [], paymentTermsArr: [], params: {} },
+      form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationStatus: '', businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
       dictSupplierType: [], dictMainProducts: [], dictCooperationLevel: [], dictRiskLevel: [], dictPaymentTerms: [], dictProductBrand: [], dictCooperationStatus: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       userOptions: []
     }
@@ -593,7 +619,7 @@ export default {
     handleAdd() { this.resetFormData(); this.open = true; this.title = '新增供应商'; this.loadDicts() },
     handleUpdate(row) {
       const id = row.id || this.ids[0]
-      getSupplier(id).then(res => { this.form = res.data || {}; if (!this.form.contacts) this.form.contacts = []; if (!this.form.attachments) this.form.attachments = []; this.splitToArrays(); this.open = true; this.title = '修改供应商'; this.loadDicts() })
+      getSupplier(id).then(res => { this.form = res.data || {}; if (!this.form.contacts) this.form.contacts = []; if (!this.form.attachments) this.form.attachments = []; this.uploadFiles = []; this.splitToArrays(); this.open = true; this.title = '修改供应商'; this.loadDicts() })
     },
     handleDelete(row) {
       const ids = row.id ? [row.id] : this.ids
@@ -605,15 +631,80 @@ export default {
       this.download('/crm/supplier/export', { ids: this.ids }, `supplier_${new Date().getTime()}.xlsx`)
     },
     cancel() { this.open = false },
-    resetFormData() { this.form = { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] } },
+    resetFormData() { this.form = { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] }; this.uploadFiles = [] },
     addContact() { this.form.contacts.push({ contactName: '', post: '', phone: '', email: '', isPrimary: 0 }) },
     removeContact(index) { this.form.contacts.splice(index, 1) },
     onUploadSuccess(resp, file) {
-      if (resp && resp.url) {
-        this.form.attachments.push({ fileName: resp.originalFilename || file.name, fileUrl: resp.url, remark: '' })
+      // 附件已入库（crm_supplier_attachment），后端返回 {id, fileName, createTime}
+      const data = resp && resp.data ? resp.data : null
+      if (data && data.id) {
+        this.form.attachments.push({ id: data.id, fileName: data.fileName || file.name, createTime: data.createTime })
       }
     },
-    removeAttachment(index) { this.form.attachments.splice(index, 1) },
+    uploadAttachmentData() {
+      // 编辑已有供应商时携带供应商ID，新增时为空（保存供应商后由后端回填）
+      return this.form.id ? { supplierId: this.form.id } : {}
+    },
+    downloadAttachment(row) {
+      this.download('/crm/supplier/attachment/download/' + row.id, {}, row.fileName)
+    },
+    previewAttachment(row) {
+      const ext = (row.fileName || '').split('.').pop().toLowerCase()
+      // PDF/图片：blob 临时链接 + 新窗口浏览器原生预览
+      const nativeMap = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp' }
+      if (nativeMap[ext]) {
+        request({ url: '/crm/supplier/attachment/download/' + row.id, method: 'post', responseType: 'blob' }).then(data => {
+          if (data.type && data.type.indexOf('application/json') !== -1) {
+            data.text().then(text => { const rspObj = JSON.parse(text); this.$modal.msgError(rspObj.msg || '附件不存在或已删除') })
+            return
+          }
+          const blob = new Blob([data], { type: nativeMap[ext] })
+          const url = window.URL.createObjectURL(blob)
+          window.open(url, '_blank')
+          // 延迟释放临时链接，避免新页面尚未加载完成即失效
+          setTimeout(() => window.URL.revokeObjectURL(url), 60 * 1000)
+        }).catch(() => { this.$modal.msgError('附件预览失败') })
+        return
+      }
+      // 文本类：拉取文本内容在弹窗中展示
+      if (ext === 'txt' || ext === 'md') {
+        request({ url: '/crm/supplier/attachment/download/' + row.id, method: 'post', responseType: 'blob' }).then(data => {
+          if (data.type && data.type.indexOf('application/json') !== -1) {
+            data.text().then(text => { const rspObj = JSON.parse(text); this.$modal.msgError(rspObj.msg || '附件不存在或已删除') })
+            return
+          }
+          data.text().then(text => { this.openPreviewDialog(row.fileName, '<pre>' + text.replace(/</g, '&lt;') + '</pre>') })
+        }).catch(() => { this.$modal.msgError('附件预览失败') })
+        return
+      }
+      // Excel/Word：后端解析为 HTML 表格，弹窗展示
+      if (['xlsx', 'xls', 'csv', 'docx'].includes(ext)) {
+        request({ url: '/crm/supplier/attachment/preview/' + row.id, method: 'post' }).then(res => {
+          if (res.code === 200 && res.data) {
+            this.openPreviewDialog(row.fileName, res.data)
+          } else {
+            this.$modal.msgError(res.msg || '附件预览失败')
+          }
+        }).catch(() => { this.$modal.msgError('附件预览失败') })
+        return
+      }
+      // 其他格式（doc/zip 等）：不支持在线预览，引导下载查看
+      this.$modal.confirm('该文件格式暂不支持在线预览，是否下载查看？').then(() => { this.downloadAttachment(row) }).catch(() => {})
+    },
+    openPreviewDialog(title, html) {
+      this.previewTitle = title
+      this.previewHtml = html
+      this.previewOpen = true
+    },
+    removeAttachment(index) {
+      const row = this.form.attachments[index]
+      if (!row.id) { this.form.attachments.splice(index, 1); return }
+      // 软删除：调后端接口将删除标记置为 1，成功后从页面列表移除
+      delSupplierAttachment(row.id).then(() => {
+        this.form.attachments.splice(index, 1)
+        this.$modal.msgSuccess('附件已删除')
+      }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '删除附件失败') })
+    },
     submitForm() {
       if (!this.form.supplierName) { this.$modal.msgError('供应商名称不能为空'); return }
       this.joinFromArrays()
@@ -669,4 +760,9 @@ export default {
 
 <style scoped>
 .mt10 { margin-top: 10px; }
+.preview-content { max-height: 70vh; overflow: auto; padding: 4px; }
+.preview-content >>> table { border-collapse: collapse; }
+.preview-content >>> td, .preview-content >>> th { border: 1px solid #dcdfe6; padding: 4px 8px; white-space: nowrap; }
+.preview-content >>> h4 { margin: 8px 0 4px; }
+.preview-content >>> p { margin: 4px 0; }
 </style>

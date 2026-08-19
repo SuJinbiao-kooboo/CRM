@@ -35,3 +35,8 @@ export function listSupplierOptions(query) {
 export function listSupplierSimple(query) {
   return request({ url: '/crm/supplier/simpleList', method: 'get', params: query })
 }
+
+// 删除供应商附件（软删除，仅标记删除不物理删除）
+export function delSupplierAttachment(id) {
+  return request({ url: '/crm/supplier/attachment/' + id, method: 'delete' })
+}

@@ -1,0 +1,29 @@
+#74|NX Electronics Limited领峰数码电子有限公司|type=贸易商|country=中国深圳/中国香港,中国香港/中国台湾/中国深圳|web=http://www.nxelectronics.com|prod=合作:intel/AMD/Samsung/Toshiba
+DRAM, Memory, flash IC, memory |addr=SZ:福田区华强北路宝华大厦A座2088室
+HK WH:香港九龙长沙湾道时信中心11楼
+11/F, Trust Cent|remark2=inq/offer都可以发
+cpu服务器要发inquiry，也要告知找国外|bank=
+#75|NX Electronics Limited|type=贸易商|country=中国深圳/中国香港,中国香港/中国台湾/中国深圳|web=http://www.nxelectronics.com|prod=DRAM, Memory, flash IC, memory card, CPU, HDD, SSD, SMT asse|addr=Room 1101, 11/F, Trust Centre, 912-914 Cheung Sha Wan Road, |remark2=大老板，只负责大订单审批|bank=
+#101|Twinmos|type=|country=|web=|prod=|addr=|remark2=|bank=
+#102|TwinMOS Technologies|type=|country=memory modules， SSD|web=http://TW|prod=|addr=|remark2=|bank=
+#106|BOSSION INTERNATIONAL PTE. LTD.|type=合作：HDD/三星|country=|web=|prod=|addr=BOSSION INTERNATIONAL-Hong Kong HeadquarterUnit A, 3/F, Kade|remark2=Bossion后续对接终端;E2K对接贸易商|bank=Company Name: E2K Semiconductor Pte Ltd
+
+#107|BOSSION INTERNATIONAL PTE. LTD.博盛国际|type=贸易商|country=新加坡|web=http://www.bossion-intl.com|prod=|addr=Unit A, 3/F, Kader Building, 22 Kai Cheung Rd, Kowloon Bay, |remark2=领英人脉，多链接|bank=
+CT#74|johnny xiong熊壮|johnny.xiong@nxelectronics.com
+CT#74|Hedy Zhou|hedyzhou@nxelectronics.com
+CT#74|Daisy Tang|daisy@nxelectronics.com
+CT#75|Eric Auw-Yang欧阳清坚|eric@nxelectronics.com
+CT#75|Henry|
+CT#75|Tiffany|tiffanyleung@nxelectronics.com
+CT#75|Alix Zhang|alix@nxelectronics.com
+CT#75|Ho Sang Yam|dickyam@nxelectronics.com
+CT#101|Abdul Noushee|
+CT#102|未知|sales@twinmos.com
+CT#106|Stephen Teng丁礼品-其它产品（东芝，三星企业级产品）|stephen.teng@e2ksemi.com
+CT#106|Liu Wenze-GPU CPU|wenze@bossion-intl.com
+CT#107|沈汉通Eugene Sim|es@bossion-intl.com
+CT#107|DAHEE JEONG|
+CT#107|WZ Liu|
+CT#107|埃米莉 (Emily)|
+CT#107|赵婉|
+CT#107|Cathy Deng|

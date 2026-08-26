@@ -57,6 +57,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 				and date_format(create_time,'%Y%m%d') &lt;= date_format(#{params.endTime},'%Y%m%d')
 			</if>
 		</where>
+        order by config_id desc
     </select>
     
     <select id="selectConfigById" parameterType="Long" resultMap="SysConfigResult">

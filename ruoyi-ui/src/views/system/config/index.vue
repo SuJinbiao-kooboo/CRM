@@ -147,8 +147,8 @@
       @pagination="getList"
     />
 
-    <!-- 添加或修改参数配置对话框 -->
-    <el-dialog :title="title" :visible.sync="open" width="500px" append-to-body>
+    <!-- 添加或修改参数配置对话框（加宽以容纳大输入框） -->
+    <el-dialog :title="title" :visible.sync="open" width="900px" append-to-body>
       <el-form ref="form" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="参数名称" prop="configName">
           <el-input v-model="form.configName" placeholder="请输入参数名称" />
@@ -157,7 +157,8 @@
           <el-input v-model="form.configKey" placeholder="请输入参数键名" />
         </el-form-item>
         <el-form-item label="参数键值" prop="configValue">
-          <el-input v-model="form.configValue" type="textarea" placeholder="请输入参数键值" />
+          <!-- 参数值内容较长：输入框高度放大5倍(2行→10行)，宽度随弹窗加宽约为原来2倍 -->
+          <el-input v-model="form.configValue" type="textarea" :rows="10" placeholder="请输入参数键值" />
         </el-form-item>
         <el-form-item label="系统内置" prop="configType">
           <el-radio-group v-model="form.configType">

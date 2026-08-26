@@ -8,10 +8,10 @@
         <el-input v-model="queryParams.sheetName" placeholder="请输入来源表名" clearable @keyup.enter.native="handleQuery" />
       </el-form-item>
       <el-form-item label="供应商">
-        <el-select v-model="queryParams.supplierCodes" multiple collapse-tags filterable remote :remote-method="searchSupplier" :loading="supplierLoading" placeholder="请选择供应商" @focus="searchSupplier('')">
-          <el-option v-for="item in supplierListOptions" :key="item.id" :label="item.supplierName" :value="item.supplierCode">
-            <span style="float: left">{{ item.supplierName }}</span>
-            <span style="float: right; color: #8492a6; font-size: 13px; margin-left: 10px">{{ item.supplierCode }}</span>
+        <el-select v-model="queryParams.supplierCodes" multiple collapse-tags filterable remote :remote-method="searchSupplier" :loading="supplierLoading" placeholder="请选择供应商编码" @focus="searchSupplier('')">
+          <el-option v-for="item in supplierListOptions" :key="item.id" :label="item.supplierCode" :value="item.supplierCode">
+            <span style="float: left">{{ item.supplierCode }}</span>
+            <span style="float: right; color: #8492a6; font-size: 13px; margin-left: 10px">{{ item.supplierName }}</span>
           </el-option>
         </el-select>
       </el-form-item>
@@ -72,6 +72,13 @@
         <el-button type="primary" plain icon="el-icon-plus" size="mini" @click="handleAdd" v-hasPermi="['crm:offer:add']">新增</el-button>
       </el-col>
       <el-col :span="1.5">
+        <el-button type="primary" plain icon="el-icon-magic-stick" size="mini" @click="openAiEntry" v-hasPermi="['crm:offer:add']">AI录入</el-button>
+        <el-button type="primary" plain icon="el-icon-aim" size="mini" @click="openAiQuery" v-hasPermi="['crm:offer:list']">AI查询</el-button>
+      </el-col>
+      <el-col :span="1.5">
+        <el-button type="primary" plain icon="el-icon-copy-document" size="mini" @click="openCopyOffer" v-hasPermi="['crm:offer:list']">复制Offer</el-button>
+      </el-col>
+      <el-col :span="1.5">
         <el-button type="success" plain icon="el-icon-edit" size="mini" :disabled="single" @click="handleUpdate" v-hasPermi="['crm:offer:edit']">修改</el-button>
       </el-col>
       <el-col :span="1.5">
@@ -100,7 +107,7 @@
     <el-table v-loading="loading" :data="offerList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="产品编码" align="center" prop="productCode" width="180" show-overflow-tooltip />
-      <el-table-column label="供应商名称" align="center" prop="supplierName" width="180" show-overflow-tooltip />
+      <el-table-column label="供应商编号" align="center" prop="supplierCode" width="180" show-overflow-tooltip />
       <el-table-column label="成本" align="center" prop="priceCost" show-overflow-tooltip />
       <el-table-column label="报价" align="center" prop="priceOffer" show-overflow-tooltip />
       <el-table-column label="数量" align="center" prop="quantity" show-overflow-tooltip />
@@ -110,6 +117,7 @@
         </template>
       </el-table-column>
       <el-table-column label="品牌" align="center" prop="productBrand" show-overflow-tooltip />
+      <el-table-column label="产品详情" align="center" prop="productDetail" min-width="220" show-overflow-tooltip />
       <el-table-column label="价格单位" align="center" prop="priceUnit" show-overflow-tooltip />
       <el-table-column label="产品类型" align="center" prop="productType" show-overflow-tooltip />
       <el-table-column label="DC" align="center" prop="dc" show-overflow-tooltip />
@@ -135,12 +143,18 @@
     <el-dialog :title="title" :visible.sync="open" width="700px" append-to-body>
       <el-form ref="form" :model="form" label-width="120px">
         <el-form-item label="供应商" prop="supplierName">
-          <el-select v-model="formSupplier" filterable remote reserve-keyword placeholder="请选择供应商" :remote-method="remoteSupplier" value-key="supplierCode" @change="onSupplierChange">
-            <el-option v-for="item in supplierOptions" :key="item.id" :label="item.supplierName" :value="item" />
+          <el-select v-model="formSupplier" filterable remote reserve-keyword placeholder="请选择供应商编码" :remote-method="remoteSupplier" value-key="supplierCode" @change="onSupplierChange">
+            <el-option v-for="item in supplierOptions" :key="item.supplierCode" :label="item.supplierCode" :value="item">
+              <span style="float: left">{{ item.supplierCode }}</span>
+              <span style="float: right; color: #8492a6; font-size: 13px; margin-left: 10px">{{ item.supplierName }}</span>
+            </el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="产品编码" prop="productCode">
           <el-input v-model="form.productCode" placeholder="请输入产品编码" />
+        </el-form-item>
+        <el-form-item label="明细编号" prop="productDetailCode">
+          <el-input v-model="form.productDetailCode" placeholder="请输入产品明细编号" />
         </el-form-item>
         <el-form-item label="产品品牌" prop="productBrand">
           <el-select v-model="form.productBrandArr" multiple collapse-tags filterable placeholder="请选择产品品牌">
@@ -164,6 +178,9 @@
         <el-form-item label="数量" prop="quantity">
           <el-input-number v-model="form.quantity" :controls="false" :precision="0" :min="0" placeholder="请输入数量" style="width:100%" />
         </el-form-item>
+        <el-form-item label="产品详情" prop="productDetail">
+          <el-input type="textarea" :rows="3" v-model="form.productDetail" placeholder="请输入产品详情（规格型号等）" />
+        </el-form-item>
         <el-form-item label="交货时间" prop="deliveryTime">
           <el-input v-model="form.deliveryTime" placeholder="请输入交货时间" />
         </el-form-item>
@@ -173,14 +190,14 @@
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" placeholder="请输入备注" />
         </el-form-item>
+        <el-form-item label="来源表名" prop="sheetName">
+          <el-input v-model="form.sheetName" placeholder="请输入来源表名" />
+        </el-form-item>
         <el-form-item label="质保详情" prop="warrantyDetail">
           <el-input v-model="form.warrantyDetail" placeholder="请输入质保详情" />
         </el-form-item>
         <el-form-item label="DC" prop="dc">
           <el-input v-model="form.dc" placeholder="请输入DC" maxlength="32" />
-        </el-form-item>
-        <el-form-item label="质保详情" prop="warrantyDetail">
-          <el-input v-model="form.warrantyDetail" placeholder="请输入质保详情" />
         </el-form-item>
         <el-form-item label="产品类型" prop="productType">
           <el-select v-model="form.productTypeArr" multiple collapse-tags filterable placeholder="请选择产品类型">
@@ -205,6 +222,12 @@
             <el-option label="Offer" value="Offer" />
           </el-select>
         </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-radio-group v-model="form.status">
+            <el-radio :label="1">有效</el-radio>
+            <el-radio :label="0">无效</el-radio>
+          </el-radio-group>
+        </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button type="primary" @click="submitForm">确 定</el-button>
@@ -215,8 +238,11 @@
     <el-dialog title="导入Offer" :visible.sync="openImportDialog" width="700px" append-to-body>
       <el-form :model="importForm" label-width="120px">
         <el-form-item label="供应商" prop="supplier">
-          <el-select v-model="importSupplier" filterable remote reserve-keyword placeholder="请选择供应商" :remote-method="remoteSupplier" value-key="supplierCode">
-            <el-option v-for="item in supplierOptions" :key="item.id" :label="item.supplierName" :value="item" />
+          <el-select v-model="importSupplier" filterable remote reserve-keyword placeholder="请选择供应商编码" :remote-method="remoteSupplier" value-key="supplierCode">
+            <el-option v-for="item in supplierOptions" :key="item.id" :label="item.supplierCode + (item.supplierName ? ' - ' + item.supplierName : '')" :value="item">
+              <span style="float: left">{{ item.supplierCode }}</span>
+              <span style="float: right; color: #8492a6; font-size: 13px; margin-left: 10px">{{ item.supplierName }}</span>
+            </el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="类型" prop="inqOfferType">
@@ -254,6 +280,91 @@
       </div>
     </el-dialog>
 
+    <el-dialog title="AI智能录入" :visible.sync="openAiEntryDialog" width="700px" append-to-body>
+      <el-form :model="aiEntryForm" label-width="120px">
+        <el-form-item label="供应商">
+          <el-select v-model="aiSupplier" filterable remote reserve-keyword placeholder="请输入供应商编码、名称或别名搜索" :remote-method="remoteSupplier" value-key="supplierCode" style="width: 100%">
+            <el-option v-for="item in supplierOptions" :key="item.id" :label="item.supplierCode + (item.supplierName ? ' - ' + item.supplierName : '')" :value="item">
+              <span style="float: left">{{ item.supplierCode }}</span>
+              <span v-if="item.supplierName" style="float: right; color: #8492a6; font-size: 13px">{{ item.supplierName }}</span>
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="aiEntryForm.inqOfferType" placeholder="请选择类型" style="width: 100%">
+            <el-option label="Inq" value="Inq" />
+            <el-option label="Offer" value="Offer" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="利润比例(%)">
+          <el-input-number v-model="aiEntryForm.profitRatio" :controls="false" :precision="0" :min="1" :max="100" placeholder="1-100" style="width: 100%" />
+          <div style="color: #909399; font-size: 12px; line-height: 1.5">类型为Offer时必填，报价价 = 供应商价格 × (1 + 利润比例/100)</div>
+        </el-form-item>
+        <el-form-item label="物料内容">
+          <el-input type="textarea" v-model="aiEntryForm.content" :rows="10" placeholder="粘贴供应商的物料信息（品牌、料号、型号、规格、数量、报价等），AI将自动整理入库" />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" :loading="aiEntryLoading" @click="submitAiEntry">确 定</el-button>
+        <el-button @click="openAiEntryDialog=false">取 消</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- AI料号查询：粘贴内容，AI提取完整料号后查询最近半年INQ/OFFER历史，按料号分组展示，可一键复制到微信 -->
+    <el-dialog title="AI料号查询" :visible.sync="openAiQueryDialog" width="90%" top="5vh" append-to-body>
+      <div style="text-align: right; margin-bottom: 10px">
+        <!-- 复制最近N天Offer：按当前查询料号取最近N天内报价最低的Offer（1=当天0点至当前，N=N-1天前0点至当前），制表符分隔复制到剪贴板 -->
+        <span style="margin-right: 6px; font-size: 13px; color: #606266">最近
+          <el-input-number v-model="aiQueryCopyDays" :min="1" :max="999" :precision="0" size="mini" controls-position="right" style="width: 96px" />天
+        </span>
+        <el-button size="mini" type="warning" icon="el-icon-document-copy" :loading="aiQueryCopyLoading" :disabled="aiQueryGroups.length === 0" @click="submitAiQueryCopy">复制最近N天Offer</el-button>
+        <el-button size="mini" type="primary" icon="el-icon-document-copy" v-clipboard="aiQueryCopyText" v-clipboard:success="onCopyOk" :disabled="aiQueryGroups.length === 0">一键复制全部信息</el-button>
+      </div>
+      <el-input type="textarea" v-model="aiQueryContent" :rows="5" placeholder="粘贴物料信息，AI将提取完整料号并查询最近半年的INQ/OFFER历史" style="margin-bottom: 10px" />
+      <div style="text-align: center; margin-bottom: 12px">
+        <el-button type="primary" :loading="aiQueryLoading" @click="submitAiQuery">查 询</el-button>
+      </div>
+      <div v-if="aiQueryGroups.length === 0" style="color:#909399; text-align:center; padding: 30px 0">{{ aiQueryLoading ? 'AI解析中，请耐心等待...' : '暂无查询结果，粘贴物料内容后点击查询' }}</div>
+      <div v-for="(group, gi) in aiQueryGroups" :key="gi" class="ai-query-group">
+        <div class="ai-query-part-number">{{ group.partNumber }}（{{ (group.offers || []).length }}条记录）</div>
+        <div v-if="!group.offers || group.offers.length === 0" class="ai-query-empty">最近半年无INQ/OFFER记录</div>
+        <el-table v-else :data="group.offers" size="mini" border>
+          <el-table-column label="供应商编号" prop="supplierName" min-width="140" show-overflow-tooltip />
+          <el-table-column label="INQ/OFFER" prop="inqOfferType" align="center" width="110" />
+          <el-table-column label="数量" prop="quantity" align="center" width="80" />
+          <el-table-column label="OFFER价格" prop="priceOffer" align="center" width="100" />
+          <el-table-column label="创建时间" prop="createTime" align="center" width="145" />
+          <el-table-column label="交期" prop="deliveryTime" align="center" min-width="100" show-overflow-tooltip />
+          <el-table-column label="详情" prop="productDetail" min-width="200" show-overflow-tooltip />
+        </el-table>
+      </div>
+    </el-dialog>
+
+    <!-- 复制Offer：填N天=取N-1天前0点至当前时间（1=今天0点至当前，2=昨天0点至当前），仅Offer记录，按品牌排序、相同料号取成本最低（无价格也保留），制表符分隔复制到剪贴板 -->
+    <el-dialog title="复制Offer" :visible.sync="openCopyOfferDialog" width="480px" append-to-body>
+      <el-form label-width="110px">
+        <el-form-item label="最近天数">
+          <el-input-number v-model="copyOfferDays" :min="1" :max="365" :precision="0" controls-position="right" style="width: 160px" />
+          <span style="margin-left: 8px; color: #909399">天</span>
+        </el-form-item>
+        <el-form-item label="说明">
+          <div style="color: #909399; font-size: 12px; line-height: 1.7">
+            按库存日期查询范围：填1=今天0点至当前时间，填2=昨天0点至当前时间，填N=从N-1天前0点至当前时间，取全部Offer记录：
+            按品牌排序，相同料号取成本最低（无价格记录也保留），
+            以"料号、数量、品牌、DC、交期、详情、报价"制表符分隔复制到剪贴板，首行为英文表头（不包含成本，内容用于发给客户）。
+          </div>
+        </el-form-item>
+        <!-- 自动复制失败时的兜底内容：完整文本展示在此，供手动全选复制，保证接口数据不丢失 -->
+        <el-form-item v-if="copyOfferFallbackText" label="复制内容">
+          <el-input type="textarea" :rows="10" readonly v-model="copyOfferFallbackText" />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" :loading="copyOfferLoading" @click="submitCopyOffer">复 制</el-button>
+        <el-button @click="openCopyOfferDialog=false">取 消</el-button>
+      </div>
+    </el-dialog>
+
     <el-dialog title="批量编辑" :visible.sync="openBatchDialog" width="700px" append-to-body>
       <el-form :model="batchForm" label-width="120px">
         <el-form-item label="产品品牌"><el-input v-model="batchForm.productBrand" placeholder="不填不更新" /></el-form-item>
@@ -282,8 +393,11 @@
     <el-dialog title="批量新增" :visible.sync="openBatchAddDialog" width="900px" append-to-body>
       <el-form :model="{}" label-width="120px">
         <el-form-item label="供应商">
-          <el-select v-model="batchAddSupplier" filterable remote reserve-keyword placeholder="请选择供应商" :remote-method="remoteSupplier" value-key="supplierCode">
-            <el-option v-for="item in supplierOptions" :key="item.id" :label="item.supplierName" :value="item" />
+          <el-select v-model="batchAddSupplier" filterable remote reserve-keyword placeholder="请选择供应商编码" :remote-method="remoteSupplier" value-key="supplierCode">
+            <el-option v-for="item in supplierOptions" :key="item.id" :label="item.supplierCode" :value="item">
+              <span style="float: left">{{ item.supplierCode }}</span>
+              <span style="float: right; color: #8492a6; font-size: 13px; margin-left: 10px">{{ item.supplierName }}</span>
+            </el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="类型">
@@ -391,7 +505,7 @@
 </template>
 
 <script>
-import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer, listEmailResults } from '@/api/crm/offer'
+import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, copyOfferText, copyAiQueryOffers } from '@/api/crm/offer'
 import { listSupplierOptions, listSupplier, listSupplierSimple } from '@/api/crm/supplier'
 import { getDicts } from '@/api/system/dict/data'
 import { parseTime } from "@/utils/ruoyi"
@@ -414,6 +528,24 @@ export default {
       title: '',
       open: false,
       openImportDialog: false,
+      openAiEntryDialog: false,
+      aiEntryLoading: false,
+      aiSupplier: null,
+      aiEntryForm: { inqOfferType: '', profitRatio: undefined, content: '' },
+      // AI料号查询弹窗状态：内容、加载中、分组结果、待复制文本
+      openAiQueryDialog: false,
+      aiQueryLoading: false,
+      aiQueryContent: '',
+      aiQueryGroups: [],
+      aiQueryCopyText: '',
+      // AI查询复制状态：最近天数（1-999，默认1天）、加载中
+      aiQueryCopyDays: 1,
+      aiQueryCopyLoading: false,
+      // 复制Offer弹窗状态：最近天数、加载中、自动复制失败时的兜底文本（展示供手动复制）
+      openCopyOfferDialog: false,
+      copyOfferDays: 7,
+      copyOfferLoading: false,
+      copyOfferFallbackText: '',
       openBatchDialog: false,
       supplierLoading: false,
       supplierOptions: [],
@@ -426,7 +558,7 @@ export default {
       queryParams: { pageNum: 1, pageSize: 10, productCode: undefined, supplierCodes: [], productBrandArr: [], productTypeArr: [], inqOfferType: undefined, tagsFirst: undefined, tagsSecond: undefined, tagsThird: undefined, tagsSi: undefined, params: {} },
       moreTags: false,
       stockDateRange: [],
-      form: { id: undefined, supplierCode: '', supplierName: '', productCode: '', productBrand: '', productBrandArr: [], stockDate: undefined, priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, deliveryTime: '', remark: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer' },
+      form: { id: undefined, supplierCode: '', supplierName: '', productCode: '', productDetailCode: '', productBrand: '', productBrandArr: [], stockDate: undefined, priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, productDetail: '', deliveryTime: '', remark: '', sheetName: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer', status: 1 },
       dictProductBrand: [], dictPriceUnit: [], dictProductType: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       importForm: { inqOfferType: 'Offer', profitRatio: 2 },
       uploadAction: process.env.VUE_APP_BASE_API + '/crm/offer/import',
@@ -526,8 +658,24 @@ export default {
     remoteSupplier(query) { listSupplierOptions({ supplierName: query, pageNum: 1, pageSize: 20 }).then(res => { this.supplierOptions = res.data }) },
     remoteSupplierQuery(query) { listSupplierOptions({ supplierName: query, pageNum: 1, pageSize: 20 }).then(res => { this.supplierOptionsQuery = res.data }) },
     onSupplierChange(val) { if (val) { this.form.supplierCode = val.supplierCode; this.form.supplierName = val.supplierName; this.formSupplier = val } },
-    handleAdd() { this.resetFormData(); this.open = true; this.title = '新增Offer' },
-    handleUpdate(row) { const id = row.id || this.ids[0]; getOffer(id).then(res => { this.form = res.data || {}; this.splitToArrays(); this.open = true; this.title = '修改Offer' }) },
+    handleAdd() { this.resetFormData(); this.formSupplier = null; this.open = true; this.title = '新增Offer' },
+    /** 编辑Offer：回显全部字段；供应商下拉直接显示编码（库里只存编码，不再查名称展示） */
+    handleUpdate(row) {
+      const id = row.id || this.ids[0];
+      getOffer(id).then(res => {
+        this.form = res.data || {};
+        this.splitToArrays();
+        this.formSupplier = null;
+        if (this.form.supplierCode) {
+          this.formSupplier = { id: null, supplierCode: this.form.supplierCode, supplierName: this.form.supplierCode, supplierAlias: '' };
+          if (!this.supplierOptions.some(o => o.supplierCode === this.form.supplierCode)) {
+            this.supplierOptions.unshift(this.formSupplier);
+          }
+        }
+        this.open = true;
+        this.title = '修改Offer';
+      });
+    },
     handleDelete(row) { const ids = row.id ? [row.id] : this.ids; this.$modal.confirm('是否确认删除选中数据项？').then(() => { return delOffer(ids) }).then(() => { this.getList(); this.$modal.msgSuccess('删除成功') }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '删除失败') }) },
     handleExport() {
       getDicts('offer_export_dict').then(res => {
@@ -564,6 +712,175 @@ export default {
       })
     },
     openImport() { this.openImportDialog = true; this.remoteSupplier('') },
+    /** 打开AI智能录入弹窗 */
+    openAiEntry() { this.aiSupplier = null; this.aiEntryForm = { inqOfferType: '', profitRatio: undefined, content: '' }; this.openAiEntryDialog = true; this.remoteSupplier('') },
+    /** 提交AI智能录入：粘贴内容交给后端DeepSeek整理后批量入库 */
+    submitAiEntry() {
+      if (!this.aiSupplier) { this.$modal.msgError('请选择供应商'); return }
+      if (!this.aiEntryForm.inqOfferType) { this.$modal.msgError('请选择类型'); return }
+      if (!this.aiEntryForm.content || !this.aiEntryForm.content.trim()) { this.$modal.msgError('请粘贴物料内容'); return }
+      const ratio = this.aiEntryForm.profitRatio;
+      if (this.aiEntryForm.inqOfferType === 'Offer' && (ratio == null || ratio < 1 || ratio > 100)) { this.$modal.msgError('类型为Offer时请输入1-100的利润比例'); return }
+      this.aiEntryLoading = true;
+      aiEntry({
+        supplierCode: this.aiSupplier.supplierCode || '',
+        supplierName: this.aiSupplier.supplierName || '',
+        inqOfferType: this.aiEntryForm.inqOfferType,
+        profitRatio: ratio,
+        content: this.aiEntryForm.content
+      }).then(res => {
+        this.$modal.msgSuccess(res.msg || 'AI录入成功');
+        this.openAiEntryDialog = false;
+        this.getList();
+      }).catch(err => {
+        // AI录入为长耗时请求（最长130秒），错误提示在此分类给出：超时/连接失败/业务错误
+        const e = err || {};
+        const msg = String(e.message || '');
+        if (e.code === 'ECONNABORTED' || msg.includes('timeout')) {
+          this.$modal.msgError('AI解析请求超时（已等待2分钟），DeepSeek接口响应较慢，请稍后重试；内容较多时可分多次录入');
+        } else if (msg.includes('Network Error')) {
+          this.$modal.msgError('无法连接后端接口，请确认后端服务（8081端口）已正常启动');
+        } else {
+          this.$modal.msgError(e.msg || msg || 'AI录入失败');
+        }
+      })
+      .finally(() => { this.aiEntryLoading = false })
+    },
+    /** 打开AI料号查询弹窗 */
+    openAiQuery() { this.aiQueryContent = ''; this.aiQueryGroups = []; this.aiQueryCopyText = ''; this.openAiQueryDialog = true },
+    /** 提交AI料号查询：AI提取完整料号后查询最近半年INQ/OFFER历史记录 */
+    submitAiQuery() {
+      if (!this.aiQueryContent || !this.aiQueryContent.trim()) { this.$modal.msgError('请粘贴物料内容'); return }
+      this.aiQueryLoading = true;
+      aiQuery({ content: this.aiQueryContent }).then(res => {
+        this.aiQueryGroups = res.data || [];
+        this.aiQueryCopyText = this.buildAiQueryCopyText();
+        if (!this.aiQueryGroups.length) this.$modal.msgWarning('查询完成，近半年内无匹配的INQ/OFFER记录');
+        else this.$modal.msgSuccess('查询完成，共匹配' + this.aiQueryGroups.length + '个料号');
+      }).catch(err => {
+        // 与AI录入相同的错误分类提示：超时/连接失败/业务错误
+        const e = err || {};
+        const msg = String(e.message || '');
+        if (e.code === 'ECONNABORTED' || msg.includes('timeout')) {
+          this.$modal.msgError('AI解析请求超时（已等待2分钟），DeepSeek接口响应较慢，请稍后重试');
+        } else if (msg.includes('Network Error')) {
+          this.$modal.msgError('无法连接后端接口，请确认后端服务（8081端口）已正常启动');
+        } else {
+          this.$modal.msgError(e.msg || msg || 'AI查询失败');
+        }
+      })
+      .finally(() => { this.aiQueryLoading = false })
+    },
+    /** 打开复制Offer弹窗：默认最近1天，清空上次的兜底文本 */
+    openCopyOffer() { this.copyOfferDays = 1; this.copyOfferFallbackText = ''; this.openCopyOfferDialog = true },
+    /** 提交复制Offer：查询最近N天记录，组装制表符文本后写入剪贴板，失败时文本展示在弹窗内供手动复制 */
+    submitCopyOffer() {
+      if (!this.copyOfferDays || this.copyOfferDays < 1) { this.$modal.msgError('请选择最近天数'); return }
+      this.copyOfferLoading = true;
+      copyOfferText(this.copyOfferDays).then(res => {
+        // 兜底兼容旧后端：旧版接口重载歧义把文本放进了msg而非data（data为null），此处取msg；新后端data有值时优先用data
+        const text = res.data || (res.msg && res.msg !== '操作成功' ? res.msg : '') || '';
+        if (!text) { this.$modal.msgWarning('最近' + this.copyOfferDays + '天内没有Offer记录'); return }
+        // 剪贴板写入为异步 Promise，成功/失败各自提示
+        this.copyToClipboard(text).then(ok => {
+          if (ok) {
+            this.copyOfferFallbackText = '';
+            this.$modal.msgSuccess('已复制 ' + text.split('\n').length + ' 条物料信息到剪贴板');
+          } else {
+            // 自动复制失败：把完整文本展示在弹窗内供手动复制，保证数据不丢失
+            this.copyOfferFallbackText = text;
+            this.$modal.msgError('浏览器自动复制失败，请手动全选下方"复制内容"框中的文本复制');
+          }
+        });
+      }).catch(err => {
+        const e = err || {};
+        const msg = String(e.message || '');
+        if (msg.includes('timeout')) {
+          this.$modal.msgError('查询超时，请减小最近天数后重试');
+        } else if (msg.includes('Network Error')) {
+          this.$modal.msgError('无法连接后端接口，请确认后端服务（8081端口）已正常启动');
+        } else {
+          this.$modal.msgError(e.msg || msg || '复制Offer失败');
+        }
+      }).finally(() => { this.copyOfferLoading = false })
+    },
+    /** 通用剪贴板写入：优先 navigator.clipboard API（安全上下文下可靠），
+     *  带 3 秒超时兜底（Chrome 在无用户激活的异步回调中 writeText 可能永久 pending 导致界面无反馈），
+     *  失败自动降级 textarea + execCommand 方案（兼容 http 环境） */
+    copyToClipboard(text) {
+      // 方案1：Clipboard API，writeText 返回 Promise；超时或失败则降级
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        const timeout = new Promise(resolve => setTimeout(() => resolve(false), 3000));
+        return Promise.race([
+          navigator.clipboard.writeText(text).then(() => true).catch(() => false),
+          timeout
+        ]).then(ok => ok ? true : this.fallbackCopy(text));
+      }
+      // 方案2：textarea + execCommand 兜底
+      return Promise.resolve(this.fallbackCopy(text));
+    },
+    /** 兜底剪贴板写入：隐藏 textarea + document.execCommand('copy')，兼容 http 环境 */
+    fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy') } catch (e) { ok = false }
+      document.body.removeChild(ta);
+      return ok;
+    },
+    /** 构建一键复制文本：料号独占一行，其下记录以制表符缩进分隔，方便粘贴到微信；每组记录首行为英文表头，数量带pcs、价格带USD单位 */
+    buildAiQueryCopyText() {
+      const lines = [];
+      (this.aiQueryGroups || []).forEach(g => {
+        lines.push(g.partNumber);
+        const offers = g.offers || [];
+        if (offers.length === 0) {
+          lines.push('\t最近半年无INQ/OFFER记录');
+        } else {
+          lines.push('\tSupplier\tType\tQty\tPrice\tCreated\tDelivery\tDetail');
+          offers.forEach(o => {
+            lines.push(['', o.supplierName || '', o.inqOfferType || '', o.quantity == null ? '' : o.quantity + 'pcs', o.priceOffer == null ? '' : o.priceOffer + 'USD', o.createTime || '', o.deliveryTime || '', o.productDetail || ''].join('\t'));
+          });
+        }
+      });
+      return lines.join('\n');
+    },
+    /** 复制最近N天Offer：按当前AI查询的料号集合查询最近N天内各料号报价最低的Offer（1=当天0点至当前，N=N-1天前0点至当前），
+     *  复制"料号 报价 数量 交期 DC 货况"制表符分隔文本到剪贴板 */
+    submitAiQueryCopy() {
+      const days = this.aiQueryCopyDays || 1;
+      if (days < 1 || days > 999) { this.$modal.msgError('最近天数范围应为1-999天'); return }
+      const partNumbers = (this.aiQueryGroups || []).map(g => g.partNumber).filter(Boolean);
+      if (partNumbers.length === 0) { this.$modal.msgError('请先执行AI查询'); return }
+      this.aiQueryCopyLoading = true;
+      copyAiQueryOffers({ days: days, partNumbers: partNumbers }).then(res => {
+        // 兜底兼容：data为空时尝试从msg取（后端双参重载返回，data恒有值，此分支仅防御性保留）
+        const text = res.data || (res.msg && res.msg !== '操作成功' ? res.msg : '') || '';
+        if (!text) { this.$modal.msgWarning('最近' + days + '天内这些物料没有Offer记录'); return }
+        this.copyToClipboard(text).then(ok => {
+          if (ok) {
+            this.$modal.msgSuccess('已复制 ' + text.split('\n').length + ' 条物料Offer到剪贴板');
+          } else {
+            this.$modal.msgError('浏览器自动复制失败，请重试');
+          }
+        });
+      }).catch(err => {
+        const e = err || {};
+        const msg = String(e.message || '');
+        if (msg.includes('timeout')) {
+          this.$modal.msgError('查询超时，请减小最近天数后重试');
+        } else if (msg.includes('Network Error')) {
+          this.$modal.msgError('无法连接后端接口，请确认后端服务（8081端口）已正常启动');
+        } else {
+          this.$modal.msgError(e.msg || msg || '复制失败');
+        }
+      }).finally(() => { this.aiQueryCopyLoading = false })
+    },
     submitImport() {
       if (!this.importSupplier || !this.importForm.inqOfferType) { this.$modal.msgError('请选择供应商和类型'); return }
       if (!this.colMap.productCode) { this.$modal.msgError('请选择产品编码列'); return }
@@ -685,7 +1002,7 @@ export default {
     toNumberOrNull(v) { if (v == null) return null; const s = String(v).match(/\d+(\.\d+)?/); return s ? Number(s[0]) : null },
     submitBatch() { batchEditOffer(this.ids, this.batchForm).then(() => { this.$modal.msgSuccess('批量编辑成功'); this.openBatchDialog = false; this.getList() }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '批量编辑失败') }) },
     cancel() { this.open = false },
-    resetFormData() { this.form = { id: undefined, supplierCode: '', supplierName: '', productCode: '', productBrand: '', productBrandArr: [], stockDate: new Date(), priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, deliveryTime: '', remark: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer' } },
+    resetFormData() { this.form = { id: undefined, supplierCode: '', supplierName: '', productCode: '', productDetailCode: '', productBrand: '', productBrandArr: [], stockDate: new Date(), priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, productDetail: '', deliveryTime: '', remark: '', sheetName: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer', status: 1 } },
     submitForm() { if (!this.form.productCode) { this.$modal.msgError('产品编码不能为空'); return } this.joinFromArrays(); const data = Object.assign({}, this.form); (data.id ? updateOffer(data) : addOffer(data)).then(() => { this.$modal.msgSuccess(this.form.id ? '修改成功' : '新增成功'); this.open = false; this.getList() }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '提交失败') }) }
     ,searchSupplier(query) {
       this.supplierLoading = true;
@@ -776,4 +1093,7 @@ export default {
 
 <style scoped>
 .form-header { font-size: 15px; color: #6379bb; border-bottom: 1px solid #ddd; margin: 8px 10px 25px 10px; padding-bottom: 5px }
+.ai-query-group { margin-bottom: 16px }
+.ai-query-part-number { font-weight: bold; font-size: 14px; color: #303133; background: #f0f2f5; padding: 6px 10px; border-radius: 4px 4px 0 0; border-left: 3px solid #1890ff }
+.ai-query-empty { color: #909399; padding: 8px 12px; border: 1px solid #ebeef5; border-top: none; border-radius: 0 0 4px 4px; font-size: 13px }
 </style>

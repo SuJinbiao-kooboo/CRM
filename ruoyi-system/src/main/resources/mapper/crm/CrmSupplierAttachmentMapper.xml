@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.crm.mapper.CrmSupplierAttachmentMapper">
+
+    <!-- 上传附件：插入附件记录（del_flag 固定为 0，表示正常状态） -->
+    <insert id="insert" parameterType="com.ruoyi.crm.domain.CrmSupplierAttachment" useGeneratedKeys="true" keyProperty="id">
+        insert into crm_supplier_attachment (supplier_id, file_name, file_content, del_flag, create_time)
+        values (#{supplierId}, #{fileName}, #{fileContent}, '0', sysdate())
+    </insert>
+
+    <!-- 供应商保存成功后回填供应商ID（仅回填正常状态的附件） -->
+    <update id="updateSupplierId">
+        update crm_supplier_attachment set supplier_id = #{supplierId}
+        where id = #{id} and del_flag = '0'
+    </update>
+
+    <!-- 软删除单个附件：仅将删除标记置为 1，不物理删除记录 -->
+    <update id="softDelete">
+        update crm_supplier_attachment set del_flag = '1'
+        where id = #{id}
+    </update>
+
+    <!-- 供应商删除时，软删除其名下全部正常附件 -->
+    <update id="softDeleteBySupplierId">
+        update crm_supplier_attachment set del_flag = '1'
+        where supplier_id = #{supplierId} and del_flag = '0'
+    </update>
+
+    <!-- 查询供应商名下的正常（未删除）附件列表，不含 file_content 大字段 -->
+    <select id="selectListBySupplierId" resultType="com.ruoyi.crm.domain.CrmSupplierAttachment">
+        select id, supplier_id, file_name, create_time
+        from crm_supplier_attachment
+        where supplier_id = #{supplierId} and del_flag = '0'
+        order by id asc
+    </select>
+
+    <!-- 下载时按ID查询附件（含附件内容） -->
+    <select id="selectById" resultType="com.ruoyi.crm.domain.CrmSupplierAttachment">
+        select id, supplier_id, file_name, file_content, del_flag, create_time
+        from crm_supplier_attachment
+        where id = #{id}
+    </select>
+
+</mapper>

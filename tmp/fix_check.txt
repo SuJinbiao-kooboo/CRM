@@ -1,0 +1,15 @@
+#74|NX Electronics Limited领峰数码电子有限公司|COUNTRY=中国深圳/中国香港,中国香港/中国台湾/中国深圳|web=http://www.nxelectronics.com
+#75|NX Electronics Limited|COUNTRY=中国深圳/中国香港,中国香港/中国台湾/中国深圳|web=http://www.nxelectronics.com
+#81|CENTURY TECH SYSTEM PTE.LTD|COUNTRY=8 Marina View,Asia Square Tower
+1,#42-01&#43-01,Singap0re,
+018960|web=http://CENTURY TECH SYSTEM PTE.LTD
+www.centurytech
+#102|TwinMOS Technologies|COUNTRY=memory modules， SSD|web=http://TW
+#126|深圳市赛特恩电子有限公司|COUNTRY=中国香港/中国深圳|web=http://www.stesz.com
+#129|广州华储电子科技有限公司|COUNTRY=广州市天河区天河路518号地中海2001室|web=
+#131|上海珑京信息科技有限公司|COUNTRY=中国上海/中国北京/中国深圳,龙华东环二路65号中佳创意园A6栋708|web=http://www.longingtech.com.cn
+#134|LINKVIEW ENTERPRISES LTD.|COUNTRY=中国广州/中国香港|web=http://www.linkview-cpu.com/
+#150|Tier One Distribution BV|COUNTRY=荷兰,Bliek 12, 4941 SG, Raamsdonksveer, The Netherlands|web=
+#177|Powerleader Computer System Co., Ltd.|COUNTRY=中国深圳,中国广州,ZH|web=https://en.powerleader.com.cn/
+#185|朴赛计算机(上海)有限公司|COUNTRY=中国上海,中国深圳|web=http://www.porser.com/
+TYPE#106|BOSSION INTERNATIONAL PTE. LTD.|合作：HDD/三星

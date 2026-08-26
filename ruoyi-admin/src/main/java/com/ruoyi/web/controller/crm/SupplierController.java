@@ -1,6 +1,7 @@
 package com.ruoyi.web.controller.crm;
 
 import java.util.List;
+import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 
 import com.ruoyi.crm.domain.dto.CrmSupplierVO;
@@ -104,6 +105,16 @@ public class SupplierController extends BaseController {
     public AjaxResult options(CrmSupplier supplier) {
         List<CrmSupplier> crmSuppliers = supplierService.selectSupplierOptions(supplier);
         return AjaxResult.success(crmSuppliers);
+    }
+
+    /**
+     * 跟进人选择数据源：当前系统启用用户（存登录名userName，显示昵称nickName）
+     */
+    @PreAuthorize("@ss.hasPermi('crm:supplier:list')")
+    @GetMapping("/userOptions")
+    public AjaxResult userOptions(@RequestParam(value = "keyword", required = false) String keyword) {
+        List<Map<String, Object>> users = supplierService.selectUserOptions(keyword);
+        return AjaxResult.success(users);
     }
 
     @PreAuthorize("@ss.hasPermi('crm:supplier:remove')")

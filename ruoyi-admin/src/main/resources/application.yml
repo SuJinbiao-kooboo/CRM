@@ -63,8 +63,9 @@ spring:
   # 服务模块
   devtools:
     restart:
-      # 热部署开关
-      enabled: true
+      # 热部署开关：已关闭（热重启约30秒且偶尔因类加载器冲突失败导致接口不可用；
+      # 代码改动后请手动重启服务生效）
+      enabled: false
 
 # token配置
 token:
@@ -73,7 +74,7 @@ token:
   # 令牌密钥
   secret: abcdefghijklmnopqrstuvwxyz
   # 令牌有效期（默认30分钟）
-  expireTime: 1440
+  expireTime: 144000
 
 # MyBatis配置
 mybatis:
@@ -121,3 +122,32 @@ wx:
         token: #微信小程序消息服务器配置的token
         aesKey: #微信小程序消息服务器配置的EncodingAESKey
         msgDataFormat: JSON
+
+# 企业邮箱邮件读取配置（账号密码等信息在此统一配置，已给默认值，可按需修改；
+# 生产环境建议通过环境变量注入账号密码等敏感信息，避免明文落盘）
+eke:
+  mail:
+    read:
+      # IMAP收件服务器地址（可用环境变量 EKE_MAIL_IMAP_HOST 覆盖）
+      imap-host: ${EKE_MAIL_IMAP_HOST:imapv.global-mail.cn}
+      # IMAP端口（SSL，可用环境变量 EKE_MAIL_IMAP_PORT 覆盖）
+      imap-port: ${EKE_MAIL_IMAP_PORT:993}
+      # 邮箱账号（可用环境变量 EKE_MAIL_USERNAME 覆盖）
+      username: ${EKE_MAIL_USERNAME:eke@meelectronic.cn}
+      # 邮箱密码（可用环境变量 EKE_MAIL_PASSWORD 覆盖）
+      password: ${EKE_MAIL_PASSWORD:emailME123}
+      # 读取的邮件文件夹（收件箱）
+      folder: INBOX
+      # 附件保存目录（按日期自动分子目录）
+      attachment-path: D:/ruoyi/uploadPath/email-attachments
+      # 参数配置 eke_email_last_read_time 不存在或格式不合法时，默认往前读取的小时数
+      default-lookback-hours: 24
+      # 邮件类型匹配规则字典类型（字典value=类型编码、label=类型中文名、remark=逗号分隔的关键词，按字典排序匹配）
+      type-dict-type: eke_email_type_dict
+      # 单次读取邮件的数量上限：邮件数超限时本次只读最新的N封且不更新参数，剩余邮件下次调用继续读取
+      max-emails-per-read: 500
+      # 发件人过滤规则：发件人地址模糊匹配该值（如内部域名 meelectronic.cn）时跳过该邮件，不读取不返回；留空则不过滤
+      # （可用环境变量 EKE_MAIL_SENDER_FILTER 覆盖）
+      sender-filter: ${EKE_MAIL_SENDER_FILTER:meelectronic.cn}
+      # 发件人邮箱过滤规则字典类型（第一优先级：字典value=类型编码与主题字典一致、label=类型中文名、remark=逗号拼接的邮箱地址，发件人命中直接归类）
+      filter-email-dict-type: eke_email_filter_email_special

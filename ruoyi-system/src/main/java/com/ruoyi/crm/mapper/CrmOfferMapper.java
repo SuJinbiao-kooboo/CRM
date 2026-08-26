@@ -7,6 +7,24 @@ import com.ruoyi.crm.domain.CrmOffer;
 public interface CrmOfferMapper {
     List<CrmOffer> selectOfferList(CrmOffer offer);
     CrmOffer selectOfferById(Long id);
+    /**
+     * AI料号查询：按用户提供的料号左前缀模糊匹配（不区分大小写），查询最近半年内的INQ/OFFER历史记录
+     * @param partNumbers 料号前缀集合（已转大写）
+     */
+    List<CrmOffer> selectHistoryByPartNumbers(@Param("list") List<String> partNumbers);
+    /**
+     * 复制Offer：查询最近days天内（创建时间 >= now - days天）所有INQ/OFFER记录
+     * 排序由service层重新处理（品牌升序→料号升序→成本升序→创建时间倒序），相同料号取成本最低由service层去重
+     * @param days 最近天数
+     */
+    List<CrmOffer> selectCopyOffers(@Param("days") int days);
+    /**
+     * AI查询复制：按料号集合精确匹配（upper不区分大小写），查询最近days天内（N-1天前0点至当前）的Offer记录，
+     * 报价升序→创建时间倒序（同料号同价取最新），每个料号取报价最低由service层去重
+     * @param list 料号集合（已转大写）
+     * @param days 最近天数
+     */
+    List<CrmOffer> selectRecentOffersByPartNumbers(@Param("list") List<String> list, @Param("days") int days);
     int insertOffer(CrmOffer offer);
     int updateOffer(CrmOffer offer);
     int deleteOfferByIds(Long[] ids);

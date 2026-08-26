@@ -1,0 +1,66 @@
+===== crm_supplier 现有数据（55 条）=====
+id=2      code=ATN000001    name=ASTREON COMPUTERS L.L.C                  short=ATN                  type=授权代理商,贸易商            country=UAE(迪拜)    status=1 website=https://astreoncomputers.com
+id=3      code=ST0001       name=Star Seed Technologies ME FZE            short=Star Seed            type=贸易商,授权代理商            country=UAE(阿联酋-迪拜) status=1 website=hasan.micron@simalme.com
+id=4      code=ML001        name=MA-LABS                                  short=ML                   type=授权代理商                country=美国 US      status=1 website=
+id=5      code=CY001        name=诚誉                                       short=                     type=授权代理商                country=           status=1 website=
+id=6      code=hkhouch      name=hkhouch                                  short=                     type=                     country=           status=1 website=
+id=7      code=FQ001        name=富强                                       short=                     type=                     country=           status=1 website=
+id=8      code=mbuzz        name=mbuzz                                    short=                     type=                     country=           status=1 website=
+id=9      code=zanHe        name=赞禾                                       short=                     type=                     country=           status=1 website=
+id=10     code=             name=B2B                                      short=                     type=                     country=           status=1 website=
+id=11     code=DD001        name=DickerData                               short=                     type=                     country=           status=1 website=
+id=12     code=Taurus001    name=Taurus                                   short=                     type=                     country=           status=1 website=
+id=13     code=elena.medved name=elena.medved                             short=elena                type=                     country=           status=1 website=
+id=14     code= Selma Selmanagić-S2 name= Selma Selmanagić-S2                     short= Selma Selmanagić-S2 type=                     country=           status=1 website=
+id=15     code=pf001        name=彼富                                       short=彼富                   type=                     country=           status=1 website=
+id=16     code=Honch        name=Honch                                    short=Honch                type=                     country=           status=1 website=
+id=17     code=summits      name=summits                                  short=summits              type=                     country=           status=1 website=
+id=18     code=STES         name=STES                                     short=STES                 type=                     country=           status=1 website=
+id=19     code=Mempire      name=Mempire                                  short=Mempire              type=                     country=           status=1 website=
+id=20     code=HuaShu       name=山东怡然/HuaShu                              short=HuaShu               type=                     country=           status=1 website=
+id=21     code=Jeffrey      name=Jeffrey                                  short=Jeffrey              type=                     country=           status=1 website=
+id=22     code=融科           name=融科                                       short=融科                   type=                     country=           status=1 website=
+id=23     code=鑫浩翔          name=鑫浩翔                                      short=鑫浩翔                  type=                     country=           status=1 website=
+id=24     code=LinkView     name=LinkView                                 short=LinkView             type=                     country=           status=1 website=
+id=25     code=星能           name=星能                                       short=星能                   type=                     country=           status=1 website=
+id=26     code=SGC          name=SGC                                      short=SGC                  type=                     country=           status=1 website=
+id=27     code=E2K          name=E2K                                      short=E2K                  type=                     country=           status=1 website=
+id=28     code=NXE          name=NXE                                      short=NXE                  type=                     country=           status=1 website=
+id=29     code=CG           name=CI Gulf                                  short=CG                   type=                     country=           status=1 website=
+id=30     code=GoldenFish   name=Golden Fish                              short=GoldenFish           type=                     country=           status=1 website=
+id=31     code=鑫浩           name=xinhao                                   short=xinhao               type=                     country=           status=1 website=
+id=32     code=新欣           name=新欣                                       short=新欣                   type=                     country=           status=1 website=
+id=33     code=VastSystem   name=VastSystem                               short=VastSystem           type=                     country=           status=1 website=
+id=34     code=Doglas       name=Doglas                                   short=Doglas               type=                     country=           status=1 website=
+id=35     code=CPU Power/星云 name=CPU Power/星云                             short=CPU Power/星云         type=                     country=           status=1 website=
+id=36     code=迈驰           name=迈驰                                       short=迈驰                   type=                     country=           status=1 website=
+id=38     code=Servergst    name=Servergst                                short=Servergst            type=                     country=           status=1 website=
+id=40     code=Tier         name=Tier                                     short=Tier                 type=                     country=           status=1 website=
+id=41     code=华储           name=华储                                       short=华储                   type=                     country=           status=1 website=
+id=42     code=熊猫国际         name=熊猫国际                                     short=熊猫国际                 type=                     country=           status=1 website=
+id=43     code=techno       name=techno                                   short=techno               type=                     country=           status=1 website=
+id=44     code=鑫浩(不是鑫浩翔)    name=鑫浩(不是鑫浩翔)                                short=鑫浩(不是鑫浩翔)            type=                     country=           status=1 website=
+id=45     code=云仲存储         name=云仲存储                                     short=云仲存储                 type=                     country=           status=1 website=
+id=46     code=Syno smoothroute name=Syno smoothroute                         short=Syno smoothroute     type=                     country=           status=1 website=
+id=47     code=远信           name=远信                                       short=远信                   type=                     country=           status=1 website=
+id=48     code=Sbs          name=Sbs                                      short=Sbs                  type=                     country=           status=1 website=
+id=49     code=环阳           name=环阳                                       short=环阳                   type=                     country=           status=1 website=
+id=50     code=B2B Export   name=B2B Export                               short=B2B Export           type=                     country=           status=1 website=
+id=51     code=ECOM Electronic name=ECOM Electronic                          short=ECOM Electronic      type=                     country=           status=1 website=
+id=52     code=Navy Blue    name=Navy Blue                                short=Navy Blue            type=                     country=           status=1 website=
+id=53     code=迪天嘉业         name=迪天嘉业                                     short=迪天嘉业                 type=                     country=           status=1 website=
+id=54     code=芯力量          name=芯力量                                      short=芯力量                  type=                     country=           status=1 website=
+id=55     code=宝通           name=宝通                                       short=宝通                   type=                     country=           status=1 website=
+id=56     code=Darian       name=Darian                                   short=Darian               type=                     country=           status=1 website=
+id=57     code=广达/grandtect name=广达/grandtect                             short=广达/grandtect         type=                     country=           status=1 website=
+id=58     code=华泰易          name=华泰易                                      short=华泰易                  type=                     country=           status=1 website=
+
+===== crm_supplier_contact 现有数据（4 条）=====
+id=14   supplier_id=2      name=Hasan Musheer        post=销售（sales）       position=                phone=                email=                               wa=                wechat=                qq=         primary=0
+id=15   supplier_id=2      name=Mr. Jamsheed         post=                position=                phone=                email=                               wa=                wechat=                qq=         primary=0
+id=19   supplier_id=3      name=Hasan Musheer        post=Sales           position=                phone=hasan.micron@simalme email=eke@meelectronic.cn            wa=                wechat=                qq=         primary=0
+id=20   supplier_id=11     name=Jocelyn Li           post=                position=                phone=                email=Jocelyn.Li@dickerdata.com.au   wa=                wechat=                qq=         primary=0
+
+===== 自增主键状态 =====
+crm_supplier AUTO_INCREMENT=59
+crm_supplier_contact AUTO_INCREMENT=21

@@ -716,6 +716,7 @@ create table crm_supplier (
   supplier_code         varchar(50)     default null               comment '供应商编号',
   supplier_name         varchar(200)    not null                   comment '供应商名称',
   supplier_short_name   varchar(100)    default null               comment '供应商简称',
+  supplier_alias        varchar(200)    default null               comment '公司别名',
   supplier_type         varchar(50)     default null               comment '供应商类型',
   brands                varchar(256)    default null               comment '品牌，多个逗号隔开',
   country               varchar(100)    default null               comment '所属国家',
@@ -795,6 +796,21 @@ create table crm_attachment (
   primary key (id),
   key idx_attachment_from (from_type, from_id)
 ) engine=innodb comment = 'CRM_系统上传文件';
+
+-- ----------------------------
+-- 22-1、CRM 供应商附件表（附件内容入库，支持软删除）
+-- ----------------------------
+drop table if exists crm_supplier_attachment;
+create table crm_supplier_attachment (
+  id           bigint(20)   not null auto_increment    comment '主键ID',
+  supplier_id  bigint(20)   default null               comment '供应商ID（新增时暂空，保存后回填）',
+  file_name    varchar(256) not null                   comment '附件名称',
+  file_content longblob     not null                   comment '附件内容（二进制存储）',
+  del_flag     char(1)      default '0'                comment '删除标记：0=正常，1=已删除（软删除）',
+  create_time  datetime     default current_timestamp  comment '上传时间',
+  primary key (id),
+  key idx_supplier_id (supplier_id)
+) engine=innodb comment = 'CRM_供应商附件表';
 
 -- ----------------------------
 -- 23、CRM Offer表

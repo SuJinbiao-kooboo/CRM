@@ -19,6 +19,8 @@ public class CrmSupplierVO extends BaseEntity {
     private String supplierName;
     @Excel(name = "供应商简称")
     private String supplierShortName;
+    @Excel(name = "公司别名")
+    private String supplierAlias;
     @Excel(name = "供应商类型")
     private String supplierType;
     @Excel(name = "品牌")
@@ -59,8 +61,11 @@ public class CrmSupplierVO extends BaseEntity {
     private String remarkSecond;
     @Excel(name = "状态", readConverterExp = "1=正常,0=停用")
     private Integer status;
-    @Excel(name = "跟进人")
+    /** 跟进人登录名（逗号分隔，存储格式，登录名全局唯一） */
     private String followUpBy;
+    /** 跟进人显示名称（昵称，逗号分隔，查询时由登录名解析） */
+    @Excel(name = "跟进人")
+    private String followUpByNames;
     private String createBy;
     private Date createTime;
     private String updateBy;

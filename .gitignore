@@ -41,6 +41,16 @@ nbdist/
 *.xml.versionsBackup
 *.swp
 
+######################################################################
+# Deploy tooling (deploy/)
+/deploy/node_modules/
+/deploy/config.local.json
+
 !*/build/*.java
 !*/build/*.html
 !*/build/*.xml
+
+######################################################################
+# DB Inspector tool runtime artifacts
+/tools/db-inspector/classes/
+/tools/db-inspector/db_schema.txt

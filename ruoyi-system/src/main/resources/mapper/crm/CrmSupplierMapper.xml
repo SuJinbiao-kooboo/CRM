@@ -7,6 +7,57 @@
         <result column="supplier_code" property="supplierCode" />
         <result column="supplier_name" property="supplierName" />
         <result column="supplier_short_name" property="supplierShortName" />
+        <result column="supplier_alias" property="supplierAlias" />
+        <result column="supplier_type" property="supplierType" />
+        <result column="brands" property="brands" />
+        <result column="country" property="country" />
+        <result column="address" property="address" />
+        <result column="website" property="website" />
+        <result column="main_products" property="mainProducts" />
+        <result column="cooperation_level" property="cooperationLevel" />
+        <result column="risk_level" property="riskLevel" />
+        <result column="payment_terms" property="paymentTerms" />
+        <result column="cooperation_status" property="cooperationStatus" />
+        <result column="business_license" property="businessLicense" />
+        <result column="tax_number" property="taxNumber" />
+        <result column="bank_info" property="bankInfo" />
+        <result column="bank_account" property="bankAccount" />
+        <result column="bill_to" property="billTo" />
+        <result column="ship_to" property="shipTo" />
+        <result column="introduction" property="introduction" />
+        <result column="remark" property="remark" />
+        <result column="remark_second" property="remarkSecond" />
+        <result column="status" property="status" />
+        <result column="follow_up_by" property="followUpBy" />
+        <result column="follow_up_by_names" property="followUpByNames" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+        <result column="tags_first" property="tagsFirst" />
+        <result column="tags_second" property="tagsSecond" />
+        <result column="tags_third" property="tagsThird" />
+        <result column="tags_si" property="tagsSi" />
+        <result column="teams" property="teams" />
+        <result column="contact_name" property="contactName" />
+        <result column="post" property="post" />
+        <result column="phone" property="phone" />
+        <result column="email" property="email" />
+        <result column="teams" property="email" />
+        <result column="whatsapp" property="whatsapp" />
+        <result column="other_contact_first" property="otherContactFirst" />
+        <result column="other_contact_second" property="otherContactSecond" />
+        <result column="remark_first" property="contactRemarkFirst" />
+        <result column="remark_second" property="contactRemarkSecond" />
+    </resultMap>
+
+    <!-- 供应商主表 resultMap（type=CrmSupplier），供 selectSupplierById / selectSupplierSimpleList 等返回 CrmSupplier 的查询使用 -->
+    <resultMap id="CrmSupplierBaseMap" type="com.ruoyi.crm.domain.CrmSupplier">
+        <id column="id" property="id" />
+        <result column="supplier_code" property="supplierCode" />
+        <result column="supplier_name" property="supplierName" />
+        <result column="supplier_short_name" property="supplierShortName" />
+        <result column="supplier_alias" property="supplierAlias" />
         <result column="supplier_type" property="supplierType" />
         <result column="brands" property="brands" />
         <result column="country" property="country" />
@@ -36,21 +87,10 @@
         <result column="tags_second" property="tagsSecond" />
         <result column="tags_third" property="tagsThird" />
         <result column="tags_si" property="tagsSi" />
-        <result column="teams" property="teams" />
-        <result column="contact_name" property="contactName" />
-        <result column="post" property="post" />
-        <result column="phone" property="phone" />
-        <result column="email" property="email" />
-        <result column="teams" property="email" />
-        <result column="whatsApp" property="whatsapp" />
-        <result column="other_contact_first" property="otherContactFirst" />
-        <result column="other_contact_second" property="otherContactSecond" />
-        <result column="remark_first" property="contactRemarkFirst" />
-        <result column="remark_second" property="contactRemarkSecond" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        s.id, s.supplier_code, s.supplier_name, s.supplier_short_name, s.supplier_type, s.brands,
+        s.id, s.supplier_code, s.supplier_name, s.supplier_short_name, s.supplier_alias, s.supplier_type, s.brands,
         s.country, s.address, s.website, s.main_products, s.cooperation_level, s.risk_level,
         s.payment_terms, s.cooperation_status, s.business_license, s.tax_number, s.bank_info, s.bank_account, s.bill_to, s.ship_to,
         s.introduction, s.remark, s.remark_second, s.status, s.follow_up_by, s.create_by, s.create_time,
@@ -60,12 +100,20 @@
     <select id="selectSupplierListJoined" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultMap="CrmSupplierMap">
         select
         <include refid="Base_Column_List"/>,
-        c.contact_name as contact_name, c.post as post, c.phone as phone, c.email as email, c.qq as teams, c.other_contact_first,  c.other_contact_second,c.remark_first, c.remark_second
+        <!-- 跟进人显示名称：登录名转昵称（存储为登录名保证唯一，展示用昵称） -->
+        (select group_concat(u.nick_name order by find_in_set(u.user_name, s.follow_up_by) separator ',') from sys_user u where find_in_set(u.user_name, s.follow_up_by) > 0) as follow_up_by_names,
+        c.contact_name as contact_name, c.post as post, c.phone as phone, c.email as email, c.qq as teams, c.whatsapp, c.other_contact_first,  c.other_contact_second,c.remark_first, c.remark_second
         from crm_supplier s
         left join crm_supplier_contact c on c.supplier_id = s.id
         <where>
+            <if test="supplierCode != null and supplierCode != ''">
+                and s.supplier_code like concat('%', #{supplierCode}, '%')
+            </if>
             <if test="supplierName != null and supplierName != ''">
                 and s.supplier_name like concat('%', #{supplierName}, '%')
+            </if>
+            <if test="supplierAlias != null and supplierAlias != ''">
+                and s.supplier_alias like concat('%', #{supplierAlias}, '%')
             </if>
             <if test="contactName != null and contactName != ''">
                 and c.contact_name like concat('%', #{contactName}, '%')
@@ -124,23 +172,38 @@
                 and s.create_time &lt;= #{params.endTime}
             </if>
             <if test="status != null">and s.status = #{status}</if>
+            <!-- 数据权限：非管理员/超级管理员仅能查看跟进人包含当前登录用户的供应商 -->
+            <if test="params != null and params['permUserName'] != null and params['permUserName'] != ''">
+                and find_in_set(#{params.permUserName}, s.follow_up_by) > 0
+            </if>
         </where>
         order by s.create_time desc
     </select>
 
-    <select id="selectSupplierById" parameterType="long" resultMap="CrmSupplierMap">
+    <select id="selectSupplierById" parameterType="long" resultMap="CrmSupplierBaseMap">
         select <include refid="Base_Column_List"/> from crm_supplier s where s.id = #{id}
+    </select>
+
+    <!-- 按编码查询供应商（AI录入/批量导入提交时的数据权限校验用） -->
+    <select id="selectSupplierByCode" resultMap="CrmSupplierBaseMap">
+        select <include refid="Base_Column_List"/> from crm_supplier s where s.supplier_code = #{supplierCode} limit 1
+    </select>
+
+    <!-- 供应商编号查重：同时统计供应商表与Offer表中占用该编码的记录数（自动生成编号时保证唯一） -->
+    <select id="countBySupplierCode" resultType="int">
+        select (select count(*) from crm_supplier where supplier_code = #{supplierCode})
+             + (select count(*) from crm_offer where supplier_code = #{supplierCode})
     </select>
 
     <insert id="insertSupplier" parameterType="com.ruoyi.crm.domain.CrmSupplier" useGeneratedKeys="true" keyProperty="id">
         insert into crm_supplier(
-            supplier_code, supplier_name, supplier_short_name, supplier_type, brands,
+            supplier_code, supplier_name, supplier_short_name, supplier_alias, supplier_type, brands,
             country, address, website, main_products, cooperation_level, risk_level,
             payment_terms, cooperation_status, business_license, tax_number, bank_info, bank_account, bill_to, ship_to,
             introduction, remark, remark_second, status, follow_up_by, create_by, create_time,
             update_by, update_time, tags_first, tags_second, tags_third, tags_si
         ) values(
-            #{supplierCode}, #{supplierName}, #{supplierShortName}, #{supplierType}, #{brands},
+            #{supplierCode}, #{supplierName}, #{supplierShortName}, #{supplierAlias}, #{supplierType}, #{brands},
             #{country}, #{address}, #{website}, #{mainProducts}, #{cooperationLevel}, #{riskLevel},
             #{paymentTerms}, #{cooperationStatus}, #{businessLicense}, #{taxNumber}, #{bankInfo}, #{bankAccount}, #{billTo}, #{shipTo},
             #{introduction}, #{remark}, #{remarkSecond}, #{status}, #{followUpBy}, #{createBy}, now(),
@@ -154,6 +217,7 @@
             <if test="supplierCode != null">supplier_code = #{supplierCode},</if>
             <if test="supplierName != null">supplier_name = #{supplierName},</if>
             <if test="supplierShortName != null">supplier_short_name = #{supplierShortName},</if>
+            <if test="supplierAlias != null">supplier_alias = #{supplierAlias},</if>
             <if test="supplierType != null">supplier_type = #{supplierType},</if>
             <if test="brands != null">brands = #{brands},</if>
             <if test="country != null">country = #{country},</if>
@@ -186,24 +250,51 @@
     </update>
 
     <select id="selectSupplierOptions" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultType="com.ruoyi.crm.domain.CrmSupplier">
-        select min(s.id) as id, s.supplier_code as supplier_code, s.supplier_name as supplier_name
+        select min(s.id) as id, s.supplier_code as supplier_code, s.supplier_name as supplier_name, group_concat(distinct ifnull(s.supplier_alias, '') separator '/') as supplier_alias
         from crm_supplier s
         <where>
-            <if test="supplierName != null and supplierName != ''">and s.supplier_name like concat('%', #{supplierName}, '%')</if>
+            <!-- 支持按供应商编码、名称或别名模糊搜索（Offer页面供应商选择均显示编码，故编码需可搜） -->
+            <if test="supplierName != null and supplierName != ''">and (s.supplier_name like concat('%', #{supplierName}, '%') or s.supplier_alias like concat('%', #{supplierName}, '%') or s.supplier_code like concat('%', #{supplierName}, '%'))</if>
             <if test="supplierCode != null and supplierCode != ''">and s.supplier_code like concat('%', #{supplierCode}, '%')</if>
+            <!-- 数据权限：非管理员/超级管理员仅能选择跟进人包含当前登录用户的供应商 -->
+            <if test="params != null and params['permUserName'] != null and params['permUserName'] != ''">
+                and find_in_set(#{params.permUserName}, s.follow_up_by) > 0
+            </if>
         </where>
         group by s.supplier_code, s.supplier_name
         order by s.supplier_code asc
     </select>
 
-    <select id="selectSupplierSimpleList" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultMap="CrmSupplierMap">
+    <select id="selectSupplierSimpleList" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultMap="CrmSupplierBaseMap">
         select id, supplier_code, supplier_name from crm_supplier
         <where>
             <if test="params != null and params.keyword != null and params.keyword != ''">
                 and (supplier_code like concat('%', #{params.keyword}, '%') or supplier_name like concat('%', #{params.keyword}, '%'))
             </if>
+            <!-- 数据权限：非管理员/超级管理员仅能查询跟进人包含当前登录用户的供应商 -->
+            <if test="params != null and params['permUserName'] != null and params['permUserName'] != ''">
+                and find_in_set(#{params.permUserName}, follow_up_by) > 0
+            </if>
         </where>
         order by supplier_code asc
+    </select>
+
+    <!-- 跟进人昵称解析：登录名转昵称（存储为登录名保证唯一，展示用昵称，保持存储顺序） -->
+    <select id="selectNickNamesByUserNames" resultType="java.lang.String">
+        select u.nick_name from sys_user u
+        where u.del_flag = '0' and find_in_set(u.user_name, #{userNames}) > 0
+        order by find_in_set(u.user_name, #{userNames})
+    </select>
+
+    <!-- 跟进人选择数据源：当前系统启用用户（存登录名userName，显示昵称nickName） -->
+    <select id="selectUserOptions" resultType="java.util.HashMap">
+        select user_id as userId, user_name as userName, nick_name as nickName
+        from sys_user
+        where del_flag = '0' and status = '0'
+        <if test="keyword != null and keyword != ''">
+            and (user_name like concat('%', #{keyword}, '%') or nick_name like concat('%', #{keyword}, '%'))
+        </if>
+        order by user_id asc
     </select>
 
     <delete id="deleteSupplierByIds" parameterType="long">

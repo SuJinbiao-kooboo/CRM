@@ -60,7 +60,41 @@ public class OfferController extends BaseController {
     public TableDataInfo list(@ApiParam CrmOffer offer) {
         startPage();
         List<CrmOffer> list = offerService.selectOfferList(offer);
+        // 供应商名称不暴露：库中supplier_name已统一存编码（数据已清洗），此处再覆盖一遍作为双保险
+        for (CrmOffer o : list) {
+            o.setSupplierName(o.getSupplierCode());
+        }
         return getDataTable(list);
+    }
+
+    /** 复制Offer：查询最近days天内INQ/OFFER记录，按品牌排序、相同料号取成本最低（无价格也保留），返回制表符分隔文本
+     *  注意：buildCopyOfferText 返回 String，不能直接传 AjaxResult.success(Object) 单参——
+     *  重载解析会选中更具体的 success(String msg) 把文本塞进 msg 字段、data 为 null，前端取不到数据，
+     *  必须用双参 success(String msg, Object data) 显式把文本放入 data */
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @GetMapping("/copyOfferText")
+    public AjaxResult copyOfferText(@RequestParam("days") int days) {
+        return AjaxResult.success("操作成功", offerService.buildCopyOfferText(days));
+    }
+
+    /**
+     * AI查询复制：按料号集合+最近天数查询各料号报价最低的Offer（1=当天0点至当前，N=N-1天前0点至当前），
+     * 返回"料号 报价 数量 交期 DC 货况"制表符分隔文本
+     */
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @PostMapping("/copyAiQueryOffers")
+    public AjaxResult copyAiQueryOffers(@RequestBody Map<String, Object> body) {
+        // days范围校验在service内（1-999）；非数字或缺省时默认1天
+        int days = NumberUtil.parseInt(strOf(body.get("days")), 1);
+        List<String> partNumbers = new ArrayList<>();
+        Object pns = body.get("partNumbers");
+        if (pns instanceof List) {
+            for (Object o : (List<?>) pns) {
+                partNumbers.add(String.valueOf(o));
+            }
+        }
+        // 注意：返回String必须用双参重载，单参success(String)会把文本塞进msg导致前端取不到data
+        return AjaxResult.success("操作成功", offerService.buildAiQueryCopyText(partNumbers, days));
     }
 
     @PreAuthorize("@ss.hasPermi('crm:offer:export')")
@@ -150,6 +184,45 @@ public class OfferController extends BaseController {
         Map<String, Object> result = offerService.importOffers(file, supplierCode, supplierName, inqOfferType, colMap, profitRatio);
         String msg = "成功导入" + result.getOrDefault("successCount", 0) + "条，失败" + result.getOrDefault("failCount", 0) + "条";
         return AjaxResult.success(msg, result);
+    }
+
+    @PreAuthorize("@ss.hasPermi('crm:offer:add')")
+    @Log(title = "Offer管理", businessType = BusinessType.INSERT)
+    @PostMapping("/aiEntry")
+    public AjaxResult aiEntry(@RequestBody Map<String, Object> body) {
+        String supplierCode = strOf(body.get("supplierCode"));
+        String supplierName = strOf(body.get("supplierName"));
+        String inqOfferType = strOf(body.get("inqOfferType"));
+        String content = strOf(body.get("content"));
+        Double profitRatio = toDouble(body.get("profitRatio"));
+        if (profitRatio == null) profitRatio = 2d;
+        int count = offerService.aiEntryOffers(supplierCode, supplierName, inqOfferType, profitRatio, content);
+        return AjaxResult.success("AI录入成功" + count + "条", count);
+    }
+
+    /**
+     * AI料号查询：调用AI提取料号，查询最近半年内的INQ/OFFER历史记录，按料号分组返回
+     */
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @Log(title = "Offer管理", businessType = BusinessType.OTHER)
+    @PostMapping("/aiQuery")
+    public AjaxResult aiQuery(@RequestBody Map<String, Object> body) {
+        String content = strOf(body.get("content"));
+        List<Map<String, Object>> groups = offerService.aiQueryHistory(content);
+        return AjaxResult.success(groups);
+    }
+
+    private String strOf(Object o) {
+        return o == null ? "" : o.toString().trim();
+    }
+
+    private Double toDouble(Object o) {
+        if (o == null) return null;
+        try {
+            return Double.valueOf(o.toString().trim());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @PreAuthorize("@ss.hasPermi('crm:offer:parse')")

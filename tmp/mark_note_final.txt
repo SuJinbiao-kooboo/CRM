@@ -1,0 +1,72 @@
+标记公司名称	行数	Excel行号	原公司名(主名列表)	识别依据
+上海岚曦实业有限公司	2	12,190	上海岚曦实业有限公司	主要词语相同
+VISAR COMPONENTS PTE LTD	4	14,15,16,17	VISAR COMPONENTS PTE LTD	主要词语相同
+ALDEN TECHNOLOGY-FZCO	2	20,21	ALDEN TECHNOLOGY-FZCO	主要词语相同
+深圳市极光通讯科技有限公司	14	22,23,24,25,26,27,29,30,31,32,33,34,35,36	深圳市极光通讯科技有限公司	主要词语相同
+Neview Technology Ltd	2	37,38	Neview Technology Ltd	主要词语相同
+TAURUS EUROPE B.V.	12	39,40,41,42,43,44,45,46,47,48,49,50	Taurus Europe BV | TAURUS EUROPE B.V.	主要词语相同
+ClusterVision Solutions BV	2	51,52	ClusterVision Solutions BV	主要词语相同
+NX Electronics Limited领峰数码电子有限公司	8	53,54,55,56,57,58,59,60	NX Electronics Limited领峰数码电子有限公司 | NX Electronics Limited	主要词语相同(疑似同名,建议核实)
+Techno Com FZCO	5	61,62,63,64,66	Techno Com FZCO	主要词语相同
+Syno Distribution Limited	4	68,69,70,71	Syno Distribution Limited | SYNO Distribution Limited | SYNO	主要词语相同
+CENTURY TECH SYSTEM PTE.LTD	3	72,73,74	CENTURY TECH SYSTEM PTE.LTD	主要词语相同
+Data - JCE Electronics LTD	10	75,76,77,78,79,80,81,83,85,86	DATA JCE ELECTRONICS LTD. | Data - JCE Electronics LTD	主要词语相同
+VASTOM Technology (HK) Co., Ltd	4	87,88,89,250	VASTOM Technology (HK) Co., Ltd | VAST SYSTEM TECHNOLOGY LIMITED	主要词语相同(疑似同名,建议核实)
+Tamermann Elektrohandel Gmbh	7	95,96,97,98,99,100,101	TAMERMANN Group | Tamermann Elektrohandel Gmbh | Tamermann Trading sp. z.o.o	主要词语相同(疑似同名,建议核实)
+HONCKONG HONCH INTERNATIONAL LIMITED香港鴻啟國際有限公司	11	106,107,108,109,110,113,114,115,116,117,118	HONCKONG HONCH INTERNATIONAL LIMITED | HONCKONG HONCH INTERNATIONAL LIMITED香港鴻啟國際有限公司 | HONCKONG HONCH INTERNATIONAL LIMITED香港鴻广州云嘉科技	人工识别(中英文对照/抬头/域名/同Code佐证)
+广州宇强电脑科技有限公司	4	119,120,121,122	广州宇强电脑科技有限公司	主要词语相同
+新欣科技有限公司THRIVE TECHNOLOGYCO.,LIMITED	5	124,125,126,127,128	新欣科技有限公司THRIVE TECHNOLOGYCO.,LIMITED	主要词语相同
+Star Seed Technologies ME FZE	2	130,131	Star Seed Technologies ME FZE | Starseed Technologies Pte Ltd	主要词语相同(疑似同名,建议核实)
+Smart technology	5	133,134,135,136,137	Smart technology	主要词语相同
+TwinMOS Technologies Middle East FZE	4	138,139,140,141	Twinmos | TwinMOS Technologies | TwinMOS Technologies Middle East FZE	主要词语相同(疑似同名,建议核实)
+ASTREON COMPUTERS L.L.C	2	142,143	ASTREON COMPUTERS L.L.C	主要词语相同
+E2K Semiconductor Pte Ltd	3	145,148,150	E2K Semiconductor Pte Ltd	主要词语相同
+BOSSION INTERNATIONAL PTE. LTD.博盛国际	8	146,151,152,153,154,155,156,157	BOSSION INTERNATIONAL PTE. LTD. | BOSSION INTERNATIONAL PTE. LTD.博盛国际	主要词语相同(疑似同名,建议核实)
+Shield Solutions DWC-LLC	3	161,162,163	Shield Solutions DWC-LLC	主要词语相同
+CREDIT FIRST HK LIMITED深圳钰麟	3	164,165,166	CREDIT FIRST HK LIMITED深圳钰麟	主要词语相同
+LOUIS YEN SINGAPORE PTE. LTD,	6	167,168,169,170,171,172	LOUIS YEN SINGAPORE PTE. LTD,	主要词语相同
+DICKER DATA LIMITED	10	174,175,176,177,178,179,180,181,182,183	DICKER DATA LIMITED	主要词语相同
+Quiksol International HK PTE Limited	6	184,185,186,187,188,189	Quiksol International HK PTE Limited	主要词语相同
+Computer Infotech (S) PTE Ltd	2	191,195	Computer Infotech (S) PTE Ltd	主要词语相同
+CI Gulf Distribution FZCO	3	192,193,194	CI Gulf Distribution FZCO	主要词语相同
+北京海诚基业科技有限公司	3	197,198,199	北京海诚基业科技有限公司	主要词语相同
+HONGKONG NETZONE TECHNOLOGY CO., LIMITED	3	201,202,203	鑫昊翔 | HONGKONG NETZONE TECHNOLOGY CO., LIMITED	人工识别(中英文对照/抬头/域名/同Code佐证)
+香港益達科技有限公司	2	204,205	香港益達科技有限公司	主要词语相同
+JOINT-HARVEST INTERNATION HOLDINGS LIMITED	3	207,208,209	JOINT-HARVEST INTERNATION HOLDINGS LIMITED | 上海赞禾英泰信息科技股份有限公司	人工识别(中英文对照/抬头/域名/同Code佐证)
+深圳市赛特恩电子有限公司	8	210,211,212,213,214,215,216,217	深圳市赛特恩电子有限公司	主要词语相同
+INFINIARC (Virtual Reality Solutions Inc.旗下)	10	219,220,221,222,223,229,230,231,232,233	INFINIARC (Virtual Reality Solutions Inc.旗下) | VIRTUAL REALITY SOLUTIONS LLC	主要词语相同(疑似同名,建议核实)
+广州华储电子科技有限公司	6	237,238,239,240,241,242	广州华储电子科技有限公司	主要词语相同
+上海珑京信息科技有限公司	4	244,245,246,247	上海珑京信息科技有限公司	主要词语相同
+Linkview Enterprises Limited	4	252,253,254,255	LINKVIEW ENTERPRISES LTD. | Linkview Enterprises Limited	主要词语相同
+FUSTAR INDUSTRIAL LIMITED	4	257,258,259,260	FUSTAR INDUSTRIAL LIMITED	主要词语相同
+SANFAN TECHNOLOGY LIMITED	4	263,264,265,267	SANFAN TECHNOLOGY LIMITED | SANFAN	主要词语相同
+Shenzhen Kechuang Bangda electronics科创邦达	2	269,270	Shenzhen Kechuang Bangda electronics科创邦达	主要词语相同
+FINOVY CLOUD HK LIMITED	5	280,281,282,283,284	FINOVY CLOUD HK LIMITED	主要词语相同
+Tier One Distribution BV	4	285,286,287,288	Tier One Distribution BV	主要词语相同
+融科联创(天津)信息技术有限公司南区深圳分销事业部	6	292,293,294,295,296,297	融科联创（天津）信息技术有限公司 | 融科联创(天津)信息技术有限公司南区深圳分销事业部 | 融科联创	主要词语相同(疑似同名,建议核实)
+TIADA L.L.C FZ	5	298,299,300,301,302	TIADA L.L.C FZ	主要词语相同
+AMAX	8	312,313,314,315,316,317,318,319	AMAX China | 苏州超集信息科技有限公司 | AMAX	人工识别(中英文对照/抬头/域名/同Code佐证)
+DITIAN TECH (HK) LIMITED	2	322,323	DITIAN TECH (HK) LIMITED	主要词语相同
+UHOP TECH CO., LIMITED	3	328,329,330	UHOP TECH CO., LIMITED	主要词语相同
+Ex-Channel Group Limited	5	334,335,336,337,338	Ex-Channel Group Limited | Ex-Channel Group	主要词语相同
+Powerleader Computer System Co., Ltd.	6	340,341,342,343,344,345	Powerleader Computer System Co., Ltd. | 广东宝德自强计算机有限公司	人工识别(中英文对照/抬头/域名/同Code佐证)
+杭州易成讯创电子科技有限公司	3	353,354,355	杭州易成讯创电子科技有限公司 | 易成訊創(香港)有限公司	人工识别(中英文对照/抬头/域名/同Code佐证)
+GlobeServe Tech International Co., Ltd.	2	356,357	GlobeServe Tech International Co., Ltd.	主要词语相同
+朴赛计算机(上海)有限公司	2	358,359	朴赛计算机(上海)有限公司	主要词语相同
+融核（上海）科技有限公司	3	361,362,363	融核（上海）科技有限公司 | 廣達實業（香港）有限公司	人工识别(中英文对照/抬头/域名/同Code佐证)
+芯通科技有限公司	5	365,366,367,368,369	芯通科技有限公司	主要词语相同
+Anchor Innovative IT Solutions FZC LLC	2	370,371	Anchor Innovative IT Solutions FZC LLC | Computer Solution INC.-Anchor美国关联公司	人工识别(中英文对照/抬头/域名/同Code佐证)
+				
+【空公司行按佐证挂靠】				
+深圳市极光通讯科技有限公司	1	28	(无公司名)	邮箱域名/同Code佐证
+HONCKONG HONCH INTERNATIONAL LIMITED香港鴻啟國際有限公司	1	111	(无公司名)	邮箱域名/同Code佐证
+HONCKONG HONCH INTERNATIONAL LIMITED香港鴻啟國際有限公司	1	112	(无公司名)	邮箱域名/同Code佐证
+CI Gulf Distribution FZCO	1	196	(无公司名)	邮箱域名/同Code佐证
+INFINIARC (Virtual Reality Solutions Inc.旗下)	1	224	(无公司名)	邮箱域名/同Code佐证
+INFINIARC (Virtual Reality Solutions Inc.旗下)	1	225	(无公司名)	邮箱域名/同Code佐证
+INFINIARC (Virtual Reality Solutions Inc.旗下)	1	226	(无公司名)	邮箱域名/同Code佐证
+INFINIARC (Virtual Reality Solutions Inc.旗下)	1	227	(无公司名)	邮箱域名/同Code佐证
+INFINIARC (Virtual Reality Solutions Inc.旗下)	1	228	(无公司名)	邮箱域名/同Code佐证
+INFINIARC (Virtual Reality Solutions Inc.旗下)	1	234	(无公司名)	邮箱域名/同Code佐证
+TOP GREAT TECHNOLOGY (HK) CO., LIMITED	1	304	(无公司名)	邮箱域名/同Code佐证
+融核（上海）科技有限公司	1	364	(无公司名)	邮箱域名/同Code佐证

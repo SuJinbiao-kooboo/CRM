@@ -20,6 +20,8 @@ public class CrmSupplier extends BaseEntity {
     private String supplierName;
     @Excel(name = "供应商简称")
     private String supplierShortName;
+    @Excel(name = "公司别名")
+    private String supplierAlias;
     @Excel(name = "供应商类型")
     private String supplierType;
     @Excel(name = "品牌")
@@ -62,6 +64,8 @@ public class CrmSupplier extends BaseEntity {
     private Integer status;
     @Excel(name = "跟进人")
     private String followUpBy;
+    /** 跟进人显示名称（昵称，逗号分隔，查询时由登录名解析，仅用于列表/详情展示） */
+    private String followUpByNames;
     private String createBy;
     private Date createTime;
     private String updateBy;

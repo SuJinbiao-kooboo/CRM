@@ -100,6 +100,21 @@ public class SupplierController extends BaseController {
         return toAjax(supplierService.updateSupplier(supplier));
     }
 
+    /**
+     * 写跟进：仅更新上次/下次跟进时间与结论/目标（列表操作列"写跟进"弹窗入口）
+     * 数据权限由 service 复用详情查询校验：非管理员/超级管理员仅能跟进人包含自己的供应商
+     */
+    @PreAuthorize("@ss.hasPermi('crm:supplier:edit')")
+    @Log(title = "供应商管理", businessType = BusinessType.UPDATE)
+    @PutMapping("/followUp")
+    public AjaxResult followUp(@RequestBody CrmSupplier supplier) {
+        if (supplier.getId() == null) {
+            return error("供应商ID不能为空");
+        }
+        supplier.setUpdateBy(SecurityUtils.getUsername());
+        return toAjax(supplierService.updateSupplierFollowUp(supplier));
+    }
+
     @PreAuthorize("@ss.hasPermi('crm:supplier:list')")
     @GetMapping("/options")
     public AjaxResult options(CrmSupplier supplier) {

@@ -59,7 +59,11 @@
         <el-button icon="el-icon-refresh" size="mini" @click="resetQuery">重置</el-button>
         <el-button type="text" size="mini" @click="showMoreQuery = true">更多查询</el-button>
       </el-form-item>
-      <right-toolbar :showSearch.sync="showSearch" @queryTable="getList"></right-toolbar>
+      <right-toolbar :showSearch.sync="showSearch" @queryTable="getList">
+        <el-tooltip class="item" effect="dark" content="自定义列" placement="top">
+          <el-button size="mini" circle icon="el-icon-s-operation" @click="openColumnDialog" style="margin-left: 12px" />
+        </el-tooltip>
+      </right-toolbar>
     </el-form>
 
     <el-dialog title="更多查询" :visible.sync="showMoreQuery" width="600px" append-to-body>
@@ -234,52 +238,87 @@
       </el-col>
     </el-row>
 
-    <el-table v-loading="loading" :data="supplierList" @selection-change="handleSelectionChange">
+    <!-- :key=columnVersion：列顺序/显隐变化时强制重建表格。element-ui 2.15 动态列+固定列(fixed=right)存在渲染不同步缺陷，列调整后会出现整列内容空白/错位，重建可规避 -->
+    <el-table v-loading="loading" :key="columnVersion" :data="supplierList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <!-- 供应商编码：唯一标识，置于第一个数据列，与快捷筛选对应 -->
-      <el-table-column label="供应商编码" align="center" prop="supplierCode" width="160" show-overflow-tooltip />
-      <el-table-column label="供应商名称" align="center" prop="supplierName">
+      <!-- 数据列由"自定义列"弹窗控制显隐/顺序（配置存 localStorage）；富文本字段经 enrichRows 剥标签为纯文本后展示 -->
+      <el-table-column v-for="col in renderColumns" :key="col.key" :label="col.label" align="center"
+                       :prop="col.textProp || col.prop" :width="col.width">
+        <!-- 注意：多个并列 template（v-if/v-else-if/v-else + slot-scope）在 Vue 2.6 编译时仅保留首个 v-if 分支，
+             其余分支被静默丢弃，导致除供应商名称外的所有列恒为空；必须在单个 template 内用元素级 v-if 分支渲染 -->
         <template slot-scope="scope">
-          <el-link type="primary" @click="openDetail(scope.row)">{{ scope.row.supplierName }}</el-link>
-        </template>
-      </el-table-column>
-      <el-table-column label="公司别名" align="center" prop="supplierAlias" show-overflow-tooltip />
-      <el-table-column label="类型" align="center" prop="supplierType" />
-      <el-table-column label="品牌" align="center" prop="brands" />
-      <el-table-column label="国家" align="center" prop="country" />
-      <el-table-column label="跟进人" align="center">
-        <template slot-scope="scope">{{ scope.row.followUpByNames || scope.row.followUpBy }}</template>
-      </el-table-column>
-      <el-table-column label="主营产品" align="center" prop="mainProducts" />
-      <el-table-column label="合作等级" align="center" prop="cooperationLevel" />
-      <el-table-column label="风险等级" align="center" prop="riskLevel" />
-      <el-table-column label="付款条件" align="center" prop="paymentTerms" />
-      <el-table-column label="合作状态" align="center" prop="cooperationStatus">
-        <template slot-scope="scope">
-          <el-select v-model="scope.row.cooperationStatus" placeholder="请选择" size="mini" @change="updateCooperationStatus(scope.row)">
+          <el-link v-if="col.type === 'link'" type="primary" @click="openDetail(scope.row)">{{ scope.row.supplierName }}</el-link>
+          <span v-else-if="col.type === 'datetime'">{{ parseTime(scope.row[col.prop]) }}</span>
+          <el-select v-else-if="col.type === 'statusSelect'" v-model="scope.row.cooperationStatus" placeholder="请选择" size="mini" @change="updateCooperationStatus(scope.row)">
             <el-option v-for="d in dictCooperationStatus" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
           </el-select>
+          <el-tag v-else-if="col.type === 'statusTag'" :type="scope.row.status === 1 ? 'success' : 'danger'">{{ scope.row.status === 1 ? '正常' : '停用' }}</el-tag>
+          <!-- plain/html 等普通文本列兜底渲染：只要存在 slot-scope 模板，el-table-column 就不会回落 prop 渲染 -->
+          <span v-else class="cell-text-ellipsis" :title="String(scope.row[col.textProp || col.prop] || '')">{{ scope.row[col.textProp || col.prop] }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="联系人" align="center" prop="contactName" width="200" />
-      <el-table-column label="手机号" align="center" prop="phone" width="200" />
-      <el-table-column label="邮箱" align="center" prop="email" width="240" />
-      <el-table-column label="Teams" align="center" prop="teams" width="200" />
-      <el-table-column label="WhatsApp" align="center" prop="whatsapp" width="200" />
-      <el-table-column label="创建时间" align="center" prop="createTime" width="180">
-        <template slot-scope="scope">
-          <span>{{ parseTime(scope.row.createTime) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+      <!-- 操作列固定右侧：列较多/横向滚动时仍可见修改、写跟进、删除入口 -->
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="210" fixed="right">
         <template slot-scope="scope">
           <el-button size="mini" type="text" icon="el-icon-edit" @click="handleUpdate(scope.row)" v-hasPermi="['crm:supplier:edit']">修改</el-button>
+          <el-button size="mini" type="text" icon="el-icon-message" @click="openFollowDialog(scope.row)" v-hasPermi="['crm:supplier:edit']">写跟进</el-button>
           <el-button size="mini" type="text" icon="el-icon-delete" @click="handleDelete(scope.row)" v-hasPermi="['crm:supplier:remove']">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <pagination v-show="total>0" :total="total" :page.sync="queryParams.pageNum" :limit.sync="queryParams.pageSize" :page-sizes="[10,20,50,100,200,300,500]" layout="total, sizes, prev, pager, next, jumper" @pagination="getList" />
+
+    <!-- 自定义列弹窗：控制列表字段显示/隐藏与顺序（改动即时生效并持久化到 localStorage） -->
+    <el-dialog title="自定义列" :visible.sync="columnDialogOpen" width="480px" append-to-body>
+      <div class="column-config-tip">勾选控制显示，箭头调整列顺序，改动即时生效</div>
+      <div class="column-config-toolbar">
+        <el-button type="text" size="mini" icon="el-icon-circle-check" @click="toggleColumnVisible(true)">全部显示</el-button>
+        <el-button type="text" size="mini" icon="el-icon-circle-close" @click="toggleColumnVisible(false)">全部隐藏</el-button>
+        <el-button type="text" size="mini" icon="el-icon-refresh-left" @click="resetColumns">恢复默认</el-button>
+      </div>
+      <div class="column-config-list">
+        <div v-for="(col, index) in tableColumns" :key="col.key" class="column-config-item">
+          <el-checkbox v-model="col.visible" @change="saveColumnConfig">{{ col.label }}</el-checkbox>
+          <span>
+            <el-button type="text" size="mini" icon="el-icon-top" title="前移" :disabled="index === 0" @click="moveColumn(index, -1)" />
+            <el-button type="text" size="mini" icon="el-icon-bottom" title="后移" :disabled="index === tableColumns.length - 1" @click="moveColumn(index, 1)" />
+          </span>
+        </div>
+      </div>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" @click="columnDialogOpen = false">完 成</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 写跟进弹窗：维护上次/下次跟进时间与结论/目标（富文本），仅更新跟进字段不影响其它供应商资料 -->
+    <el-dialog :title="'写跟进 - ' + followForm.supplierName" :visible.sync="followOpen" width="880px" append-to-body :close-on-click-modal="false">
+      <el-form :model="followForm" label-width="120px">
+        <el-row :gutter="10">
+          <el-col :span="12">
+            <el-form-item label="上次跟进时间">
+              <el-date-picker v-model="followForm.lastFollowUpTime" type="datetime" value-format="yyyy-MM-dd HH:mm:ss" placeholder="选择上次跟进时间（可清空）" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="下次跟进时间">
+              <el-date-picker v-model="followForm.nextFollowUpTime" type="datetime" value-format="yyyy-MM-dd HH:mm:ss" placeholder="选择下次跟进时间（可清空）" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="上次跟进结论">
+          <!-- v-if 挂载时机与弹窗同步，避免富文本编辑器实例残留 -->
+          <Editor v-if="followOpen" v-model="followForm.lastFollowUpResult" :minHeight="150" />
+        </el-form-item>
+        <el-form-item label="下次跟进目标">
+          <Editor v-if="followOpen" v-model="followForm.nextFollowUpGoal" :minHeight="150" />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" :loading="followLoading" @click="submitFollow">保 存</el-button>
+        <el-button @click="followOpen = false">取 消</el-button>
+      </div>
+    </el-dialog>
 
     <el-dialog :title="title" :visible.sync="open" width="900px" append-to-body>
       <el-form ref="form" :model="form" label-width="120px">
@@ -554,10 +593,88 @@
 </template>
 
 <script>
-import { listSupplier, getSupplier, addSupplier, updateSupplier, delSupplier, getSupplierDetail, delSupplierAttachment, listSupplierUsers } from '@/api/crm/supplier'
+import { listSupplier, getSupplier, addSupplier, updateSupplier, updateSupplierFollowUp, delSupplier, getSupplierDetail, delSupplierAttachment, listSupplierUsers } from '@/api/crm/supplier'
 import request from '@/utils/request'
 import { getDicts } from '@/api/system/dict/data'
 import { getToken } from '@/utils/auth'
+
+// 供应商列表可选字段全集：key 唯一；type 决定渲染方式：
+// plain=纯文本 / html=富文本(列表剥标签展示纯文本，textProp 为预处理后字段) / datetime=时间格式化 / link=供应商名称链接 / statusSelect=行内合作状态下拉 / statusTag=启停标签
+// 默认全部显示；显示与顺序由右上角"自定义列"弹窗调整，配置持久化到 localStorage（按浏览器生效）
+const DEFAULT_COLUMNS = [
+  { key: 'supplierCode', label: '供应商编码', prop: 'supplierCode', width: 150, type: 'plain' },
+  { key: 'supplierName', label: '供应商名称', prop: 'supplierName', width: 220, type: 'link' },
+  { key: 'supplierShortName', label: '供应商简称', prop: 'supplierShortName', width: 120, type: 'plain' },
+  { key: 'supplierAlias', label: '公司别名', prop: 'supplierAlias', width: 140, type: 'plain' },
+  { key: 'supplierType', label: '类型', prop: 'supplierType', width: 110, type: 'plain' },
+  { key: 'brands', label: '品牌', prop: 'brands', width: 150, type: 'plain' },
+  { key: 'country', label: '国家', prop: 'country', width: 90, type: 'plain' },
+  { key: 'followUpByNames', label: '跟进人', prop: 'followUpByNames', width: 120, type: 'plain' },
+  { key: 'lastFollowUpTime', label: '上次跟进时间', prop: 'lastFollowUpTime', width: 160, type: 'datetime' },
+  { key: 'lastFollowUpResult', label: '上次跟进结论', prop: 'lastFollowUpResult', textProp: 'textLastFollowUpResult', width: 220, type: 'html' },
+  { key: 'nextFollowUpTime', label: '下次跟进时间', prop: 'nextFollowUpTime', width: 160, type: 'datetime' },
+  { key: 'nextFollowUpGoal', label: '下次跟进目标', prop: 'nextFollowUpGoal', textProp: 'textNextFollowUpGoal', width: 220, type: 'html' },
+  { key: 'mainProducts', label: '主营产品', prop: 'mainProducts', width: 140, type: 'plain' },
+  { key: 'cooperationLevel', label: '合作等级', prop: 'cooperationLevel', width: 110, type: 'plain' },
+  { key: 'riskLevel', label: '风险等级', prop: 'riskLevel', width: 110, type: 'plain' },
+  { key: 'paymentTerms', label: '付款条件', prop: 'paymentTerms', width: 110, type: 'plain' },
+  { key: 'cooperationStatus', label: '合作状态', prop: 'cooperationStatus', width: 140, type: 'statusSelect' },
+  { key: 'businessLicense', label: '营业执照号', prop: 'businessLicense', width: 150, type: 'plain' },
+  { key: 'taxNumber', label: '税号', prop: 'taxNumber', width: 130, type: 'plain' },
+  { key: 'contactName', label: '联系人', prop: 'contactName', width: 110, type: 'plain' },
+  { key: 'phone', label: '手机号', prop: 'phone', width: 130, type: 'plain' },
+  { key: 'email', label: '邮箱', prop: 'email', width: 190, type: 'plain' },
+  { key: 'teams', label: 'Teams', prop: 'teams', width: 120, type: 'plain' },
+  { key: 'whatsapp', label: 'WhatsApp', prop: 'whatsapp', width: 130, type: 'plain' },
+  { key: 'tagsFirst', label: '标签1', prop: 'tagsFirst', width: 100, type: 'plain' },
+  { key: 'tagsSecond', label: '标签2', prop: 'tagsSecond', width: 100, type: 'plain' },
+  { key: 'tagsThird', label: '标签3', prop: 'tagsThird', width: 100, type: 'plain' },
+  { key: 'tagsSi', label: '标签4', prop: 'tagsSi', width: 100, type: 'plain' },
+  { key: 'address', label: '地址', prop: 'address', width: 180, type: 'plain' },
+  { key: 'website', label: '官网地址', prop: 'website', width: 180, type: 'plain' },
+  { key: 'bankInfo', label: '银行信息', prop: 'bankInfo', textProp: 'textBankInfo', width: 200, type: 'html' },
+  { key: 'bankAccount', label: '银行账号', prop: 'bankAccount', textProp: 'textBankAccount', width: 200, type: 'html' },
+  { key: 'billTo', label: 'Bill to', prop: 'billTo', textProp: 'textBillTo', width: 200, type: 'html' },
+  { key: 'shipTo', label: 'Ship to', prop: 'shipTo', textProp: 'textShipTo', width: 200, type: 'html' },
+  { key: 'introduction', label: '介绍信息', prop: 'introduction', textProp: 'textIntroduction', width: 200, type: 'html' },
+  { key: 'remark', label: '备注1', prop: 'remark', textProp: 'textRemark', width: 180, type: 'html' },
+  { key: 'remarkSecond', label: '备注2', prop: 'remarkSecond', textProp: 'textRemarkSecond', width: 180, type: 'html' },
+  { key: 'status', label: '状态', prop: 'status', width: 80, type: 'statusTag' },
+  { key: 'createTime', label: '创建时间', prop: 'createTime', width: 160, type: 'datetime' },
+  { key: 'updateTime', label: '更新时间', prop: 'updateTime', width: 160, type: 'datetime' }
+]
+// localStorage 存储键（带版本号，后续列配置结构变更时调整版本即可平滑重置）
+const COLUMNS_STORAGE_KEY = 'crm:supplier:table-columns:v1'
+
+// 深拷贝默认列配置并默认全部可见（避免多个实例共享同一对象引用）
+function defaultColumns() {
+  return JSON.parse(JSON.stringify(DEFAULT_COLUMNS)).map(c => Object.assign(c, { visible: true }))
+}
+
+// 读取本地列配置并与默认列合并：旧缓存缺的列（新功能字段）自动补出，被删除的列自动忽略
+function loadColumnConfig() {
+  let saved = null
+  try {
+    saved = JSON.parse(localStorage.getItem(COLUMNS_STORAGE_KEY) || 'null')
+  } catch (e) {
+    saved = null
+  }
+  if (!Array.isArray(saved) || saved.length === 0) {
+    return defaultColumns()
+  }
+  const defMap = {}
+  defaultColumns().forEach(d => { defMap[d.key] = d })
+  const seen = {}
+  const merged = []
+  saved.forEach(c => {
+    const def = defMap[c.key]
+    if (!def) { return }
+    merged.push(Object.assign({}, def, { visible: c.visible !== false }))
+    seen[c.key] = true
+  })
+  defaultColumns().forEach(d => { if (!seen[d.key]) { merged.push(d) } })
+  return merged
+}
 
 export default {
   name: 'CrmSupplier',
@@ -567,6 +684,15 @@ export default {
       loading: false,
       showSearch: true,
       showMoreQuery: false,
+      columnDialogOpen: false,
+      // 跟进记录（写跟进弹窗）：上次/下次跟进时间 + 结论/目标富文本
+      followOpen: false,
+      followLoading: false,
+      followForm: { id: undefined, supplierName: '', lastFollowUpTime: '', lastFollowUpResult: '', nextFollowUpTime: '', nextFollowUpGoal: '' },
+      // 列表列配置（自定义列弹窗可调整显隐与顺序）
+      tableColumns: loadColumnConfig(),
+      // 列配置变更版本号：每次保存列配置 +1，用于 el-table :key 强制重建（规避动态列+固定列渲染不同步）
+      columnVersion: 0,
       total: 0,
       supplierList: [],
       ids: [],
@@ -590,8 +716,89 @@ export default {
       userLoading: false
     }
   },
-  created() { this.getList() },
+  computed: {
+    // 当前可见列（隐藏列不渲染，顺序即数组顺序）；visible 缺失时按可见处理
+    renderColumns() {
+      return this.tableColumns.filter(c => c.visible !== false)
+    }
+  },
+  created() {
+    this.getList()
+    // 列表行内"合作状态"下拉依赖字典：此前仅在打开编辑弹窗时才加载，直接刷新列表时下拉无选项，这里进入页面即预载
+    getDicts('crm_cooperation_status').then(res => { this.dictCooperationStatus = res.data })
+  },
   methods: {
+    // ===== 自定义列：显示/隐藏与顺序，改动即时保存到 localStorage =====
+    openColumnDialog() { this.columnDialogOpen = true },
+    saveColumnConfig() {
+      localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(this.tableColumns))
+      // 列顺序/显隐变化可能引起 element-ui 表格渲染不同步（尤其 fixed 列存在时），自增版本号触发表格整体重建
+      this.columnVersion++
+    },
+    moveColumn(index, dir) {
+      const target = index + dir
+      const len = this.tableColumns.length
+      if (target < 0 || target >= len) { return }
+      const tmp = this.tableColumns[index]
+      this.$set(this.tableColumns, index, this.tableColumns[target])
+      this.$set(this.tableColumns, target, tmp)
+      this.saveColumnConfig()
+    },
+    toggleColumnVisible(visible) {
+      this.tableColumns.forEach(c => { c.visible = visible })
+      this.saveColumnConfig()
+    },
+    resetColumns() {
+      this.tableColumns = defaultColumns()
+      this.saveColumnConfig()
+    },
+    // 富文本 HTML 转纯文本（去标签、空白归一），仅用于列表单元格展示
+    stripHtml(html) {
+      if (!html) { return '' }
+      return String(html).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim()
+    },
+    // 列表行预处理：为各富文本字段生成 text 前缀纯文本副本供列渲染；跟进人昵称缺失时回退登录名
+    enrichRows(rows) {
+      ;(rows || []).forEach(row => {
+        ;['lastFollowUpResult', 'nextFollowUpGoal', 'bankInfo', 'bankAccount', 'billTo', 'shipTo', 'introduction', 'remark', 'remarkSecond'].forEach(key => {
+          row['text' + key.charAt(0).toUpperCase() + key.slice(1)] = this.stripHtml(row[key])
+        })
+        row.followUpByNames = row.followUpByNames || row.followUpBy || ''
+      })
+      return rows || []
+    },
+    // ===== 写跟进：维护上次/下次跟进时间、结论/目标富文本 =====
+    openFollowDialog(row) {
+      this.followForm = {
+        id: row.id,
+        supplierName: row.supplierName,
+        lastFollowUpTime: row.lastFollowUpTime || '',
+        lastFollowUpResult: row.lastFollowUpResult || '',
+        nextFollowUpTime: row.nextFollowUpTime || '',
+        nextFollowUpGoal: row.nextFollowUpGoal || ''
+      }
+      this.followOpen = true
+    },
+    submitFollow() {
+      if (!this.followForm.id) { return }
+      this.followLoading = true
+      updateSupplierFollowUp({
+        id: this.followForm.id,
+        // 时间为空传 null 以支持清空已填时间；富文本默认为空串
+        lastFollowUpTime: this.followForm.lastFollowUpTime || null,
+        lastFollowUpResult: this.followForm.lastFollowUpResult || '',
+        nextFollowUpTime: this.followForm.nextFollowUpTime || null,
+        nextFollowUpGoal: this.followForm.nextFollowUpGoal || ''
+      }).then(() => {
+        this.followLoading = false
+        this.followOpen = false
+        this.$modal.msgSuccess('跟进记录已保存')
+        this.getList()
+      }).catch(err => {
+        this.followLoading = false
+        this.$modal.msgError(err && err.msg ? err.msg : '保存失败')
+      })
+    },
     openDetail(row) {
       const id = row.id
       getSupplierDetail(id).then(res => {
@@ -612,7 +819,8 @@ export default {
       this.queryParams.params.riskLevelList = this.queryParams.riskLevelArr
       this.queryParams.params.paymentTermsList = this.queryParams.paymentTermsArr
       listSupplier(this.queryParams).then(res => {
-        this.supplierList = res.rows
+        // 富文本字段剥标签转纯文本（text 前缀字段），供列表列直接展示；编辑仍走富文本弹窗
+        this.supplierList = this.enrichRows(res.rows)
         this.total = res.total
         this.loading = false
       })
@@ -783,4 +991,12 @@ export default {
 .preview-content >>> td, .preview-content >>> th { border: 1px solid #dcdfe6; padding: 4px 8px; white-space: nowrap; }
 .preview-content >>> h4 { margin: 8px 0 4px; }
 .preview-content >>> p { margin: 4px 0; }
+/* 自定义列弹窗 */
+.column-config-tip { color: #909399; font-size: 12px; margin-bottom: 6px; }
+.column-config-toolbar { margin-bottom: 4px; }
+.column-config-list { max-height: 52vh; overflow-y: auto; border-top: 1px solid #ebeef5; }
+.column-config-item { display: flex; justify-content: space-between; align-items: center; padding: 2px 6px; }
+.column-config-item:hover { background: #f5f7fa; }
+/* 文本框底列单元格：单行省略 + 悬浮全文（show-overflow-tooltip 对带插槽列不生效，故用 CSS 实现同等效果） */
+.cell-text-ellipsis { display: inline-block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 </style>

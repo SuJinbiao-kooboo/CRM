@@ -20,6 +20,11 @@ export function updateSupplier(data) {
   return request({ url: '/crm/supplier', method: 'put', data: data })
 }
 
+// 写跟进：仅更新上次/下次跟进时间与结论/目标（列表"写跟进"弹窗提交）
+export function updateSupplierFollowUp(data) {
+  return request({ url: '/crm/supplier/followUp', method: 'put', data: data })
+}
+
 export function delSupplier(id) {
   return request({ url: '/crm/supplier/' + id, method: 'delete' })
 }

@@ -235,6 +235,10 @@ public class OfferController extends BaseController {
         return AjaxResult.success(crmOffers);
     }
 
+    /**
+     * 发送Offer邮件（请求体 params 中可传：testSend=true测试发送/false正式发送，默认测试；withPrice=true带报价/false不带，默认不带）
+     * 测试发送仅发到字典配置的测试邮箱，正式发送发到订阅邮箱+供应商邮箱
+     */
     @Anonymous
 //    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @PostMapping("/sendOffer")
@@ -247,9 +251,18 @@ public class OfferController extends BaseController {
     }
 
     private Collection<CrmOffer> doSendEmailOfferOrInq(CrmOffer offer) {
+        // 发送选项：来自前端发送弹窗单选（测试/正式、是否带价格）；缺省默认测试发送且不带价格，避免误发正式邮件/误下报价
+        Map<String, Object> sendParams = offer.getParams();
+        if (sendParams == null) {
+            sendParams = new HashMap<>();
+            offer.setParams(sendParams);
+        }
+        boolean testSend = !"false".equalsIgnoreCase(StrUtil.toStringOrNull(sendParams.get("testSend")));
+        boolean withPrice = "true".equalsIgnoreCase(StrUtil.toStringOrNull(sendParams.get("withPrice")));
+
         String lastHours = dictDataService.selectDictLabel("crm_email_template_dict", "crm_email_last_hours");
         // 限制只能发送最近16小时录入的Offer
-        offer.getParams().put("lastCreateTime", DateUtil.offsetHour(new Date(), -Integer.valueOf(lastHours)));
+        sendParams.put("lastCreateTime", DateUtil.offsetHour(new Date(), -Integer.valueOf(lastHours)));
 
         Collection<CrmOffer> list = offerService.selectOfferList(offer);
         if("Offer".equals(offer.getInqOfferType())){
@@ -258,8 +271,10 @@ public class OfferController extends BaseController {
                     .collect(Collectors.toList());
             LinkedHashMap<String, CrmOffer> offerMap = new LinkedHashMap<>();
             for (CrmOffer crmOffer : list) {
-                // 特殊逻辑 注释掉报价 TODO 报价
-//                crmOffer.setPriceOffer(null);
+                // 不带价格发送时清空报价（是否带报价由发送弹窗选择）；成本字段仅内部使用永不下发
+                if (!withPrice) {
+                    crmOffer.setPriceOffer(null);
+                }
                 if(!offerMap.containsKey(crmOffer.getProductCode())){
                     offerMap.put(crmOffer.getProductCode(), crmOffer);
                     continue;
@@ -293,7 +308,7 @@ public class OfferController extends BaseController {
         SendEmailReq sendEmailReq = new SendEmailReq();
         sendEmailReq.setOffers(list);
 
-        sendEmailReq.setEmailGroups(crmSupplierSendOfferService.listToOfferEmail());
+        sendEmailReq.setEmailGroups(crmSupplierSendOfferService.listToOfferEmail(testSend));
 
         // 发送消息
         crmSendOfferService.sendExcelEmail(sendEmailReq);

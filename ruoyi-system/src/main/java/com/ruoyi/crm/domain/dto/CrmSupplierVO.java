@@ -4,6 +4,7 @@ import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
 import com.ruoyi.crm.domain.CrmAttachment;
 import com.ruoyi.crm.domain.CrmSupplierContact;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.util.Date;
@@ -78,6 +79,19 @@ public class CrmSupplierVO extends BaseEntity {
     private String tagsThird;
     @Excel(name = "标签4")
     private String tagsSi;
+
+    @Excel(name = "上次跟进时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    private Date lastFollowUpTime;
+    /** 上次跟进结论（富文本 HTML，列表展示时前端剥标签为纯文本） */
+    @Excel(name = "上次跟进结论")
+    private String lastFollowUpResult;
+    @Excel(name = "下次跟进时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    private Date nextFollowUpTime;
+    /** 下次跟进目标（富文本 HTML，列表展示时前端剥标签为纯文本） */
+    @Excel(name = "下次跟进目标")
+    private String nextFollowUpGoal;
 
     private List<CrmSupplierContact> contacts;
     private List<CrmAttachment> attachments;

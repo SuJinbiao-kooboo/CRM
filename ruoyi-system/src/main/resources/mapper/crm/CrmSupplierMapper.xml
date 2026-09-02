@@ -38,6 +38,10 @@
         <result column="tags_second" property="tagsSecond" />
         <result column="tags_third" property="tagsThird" />
         <result column="tags_si" property="tagsSi" />
+        <result column="last_follow_up_time" property="lastFollowUpTime" />
+        <result column="last_follow_up_result" property="lastFollowUpResult" />
+        <result column="next_follow_up_time" property="nextFollowUpTime" />
+        <result column="next_follow_up_goal" property="nextFollowUpGoal" />
         <result column="teams" property="teams" />
         <result column="contact_name" property="contactName" />
         <result column="post" property="post" />
@@ -87,6 +91,10 @@
         <result column="tags_second" property="tagsSecond" />
         <result column="tags_third" property="tagsThird" />
         <result column="tags_si" property="tagsSi" />
+        <result column="last_follow_up_time" property="lastFollowUpTime" />
+        <result column="last_follow_up_result" property="lastFollowUpResult" />
+        <result column="next_follow_up_time" property="nextFollowUpTime" />
+        <result column="next_follow_up_goal" property="nextFollowUpGoal" />
     </resultMap>
 
     <sql id="Base_Column_List">
@@ -94,7 +102,8 @@
         s.country, s.address, s.website, s.main_products, s.cooperation_level, s.risk_level,
         s.payment_terms, s.cooperation_status, s.business_license, s.tax_number, s.bank_info, s.bank_account, s.bill_to, s.ship_to,
         s.introduction, s.remark, s.remark_second, s.status, s.follow_up_by, s.create_by, s.create_time,
-        s.update_by, s.update_time, s.tags_first, s.tags_second, s.tags_third, s.tags_si
+        s.update_by, s.update_time, s.tags_first, s.tags_second, s.tags_third, s.tags_si,
+        s.last_follow_up_time, s.last_follow_up_result, s.next_follow_up_time, s.next_follow_up_goal
     </sql>
 
     <select id="selectSupplierListJoined" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultMap="CrmSupplierMap">
@@ -246,6 +255,18 @@
             <if test="tagsThird != null">tags_third = #{tagsThird},</if>
             <if test="tagsSi != null">tags_si = #{tagsSi}</if>
         </set>
+        where id = #{id}
+    </update>
+
+    <update id="updateFollowUp" parameterType="com.ruoyi.crm.domain.CrmSupplier">
+        <!-- 写跟进：全量覆盖跟进记录字段（时间/结论/目标），支持将已填时间清空；仅列表右侧"写跟进"弹窗调用 -->
+        update crm_supplier
+        set last_follow_up_time = #{lastFollowUpTime},
+            last_follow_up_result = #{lastFollowUpResult},
+            next_follow_up_time = #{nextFollowUpTime},
+            next_follow_up_goal = #{nextFollowUpGoal},
+            update_by = #{updateBy},
+            update_time = now()
         where id = #{id}
     </update>
 

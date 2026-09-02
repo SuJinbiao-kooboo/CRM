@@ -291,14 +291,14 @@
           </el-select>
         </el-form-item>
         <el-form-item label="类型">
-          <el-select v-model="aiEntryForm.inqOfferType" placeholder="请选择类型" style="width: 100%">
-            <el-option label="Inq" value="Inq" />
-            <el-option label="Offer" value="Offer" />
-          </el-select>
+          <el-radio-group v-model="aiEntryForm.inqOfferType">
+            <el-radio label="Offer">Offer</el-radio>
+            <el-radio label="Inq">Inq</el-radio>
+          </el-radio-group>
         </el-form-item>
         <el-form-item label="利润比例(%)">
           <el-input-number v-model="aiEntryForm.profitRatio" :controls="false" :precision="0" :min="1" :max="100" placeholder="1-100" style="width: 100%" />
-          <div style="color: #909399; font-size: 12px; line-height: 1.5">类型为Offer时必填，报价价 = 供应商价格 × (1 + 利润比例/100)</div>
+          <div style="color: #909399; font-size: 12px; line-height: 1.5">类型为Offer时必填（默认2%，可修改），报价价 = 供应商价格 × (1 + 利润比例/100)</div>
         </el-form-item>
         <el-form-item label="物料内容">
           <el-input type="textarea" v-model="aiEntryForm.content" :rows="10" placeholder="粘贴供应商的物料信息（品牌、料号、型号、规格、数量、报价等），AI将自动整理入库" />
@@ -474,6 +474,30 @@
       </div>
     </el-dialog>
 
+    <el-dialog title="发送Offer" :visible.sync="openSendOfferDialog" width="560px" append-to-body>
+      <el-form label-width="130px">
+        <el-form-item label="发送模式">
+          <el-radio-group v-model="sendOfferForm.testSend">
+            <el-radio :label="true">测试发送（发到字典配置的测试邮箱）</el-radio>
+            <el-radio :label="false">正式发送（发到订阅邮箱/供应商邮箱）</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="是否带价格">
+          <el-radio-group v-model="sendOfferForm.withPrice">
+            <el-radio :label="false">不带价格</el-radio>
+            <el-radio :label="true">带价格（报价随邮件下发）</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <div style="color:#909399;font-size:12px;padding-left:130px;line-height:1.6">
+          发送范围：最近录入且符合当前筛选条件的Offer；若勾选了表格行则只发送勾选行。发送后可在"查看Offer进度"确认结果
+        </div>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" :loading="sendOfferLoading" @click="submitSendOffer">发 送</el-button>
+        <el-button @click="openSendOfferDialog=false">取 消</el-button>
+      </div>
+    </el-dialog>
+
     <el-dialog title="Offer进度" :visible.sync="offerProgressDialogVisible" width="900px" append-to-body>
       <div style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
         <div>成功：{{ progressSuccessCount }}，失败：{{ progressFailCount }}</div>
@@ -531,7 +555,7 @@ export default {
       openAiEntryDialog: false,
       aiEntryLoading: false,
       aiSupplier: null,
-      aiEntryForm: { inqOfferType: '', profitRatio: undefined, content: '' },
+      aiEntryForm: { inqOfferType: 'Offer', profitRatio: 2, content: '' },
       // AI料号查询弹窗状态：内容、加载中、分组结果、待复制文本
       openAiQueryDialog: false,
       aiQueryLoading: false,
@@ -585,6 +609,10 @@ export default {
       ,progressSuccessCount: 0
       ,progressFailCount: 0
       ,copyAllText: ''
+      // 发送Offer弹窗状态：发送模式（true=测试/false=正式，默认测试）、是否带价格（默认不带）
+      ,openSendOfferDialog: false
+      ,sendOfferLoading: false
+      ,sendOfferForm: { testSend: true, withPrice: false }
     }
   },
   created() { this.getList(); this.loadDicts() },
@@ -695,25 +723,36 @@ export default {
       this.download('/crm/offer/export', params, `offer_${new Date().getTime()}.xlsx`)
       this.exportDialogVisible = false
     },
+    /** 打开发送Offer弹窗：测试/正式、是否带价格均为单选（默认测试、不带价格，避免误发正式邮件） */
     handleSendOffer() {
-      this.$modal.confirm('是否确认发送Offer？').then(() => {
-        const params = this.getQueryParams();
-        if (this.ids && this.ids.length > 0) {
-          params.params = params.params || {};
-          params.params.ids = this.ids.join(',');
-        }
-        return sendOffer(params);
-      }).then(res => {
-        this.$modal.msgSuccess('发送成功');
+      this.sendOfferForm = { testSend: true, withPrice: false };
+      this.openSendOfferDialog = true;
+    },
+    /** 提交发送Offer：按当前筛选条件（勾选行优先）组装参数，连同发送选项一起调后端发送邮件 */
+    submitSendOffer() {
+      const params = this.getQueryParams();
+      if (this.ids && this.ids.length > 0) {
+        params.params = params.params || {};
+        params.params.ids = this.ids.join(',');
+      }
+      params.params = params.params || {};
+      params.params.testSend = this.sendOfferForm.testSend;
+      params.params.withPrice = this.sendOfferForm.withPrice;
+      this.sendOfferLoading = true;
+      const modeText = this.sendOfferForm.testSend ? '测试' : '正式';
+      sendOffer(params).then(res => {
+        this.$modal.msgSuccess('发送成功（' + modeText + '发送），可到"查看Offer进度"确认结果');
+        this.openSendOfferDialog = false;
       }).catch(err => {
-        if (err !== 'cancel') {
-          this.$modal.msgError(err && err.msg ? err.msg : '发送失败');
-        }
+        this.$modal.msgError(err && err.msg ? err.msg : '发送失败');
+      }).finally(() => {
+        this.sendOfferLoading = false;
       })
     },
     openImport() { this.openImportDialog = true; this.remoteSupplier('') },
-    /** 打开AI智能录入弹窗 */
-    openAiEntry() { this.aiSupplier = null; this.aiEntryForm = { inqOfferType: '', profitRatio: undefined, content: '' }; this.openAiEntryDialog = true; this.remoteSupplier('') },
+    /** 打开AI智能录入弹窗（类型默认Offer，可切换Inq） */
+    /** 打开AI智能录入弹窗：类型默认Offer，利润比例默认2%（可修改），供应商与内容每次重新选择 */
+    openAiEntry() { this.aiSupplier = null; this.aiEntryForm = { inqOfferType: 'Offer', profitRatio: 2, content: '' }; this.openAiEntryDialog = true; this.remoteSupplier('') },
     /** 提交AI智能录入：粘贴内容交给后端DeepSeek整理后批量入库 */
     submitAiEntry() {
       if (!this.aiSupplier) { this.$modal.msgError('请选择供应商'); return }

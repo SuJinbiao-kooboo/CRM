@@ -18,6 +18,8 @@ public interface CrmSupplierMapper {
     int countBySupplierCode(@Param("supplierCode") String supplierCode);
     int insertSupplier(CrmSupplier supplier);
     int updateSupplier(CrmSupplier supplier);
+    /** 写跟进：仅更新跟进记录字段（上次/下次跟进时间、结论/目标富文本），全量覆盖以支持清空 */
+    int updateFollowUp(CrmSupplier supplier);
     int deleteSupplierByIds(Long[] ids);
     int deleteSupplierById(Long id);
     int deleteContactsBySupplierId(Long supplierId);

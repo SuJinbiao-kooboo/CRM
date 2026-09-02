@@ -12,6 +12,8 @@ public interface ICrmSupplierService {
     CrmSupplier selectAuthorizedSupplierByCode(String supplierCode);
     int insertSupplier(CrmSupplier supplier);
     int updateSupplier(CrmSupplier supplier);
+    /** 写跟进：更新跟进记录字段（上次/下次跟进时间、结论/目标），内部复用详情查询做数据权限校验 */
+    int updateSupplierFollowUp(CrmSupplier supplier);
     int deleteSupplierByIds(Long[] ids);
     java.util.List<CrmSupplier> selectSupplierOptions(CrmSupplier supplier);
     List<CrmSupplier> selectSupplierSimpleList(CrmSupplier supplier);

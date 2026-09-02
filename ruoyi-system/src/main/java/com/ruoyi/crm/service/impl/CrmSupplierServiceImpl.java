@@ -156,6 +156,17 @@ public class CrmSupplierServiceImpl implements ICrmSupplierService {
 
     @Override
     @Transactional
+    public int updateSupplierFollowUp(CrmSupplier supplier) {
+        // 数据权限校验：供应商不存在或非管理员/跟进人不含当前登录用户时，详情查询会抛出异常
+        CrmSupplier exist = selectSupplierById(supplier.getId());
+        if (exist == null) {
+            throw new ServiceException("供应商不存在");
+        }
+        return supplierMapper.updateFollowUp(supplier);
+    }
+
+    @Override
+    @Transactional
     public int deleteSupplierByIds(Long[] ids) {
         for (Long id : ids) {
             supplierMapper.deleteContactsBySupplierId(id);

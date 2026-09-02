@@ -238,7 +238,7 @@
       </el-col>
     </el-row>
 
-    <!-- :key=columnVersion：列顺序/显隐变化时强制重建表格。element-ui 2.15 动态列+固定列(fixed=right)存在渲染不同步缺陷，列调整后会出现整列内容空白/错位，重建可规避 -->
+    <!-- :key=columnVersion：列顺序/显隐变化时强制重建表格，规避 element-ui 动态列调整后整列内容空白/错位的渲染不同步问题 -->
     <el-table v-loading="loading" :key="columnVersion" :data="supplierList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
       <!-- 数据列由"自定义列"弹窗控制显隐/顺序（配置存 localStorage）；富文本字段经 enrichRows 剥标签为纯文本后展示 -->
@@ -257,8 +257,8 @@
           <span v-else class="cell-text-ellipsis" :title="String(scope.row[col.textProp || col.prop] || '')">{{ scope.row[col.textProp || col.prop] }}</span>
         </template>
       </el-table-column>
-      <!-- 操作列固定右侧：列较多/横向滚动时仍可见修改、写跟进、删除入口 -->
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="210" fixed="right">
+      <!-- 操作列（不固定）：跟随表格横向滚动 -->
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="210">
         <template slot-scope="scope">
           <el-button size="mini" type="text" icon="el-icon-edit" @click="handleUpdate(scope.row)" v-hasPermi="['crm:supplier:edit']">修改</el-button>
           <el-button size="mini" type="text" icon="el-icon-message" @click="openFollowDialog(scope.row)" v-hasPermi="['crm:supplier:edit']">写跟进</el-button>
@@ -732,7 +732,7 @@ export default {
     openColumnDialog() { this.columnDialogOpen = true },
     saveColumnConfig() {
       localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(this.tableColumns))
-      // 列顺序/显隐变化可能引起 element-ui 表格渲染不同步（尤其 fixed 列存在时），自增版本号触发表格整体重建
+      // 列顺序/显隐变化可能引起 element-ui 表格渲染不同步，自增版本号触发表格整体重建
       this.columnVersion++
     },
     moveColumn(index, dir) {

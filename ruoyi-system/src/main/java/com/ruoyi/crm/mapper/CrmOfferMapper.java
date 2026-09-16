@@ -8,7 +8,7 @@ public interface CrmOfferMapper {
     List<CrmOffer> selectOfferList(CrmOffer offer);
     CrmOffer selectOfferById(Long id);
     /**
-     * AI料号查询：按用户提供的料号左前缀模糊匹配（不区分大小写），查询最近半年内的INQ/OFFER历史记录
+     * AI料号查询：按用户提供的料号左前缀模糊匹配（不区分大小写），查询最近1个月内（Offer日期口径）的INQ/OFFER历史记录
      * @param partNumbers 料号前缀集合（已转大写）
      */
     List<CrmOffer> selectHistoryByPartNumbers(@Param("list") List<String> partNumbers);
@@ -19,12 +19,18 @@ public interface CrmOfferMapper {
      */
     List<CrmOffer> selectCopyOffers(@Param("days") int days);
     /**
-     * AI查询复制：按料号集合精确匹配（upper不区分大小写），查询最近days天内（N-1天前0点至当前）的Offer记录，
-     * 报价升序→创建时间倒序（同料号同价取最新），每个料号取报价最低由service层去重
+     * 一键复制Offer：按料号集合精确匹配（upper不区分大小写），查询最近days天内（Offer日期口径：库存日期优先、为空回退创建时间）
+     * 的Offer记录，报价升序→Offer日期倒序（同料号同价取最新），每个料号取报价最低由service层去重
      * @param list 料号集合（已转大写）
-     * @param days 最近天数
+     * @param days 最近天数（1=当天0点至当前，N=N-1天前0点至当前）
      */
     List<CrmOffer> selectRecentOffersByPartNumbers(@Param("list") List<String> list, @Param("days") int days);
+    /**
+     * AI录入后比价：按料号集合精确匹配（upper不区分大小写），查询最近1个月内
+     * （Offer日期口径：库存日期优先，为空回退创建时间）的INQ/OFFER记录，按Offer日期倒序返回
+     * @param list 料号集合（已转大写）
+     */
+    List<CrmOffer> selectRecentByPartNumbers(@Param("list") List<String> list);
     int insertOffer(CrmOffer offer);
     int updateOffer(CrmOffer offer);
     int deleteOfferByIds(Long[] ids);

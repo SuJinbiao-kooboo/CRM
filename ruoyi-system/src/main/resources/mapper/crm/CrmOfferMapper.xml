@@ -100,17 +100,17 @@
         select <include refid="Base_Column_List"/> from crm_offer where id = #{id}
     </select>
 
-    <!-- AI料号查询：按用户提供的料号左前缀模糊匹配（upper不区分大小写）查询最近半年内的INQ/OFFER记录，按料号、OFFER价格倒序、创建时间倒序 -->
+    <!-- AI料号查询：料号左前缀模糊匹配（upper不区分大小写），近1个月内（Offer日期口径：库存日期优先、为空回退创建时间）的INQ/OFFER记录，组内按Offer日期倒排 -->
     <select id="selectHistoryByPartNumbers" resultMap="CrmOfferMap">
         select <include refid="Base_Column_List"/> from crm_offer
-        where create_time &gt;= date_sub(now(), interval 6 month)
+        where coalesce(stock_date, create_time) &gt;= date_sub(now(), interval 1 month)
         and inq_offer_type in ('Inq','Offer')
         and (
         <foreach collection="list" item="code" separator=" or ">
             upper(product_code) like concat(#{code}, '%')
         </foreach>
         )
-        order by product_code asc, price_offer desc, create_time desc
+        order by product_code asc, coalesce(stock_date, create_time) desc, id desc
     </select>
 
     <!-- 复制Offer：按库存日期筛选，days=1取今天0点至当前、days=N取N-1天前0点至当前时间，仅Offer记录，品牌升序→料号升序→成本升序→创建时间倒序（同料号都无价格时取最新） -->
@@ -122,18 +122,31 @@
         order by product_brand asc, product_code asc, price_cost asc, create_time desc
     </select>
 
-    <!-- AI查询复制：按料号精确匹配（upper不区分大小写），仅Offer记录，stock_date范围 N-1天前0点至当前，报价升序→创建时间倒序（同料号同价取最新） -->
+    <!-- 一键复制Offer：按料号精确匹配（upper不区分大小写），仅Offer记录，Offer日期范围 N-1天前0点至当前（1=当天，2=今天+昨天，3=今天+昨天+前天），报价升序→日期倒序（同料号同价取最新） -->
     <select id="selectRecentOffersByPartNumbers" resultMap="CrmOfferMap">
         select <include refid="Base_Column_List"/> from crm_offer
-        where stock_date &gt;= date_sub(curdate(), interval (#{days} - 1) day)
-        and stock_date &lt;= now()
+        where coalesce(stock_date, create_time) &gt;= date_sub(curdate(), interval (#{days} - 1) day)
+        and coalesce(stock_date, create_time) &lt;= now()
         and inq_offer_type = 'Offer'
         and (
         <foreach collection="list" item="code" separator=" or ">
             upper(product_code) = #{code}
         </foreach>
         )
-        order by product_code asc, price_offer asc, create_time desc
+        order by product_code asc, price_offer asc, coalesce(stock_date, create_time) desc
+    </select>
+
+    <!-- AI录入比价：按料号精确匹配（upper不区分大小写），近1个月内的INQ/OFFER记录，按Offer日期（库存日期优先、为空回退创建时间）倒排 -->
+    <select id="selectRecentByPartNumbers" resultMap="CrmOfferMap">
+        select <include refid="Base_Column_List"/> from crm_offer
+        where coalesce(stock_date, create_time) &gt;= date_sub(now(), interval 1 month)
+        and inq_offer_type in ('Inq','Offer')
+        and (
+        <foreach collection="list" item="code" separator=" or ">
+            upper(product_code) = #{code}
+        </foreach>
+        )
+        order by coalesce(stock_date, create_time) desc, id desc
     </select>
 
     <insert id="insertOffer" parameterType="com.ruoyi.crm.domain.CrmOffer" useGeneratedKeys="true" keyProperty="id">

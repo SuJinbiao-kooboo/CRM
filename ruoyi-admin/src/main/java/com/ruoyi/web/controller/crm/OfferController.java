@@ -78,13 +78,14 @@ public class OfferController extends BaseController {
     }
 
     /**
-     * AI查询复制：按料号集合+最近天数查询各料号报价最低的Offer（1=当天0点至当前，N=N-1天前0点至当前），
-     * 返回"料号 报价 数量 交期 DC 货况"制表符分隔文本
+     * 一键复制Offer（AI录入比价/AI查询共用）：按料号集合+最近天数查询各料号Offer价格最低的一条（同价取日期最新），
+     * 默认输出 料号/数量/Offer价格，body.extraFields 勾选供应商编号/详情/交期/DC后按固定顺序追加对应列，
+     * 返回制表符分隔文本（首行英文表头随勾选字段变化）
      */
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @PostMapping("/copyAiQueryOffers")
     public AjaxResult copyAiQueryOffers(@RequestBody Map<String, Object> body) {
-        // days范围校验在service内（1-999）；非数字或缺省时默认1天
+        // days范围校验在service内（1-999）；非数字或缺省时默认1天；前端提供最近1/2/3天选项
         int days = NumberUtil.parseInt(strOf(body.get("days")), 1);
         List<String> partNumbers = new ArrayList<>();
         Object pns = body.get("partNumbers");
@@ -93,8 +94,16 @@ public class OfferController extends BaseController {
                 partNumbers.add(String.valueOf(o));
             }
         }
+        // extraFields：勾选的额外字段（supplierCode/productDetail/deliveryTime/dc），缺省时不追加任何列
+        List<String> extraFields = new ArrayList<>();
+        Object efs = body.get("extraFields");
+        if (efs instanceof List) {
+            for (Object o : (List<?>) efs) {
+                extraFields.add(String.valueOf(o));
+            }
+        }
         // 注意：返回String必须用双参重载，单参success(String)会把文本塞进msg导致前端取不到data
-        return AjaxResult.success("操作成功", offerService.buildAiQueryCopyText(partNumbers, days));
+        return AjaxResult.success("操作成功", offerService.buildAiQueryCopyText(partNumbers, days, extraFields));
     }
 
     @PreAuthorize("@ss.hasPermi('crm:offer:export')")
@@ -196,12 +205,25 @@ public class OfferController extends BaseController {
         String content = strOf(body.get("content"));
         Double profitRatio = toDouble(body.get("profitRatio"));
         if (profitRatio == null) profitRatio = 2d;
-        int count = offerService.aiEntryOffers(supplierCode, supplierName, inqOfferType, profitRatio, content);
-        return AjaxResult.success("AI录入成功" + count + "条", count);
+        // 录入并拿到本批成功入库的Offer（用于录入后近1个月同料号价格比较）
+        List<CrmOffer> saved = offerService.aiEntryOffersReturning(supplierCode, supplierName, inqOfferType, profitRatio, content);
+        List<String> partNumbers = saved.stream().map(CrmOffer::getProductCode).collect(Collectors.toList());
+        // 比价数据（近1个月，按Offer日期倒排）；查询异常不影响录入结果，只记录日志
+        List<Map<String, Object>> compare = new ArrayList<>();
+        try {
+            compare = offerService.compareRecentOffers(partNumbers);
+        } catch (Exception e) {
+            logger.warn("AI录入比价查询失败", e);
+        }
+        // 注意：data 用 Map 显式作为 Object 传入双参重载，避免与单参 success(String msg) 产生歧义
+        Map<String, Object> data = new HashMap<>();
+        data.put("count", saved.size());
+        data.put("compare", compare);
+        return AjaxResult.success("AI录入成功" + saved.size() + "条", data);
     }
 
     /**
-     * AI料号查询：调用AI提取料号，查询最近半年内的INQ/OFFER历史记录，按料号分组返回
+     * AI料号查询：调用AI提取料号，查询最近1个月内的INQ/OFFER历史记录（组内按Offer日期倒排），按料号分组返回
      */
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @Log(title = "Offer管理", businessType = BusinessType.OTHER)

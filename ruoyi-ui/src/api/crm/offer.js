@@ -38,15 +38,15 @@ export function parseOffer(data) {
 }
 
 // AI智能录入：粘贴物料内容，后端调用DeepSeek整理后批量入库
-// timeout: 130秒（必须大于后端DeepSeek调用超时120秒，否则前端先超时abort，Network面板显示canceled，但后端仍在执行会成功入库造成困惑）；silent: 错误提示由页面自行处理
+// timeout: 8分钟（480000ms，与后端DeepSeek调用超时sys.ai.timeout.ms默认值一致；必须不小于后端超时，否则前端先超时abort，Network面板显示canceled，但后端仍在执行会成功入库造成困惑）；silent: 错误提示由页面自行处理
 export function aiEntry(data) {
-  return request({ url: '/crm/offer/aiEntry', method: 'post', data: data, timeout: 130000, silent: true })
+  return request({ url: '/crm/offer/aiEntry', method: 'post', data: data, timeout: 480000, silent: true })
 }
 
-// AI料号查询：粘贴物料内容，后端调用DeepSeek提取料号并查询最近半年INQ/OFFER历史
-// timeout: 130秒（同aiEntry）；silent: 错误提示由页面自行处理
+// AI料号查询：粘贴物料内容，后端调用DeepSeek提取料号并查询最近1个月INQ/OFFER历史（组内按Offer日期倒排）
+// timeout: 8分钟（同aiEntry）；silent: 错误提示由页面自行处理
 export function aiQuery(data) {
-  return request({ url: '/crm/offer/aiQuery', method: 'post', data: data, timeout: 130000, silent: true })
+  return request({ url: '/crm/offer/aiQuery', method: 'post', data: data, timeout: 480000, silent: true })
 }
 
 // 复制Offer：查询最近days天内INQ/OFFER记录（按品牌排序、相同料号取成本最低，无价格也保留），返回制表符分隔文本
@@ -56,7 +56,8 @@ export function copyOfferText(days) {
   return request({ url: '/crm/offer/copyOfferText', params: { days: days }, method: 'get', timeout: 30000, silent: true })
 }
 
-// AI查询复制：按料号集合+最近days天查询各料号报价最低的Offer（1=当天0点至当前，N=N-1天前0点至当前），返回"料号 报价 数量 交期 DC 货况"制表符分隔文本
+// 一键复制Offer（AI录入比价/AI查询共用）：按料号集合+最近days天（1=当天、2=今天+昨天、3=今天+昨天+前天）查询各料号报价最低的Offer，
+// 默认输出 料号/数量/Offer价格，extraFields 勾选后按固定顺序追加 供应商编号/详情/交期/DC，返回制表符分隔文本
 // silent: 错误提示由页面自行处理；timeout: 30秒（纯数据库查询，无AI调用）
 export function copyAiQueryOffers(data) {
   return request({ url: '/crm/offer/copyAiQueryOffers', method: 'post', data: data, timeout: 30000, silent: true })

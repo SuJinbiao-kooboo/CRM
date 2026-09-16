@@ -24,8 +24,21 @@ public interface ICrmOfferService {
     int aiEntryOffers(String supplierCode, String supplierName, String inqOfferType, Double profitRatio, String content);
 
     /**
-     * AI料号查询：调用AI从物料内容中提取完整料号，查询各料号最近半年内的INQ/OFFER历史记录，按料号分组返回
-     * 每组格式：{ partNumber, offers: [{ supplierName, inqOfferType, quantity, priceOffer, createTime, deliveryTime, productDetail }] }
+     * AI智能录入（返回入库明细）：逻辑同 aiEntryOffers，额外返回本次成功入库的Offer列表（含料号/价格），
+     * 供录入完成后做近1个月同料号价格比较
+     */
+    List<CrmOffer> aiEntryOffersReturning(String supplierCode, String supplierName, String inqOfferType, Double profitRatio, String content);
+
+    /**
+     * AI录入后比价：查询料号集合最近1个月内（Offer日期口径：库存日期优先、为空回退创建时间）的INQ/OFFER记录，
+     * 按Offer日期倒序返回；每条含 物料编号/供应商编号/成本价格/Offer价格/Offer日期/详情/数量/交期/DC/类型；
+     * 料号为空时返回空列表（不抛异常，避免影响录入成功提示）
+     */
+    List<Map<String, Object>> compareRecentOffers(List<String> partNumbers);
+
+    /**
+     * AI料号查询：调用AI从物料内容中提取完整料号，查询各料号最近1个月内的INQ/OFFER历史记录，按料号分组返回
+     * 每组格式：{ partNumber, offers: [{ supplierName, inqOfferType, quantity, priceOffer, createTime, offerDate, deliveryTime, productDetail }] }
      */
     List<Map<String, Object>> aiQueryHistory(String content);
 
@@ -37,9 +50,10 @@ public interface ICrmOfferService {
     String buildCopyOfferText(int days);
 
     /**
-     * AI查询复制：按料号集合+最近天数（1=当天0点至当前，N=N-1天前0点至当前）查询Offer记录，
-     * 每个料号取报价最低（同价取最新）的一条，货况按详情/备注/质保是否含"拆机"判断（不确定默认全新），
-     * 组装为"料号 报价(带USD) 数量(带pcs) 交期 DC 货况"制表符分隔文本返回，首行为英文表头
+     * 一键复制Offer（AI录入比价/AI查询共用）：按料号集合+最近天数（1=当天0点至当前，N=N-1天前0点至当前；Offer日期口径）查询Offer记录，
+     * 每个料号取Offer价格最低（同价取Offer日期最新）的一条；默认输出 料号/数量(带pcs)/Offer价格(带USD)，
+     * extraFields 勾选（supplierCode/productDetail/deliveryTime/dc）后按固定顺序追加对应列，
+     * 组装为制表符分隔文本返回，首行为英文表头（随勾选字段变化）
      */
-    String buildAiQueryCopyText(List<String> partNumbers, int days);
+    String buildAiQueryCopyText(List<String> partNumbers, int days, List<String> extraFields);
 }

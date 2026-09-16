@@ -270,6 +270,16 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
     @Override
     @Transactional
     public int aiEntryOffers(String supplierCode, String supplierName, String inqOfferType, Double profitRatio, String content) {
+        // 兼容原调用方：只关心成功条数
+        return aiEntryOffersReturning(supplierCode, supplierName, inqOfferType, profitRatio, content).size();
+    }
+
+    /**
+     * AI智能录入（返回入库明细）：逻辑同 aiEntryOffers，同时收集本次成功入库的Offer（供录入后近1个月同料号比价使用）
+     */
+    @Override
+    @Transactional
+    public List<CrmOffer> aiEntryOffersReturning(String supplierCode, String supplierName, String inqOfferType, Double profitRatio, String content) {
         if (content == null || content.trim().isEmpty()) {
             throw new ServiceException("粘贴的物料内容不能为空");
         }
@@ -295,7 +305,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         // 来源表名：AI+时间+供应商名+操作人，便于追溯录入批次
         String sheetName = "AI_" + new SimpleDateFormat("yyyyMMddHHmm").format(now) + "_" + supplierCode + "_" + userName;
 
-        int success = 0;
+        List<CrmOffer> saved = new ArrayList<>();
         for (Map<String, Object> item : items) {
             CrmOffer offer = new CrmOffer();
             offer.setProductCode(str(item.get("partNumber")));
@@ -318,14 +328,16 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             offer.setStatus(1);
             offer.setCreateBy(userName);
             offer.setUpdateBy(userName);
-            success += offerMapper.insertOffer(offer);
+            if (offerMapper.insertOffer(offer) > 0) {
+                saved.add(offer);
+            }
         }
-        return success;
+        return saved;
     }
 
     /**
-     * AI料号查询：调用AI提取完整料号，查询各料号最近半年内的INQ/OFFER历史记录
-     * 返回按料号分组的结果，组内记录已按OFFER价格倒序（无价格的INQ排后）
+     * AI料号查询：调用AI提取完整料号，查询各料号最近1个月内的INQ/OFFER历史记录
+     * 返回按料号分组的结果，组内记录已按Offer日期（库存日期优先、为空回退创建时间）倒排
      */
     @Override
     public List<Map<String, Object>> aiQueryHistory(String content) {
@@ -357,7 +369,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         if (partNumbers.isEmpty()) {
             throw new ServiceException("AI未能从内容中识别出料号，请检查粘贴内容");
         }
-        // 3. 按用户提供的料号前缀模糊查询最近半年内的INQ/OFFER记录（SQL用upper不区分大小写，已按料号、价格倒序排序）
+        // 3. 按用户提供的料号前缀模糊查询最近1个月内（Offer日期口径）的INQ/OFFER记录（SQL用upper不区分大小写，按料号、Offer日期倒序）
         List<CrmOffer> records = offerMapper.selectHistoryByPartNumbers(new ArrayList<>(partNumbers));
         Map<String, List<CrmOffer>> groupMap = new LinkedHashMap<>();
         for (CrmOffer o : records) {
@@ -377,12 +389,58 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 m.put("quantity", o.getQuantity());
                 m.put("priceOffer", o.getPriceOffer());
                 m.put("createTime", o.getCreateTime() == null ? "" : DateUtil.format(o.getCreateTime(), "yyyy-MM-dd HH:mm"));
+                // Offer日期：库存日期优先、为空回退创建时间（与组内排序口径一致，前端按此列展示）
+                Date offerDate = o.getStockDate() != null ? o.getStockDate() : o.getCreateTime();
+                m.put("offerDate", offerDate == null ? "" : DateUtil.format(offerDate, "yyyy-MM-dd HH:mm"));
                 m.put("deliveryTime", o.getDeliveryTime());
                 m.put("productDetail", o.getProductDetail());
                 offerList.add(m);
             }
             group.put("offers", offerList);
             result.add(group);
+        }
+        return result;
+    }
+
+    /**
+     * AI录入后比价：查询料号集合最近1个月内（Offer日期口径：库存日期优先、为空回退创建时间）的INQ/OFFER记录，按Offer日期倒序返回
+     * 字段：partNumber(物料编号)、supplierCode(供应商编号)、priceCost(成本价格)、priceOffer(Offer价格)、
+     *       offerDate(Offer日期)、productDetail(详情)、quantity(数量)、deliveryTime(交期)、dc、inqOfferType(类型)
+     * 说明：料号为空/无记录时返回空列表，不抛异常（录入成功后比价失败不应影响录入结果）
+     */
+    @Override
+    public List<Map<String, Object>> compareRecentOffers(List<String> partNumbers) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        if (partNumbers == null || partNumbers.isEmpty()) {
+            return result;
+        }
+        // 料号转大写去重（入库均大写，upper匹配兼容历史数据大小写），保持传入顺序
+        LinkedHashSet<String> pns = new LinkedHashSet<>();
+        for (String p : partNumbers) {
+            String v = str(p).trim().toUpperCase();
+            if (!v.isEmpty()) {
+                pns.add(v);
+            }
+        }
+        if (pns.isEmpty()) {
+            return result;
+        }
+        // SQL已限定近1个月并已按Offer日期（库存日期优先、为空回退创建时间）倒序排序
+        List<CrmOffer> list = offerMapper.selectRecentByPartNumbers(new ArrayList<>(pns));
+        for (CrmOffer o : list) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("partNumber", o.getProductCode());
+            m.put("supplierCode", o.getSupplierCode());
+            m.put("priceCost", o.getPriceCost());
+            m.put("priceOffer", o.getPriceOffer());
+            Date od = o.getStockDate() != null ? o.getStockDate() : o.getCreateTime();
+            m.put("offerDate", od == null ? "" : DateUtil.format(od, "yyyy-MM-dd"));
+            m.put("productDetail", o.getProductDetail());
+            m.put("quantity", o.getQuantity());
+            m.put("deliveryTime", o.getDeliveryTime());
+            m.put("dc", o.getDc());
+            m.put("inqOfferType", o.getInqOfferType());
+            result.add(m);
         }
         return result;
     }
@@ -444,13 +502,14 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
     }
 
     /**
-     * AI查询复制：按料号集合精确匹配（upper不区分大小写）查询最近days天内（1=当天0点至当前，N=N-1天前0点至当前）
-     * 仅Offer记录，每个料号取报价最低的一条（同价取最新；该料号无记录则不输出），
-     * 货况按详情/备注/质保详情是否含"拆机"判断（不确定默认全新），
-     * 组装为"料号 报价(带USD) 数量(带pcs) 交期 DC 货况"制表符分隔文本，首行为英文表头：Part No.\tPrice\tQty\tDelivery\tDC\tCondition
+     * 一键复制Offer（AI录入比价/AI查询共用）：按料号集合精确匹配（upper不区分大小写）查询最近days天内
+     * （1=当天0点至当前，N=N-1天前0点至当前；Offer日期口径：库存日期优先、为空回退创建时间）仅Offer记录，
+     * 每个料号取Offer价格最低的一条（同价取日期最新；该料号无记录则不输出）；
+     * 默认输出 料号/数量(带pcs)/Offer价格(带USD)，extraFields 勾选后按固定顺序追加对应列，
+     * 组装为制表符分隔文本，首行为英文表头（随勾选字段变化）：Part No.\tQty\tPrice[\tSupplier][\tDetail][\tDelivery][\tDC]
      */
     @Override
-    public String buildAiQueryCopyText(List<String> partNumbers, int days) {
+    public String buildAiQueryCopyText(List<String> partNumbers, int days, List<String> extraFields) {
         if (days < 1 || days > 999) {
             throw new ServiceException("最近天数范围应为1-999天");
         }
@@ -468,37 +527,42 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         if (pns.isEmpty()) {
             throw new ServiceException("没有可复制的物料，请先执行AI查询");
         }
+        // 额外字段白名单校验并按固定顺序排列（供应商编号→详情→交期→DC），前端勾选先后不影响输出列顺序
+        LinkedHashSet<String> extras = new LinkedHashSet<>();
+        for (String f : new String[]{"supplierCode", "productDetail", "deliveryTime", "dc"}) {
+            if (extraFields != null && extraFields.contains(f)) {
+                extras.add(f);
+            }
+        }
         List<CrmOffer> list = offerMapper.selectRecentOffersByPartNumbers(new ArrayList<>(pns), days);
         if (list.isEmpty()) {
             throw new ServiceException("最近" + days + "天内这些物料没有Offer记录");
         }
-        // 报价升序 → 创建时间倒序（同价取最新），再按料号去重取第一条，即每个料号报价最低的最新Offer
+        // 报价升序 → Offer日期倒序（同价取日期最新），再按料号去重取第一条，即每个料号报价最低的最新Offer
         list.sort(Comparator.comparing(CrmOffer::getPriceOffer, Comparator.nullsLast(Double::compareTo))
-                .thenComparing(CrmOffer::getCreateTime, Comparator.nullsLast(Comparator.reverseOrder())));
+                .thenComparing((CrmOffer o) -> o.getStockDate() == null ? o.getCreateTime() : o.getStockDate(),
+                        Comparator.nullsLast(Comparator.reverseOrder())));
         Map<String, CrmOffer> dedup = new LinkedHashMap<>();
         for (CrmOffer o : list) {
             dedup.putIfAbsent(str(o.getProductCode()).toUpperCase(), o);
         }
-        // 首行英文表头，其后每行一条记录
-        StringBuilder sb = new StringBuilder("Part No.\tPrice\tQty\tDelivery\tDC\tCondition");
+        // 首行英文表头（随勾选字段变化），其后每行一条记录
+        StringBuilder sb = new StringBuilder("Part No.\tQty\tPrice");
+        if (extras.contains("supplierCode")) sb.append("\tSupplier");
+        if (extras.contains("productDetail")) sb.append("\tDetail");
+        if (extras.contains("deliveryTime")) sb.append("\tDelivery");
+        if (extras.contains("dc")) sb.append("\tDC");
         for (CrmOffer o : dedup.values()) {
-            if (sb.length() > 0) {
-                sb.append('\n');
-            }
-            sb.append(nvl(o.getProductCode())).append('\t')
-                    .append(o.getPriceOffer() == null ? "" : o.getPriceOffer() + "USD").append('\t')
+            sb.append('\n')
+                    .append(nvl(o.getProductCode())).append('\t')
                     .append(o.getQuantity() == null ? "" : o.getQuantity() + "pcs").append('\t')
-                    .append(nvl(o.getDeliveryTime())).append('\t')
-                    .append(nvl(o.getDc())).append('\t')
-                    .append(huokuang(o));
+                    .append(o.getPriceOffer() == null ? "" : o.getPriceOffer() + "USD");
+            if (extras.contains("supplierCode")) sb.append('\t').append(nvl(o.getSupplierCode()));
+            if (extras.contains("productDetail")) sb.append('\t').append(nvl(o.getProductDetail()));
+            if (extras.contains("deliveryTime")) sb.append('\t').append(nvl(o.getDeliveryTime()));
+            if (extras.contains("dc")) sb.append('\t').append(nvl(o.getDc()));
         }
         return sb.toString();
-    }
-
-    /** 货况判断：详情/备注/质保详情任一含"拆机"视为拆机，否则默认全新 */
-    private String huokuang(CrmOffer o) {
-        String text = nvl(o.getProductDetail()) + " " + nvl(o.getRemark()) + " " + nvl(o.getWarrantyDetail());
-        return text.contains("拆机") ? "拆机" : "全新";
     }
 
     /**

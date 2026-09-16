@@ -99,8 +99,8 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_connect_timeout 60s;
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
+        proxy_read_timeout 500s;
+        proxy_send_timeout 500s;
     }
 }
 ```
@@ -108,7 +108,7 @@ server {
 要点：
 - `try_files ... /index.html` 支持 history 路由（刷新页面不 404）
 - `/prod-api/` 前缀剥离后转发 8081（对应前端 `VUE_APP_BASE_API=/prod-api`）
-- 超时 300s：AI 录入等长耗时接口（DeepSeek 响应可达 130s）
+- 超时 500s：AI 录入/AI 查询等长耗时接口（后端 `sys.ai.timeout.ms` 默认 8 分钟=480s，前端 axios 480s，nginx 需大于两者）
 - `client_max_body_size 100m`：批量导入 Excel 不受限
 
 ## 5. 后端 systemd 服务（/etc/systemd/system/ruoyi-admin.service）
@@ -172,7 +172,7 @@ systemctl restart ruoyi-admin
 | `ruoyi-admin` 状态 `activating` 反复重启 | 8081 被历史 nohup java 进程占用，新进程绑不上端口 | 部署脚本的"安全重启"流程即为此设计 |
 | 公网打不开但服务器本地 200 | 云安全组/防火墙未放行 80 | 检查 `firewall-cmd --list-ports` 与云控制台安全组 |
 | 刷新页面 404 | nginx 缺 `try_files` 配置 | 检查 crm.conf 是否被覆盖 |
-| AI 接口超时 | 后端响应超过代理超时时间 | 确认 `proxy_read_timeout 300s` 生效 |
+| AI 接口超时 | 后端响应超过代理超时时间 | 确认 `proxy_read_timeout 500s` 生效（需大于后端 `sys.ai.timeout.ms`） |
 
 ## 9. 部署验证清单（verify.bat 自动完成）
 

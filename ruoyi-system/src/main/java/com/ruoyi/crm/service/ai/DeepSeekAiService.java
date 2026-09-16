@@ -44,6 +44,12 @@ public class DeepSeekAiService {
     /** 默认模型名称（与历史 application.yml 默认值保持一致） */
     private static final String DEFAULT_MODEL = "deepseek-v4-flash";
 
+    /** 接口调用超时参数键（毫秒）：AI录入与AI查询共用；未配置时使用默认8分钟，可在系统参数配置中调整 */
+    private static final String TIMEOUT_CONFIG_KEY = "sys.ai.timeout.ms";
+
+    /** 默认接口调用超时（毫秒）：8分钟；需与前端axios超时(480000)保持一致，并小于nginx proxy_read_timeout，避免任一层先断开 */
+    private static final int DEFAULT_TIMEOUT_MS = 8 * 60 * 1000;
+
     @Autowired
     private ISysConfigService sysConfigService;
 
@@ -132,7 +138,8 @@ public class DeepSeekAiService {
                     .header("Authorization", "Bearer " + apiKey.trim())
                     .header("Content-Type", "application/json")
                     .body(JSON.toJSONString(payload))
-                    .timeout(120000)
+                    // 超时时间参数化：默认8分钟（sys.ai.timeout.ms），避免调整耗时上限需重新发版
+                    .timeout(configInt(TIMEOUT_CONFIG_KEY, DEFAULT_TIMEOUT_MS))
                     .execute();
             body = resp.body();
             if (!resp.isOk()) {

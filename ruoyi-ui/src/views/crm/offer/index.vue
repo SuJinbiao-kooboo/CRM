@@ -330,6 +330,7 @@
           <el-checkbox label="deliveryTime">交期</el-checkbox>
           <el-checkbox label="dc">DC</el-checkbox>
         </el-checkbox-group>
+        <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="aiQueryGroups.length === 0" <el-button size="mini" icon="el-icon-check" :disabled="aiQueryGroups.length === 0" @click="selectAllAdvantage">全选</el-button>
         <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="aiQueryGroups.length === 0" @click="submitCopyOffersOfQuery">一键复制Offer</el-button>
         <el-button size="mini" icon="el-icon-document-copy" v-clipboard="aiQueryCopyText" v-clipboard:success="onCopyOk" :disabled="aiQueryGroups.length === 0">一键复制全部信息</el-button>
       </div>
@@ -383,6 +384,7 @@
           <el-checkbox label="deliveryTime">交期</el-checkbox>
           <el-checkbox label="dc">DC</el-checkbox>
         </el-checkbox-group>
+        <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="aiCompareGroups.length === 0" <el-button size="mini" icon="el-icon-check" :disabled="aiCompareGroups.length === 0" @click="selectAllAdvantage">全选</el-button>
         <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="aiCompareGroups.length === 0" @click="submitCopyOffersOfCompare">一键复制Offer</el-button>
       </div>
       <div v-if="aiCompareGroups.length === 0" style="color:#909399; text-align:center; padding: 30px 0">近1个月内没有相同物料的报价记录</div>
@@ -901,6 +903,16 @@ export default {
     /** 价格优势阈值变化：重新计算全部料号勾选状态 */
     onPriceAdvThresholdChange() {
       this.autoSelectAdvantage();
+    },
+
+    /** 全选：勾选全部料号复制框，便于一键复制全部 */
+    selectAllAdvantage() {
+      const groups = (this.aiQueryGroups || []).concat(this.aiCompareGroups || []);
+      if (groups.length === 0) { return }
+      groups.forEach(g => { this.$set(g, 'checked', true) });
+      // 手动刷新"一键复制全部信息"文本：Vue2 中修改数组项属性不触发 watcher
+      this.aiQueryCopyText = this.buildAiQueryCopyText();
+      this.$modal.msgSuccess('已全选 ' + groups.length + ' 个料号，可一键复制');
     },
     /** 依据价格优势阈值自动勾选AI查询/AI录入比价中的料号 */
     autoSelectAdvantage() {

@@ -932,7 +932,8 @@ export default {
     evaluateAdvantage(g, threshold) {
       const todayKey = this.todayDateKey();
       const keyOf = o => String(o.offerDate || '').slice(0, 10);
-      const offers = (g.offers || []).filter(o => o.offerDate && !isNaN(Number(o.priceOffer)));
+      // 只统计 Offer 类型记录，INQ 价格不得参与优势计算（列表同时展示 INQ/OFFER 两种记录）
+      const offers = (g.offers || []).filter(o => o.offerDate && String(o.inqOfferType || '').toUpperCase() === 'OFFER' && !isNaN(Number(o.priceOffer)));
       if (offers.length === 0) return false;
       const todayPrices = offers.filter(o => keyOf(o) === todayKey).map(o => Number(o.priceOffer));
       // 今天之前（Offer日期小于今天）的报价，按Offer日期从新到旧排列

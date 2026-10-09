@@ -39,10 +39,10 @@ public class DeepSeekAiService {
     private static final String MODEL_CONFIG_KEY = "sys.ai.model";
 
     /** 默认接口地址（OpenAI 兼容格式） */
-    private static final String DEFAULT_BASE_URL = "https://api.deepseek.com";
+    private static final String DEFAULT_BASE_URL = "https://token-factory.hon-maas.com/v1";
 
     /** 默认模型名称（与历史 application.yml 默认值保持一致） */
-    private static final String DEFAULT_MODEL = "deepseek-v4-flash";
+    private static final String DEFAULT_MODEL = "deepseek-v4-flash-0731";
 
     /** 接口调用超时参数键（毫秒）：AI录入与AI查询共用；未配置时使用默认8分钟，可在系统参数配置中调整 */
     private static final String TIMEOUT_CONFIG_KEY = "sys.ai.timeout.ms";

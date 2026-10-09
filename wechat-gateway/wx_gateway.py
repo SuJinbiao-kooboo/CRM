@@ -24,17 +24,17 @@
     username  会话(微信号/群id)  name       会话显示名
     local_id  库内ID             type       文本/图片/语音/视频/文件/系统...
     sender    发言人的显示名      content    正文
-    media_path 已下载媒体绝对路径 create_time 秒时间戳
+    media_path 已下载媒体绝对路径 create_time 格式化字符串 YYYY-MM-DD HH:MM:SS
     sort_seq  排序键(增量断点)    md5        消息md5(媒体消息)
 """
 from __future__ import annotations
-import argparse, datetime, json, os, re, sqlite3, sys, time
+import argparse, datetime, json, os, random, re, sqlite3, sys, time, xml.etree.ElementTree as ET
 
 try:
     os.system("chcp 65001 >nul 2>&1")
 except Exception:
     pass
-for _s in (sys.stdout, sys.stderr):
+for _s in (sys.stdin, sys.stdout, sys.stderr):
     try:
         _s.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
@@ -195,7 +195,7 @@ def cmd_dump(args):
             sys.stdout.flush()
             if conn:
                 conv = (j["username"], j["local_id"], j["type"], j["sender"],
-                        j["content"], j["media_path"], j["create_time"],
+                        j["content"], j["media_path"], m.get("create_time") or 0,
                         j["sort_seq"], j["md5"])
                 conn.execute("INSERT OR IGNORE INTO messages VALUES(?,?,?,?,?,?,?,?,?)", conv)
             added += 1
@@ -205,6 +205,49 @@ def cmd_dump(args):
     if conn:
         conn.commit(); conn.close()
     log("完成: 新增 %d, 跳过重复 %d" % (added, skip))
+
+
+# ---- 引用消息(卡片)解析：把 XML 拆成「原文 + 被引用内容」 ----
+_QUOTE_LABEL = {"3": "图片", "47": "表情", "34": "语音", "43": "视频", "49": "卡片"}
+
+def _quote_kind(qt):
+    """把微信原始引用类型映射成可读类型：text/image/emoji/voice/video/card。"""
+    qt = (qt or "").strip()
+    if qt == "1" or not qt:
+        return "text"
+    return _QUOTE_LABEL.get(qt, "other")
+
+def parse_quote(content):
+    """若 content 是带 <refermsg> 的卡片 XML，返回 (原文txt, 引用展示txt, 引用类型)；
+    否则返回 (content, "", "")。引用为文本时只取前 256 字；图片/表情/语音/视频/卡片只给说明。"""
+    if not isinstance(content, str):
+        return content, "", ""
+    low = content.strip()
+    # 原始内容可能带发送者前缀(如 "wxid_xxx:\n" 或 "xxx:\n")，先定位 XML 本体
+    m = re.search(r"<msg[\s\S]*?</msg>", low)
+    if not m:
+        return content, "", ""
+    xml_str = m.group(0)
+    try:
+        root = ET.fromstring(xml_str)
+    except Exception:
+        return content, "", ""
+    app = root.find("appmsg")
+    refer = (app.find("refermsg") if app is not None else None) or root.find(".//refermsg")
+    if refer is None:
+        return content, "", ""
+    # 原文：优先取卡片标题/摘要，否则保留原 content
+    own = (app.findtext("title") or "").strip() if app is not None else ""
+    if not own and app is not None:
+        own = (app.findtext("des") or "").strip()
+    qt = (refer.findtext("type") or "").strip()
+    qtext = (refer.findtext("content") or "").strip()
+    kind = _quote_kind(qt)
+    if kind in ("图片", "表情", "语音", "视频", "卡片"):
+        quote = "【%s】" % kind
+    else:
+        quote = qtext[:256] if qtext else ""
+    return own, quote, kind
 
 def row_to_json(db, ctx, m, media, name):
     media_path = ""
@@ -216,15 +259,20 @@ def row_to_json(db, ctx, m, media, name):
         except Exception as e:
             log("  [媒体下载失败 %s/%s]: %s" % (m.get("__session"), m["local_id"], e))
             media_path = ""
+    # 引用/卡片消息：拆成 原文 content + 被引用 quote(+quote_kind)
+    content, quote, quote_kind = parse_quote(m.get("content") or "")
+    ct = m.get("create_time") or 0
     return {
         "username": m.get("__session") or m.get("username"),
         "name": name,
         "local_id": m["local_id"],
         "type": mtype,
         "sender": resolve_sender(ctx, m),
-        "content": m.get("content") or "",
+        "content": content,
+        "quote": quote,
+        "quote_kind": quote_kind,
         "media_path": media_path,
-        "create_time": m.get("create_time") or 0,
+        "create_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ct)) if ct else "",
         "sort_seq": m.get("sort_seq") or 0,
         "md5": md5_of(m),
     }
@@ -259,6 +307,107 @@ def cmd_listen(args):
         listener.stop()
         log("监听已停止")
 
+
+def cmd_batch_send(args):
+    """从 stdin 读取 JSON 配置，串行批量发送，逐条结果 NDJSON 到 stdout。
+
+    配置字段:
+      names      [会话名...]  必填(或 targets)
+      targets    [{name,text}...]  可选, 与 names 二选一(可逐条自定义文案)
+      template   文本模板, 含 {name} 时按目标名替换
+      rhythm     calm/fast/off(拟人节奏档位, 默认 calm)
+      nap        [lo, hi]  等待时长抖动倍率(>=1.0)
+      interval   [min, max]  目标之间随机间隔(秒)
+      max_batch  单批上限, 超限直接拒绝(安全)
+      verify     是否回读数据库确认发送(默认 true, 防重复)
+    """
+    try:
+        cfg = json.load(sys.stdin)
+    except Exception as e:
+        die("读取 stdin JSON 失败: %s" % e)
+    targets = cfg.get("targets") or []
+    template = (cfg.get("template") or "").strip()
+    names = cfg.get("names") or []
+    if not targets and names:
+        targets = [{"name": n} for n in names]
+    if not targets:
+        die("未提供 names/targets")
+
+    max_batch = int(cfg.get("max_batch") or 20)
+    if len(targets) > max_batch:
+        print(json.dumps({"ok": False, "index": 0, "name": "", "text": "",
+                          "status": "错误",
+                          "message": "超过单批上限 %d 个，已拒绝发送" % max_batch,
+                          "duration_ms": 0}, ensure_ascii=False))
+        sys.stdout.flush()
+        return
+    verify = bool(cfg.get("verify", True))
+    rhythm = (cfg.get("rhythm") or "calm").lower()
+    nap = cfg.get("nap") or []
+    nap_min = float(nap[0]) if len(nap) > 0 else 1.0
+    nap_max = float(nap[1]) if len(nap) > 1 else 1.6
+    if nap_max < nap_min:
+        nap_max = nap_min
+    interval = cfg.get("interval") or []
+    iv_min = float(interval[0]) if len(interval) > 0 else 6.0
+    iv_max = float(interval[1]) if len(interval) > 1 else 15.0
+    if iv_max < iv_min:
+        iv_max = iv_min
+
+    os.environ.setdefault("WECHATAUTO_RHYTHM", rhythm)
+    try:
+        import wechatauto.rhythm as rhythm_mod
+        rhythm_mod.configure(nap=(nap_min, nap_max))
+        log("拟人节奏: %s, nap=%.2f~%.2f" % (rhythm, nap_min, nap_max))
+    except Exception as e:
+        log("配置拟人节奏失败(继续用默认): %s" % e)
+
+    log("批量发送: %d 条, 间隔[%.1f, %.1f]s, verify=%s, 上限=%d"
+        % (len(targets), iv_min, iv_max, verify, max_batch))
+    try:
+        from wechatauto.guia import WeChatGUI
+        gui = WeChatGUI()
+    except Exception as e:
+        die("初始化 WeChatGUI 失败（微信是否已登录且窗口可见？）: %s" % e)
+    log("微信窗口已定位 hwnd=%s", gui.main_hwnd if hasattr(gui, "main_hwnd") else "?")
+
+    ok_total = 0
+    for i, t in enumerate(targets):
+        name = (t.get("name") or "").strip()
+        text = (t.get("text") or "").strip()
+        if not text:
+            text = template.replace("{name}", name).strip() if template else ""
+        if not name or not text:
+            out = {"ok": False, "index": i, "name": name, "text": text,
+                   "status": "错误", "message": "name 或 text 为空，已跳过", "duration_ms": 0}
+            sys.stdout.write(json.dumps(out, ensure_ascii=False) + "\n")
+            sys.stdout.flush()
+            continue
+        # 每条前加一点扰动，再执行
+        time.sleep(random.uniform(nap_min, nap_min + 0.8))
+        t0 = time.time()
+        try:
+            resp = gui.send_msg(text, who=name, verify=verify)
+            d = resp.to_dict()
+            ok = (d.get("status") == "成功")
+            out = {"ok": ok, "index": i, "name": name, "text": text,
+                   "status": d.get("status"), "message": d.get("message"),
+                   "duration_ms": int((time.time() - t0) * 1000)}
+            log("  [%d/%d] %s => %s (%dms)" % (i + 1, len(targets), name,
+                d.get("status"), out["duration_ms"]))
+        except Exception as e:
+            log("  [%d/%d] %s => 异常 %s" % (i + 1, len(targets), name, e))
+            out = {"ok": False, "index": i, "name": name, "text": text,
+                   "status": "异常", "message": str(e),
+                   "duration_ms": int((time.time() - t0) * 1000)}
+        sys.stdout.write(json.dumps(out, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
+        if out.get("ok"):
+            ok_total += 1
+        if i < len(targets) - 1:
+            time.sleep(random.uniform(iv_min, iv_max))
+    log("批量发送结束: 成功 %d/%d" % (ok_total, len(targets)))
+
 def main():
     ap = argparse.ArgumentParser(description="wechatauto 消息网关（主动拉取/实时监听）")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -278,6 +427,9 @@ def main():
     p.add_argument("--account", default=None)
     p.set_defaults(func=cmd_listen)
 
+    p = sub.add_parser("batch_send",
+                       help="批量发送(从 stdin 读 JSON 配置)，逐条结果 NDJSON 到 stdout")
+    p.set_defaults(func=cmd_batch_send)
     args = ap.parse_args()
     try:
         args.func(args)
@@ -286,3 +438,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+

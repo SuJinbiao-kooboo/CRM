@@ -1,6 +1,7 @@
 package com.ruoyi.crm.service.impl;
 
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -28,6 +29,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.domain.CrmSupplier;
 import com.ruoyi.crm.mapper.CrmOfferMapper;
+import com.ruoyi.crm.mapper.CrmSupplierMapper;
 import com.ruoyi.crm.service.ICrmOfferService;
 import com.ruoyi.crm.service.ICrmSupplierService;
 import com.ruoyi.common.utils.SecurityUtils;
@@ -39,6 +41,9 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
     private CrmOfferMapper offerMapper;
 
     @Autowired
+    private CrmSupplierMapper supplierMapper;
+
+    @Autowired
     private DeepSeekAiService deepSeekAiService;
 
     @Autowired
@@ -48,8 +53,45 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
     public List<CrmOffer> selectOfferList(CrmOffer offer) {
 
         List<CrmOffer> crmOffers = offerMapper.selectOfferList(offer);
+        applySupplierNameAccess(crmOffers);
 
         return crmOffers;
+    }
+
+    /**
+     * 按数据权限填充供应商真实名称：有全权限（manager/admin）显示供应商表真实名称，无权限时名称统一显示"无"。
+     * crm_offer 的 supplier_name 字段存的一直是供应商编码，真实名称需关联供应商表查询。
+     */
+    private void applySupplierNameAccess(List<CrmOffer> offers) {
+        if (offers == null || offers.isEmpty()) {
+            return;
+        }
+        boolean full = supplierService.isFullAccess();
+        Map<String, String> nameMap = new HashMap<>();
+        if (full) {
+            LinkedHashSet<String> codes = new LinkedHashSet<>();
+            for (CrmOffer o : offers) {
+                if (o.getSupplierCode() != null && !o.getSupplierCode().trim().isEmpty()) {
+                    codes.add(o.getSupplierCode().trim());
+                }
+            }
+            if (!codes.isEmpty()) {
+                for (CrmSupplier s : supplierMapper.selectNamesByCodes(new ArrayList<>(codes))) {
+                    if (s.getSupplierCode() != null) {
+                        nameMap.put(s.getSupplierCode().trim(), s.getSupplierName());
+                    }
+                }
+            }
+        }
+        for (CrmOffer o : offers) {
+            String code = o.getSupplierCode() == null ? null : o.getSupplierCode().trim();
+            if (!full) {
+                o.setSupplierName("无");
+            } else {
+                String real = code == null ? null : nameMap.get(code);
+                o.setSupplierName(real == null || real.trim().isEmpty() ? code : real);
+            }
+        }
     }
 
     @Override
@@ -267,6 +309,11 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         return NumberUtil.round(Math.round(v * 100.0d) / 100.0d, 0).doubleValue();
     }
 
+    /** 报价向上取整到5的倍数（以0或5结尾，保留整数，不留小数） */
+    private Double ceilTo5(double v) {
+        return Math.ceil(v / 5.0d) * 5.0d;
+    }
+
     @Override
     @Transactional
     public int aiEntryOffers(String supplierCode, String supplierName, String inqOfferType, Double profitRatio, String content) {
@@ -317,7 +364,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             offer.setPriceCost(cost);
             // OFFER时按利润比例计算报价价：供应商价格×(1+利润比例/100)；INQ仅记录供应商价格
             if ("Offer".equals(inqOfferType) && cost != null) {
-                offer.setPriceOffer(round2(cost * (1d + ratio / 100d)));
+                offer.setPriceOffer(ceilTo5(cost * (1d + ratio / 100d)));
             }
             offer.setPriceUnit("USD");
             offer.setStockDate(now);
@@ -371,6 +418,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         }
         // 3. 按用户提供的料号前缀模糊查询最近1个月内（Offer日期口径）的INQ/OFFER记录（SQL用upper不区分大小写，按料号、Offer日期倒序）
         List<CrmOffer> records = offerMapper.selectHistoryByPartNumbers(new ArrayList<>(partNumbers));
+        applySupplierNameAccess(records);
         Map<String, List<CrmOffer>> groupMap = new LinkedHashMap<>();
         for (CrmOffer o : records) {
             String key = str(o.getProductCode()).trim().toUpperCase();
@@ -385,6 +433,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             for (CrmOffer o : entry.getValue()) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("supplierName", o.getSupplierName());
+                m.put("priceCost", o.getPriceCost());
                 m.put("inqOfferType", o.getInqOfferType());
                 m.put("quantity", o.getQuantity());
                 m.put("priceOffer", o.getPriceOffer());
@@ -427,10 +476,12 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         }
         // SQL已限定近1个月并已按Offer日期（库存日期优先、为空回退创建时间）倒序排序
         List<CrmOffer> list = offerMapper.selectRecentByPartNumbers(new ArrayList<>(pns));
+        applySupplierNameAccess(list);
         for (CrmOffer o : list) {
             Map<String, Object> m = new HashMap<>();
             m.put("partNumber", o.getProductCode());
             m.put("supplierCode", o.getSupplierCode());
+            m.put("supplierName", o.getSupplierName());
             m.put("priceCost", o.getPriceCost());
             m.put("priceOffer", o.getPriceOffer());
             Date od = o.getStockDate() != null ? o.getStockDate() : o.getCreateTime();
@@ -483,7 +534,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                     .append(nvl(o.getDc())).append('\t')
                     .append(nvl(o.getDeliveryTime())).append('\t')
                     .append(nvl(o.getProductDetail())).append('\t')
-                    .append(o.getPriceOffer() == null ? "" : o.getPriceOffer() + "USD");
+                    .append(o.getPriceOffer() == null ? "" : fmtPrice(o.getPriceOffer()) + "USD");
         }
         return sb.toString();
     }
@@ -495,6 +546,14 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
 
     private String nvl(String s) {
         return s == null ? "" : s;
+    }
+
+    /** 复制时价格文本：去尾零小数；整数金额(如5.0/5.00)输出为无小数(5)，有非零小数的保留小数(如5.5、5.25) */
+    private String fmtPrice(Double price) {
+        if (price == null) {
+            return "";
+        }
+        return new BigDecimal(String.valueOf(price)).stripTrailingZeros().toPlainString();
     }
 
     private String str(Object v) {
@@ -556,7 +615,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             sb.append('\n')
                     .append(nvl(o.getProductCode())).append('\t')
                     .append(o.getQuantity() == null ? "" : o.getQuantity() + "pcs").append('\t')
-                    .append(o.getPriceOffer() == null ? "" : o.getPriceOffer() + "USD");
+                    .append(o.getPriceOffer() == null ? "" : fmtPrice(o.getPriceOffer()) + "USD");
             if (extras.contains("supplierCode")) sb.append('\t').append(nvl(o.getSupplierCode()));
             if (extras.contains("productDetail")) sb.append('\t').append(nvl(o.getProductDetail()));
             if (extras.contains("deliveryTime")) sb.append('\t').append(nvl(o.getDeliveryTime()));

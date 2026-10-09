@@ -312,7 +312,7 @@
     </el-dialog>
 
     <!-- AI料号查询：粘贴内容，AI提取完整料号后查询最近1个月INQ/OFFER历史，按料号分组展示（组内按Offer日期倒排），可一键复制 -->
-    <el-dialog title="AI料号查询" :visible.sync="openAiQueryDialog" width="90%" top="5vh" class="offer-ai-dialog" append-to-body>
+    <el-dialog title="AI料号查询" :visible.sync="openAiQueryDialog" width="90%" top="5vh" custom-class="offer-ai-dialog" append-to-body>
       <!-- 复制工具栏（与AI录入比价共用）：最近1/2/3天取每料号最低Offer价格，默认输出料号/数量/Offer价格，可勾选追加字段 -->
       <div class="copy-toolbar">
         <span class="adv-threshold-wrap">
@@ -365,7 +365,7 @@
     </el-dialog>
 
     <!-- AI录入比价：本次AI录入的料号与系统内近1个月同料号报价对比（按料号分组，组内按Offer日期倒排，最近3天最低价为淡蓝色底），右上角可选天数/字段一键复制 -->
-    <el-dialog :visible.sync="openAiCompareDialog" width="92%" top="5vh" class="offer-ai-dialog" append-to-body>
+    <el-dialog :visible.sync="openAiCompareDialog" width="92%" top="5vh" custom-class="offer-ai-dialog" append-to-body>
       <div slot="title">AI录入比价（近1个月同料号报价，组内按Offer日期倒排）</div>
       <!-- 复制工具栏（与AI查询共用）：最近1/2/3天取每料号最低Offer价格，默认输出料号/数量/Offer价格，可勾选追加字段 -->
       <div class="copy-toolbar">

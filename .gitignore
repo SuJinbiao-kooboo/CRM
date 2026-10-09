@@ -54,3 +54,8 @@ nbdist/
 # DB Inspector tool runtime artifacts
 /tools/db-inspector/classes/
 /tools/db-inspector/db_schema.txt
+
+# 调试临时目录(不入库)
+tmp/
+# Word 打开时产生的锁文件(不入库)
+doc/~$*.docx

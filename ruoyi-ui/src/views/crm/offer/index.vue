@@ -342,7 +342,7 @@
       <div v-for="(group, gi) in aiQueryGroups" :key="gi" class="ai-query-group">
         <div class="ai-query-part-number">
           <span>{{ group.partNumber }}（{{ (group.offers || []).length }}条记录）</span>
-          <el-checkbox v-model="group.checked" style="margin-left: 10px">复制</el-checkbox>
+          <el-checkbox v-model="group.checked" style="margin-left: 10px" @change="onGroupCheckedChange">复制</el-checkbox>
         </div>
         <div v-if="!group.offers || group.offers.length === 0" class="ai-query-empty">最近1个月无INQ/OFFER记录</div>
         <!-- row-style：组内最近3天Offer最低价行淡蓝色底，其余白底 -->
@@ -391,7 +391,7 @@
       <div v-for="(group, gi) in aiCompareGroups" :key="gi" class="ai-query-group">
         <div class="ai-query-part-number">
           <span>{{ group.partNumber }}（{{ (group.offers || []).length }}条记录）</span>
-          <el-checkbox v-model="group.checked" style="margin-left: 10px">复制</el-checkbox>
+          <el-checkbox v-model="group.checked" style="margin-left: 10px" @change="onGroupCheckedChange">复制</el-checkbox>
         </div>
         <el-table :data="group.offers" size="mini" border :row-style="groupRowStyle">
           <el-table-column label="供应商编号" prop="supplierCode" min-width="120" show-overflow-tooltip />
@@ -913,6 +913,11 @@ export default {
       // 手动刷新"一键复制全部信息"文本：Vue2 中修改数组项属性不触发 watcher
       this.aiQueryCopyText = this.buildAiQueryCopyText();
       this.$modal.msgSuccess('已全选 ' + groups.length + ' 个料号，可一键复制');
+    },
+
+    /** 勾选变化：重建"一键复制全部信息"文本（Vue2数组项属性变更不触发watcher） */
+    onGroupCheckedChange() {
+      this.aiQueryCopyText = this.buildAiQueryCopyText();
     },
     /** 依据价格优势阈值自动勾选AI查询/AI录入比价中的料号 */
     autoSelectAdvantage() {

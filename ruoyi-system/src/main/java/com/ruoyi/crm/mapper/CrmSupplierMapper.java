@@ -26,6 +26,8 @@ public interface CrmSupplierMapper {
     int deleteAttachmentsBySupplier(@Param("fromType") String fromType, @Param("fromId") Long fromId);
     List<CrmSupplier> selectSupplierOptions(CrmSupplier supplier);
     List<CrmSupplier> selectSupplierSimpleList(CrmSupplier supplier);
+    /** 按编码批量查询供应商名称（Offer/AI查询/比价关联真实供应商名称用） */
+    List<CrmSupplier> selectNamesByCodes(@Param("codes") List<String> codes);
     /** 跟进人昵称解析：登录名转昵称（存储为登录名保证唯一，展示用昵称） */
     List<String> selectNickNamesByUserNames(@Param("userNames") String userNames);
     /** 跟进人选择数据源：当前系统启用用户列表 */

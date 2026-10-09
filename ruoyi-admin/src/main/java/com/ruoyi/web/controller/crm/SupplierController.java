@@ -24,6 +24,7 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.crm.domain.CrmSupplier;
+import com.ruoyi.crm.domain.CrmSupplierContact;
 import com.ruoyi.crm.service.ICrmSupplierService;
 
 @RestController
@@ -113,6 +114,17 @@ public class SupplierController extends BaseController {
         }
         supplier.setUpdateBy(SecurityUtils.getUsername());
         return toAjax(supplierService.updateSupplierFollowUp(supplier));
+    }
+
+    /**
+     * 行内编辑某个联系人字段：按联系人 id 更新传入的非空字段（联系人姓名/手机号/邮箱/Teams/WhatsApp 等）
+     */
+    @PreAuthorize("@ss.hasPermi('crm:supplier:edit')")
+    @Log(title = "供应商管理", businessType = BusinessType.UPDATE)
+    @PutMapping("/contact")
+    public AjaxResult editContact(@RequestBody CrmSupplierContact contact) {
+        contact.setUpdateBy(SecurityUtils.getUsername());
+        return toAjax(supplierService.updateSupplierContact(contact));
     }
 
     @PreAuthorize("@ss.hasPermi('crm:supplier:list')")

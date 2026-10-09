@@ -41,6 +41,12 @@ public class CrmSupplier extends BaseEntity {
     private String riskLevel;
     @Excel(name = "付款条件")
     private String paymentTerms;
+    @Excel(name = "合作方向")
+    private String cooperationDirection;
+    @Excel(name = "销售群")
+    private String salesGroup;
+    @Excel(name = "采购群")
+    private String purchaseGroup;
     @Excel(name = "合作状态")
     private String cooperationStatus;
     @Excel(name = "营业执照号")

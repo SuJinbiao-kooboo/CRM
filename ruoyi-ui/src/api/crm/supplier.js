@@ -20,6 +20,11 @@ export function updateSupplier(data) {
   return request({ url: '/crm/supplier', method: 'put', data: data })
 }
 
+// 行内编辑某个联系人字段：按联系人 id 更新（联系人姓名/手机号/邮箱/Teams/WhatsApp 等）
+export function updateSupplierContact(data) {
+  return request({ url: '/crm/supplier/contact', method: 'put', data: data })
+}
+
 // 写跟进：仅更新上次/下次跟进时间与结论/目标（列表"写跟进"弹窗提交）
 export function updateSupplierFollowUp(data) {
   return request({ url: '/crm/supplier/followUp', method: 'put', data: data })

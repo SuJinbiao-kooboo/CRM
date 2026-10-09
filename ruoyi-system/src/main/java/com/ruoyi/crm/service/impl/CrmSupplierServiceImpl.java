@@ -166,6 +166,14 @@ public class CrmSupplierServiceImpl implements ICrmSupplierService {
     }
 
     @Override
+    public int updateSupplierContact(CrmSupplierContact contact) {
+        if (contact == null || contact.getId() == null) {
+            throw new ServiceException("联系人ID不能为空");
+        }
+        return contactMapper.updateContact(contact);
+    }
+
+    @Override
     @Transactional
     public int deleteSupplierByIds(Long[] ids) {
         for (Long id : ids) {
@@ -196,7 +204,8 @@ public class CrmSupplierServiceImpl implements ICrmSupplierService {
      * 数据权限：角色包含管理员(manager)或超级管理员(admin)时不限制；
      * 无登录上下文的系统级调用（如匿名邮件任务）也不限制
      */
-    private boolean isFullAccess() {
+    @Override
+    public boolean isFullAccess() {
         try {
             LoginUser loginUser = SecurityUtils.getLoginUser();
             List<SysRole> roles = loginUser.getUser().getRoles();

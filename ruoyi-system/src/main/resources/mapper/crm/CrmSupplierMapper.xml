@@ -17,6 +17,9 @@
         <result column="cooperation_level" property="cooperationLevel" />
         <result column="risk_level" property="riskLevel" />
         <result column="payment_terms" property="paymentTerms" />
+        <result column="cooperation_direction" property="cooperationDirection" />
+        <result column="sales_group" property="salesGroup" />
+        <result column="purchase_group" property="purchaseGroup" />
         <result column="cooperation_status" property="cooperationStatus" />
         <result column="business_license" property="businessLicense" />
         <result column="tax_number" property="taxNumber" />
@@ -43,6 +46,7 @@
         <result column="next_follow_up_time" property="nextFollowUpTime" />
         <result column="next_follow_up_goal" property="nextFollowUpGoal" />
         <result column="teams" property="teams" />
+        <result column="contact_id" property="contactId" />
         <result column="contact_name" property="contactName" />
         <result column="post" property="post" />
         <result column="phone" property="phone" />
@@ -71,6 +75,9 @@
         <result column="cooperation_level" property="cooperationLevel" />
         <result column="risk_level" property="riskLevel" />
         <result column="payment_terms" property="paymentTerms" />
+        <result column="cooperation_direction" property="cooperationDirection" />
+        <result column="sales_group" property="salesGroup" />
+        <result column="purchase_group" property="purchaseGroup" />
         <result column="cooperation_status" property="cooperationStatus" />
         <result column="business_license" property="businessLicense" />
         <result column="tax_number" property="taxNumber" />
@@ -100,7 +107,7 @@
     <sql id="Base_Column_List">
         s.id, s.supplier_code, s.supplier_name, s.supplier_short_name, s.supplier_alias, s.supplier_type, s.brands,
         s.country, s.address, s.website, s.main_products, s.cooperation_level, s.risk_level,
-        s.payment_terms, s.cooperation_status, s.business_license, s.tax_number, s.bank_info, s.bank_account, s.bill_to, s.ship_to,
+        s.payment_terms, s.cooperation_direction, s.sales_group, s.purchase_group, s.cooperation_status, s.business_license, s.tax_number, s.bank_info, s.bank_account, s.bill_to, s.ship_to,
         s.introduction, s.remark, s.remark_second, s.status, s.follow_up_by, s.create_by, s.create_time,
         s.update_by, s.update_time, s.tags_first, s.tags_second, s.tags_third, s.tags_si,
         s.last_follow_up_time, s.last_follow_up_result, s.next_follow_up_time, s.next_follow_up_goal
@@ -111,7 +118,7 @@
         <include refid="Base_Column_List"/>,
         <!-- 跟进人显示名称：登录名转昵称（存储为登录名保证唯一，展示用昵称） -->
         (select group_concat(u.nick_name order by find_in_set(u.user_name, s.follow_up_by) separator ',') from sys_user u where find_in_set(u.user_name, s.follow_up_by) > 0) as follow_up_by_names,
-        c.contact_name as contact_name, c.post as post, c.phone as phone, c.email as email, c.qq as teams, c.whatsapp, c.other_contact_first,  c.other_contact_second,c.remark_first, c.remark_second
+        c.id as contact_id, c.contact_name as contact_name, c.post as post, c.phone as phone, c.email as email, c.qq as teams, c.whatsapp, c.other_contact_first,  c.other_contact_second,c.remark_first, c.remark_second
         from crm_supplier s
         left join crm_supplier_contact c on c.supplier_id = s.id
         <where>
@@ -208,13 +215,13 @@
         insert into crm_supplier(
             supplier_code, supplier_name, supplier_short_name, supplier_alias, supplier_type, brands,
             country, address, website, main_products, cooperation_level, risk_level,
-            payment_terms, cooperation_status, business_license, tax_number, bank_info, bank_account, bill_to, ship_to,
+            payment_terms, cooperation_direction, sales_group, purchase_group, cooperation_status, business_license, tax_number, bank_info, bank_account, bill_to, ship_to,
             introduction, remark, remark_second, status, follow_up_by, create_by, create_time,
             update_by, update_time, tags_first, tags_second, tags_third, tags_si
         ) values(
             #{supplierCode}, #{supplierName}, #{supplierShortName}, #{supplierAlias}, #{supplierType}, #{brands},
             #{country}, #{address}, #{website}, #{mainProducts}, #{cooperationLevel}, #{riskLevel},
-            #{paymentTerms}, #{cooperationStatus}, #{businessLicense}, #{taxNumber}, #{bankInfo}, #{bankAccount}, #{billTo}, #{shipTo},
+            #{paymentTerms}, #{cooperationDirection}, #{salesGroup}, #{purchaseGroup}, #{cooperationStatus}, #{businessLicense}, #{taxNumber}, #{bankInfo}, #{bankAccount}, #{billTo}, #{shipTo},
             #{introduction}, #{remark}, #{remarkSecond}, #{status}, #{followUpBy}, #{createBy}, now(),
             #{updateBy}, now(), #{tagsFirst}, #{tagsSecond}, #{tagsThird}, #{tagsSi}
         )
@@ -236,6 +243,9 @@
             <if test="cooperationLevel != null">cooperation_level = #{cooperationLevel},</if>
             <if test="riskLevel != null">risk_level = #{riskLevel},</if>
             <if test="paymentTerms != null">payment_terms = #{paymentTerms},</if>
+            <if test="cooperationDirection != null">cooperation_direction = #{cooperationDirection},</if>
+            <if test="salesGroup != null">sales_group = #{salesGroup},</if>
+            <if test="purchaseGroup != null">purchase_group = #{purchaseGroup},</if>
             <if test="cooperationStatus != null">cooperation_status = #{cooperationStatus},</if>
             <if test="businessLicense != null">business_license = #{businessLicense},</if>
             <if test="taxNumber != null">tax_number = #{taxNumber},</if>
@@ -253,7 +263,11 @@
             <if test="tagsFirst != null">tags_first = #{tagsFirst},</if>
             <if test="tagsSecond != null">tags_second = #{tagsSecond},</if>
             <if test="tagsThird != null">tags_third = #{tagsThird},</if>
-            <if test="tagsSi != null">tags_si = #{tagsSi}</if>
+            <if test="tagsSi != null">tags_si = #{tagsSi},</if>
+            <if test="lastFollowUpTime != null">last_follow_up_time = #{lastFollowUpTime},</if>
+            <if test="lastFollowUpResult != null">last_follow_up_result = #{lastFollowUpResult},</if>
+            <if test="nextFollowUpTime != null">next_follow_up_time = #{nextFollowUpTime},</if>
+            <if test="nextFollowUpGoal != null">next_follow_up_goal = #{nextFollowUpGoal}</if>
         </set>
         where id = #{id}
     </update>
@@ -269,6 +283,14 @@
             update_time = now()
         where id = #{id}
     </update>
+
+    <select id="selectNamesByCodes" resultType="com.ruoyi.crm.domain.CrmSupplier">
+        select supplier_code, supplier_name from crm_supplier
+        where supplier_code in
+        <foreach collection="codes" item="c" open="(" separator="," close=")">
+            #{c}
+        </foreach>
+    </select>
 
     <select id="selectSupplierOptions" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultType="com.ruoyi.crm.domain.CrmSupplier">
         select min(s.id) as id, s.supplier_code as supplier_code, s.supplier_name as supplier_name, group_concat(distinct ifnull(s.supplier_alias, '') separator '/') as supplier_alias

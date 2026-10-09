@@ -7,5 +7,6 @@ public interface CrmSupplierContactMapper {
     List<CrmSupplierContact> selectBySupplierId(Long supplierId);
     int insertBatch(List<CrmSupplierContact> list);
     int deleteBySupplierId(Long supplierId);
+    int updateContact(CrmSupplierContact contact);
 }
 

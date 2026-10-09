@@ -3,6 +3,7 @@ package com.ruoyi.crm.service;
 import java.util.List;
 import java.util.Map;
 import com.ruoyi.crm.domain.CrmSupplier;
+import com.ruoyi.crm.domain.CrmSupplierContact;
 import com.ruoyi.crm.domain.dto.CrmSupplierVO;
 
 public interface ICrmSupplierService {
@@ -12,6 +13,8 @@ public interface ICrmSupplierService {
     CrmSupplier selectAuthorizedSupplierByCode(String supplierCode);
     int insertSupplier(CrmSupplier supplier);
     int updateSupplier(CrmSupplier supplier);
+    /** 行内编辑某个联系人字段：仅按 id 更新传入的非空字段 */
+    int updateSupplierContact(CrmSupplierContact contact);
     /** 写跟进：更新跟进记录字段（上次/下次跟进时间、结论/目标），内部复用详情查询做数据权限校验 */
     int updateSupplierFollowUp(CrmSupplier supplier);
     int deleteSupplierByIds(Long[] ids);
@@ -19,4 +22,6 @@ public interface ICrmSupplierService {
     List<CrmSupplier> selectSupplierSimpleList(CrmSupplier supplier);
     /** 跟进人选择数据源：当前系统启用用户列表（存登录名，显示昵称） */
     List<Map<String, Object>> selectUserOptions(String keyword);
+    /** 是否有全权限（角色含 manager 或 admin，无登录上下文也视为有权限）：跨模块供应商名称可见性判定复用 */
+    boolean isFullAccess();
 }

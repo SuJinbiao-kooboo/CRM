@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>ruoyi</artifactId>
+        <groupId>com.ruoyi</groupId>
+        <version>3.9.0</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- 飞书机器人模块：长连接接入、消息发送、回调处理、开关接口 -->
+    <artifactId>ruoyi-feishu</artifactId>
+
+    <description>
+        飞书机器人集成模块（基于飞书官方 oapi-sdk 的长连接 WebSocket 方案，无需域名/回调地址）
+    </description>
+
+    <dependencies>
+        <!-- 依赖 RuoYi 公共模块，复用其配置、工具与 web 组件 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-common</artifactId>
+        </dependency>
+
+        <!-- 飞书官方 Java SDK：提供长连接(WebSocket)客户端与事件分发 -->
+        <dependency>
+            <groupId>com.larksuite.oapi</groupId>
+            <artifactId>oapi-sdk</artifactId>
+            <version>2.4.19</version>
+        </dependency>
+    </dependencies>
+
+    <!-- 国内网络使用阿里云镜像加速依赖下载（可选，配合 ~/.m2/settings.xml 的 mirror 更佳） -->
+    <repositories>
+        <repository>
+            <id>aliyun-public</id>
+            <url>https://maven.aliyun.com/repository/public</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+    </repositories>
+</project>

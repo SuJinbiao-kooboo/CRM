@@ -151,3 +151,20 @@ eke:
       sender-filter: ${EKE_MAIL_SENDER_FILTER:meelectronic.cn}
       # 发件人邮箱过滤规则字典类型（第一优先级：字典value=类型编码与主题字典一致、label=类型中文名、remark=逗号拼接的邮箱地址，发件人命中直接归类）
       filter-email-dict-type: eke_email_filter_email_special
+
+# 飞书机器人（ruoyi-feishu 模块）
+feishu:
+  # 是否随项目启动自动开启机器人
+  enabled: true
+  # 飞书自建应用凭证
+  app-id: cli_aa46fffc27b85bd8
+  app-secret: FEISHU_APP_SECRET_FROM_ENV
+  # 机器人名称
+  bot-name: Eke
+  # 飞书开放平台地址（国内默认）
+  domain: https://open.feishu.cn
+  # 定时自动汇报间隔（分钟，0=关闭）
+  report-interval-minutes: 0
+  # 自测接收目标（可选，方便接口自测发送）
+  self-test-receive-id: ''
+  self-test-receive-type: chat_id

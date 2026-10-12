@@ -227,6 +227,13 @@
                 <version>${ruoyi.version}</version>
             </dependency>
 
+            <!-- 飞书机器人-->
+            <dependency>
+                <groupId>com.ruoyi</groupId>
+                <artifactId>ruoyi-feishu</artifactId>
+                <version>${ruoyi.version}</version>
+            </dependency>
+
             <!-- 通用工具-->
             <dependency>
                 <groupId>com.ruoyi</groupId>
@@ -249,6 +256,7 @@
         <module>ruoyi-quartz</module>
         <module>ruoyi-generator</module>
         <module>ruoyi-common</module>
+        <module>ruoyi-feishu</module>
     </modules>
     <packaging>pom</packaging>
 

@@ -1,9 +1,12 @@
 package com.ruoyi.feishu.dto;
 
+import lombok.Data;
+
 /**
  * 消息发送请求的基础入参。
  * <p>所有“发送消息到某个会话”的接口都复用此对象携带接收者信息。</p>
  */
+@Data
 public class FeishuReceiveBody {
 
     /**
@@ -18,9 +21,4 @@ public class FeishuReceiveBody {
      */
     private String receiveId;
 
-    public String getReceiveIdType() { return receiveIdType; }
-    public void setReceiveIdType(String receiveIdType) { this.receiveIdType = receiveIdType; }
-
-    public String getReceiveId() { return receiveId; }
-    public void setReceiveId(String receiveId) { this.receiveId = receiveId; }
 }

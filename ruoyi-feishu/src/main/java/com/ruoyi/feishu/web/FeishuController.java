@@ -1,25 +1,30 @@
 package com.ruoyi.feishu.web;
 
+import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.feishu.bot.FeishuBotManager;
 import com.ruoyi.feishu.config.FeishuProperties;
 import com.ruoyi.feishu.core.FeishuMessageSender;
 import com.ruoyi.feishu.core.FeishuResult;
-import org.springframework.security.access.prepost.PreAuthorize;
+import com.ruoyi.feishu.dto.FeishuReceiveBody;
+import com.ruoyi.feishu.dto.FeishuSendQuestionBody;
+import com.ruoyi.feishu.dto.FeishuSendReportBody;
+import com.ruoyi.feishu.dto.FeishuSendTextBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
-
 /**
  * 飞书机器人控制接口。
  * <p>
- * 提供：状态查询、开启/关闭、消息发送自测。权限点：feishu:bot:manage（超级管理员拥有全部权限）。
+ * 类上加了 {@link Anonymous}，因此这些接口免登录、免权限，可直接调用（适合自测/集成）。
+ * 若需要收紧访问控制，请去掉 @Anonymous 并按需补回 @PreAuthorize 权限注解。
+ * </p>
  */
+@Anonymous
 @RestController
 @RequestMapping("/feishu")
 public class FeishuController extends BaseController {
@@ -35,28 +40,27 @@ public class FeishuController extends BaseController {
     }
 
     /**
-     * 查询机器人运行状态。
+     * 查询机器人运行状态（是否在线、配置摘要、最近错误等）。
      */
-    @PreAuthorize("@ss.hasPermi('feishu:bot:manage')")
     @GetMapping("/bot/status")
     public AjaxResult status() {
         return AjaxResult.success(botManager.getStatus());
     }
 
     /**
-     * 开启机器人。
+     * 开启机器人（建立长连接）。
      */
-    @PreAuthorize("@ss.hasPermi('feishu:bot:manage')")
     @PostMapping("/bot/start")
     public AjaxResult start() {
         boolean ok = botManager.start();
-        return ok ? AjaxResult.success("机器人已开启/已在运行中") : AjaxResult.error(botManager.getStatus().get("lastError").toString());
+        return ok
+                ? AjaxResult.success("机器人已开启/已在运行中")
+                : AjaxResult.error(String.valueOf(botManager.getStatus().get("lastError")));
     }
 
     /**
-     * 关闭机器人。
+     * 关闭机器人（断开长连接）。
      */
-    @PreAuthorize("@ss.hasPermi('feishu:bot:manage')")
     @PostMapping("/bot/stop")
     public AjaxResult stop() {
         botManager.stop();
@@ -64,46 +68,58 @@ public class FeishuController extends BaseController {
     }
 
     /**
-     * 发送一条文本消息（自测用）。
-     * @param body 示例：{"receiveIdType":"chat_id","receiveId":"oc_xxx","text":"hello"}
+     * 发送一条纯文本消息。
+     * @param body 示例：{"receiveIdType":"chat_id","receiveId":"oc_xxx","text":"你好"}
      */
-    @PreAuthorize("@ss.hasPermi('feishu:bot:manage')")
     @PostMapping("/message/sendText")
-    public AjaxResult sendText(@RequestBody Map<String, Object> body) {
-        String type = str(body.get("receiveIdType"), props.getSelfTestReceiveType());
-        String id = str(body.get("receiveId"), props.getSelfTestReceiveId());
-        String text = str(body.get("text"), "自测消息：" + props.getBotName());
+    public AjaxResult sendText(@RequestBody FeishuSendTextBody body) {
+        String type = resolveType(body);
+        String id = resolveId(body);
+        String text = isBlank(body.getText())
+                ? "自测消息：" + props.getBotName()
+                : body.getText().trim();
         return toAjax(sender.sendText(type, id, text));
     }
 
     /**
-     * 发送一张 ABCD 选择题卡片（自测用）。
+     * 发送一张 ABCD 选择题卡片。
      * @param body 示例：{"receiveIdType":"chat_id","receiveId":"oc_xxx","question":"今天先处理哪件？"}
      */
-    @PreAuthorize("@ss.hasPermi('feishu:bot:manage')")
     @PostMapping("/message/sendQuestion")
-    public AjaxResult sendQuestion(@RequestBody Map<String, Object> body) {
-        String type = str(body.get("receiveIdType"), props.getSelfTestReceiveType());
-        String id = str(body.get("receiveId"), props.getSelfTestReceiveId());
-        String question = str(body.get("question"), props.getBotName() + " 来了！今天你想让我先帮你处理哪件事？");
+    public AjaxResult sendQuestion(@RequestBody FeishuSendQuestionBody body) {
+        String type = resolveType(body);
+        String id = resolveId(body);
+        String question = isBlank(body.getQuestion())
+                ? props.getBotName() + " 来了！今天你想让我先帮你处理哪件事？"
+                : body.getQuestion().trim();
         return toAjax(sender.sendQuestion(type, id, question));
     }
 
     /**
-     * 发送工作汇报（自测用）。
+     * 发送一份工作汇报（文本）。
      * @param body 示例：{"receiveIdType":"chat_id","receiveId":"oc_xxx"}
      */
-    @PreAuthorize("@ss.hasPermi('feishu:bot:manage')")
     @PostMapping("/message/sendReport")
-    public AjaxResult sendReport(@RequestBody Map<String, Object> body) {
-        String type = str(body.get("receiveIdType"), props.getSelfTestReceiveType());
-        String id = str(body.get("receiveId"), props.getSelfTestReceiveId());
+    public AjaxResult sendReport(@RequestBody FeishuSendReportBody body) {
+        String type = resolveType(body);
+        String id = resolveId(body);
         return toAjax(sender.sendReport(type, id));
     }
 
-    /** 简单取值辅助 */
-    private String str(Object v, String def) {
-        return v == null || v.toString().trim().isEmpty() ? def : v.toString().trim();
+    /* ---------- 私有辅助 ---------- */
+
+    /** 接收者类型：body 未传时回退到配置项 self-test-receive-type */
+    private String resolveType(FeishuReceiveBody body) {
+        return isBlank(body.getReceiveIdType()) ? props.getSelfTestReceiveType() : body.getReceiveIdType().trim();
+    }
+
+    /** 接收者 id：body 未传时回退到配置项 self-test-receive-id（仍为空则由下层返回错误） */
+    private String resolveId(FeishuReceiveBody body) {
+        return isBlank(body.getReceiveId()) ? props.getSelfTestReceiveId() : body.getReceiveId().trim();
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
     }
 
     /** 把 FeishuResult 转为 RuoYi 的 AjaxResult */

@@ -4,9 +4,12 @@ import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.feishu.bot.FeishuBotManager;
+import com.ruoyi.feishu.codex.CodexRunResult;
+import com.ruoyi.feishu.codex.CodexRunner;
 import com.ruoyi.feishu.config.FeishuProperties;
 import com.ruoyi.feishu.core.FeishuMessageSender;
 import com.ruoyi.feishu.core.FeishuResult;
+import com.ruoyi.feishu.dto.CodexRunBody;
 import com.ruoyi.feishu.dto.FeishuReceiveBody;
 import com.ruoyi.feishu.dto.FeishuSendQuestionBody;
 import com.ruoyi.feishu.dto.FeishuSendReportBody;
@@ -32,11 +35,14 @@ public class FeishuController extends BaseController {
     private final FeishuBotManager botManager;
     private final FeishuMessageSender sender;
     private final FeishuProperties props;
+    private final CodexRunner codexRunner;
 
-    public FeishuController(FeishuBotManager botManager, FeishuMessageSender sender, FeishuProperties props) {
+    public FeishuController(FeishuBotManager botManager, FeishuMessageSender sender,
+                            FeishuProperties props, CodexRunner codexRunner) {
         this.botManager = botManager;
         this.sender = sender;
         this.props = props;
+        this.codexRunner = codexRunner;
     }
 
     /**
@@ -104,6 +110,19 @@ public class FeishuController extends BaseController {
         String type = resolveType(body);
         String id = resolveId(body);
         return toAjax(sender.sendReport(type, id));
+    }
+
+    /**
+     * 触发一次 Codex 非交互执行（自测用）。
+     * @param body 示例：{"prompt":"帮我看看项目里的飞书模块代码结构"}
+     */
+    @PostMapping("/codex/run")
+    public AjaxResult runCodex(@RequestBody CodexRunBody body) {
+        if (body == null || body.getPrompt() == null || body.getPrompt().trim().isEmpty()) {
+            return AjaxResult.error("指令(prompt)不能为空");
+        }
+        CodexRunResult r = codexRunner.run(body.getPrompt().trim());
+        return r.isSuccess() ? AjaxResult.success(r.getMessage()) : AjaxResult.error(r.getError());
     }
 
     /* ---------- 私有辅助 ---------- */

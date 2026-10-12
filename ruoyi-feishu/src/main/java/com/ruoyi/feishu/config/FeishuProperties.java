@@ -1,5 +1,6 @@
 package com.ruoyi.feishu.config;
 
+import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -35,6 +36,9 @@ public class FeishuProperties {
     /** 自测目标接收类型：chat_id / open_id / user_id */
     private String selfTestReceiveType = "chat_id";
 
+    /** “飞书指挥 Codex”子配置 */
+    private Codex codex = new Codex();
+
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
@@ -59,8 +63,33 @@ public class FeishuProperties {
     public String getSelfTestReceiveType() { return selfTestReceiveType; }
     public void setSelfTestReceiveType(String selfTestReceiveType) { this.selfTestReceiveType = selfTestReceiveType; }
 
+    public Codex getCodex() { return codex; }
+    public void setCodex(Codex codex) { this.codex = codex; }
+
     /** 配置是否具备启动条件 */
     public boolean isReady() {
         return appId != null && !appId.isEmpty() && appSecret != null && !appSecret.isEmpty();
+    }
+
+    /**
+     * “飞书指挥 Codex”子配置，对应 feishu.codex: 前缀。
+     */
+    @Data
+    public static class Codex {
+
+        /** 是否启用“飞书指挥 Codex”：false 时收到 codex 指令会当作普通回答处理 */
+        private boolean enabled = true;
+
+        /** codex 可执行文件路径；默认使用 PATH 中的 codex */
+        private String bin = "codex";
+
+        /** Codex 的工作目录（通常是目标项目根目录） */
+        private String workdir = "C:/Project/RuoYi-Vue";
+
+        /** 沙箱模式：read-only / workspace-write / danger-full-access */
+        private String sandbox = "danger-full-access";
+
+        /** 单次执行超时（秒），0 表示使用默认 300 秒 */
+        private long timeoutSeconds = 300;
     }
 }

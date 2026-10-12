@@ -168,3 +168,17 @@ feishu:
   # 自测接收目标（可选，方便接口自测发送）
   self-test-receive-id: ''
   self-test-receive-type: chat_id
+
+  # 飞书指挥 Codex（非交互 codex exec）
+  codex:
+    # 是否启用：false 时收到 codex 指令会当作普通回答处理
+    enabled: true
+    # codex 可执行文件路径（默认使用 PATH 中的 codex）
+    bin: codex
+    # Codex 工作目录（目标项目根目录）
+    workdir: C:/Project/RuoYi-Vue
+    # 沙箱模式：read-only / workspace-write / danger-full-access
+    sandbox: danger-full-access
+    # 单次执行超时（秒）
+    timeout-seconds: 300
+

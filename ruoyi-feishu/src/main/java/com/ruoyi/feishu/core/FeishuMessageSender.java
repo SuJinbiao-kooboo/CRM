@@ -3,6 +3,7 @@ package com.ruoyi.feishu.core;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.feishu.config.FeishuProperties;
+import java.nio.file.Path;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -67,6 +68,23 @@ public class FeishuMessageSender {
      */
     public FeishuResult sendReport(String receiveIdType, String receiveId) {
         return apiClient.sendText(receiveIdType, receiveId, buildReportText());
+    }
+
+    /**
+     * 把本地文件作为“文件消息”发送给某个会话（先上传拿 file_key 再发送）。
+     * @param receiveIdType chat_id / open_id / user_id
+     * @param receiveId     接收者 id
+     * @param file          本地文件路径
+     */
+    public FeishuResult sendFile(String receiveIdType, String receiveId, Path file) {
+        return apiClient.sendFile(receiveIdType, receiveId, file);
+    }
+
+    /**
+     * 快捷：向某个 chat 发送一个文件。
+     */
+    public FeishuResult sendFileToChat(String chatId, Path file) {
+        return sendFile("chat_id", chatId, file);
     }
 
     /**

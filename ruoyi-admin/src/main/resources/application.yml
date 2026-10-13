@@ -181,4 +181,7 @@ feishu:
     sandbox: danger-full-access
     # 单次执行超时（秒）
     timeout-seconds: 300
+    # 产出目录：Codex 结束后的产出文件会发回飞书（可留空关闭）
+    output-directory: C:/Project/RuoYi-Vue/feishu-output
+
 

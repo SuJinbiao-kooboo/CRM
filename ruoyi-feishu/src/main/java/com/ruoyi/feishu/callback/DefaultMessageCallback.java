@@ -92,6 +92,13 @@ public class DefaultMessageCallback implements FeishuMessageCallback {
             try {
                 CodexRunResult r = codexRunner.run(prompt);
                 sender.sendTextToChat(chatId, buildCodexReply(r));
+                // 把本次产出的文件发送给用户
+                if (r.isSuccess() && r.getProducedFiles() != null && !r.getProducedFiles().isEmpty()) {
+                    for (String f : r.getProducedFiles()) {
+                        sender.sendFileToChat(chatId, java.nio.file.Paths.get(f));
+                    }
+                    sender.sendTextToChat(chatId, "📎 已发送本次产出文件 **" + r.getProducedFiles().size() + "** 个");
+                }
             } catch (Exception e) {
                 log.error("Codex 异步执行/回传失败", e);
                 sender.sendTextToChat(chatId, "❌ Codex 处理失败：" + e.getMessage());

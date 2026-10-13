@@ -91,5 +91,8 @@ public class FeishuProperties {
 
         /** 单次执行超时（秒），0 表示使用默认 300 秒 */
         private long timeoutSeconds = 300;
+
+        /** 产出目录：Codex 执行结束后，该目录下新增/修改的文件会被自动发送到飞书（可留空关闭） */
+        private String outputDirectory = "";
     }
 }

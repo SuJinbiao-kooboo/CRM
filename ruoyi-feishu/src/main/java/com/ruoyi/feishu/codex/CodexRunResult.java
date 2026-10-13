@@ -2,6 +2,9 @@ package com.ruoyi.feishu.codex;
 
 import lombok.Data;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 一次 Codex 调用的运行结果。
  */
@@ -22,4 +25,7 @@ public class CodexRunResult {
 
     /** 失败时的错误信息（退出码 / 异常堆栈摘要 / 命令超出日志） */
     private String error = "";
+
+    /** 本次执行产出的文件（outputDirectory 下新增或修改的文件绝对路径） */
+    private List<String> producedFiles = new ArrayList<>();
 }

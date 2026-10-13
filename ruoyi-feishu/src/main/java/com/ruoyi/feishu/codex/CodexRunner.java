@@ -13,8 +13,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 /**
  * Codex CLI 桥接器：通过非交互子进程 {@code codex exec} 执行指令，供飞书回调调用。
@@ -75,6 +78,17 @@ public class CodexRunner {
         }
         StringBuilder merged = new StringBuilder();
         try {
+            // 快照产出目录，用于识别本次新产出/被修改的文件
+            Map<String, Long> beforeFiles = new HashMap<>();
+            Path outPath = null;
+            String outDir = cfg.getOutputDirectory();
+            if (outDir != null && !outDir.trim().isEmpty()) {
+                outPath = Paths.get(outDir.trim());
+                if (Files.isDirectory(outPath)) {
+                    beforeFiles = snapshot(outPath);
+                }
+            }
+            long runStart = System.currentTimeMillis();
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.redirectErrorStream(true);
             Process p = pb.start();
@@ -123,6 +137,10 @@ public class CodexRunner {
                 msg = tail(merged.toString(), 4000);
             }
             result.setMessage(msg);
+            // 采集本次产出的文件，供回传飞书使用
+            if (result.isSuccess() && outPath != null && Files.isDirectory(outPath)) {
+                collectNew(outPath, runStart, beforeFiles, result.getProducedFiles());
+            }
         } catch (Exception e) {
             result.setSuccess(false);
             result.setError("调用 Codex 失败: " + e.getMessage());
@@ -137,6 +155,42 @@ public class CodexRunner {
             }
         }
         return result;
+    }
+
+    /** 快照目录下所有普通文件的绝对路径 -> 最后修改时间 */
+    private Map<String, Long> snapshot(Path dir) {
+        Map<String, Long> m = new HashMap<>();
+        try (Stream<Path> st = Files.list(dir)) {
+            st.filter(Files::isRegularFile).forEach(p -> {
+                try {
+                    m.put(p.toAbsolutePath().toString(), Files.getLastModifiedTime(p).toMillis());
+                } catch (IOException ignored) {
+                    // ignore
+                }
+            });
+        } catch (IOException ignored) {
+            // ignore
+        }
+        return m;
+    }
+
+    /** 收集本次运行期间新增或修改过的文件（绝对路径）写入 out */
+    private void collectNew(Path dir, long start, Map<String, Long> before, List<String> out) {
+        try (Stream<Path> st = Files.list(dir)) {
+            st.filter(Files::isRegularFile).forEach(p -> {
+                try {
+                    long mt = Files.getLastModifiedTime(p).toMillis();
+                    String key = p.toAbsolutePath().toString();
+                    if (mt >= start || !before.containsKey(key) || !before.get(key).equals(mt)) {
+                        out.add(key);
+                    }
+                } catch (IOException ignored) {
+                    // ignore
+                }
+            });
+        } catch (IOException ignored) {
+            // ignore
+        }
     }
 
     private String readOutFile(Path f) {

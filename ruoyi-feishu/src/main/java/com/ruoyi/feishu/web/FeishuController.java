@@ -10,6 +10,7 @@ import com.ruoyi.feishu.config.FeishuProperties;
 import com.ruoyi.feishu.core.FeishuMessageSender;
 import com.ruoyi.feishu.core.FeishuResult;
 import com.ruoyi.feishu.dto.CodexRunBody;
+import com.ruoyi.feishu.dto.FeishuSendFileBody;
 import com.ruoyi.feishu.dto.FeishuReceiveBody;
 import com.ruoyi.feishu.dto.FeishuSendQuestionBody;
 import com.ruoyi.feishu.dto.FeishuSendReportBody;
@@ -19,6 +20,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
  * 飞书机器人控制接口。
@@ -123,6 +127,24 @@ public class FeishuController extends BaseController {
         }
         CodexRunResult r = codexRunner.run(body.getPrompt().trim());
         return r.isSuccess() ? AjaxResult.success(r.getMessage()) : AjaxResult.error(r.getError());
+    }
+
+    /**
+     * 发送一个本地文件作为“文件消息”（自测用）。
+     * @param body 示例：{"receiveIdType":"chat_id","receiveId":"oc_xxx","filePath":"C:/tmp/report.docx"}
+     */
+    @PostMapping("/message/sendFile")
+    public AjaxResult sendFile(@RequestBody FeishuSendFileBody body) {
+        String type = resolveType(body);
+        String id = resolveId(body);
+        if (body.getFilePath() == null || body.getFilePath().trim().isEmpty()) {
+            return AjaxResult.error("文件路径(filePath)不能为空");
+        }
+        if (!Files.exists(Paths.get(body.getFilePath().trim()))) {
+            return AjaxResult.error("文件不存在: " + body.getFilePath());
+        }
+        FeishuResult r = sender.sendFile(type, id, Paths.get(body.getFilePath().trim()));
+        return r.isSuccess() ? AjaxResult.success(r.getMsg(), r.getData()) : AjaxResult.error(r.getMsg());
     }
 
     /* ---------- 私有辅助 ---------- */

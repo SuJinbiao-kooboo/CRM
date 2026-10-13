@@ -6,13 +6,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStreamWriter;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 /**
  * 飞书开放平台 HTTP 客户端：负责 tenant_access_token 的获取/缓存，以及通用 API 调用。
@@ -154,6 +160,135 @@ public class FeishuApiClient {
      */
     public FeishuResult sendCard(String receiveIdType, String receiveId, String cardJson) {
         return sendMessage(receiveIdType, receiveId, "interactive", cardJson);
+    }
+
+    /**
+     * 上传文件到飞书，换取 file_key（发送文件消息前必须先上传）。
+     * @param fileType 文件类型：stream（通用） / pdf / doc / xls / ppt / opus / mp4
+     * @param fileName 展示用文件名
+     * @param file     本地文件路径
+     * @return 上传结果，成功后 data 为 file_key 字符串
+     */
+    public FeishuResult uploadFile(String fileType, String fileName, Path file) {
+        String boundary = "----FeishuBoundary" + Long.toHexString(System.currentTimeMillis());
+        try {
+            byte[] fileBytes;
+            try (InputStream in = new BufferedInputStream(Files.newInputStream(file))) {
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = in.read(buf)) != -1) {
+                    bos.write(buf, 0, n);
+                }
+                fileBytes = bos.toByteArray();
+            }
+
+            ByteArrayOutputStream body = new ByteArrayOutputStream();
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(body, StandardCharsets.UTF_8));
+            // 文件类型字段
+            writeFormField(writer, boundary, "file_type", fileType, null);
+            // 文件名
+            writeFormField(writer, boundary, "file_name", fileName, null);
+            // 关闭 writer 前先把文件二进制写入（writer 与 body 共用底层流，需要注意顺序）
+            // 这里先把文本部分 flush，再直接操作 body
+            writer.flush();
+            // 文件内容分块
+            body.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
+            body.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n").getBytes(StandardCharsets.UTF_8));
+            body.write(("Content-Type: application/octet-stream\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+            body.write(fileBytes);
+            body.write("\r\n".getBytes(StandardCharsets.UTF_8));
+            // 结束边界
+            body.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+            body.flush();
+
+            String urlStr = trimEnd(props.getDomain(), "/") + "/open-apis/im/v1/files";
+            HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+            conn.setRequestMethod("POST");
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(30000);
+            conn.setDoOutput(true);
+            conn.setRequestProperty("Authorization", "Bearer " + getTenantAccessToken());
+            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            conn.setRequestProperty("Content-Length", String.valueOf(body.size()));
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(body.toByteArray());
+            }
+            int httpCode = conn.getResponseCode();
+            InputStream is = httpCode >= 200 && httpCode < 300 ? conn.getInputStream() : conn.getErrorStream();
+            String respBody = readAll(is);
+            conn.disconnect();
+            JSONObject resp = JSONObject.parseObject(respBody);
+            if (resp != null && Integer.valueOf(0).equals(resp.getInteger("code"))) {
+                String key = resp.getJSONObject("data") == null ? null : resp.getJSONObject("data").getString("file_key");
+                if (key == null || key.isEmpty()) {
+                    return FeishuResult.error("上传成功但未返回 file_key: " + respBody);
+                }
+                return FeishuResult.success(key);
+            }
+            return FeishuResult.error(resp == null ? ("HTTP " + httpCode) : (resp.getInteger("code") + " " + resp.getString("msg")));
+        } catch (Exception e) {
+            log.error("飞书上传文件失败: {}", file, e);
+            return FeishuResult.error("上传文件异常: " + e.getMessage());
+        }
+    }
+
+    /** 写入一个 multipart 文本字段 */
+    private static void writeFormField(BufferedWriter w, String boundary, String name, String value, String fileName) throws Exception {
+        if (fileName == null) {
+            w.write("--" + boundary + "\r\n");
+            w.write("Content-Disposition: form-data; name=\"" + name + "\"\r\n\r\n");
+            w.write(value);
+            w.write("\r\n");
+        } else {
+            w.write("--" + boundary + "\r\n");
+            w.write("Content-Disposition: form-data; name=\"" + name + "\"; filename=\"" + fileName + "\"\r\n");
+            w.write("Content-Type: application/octet-stream\r\n\r\n");
+            w.write(value);
+            w.write("\r\n");
+        }
+        w.flush();
+    }
+
+    /**
+     * 把本地文件作为“文件消息”发送给某个会话。
+     * 内部：先上传拿 file_key，再通过 im/v1/messages 发送 msg_type=file。
+     * @param receiveIdType chat_id / open_id / user_id
+     * @param receiveId     接收者 id
+     * @param file          本地文件路径
+     * @return 发送结果
+     */
+    public FeishuResult sendFile(String receiveIdType, String receiveId, Path file) {
+        if (file == null || !Files.exists(file)) {
+            return FeishuResult.error("待发送文件不存在: " + (file == null ? "null" : file.toString()));
+        }
+        String fileName = file.getFileName().toString();
+        String fileType = guessFileType(fileName);
+        try {
+            FeishuResult up = uploadFile(fileType, fileName, file);
+            if (!up.isSuccess()) {
+                return up;
+            }
+            String fileKey = String.valueOf(up.getData());
+            JSONObject content = new JSONObject();
+            content.put("file_key", fileKey);
+            return sendMessage(receiveIdType, receiveId, "file", content.toJSONString());
+        } catch (Exception e) {
+            log.error("飞书发送文件失败: {}", file, e);
+            return FeishuResult.error("发送文件异常: " + e.getMessage());
+        }
+    }
+
+    /** 根据扩展名推断飞书要求的 file_type，默认 stream（通用文件） */
+    private static String guessFileType(String fileName) {
+        String name = fileName == null ? "" : fileName.toLowerCase();
+        if (name.endsWith(".pdf")) return "pdf";
+        if (name.endsWith(".doc") || name.endsWith(".docx")) return "doc";
+        if (name.endsWith(".xls") || name.endsWith(".xlsx")) return "xls";
+        if (name.endsWith(".ppt") || name.endsWith(".pptx")) return "ppt";
+        if (name.endsWith(".opus")) return "opus";
+        if (name.endsWith(".mp4")) return "mp4";
+        return "stream";
     }
 
     private static String readAll(InputStream is) throws Exception {

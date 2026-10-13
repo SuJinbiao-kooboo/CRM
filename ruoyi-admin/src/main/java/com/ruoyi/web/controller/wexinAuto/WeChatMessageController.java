@@ -53,8 +53,9 @@ public class WeChatMessageController {
     @GetMapping("/messages")
     public AjaxResult messages(@RequestParam(required = false) String since,
                                @RequestParam(required = false) String chat,
-                               @RequestParam(required = false, defaultValue = "false") boolean media) {
-        List<WeChatMessage> list = gateway.fetch(since, chat, media);
+                               @RequestParam(required = false, defaultValue = "false") boolean media,
+                               @RequestParam(required = false) Integer limit) {
+        List<WeChatMessage> list = gateway.fetch(since, chat, media, limit);
         return AjaxResult.success(list);
     }
 
@@ -62,8 +63,9 @@ public class WeChatMessageController {
      * 启动实时监听（所有会话新消息）。每收到一条消息会调用一次你的 Handler。
      */
     @PostMapping("/listen/start")
-    public AjaxResult listenStart(@RequestParam(required = false, defaultValue = "false") boolean media) {
-        Map<String, Object> r = gateway.startListen(media);
+    public AjaxResult listenStart(@RequestParam(required = false, defaultValue = "false") boolean media,
+                               @RequestParam(required = false, defaultValue = "false") boolean fresh) {
+        Map<String, Object> r = gateway.startListen(media, fresh);
         return AjaxResult.success(r);
     }
 

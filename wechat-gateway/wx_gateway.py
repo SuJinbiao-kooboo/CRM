@@ -28,7 +28,7 @@
     sort_seq  排序键(增量断点)    md5        消息md5(媒体消息)
 """
 from __future__ import annotations
-import argparse, datetime, json, os, random, re, sqlite3, sys, time, xml.etree.ElementTree as ET
+import argparse, datetime, json, os, random, re, sqlite3, sys, tempfile, time, xml.etree.ElementTree as ET
 
 try:
     os.system("chcp 65001 >nul 2>&1")
@@ -66,6 +66,11 @@ def build_db(media_dir, account=None):
     from wechatauto import WeChatDB
     from wechatauto.media import MediaDownloader
     kwargs = {"account": account} if account else {}
+    # 每个进程独占一个解密工作目录(按 PID 区分)：避免多个并行进程
+    # (如监听的 fetch / listen 同时跑)在同一个临时目录里 os.replace 解密库
+    # 时互相抢占同一个文件而触发 PermissionError([WinError 5] 拒绝访问)。
+    kwargs["workdir"] = os.path.join(
+        tempfile.gettempdir(), "wechatauto_db", "_proc", str(os.getpid()))
     db = WeChatDB(**kwargs)
     media = MediaDownloader(db, save_dir=media_dir) if media_dir else None
     return db, media
@@ -81,6 +86,9 @@ def resolve_sender(ctx, m):
     sid = m.get("sender_id")
     if sid == 2:
         return ctx["self_name"]
+    su = sender_from_prefix(m.get("content"))
+    if su:
+        return ctx["nicks"].get(su, su)
     su = m.get("sender_username") or m.get("username") or ""
     return ctx["nicks"].get(su, su) if su else ""
 
@@ -151,7 +159,44 @@ def cmd_dump(args):
     db, media = build_db(args.media, args.account)
     ctx = load_ctx(db)
 
-    # 决定拉哪些会话
+    conn = None
+    if args.out:
+        conn = sqlite3.connect(args.out)
+        _schema(conn)
+    existing = load_existing(conn)
+
+    def emit(m, user, name):
+        m["__session"] = user
+        key = (user, m["local_id"])
+        if key in existing:
+            return "skip"
+        j = row_to_json(db, ctx, m, media, name)
+        existing.add(key)
+        sys.stdout.write(json.dumps(j, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
+        if conn:
+            conv = (j["username"], j["local_id"], j["type"], j["sender"],
+                    j["content"], j["media_path"], m.get("create_time") or 0,
+                    j["sort_seq"], j["md5"])
+            conn.execute("INSERT OR IGNORE INTO messages VALUES(?,?,?,?,?,?,?,?,?)", conv)
+        return "add"
+
+    if since is not None:
+        since_seq = max(0, int(since * 1000.0) - 1)
+        hits = _global_messages_after(db, since_seq, args.limit)
+        log("增量扫描: sort_seq>%d, 命中 %d 条" % (since_seq, len(hits)))
+        added = skip = 0
+        for name, user, m in hits:
+            if emit(m, user, name) == "add":
+                added += 1
+            else:
+                skip += 1
+        if conn:
+            conn.commit(); conn.close()
+        log("完成: 新增 %d, 跳过重复 %d" % (added, skip))
+        return
+
+    # 无 since：保持原来的全量/指定会话逻辑
     if args.chat:
         hit = resolve_chat(db, args.chat)
         if not hit:
@@ -165,40 +210,18 @@ def cmd_dump(args):
     if not chats:
         die("没有可读取的会话")
 
-    # 可选落 SQLite
-    conn = None
-    if args.out:
-        conn = sqlite3.connect(args.out)
-        _schema(conn)
-    existing = load_existing(conn)
-
-    cond = " >= %s" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(since))) if since else "全部"
-    log("时间窗: 起始%s(含)。合计 %d 会话" % (cond, len(chats)))
     added = skip = hit = 0
     for i, chat in enumerate(chats, 1):
         user, name = chat["username"], chat["name"]
         msgs = db.get_messages(user, limit=args.limit)
-        if since is not None:
-            msgs = [m for m in msgs if (m.get("create_time") or 0) >= since]
-        xs = list(reversed(msgs))  # 保证按时间正序输出
+        xs = list(reversed(msgs))  # get_messages 为降序，反转成正序
         if conn:
             conn.execute("INSERT OR REPLACE INTO chats VALUES(?,?)", (user, name))
         for m in xs:
-            m["__session"] = user
-            key = (user, m["local_id"])
-            if key in existing:
+            if emit(m, user, name) == "add":
+                added += 1
+            else:
                 skip += 1
-                continue
-            j = row_to_json(db, ctx, m, media, name)
-            existing.add(key)
-            sys.stdout.write(json.dumps(j, ensure_ascii=False) + "\n")
-            sys.stdout.flush()
-            if conn:
-                conv = (j["username"], j["local_id"], j["type"], j["sender"],
-                        j["content"], j["media_path"], m.get("create_time") or 0,
-                        j["sort_seq"], j["md5"])
-                conn.execute("INSERT OR IGNORE INTO messages VALUES(?,?,?,?,?,?,?,?,?)", conv)
-            added += 1
         if conn:
             conn.commit()
         log("[%d/%d] %s: 命中 %d 条(新增 %d)" % (i, len(chats), name, len(msgs), added))
@@ -206,6 +229,70 @@ def cmd_dump(args):
         conn.commit(); conn.close()
     log("完成: 新增 %d, 跳过重复 %d" % (added, skip))
 
+
+def _global_messages_after(db, since_seq, limit):
+    """全库增量扫描：每个分片库只打开一次连接，对每个会话表
+    Msg_<md5(username)> 执行 WHERE sort_seq > since_seq，跨表合并按 sort_seq 升序。
+    相比逐会话 get_new_messages（每次都重开全部分片连接），会话多时快几十倍。"""
+    import hashlib
+    want = max(1, int(limit or 1000000))
+    cols = ("local_id, local_type, real_sender_id, create_time, message_content, "
+            "source, packed_info_data, compress_content, server_id, sort_seq")
+    conns = []
+    try:
+        for rel in db._message_dbs():
+            conns.append(db._open(rel))
+        chats = db.list_message_chats()
+        hits = []
+        for c in chats:
+            user = str(c.get("username") or "")
+            if not user:
+                continue
+            target = "Msg_" + hashlib.md5(user.encode("utf-8")).hexdigest()
+            for conn in conns:
+                try:
+                    if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (target,)).fetchone():
+                        rows = conn.execute(
+                            "SELECT %s FROM %s WHERE sort_seq > ? ORDER BY sort_seq ASC, local_id ASC LIMIT %d" % (cols, target, want),
+                            (since_seq,)).fetchall()
+                        for r in rows:
+                            d = db._msg_row_to_dict(r)
+                            hits.append((c.get("name") or user, user, d))
+                except sqlite3.DatabaseError:
+                    continue
+        hits.sort(key=lambda x: ((x[2].get("sort_seq") or 0), x[1]))
+        return hits[:want]
+    finally:
+        for conn in conns:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+# ---- 文本消息清洗：去掉库内多余的发送者前缀行 ----
+_SENDER_PREFIX_STRICT = re.compile(r"^wxid_[A-Za-z0-9_-]+:$")
+# 非 wxid_ 前缀（普通微信号/手机号/@openim）：小写字母或数字开头，避免误匹配 "OFFER:" 之类大写缩写
+_SENDER_PREFIX_LOOSE = re.compile(r"^[a-z0-9][a-z0-9_@.\-]*:$")
+
+def sender_from_prefix(content):
+    """从消息内容首行提取发送者 user_name；无前缀返回 None。"""
+    if not isinstance(content, str):
+        return None
+    first = content.split("\n", 1)[0].strip()
+    if _SENDER_PREFIX_STRICT.match(first) or _SENDER_PREFIX_LOOSE.match(first):
+        return first[:-1]
+    return None
+
+def strip_wxid_prefix(content):
+    """去掉 content 首行的发送者前缀行（wxid_xxx: / jingfan5807: 等），返回真实正文；无前缀原样返回。"""
+    if not isinstance(content, str):
+        return content
+    lines = content.split("\n", 1)
+    first = lines[0].rstrip("\r")
+    if _SENDER_PREFIX_STRICT.match(first.strip()) or _SENDER_PREFIX_LOOSE.match(first.strip()):
+        return lines[1] if len(lines) > 1 else ""
+    return content
 
 # ---- 引用消息(卡片)解析：把 XML 拆成「原文 + 被引用内容」 ----
 _QUOTE_LABEL = {"3": "图片", "47": "表情", "34": "语音", "43": "视频", "49": "卡片"}
@@ -259,13 +346,18 @@ def row_to_json(db, ctx, m, media, name):
         except Exception as e:
             log("  [媒体下载失败 %s/%s]: %s" % (m.get("__session"), m["local_id"], e))
             media_path = ""
-    # 引用/卡片消息：拆成 原文 content + 被引用 quote(+quote_kind)
-    content, quote, quote_kind = parse_quote(m.get("content") or "")
+    # 先去掉库内多余的 wxid_xxx: 前缀行，再拆解引用/卡片消息
+    content, quote, quote_kind = parse_quote(strip_wxid_prefix(m.get("content") or ""))
     ct = m.get("create_time") or 0
+    # 业务去重键：会话显示名 + 会话ID + 消息产生时间戳（格式 name:username:1791250634）
+    session_name = str(name or "")
+    session_uid = str(m.get("__session") or m.get("username") or "")
+    server_id = ("%s:%s:%s" % (session_name, session_uid, ct)) if ct else ""
     return {
         "username": m.get("__session") or m.get("username"),
         "name": name,
         "local_id": m["local_id"],
+        "server_id": server_id,
         "type": mtype,
         "sender": resolve_sender(ctx, m),
         "content": content,
@@ -281,7 +373,16 @@ def cmd_listen(args):
     from wechatauto.db import Listener
     db, media = build_db(args.media, args.account)
     ctx = load_ctx(db)
-    watermark = os.path.join(db.workdir, "listener_watermark.json")
+    # 水位放到稳定的账号级目录；工作目录按 PID 变化时不能作为断点位置。
+    watermark = os.path.join(
+        tempfile.gettempdir(), "wechatauto_db", db.account, "listener_watermark.json")
+    if getattr(args, "fresh", False):
+        # 从现在开始：清掉上次持久化的水位，只推送启动之后的新消息（不回放历史）
+        try:
+            os.remove(watermark)
+            log("已清空监听水位，只推送从现在起的新消息 (fresh)")
+        except OSError:
+            pass
     listener = Listener(db, interval=1.0, watermark_file=watermark)
 
     def on_new(m, lsn):
@@ -425,6 +526,8 @@ def main():
     p = sub.add_parser("listen", help="实时监听所有会话新消息(NDJSON 到 stdout)")
     p.add_argument("--media", default=None)
     p.add_argument("--account", default=None)
+    p.add_argument("--fresh", action="store_true",
+                   help="从现在开始：清掉持久化水位，只推送启动之后的新消息")
     p.set_defaults(func=cmd_listen)
 
     p = sub.add_parser("batch_send",

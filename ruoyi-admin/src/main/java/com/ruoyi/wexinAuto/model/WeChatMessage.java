@@ -1,5 +1,6 @@
 package com.ruoyi.wexinAuto.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 /**
@@ -17,8 +18,19 @@ public class WeChatMessage {
     /** 库内消息 ID */
     private long localId;
 
+    /** 微信服务器全局消息 ID（账号内唯一，推荐做去重主键） */
+    private String serverId;
+
     /** 消息类型：文本/图片/语音/视频/文件/系统… */
     private String type;
+
+    /** 消息分类（第二层分析时赋值）：INQ询价 / OFFER报价 / TRACE跟进 / OTHER其他；未分析为空 */
+    @JsonProperty("msg_category")
+    private String msgCategory;
+
+    /** 分类来源：HARD=硬规则 / LLM=大模型精判 / RULE=规则链兜底 / CACHE=缓存命中；便于排查分类是否正确 */
+    @JsonProperty("category_source")
+    private String categorySource;
 
     /** 发言人显示名 */
     private String sender;
@@ -44,6 +56,3 @@ public class WeChatMessage {
     /** 媒体消息 md5 */
     private String md5;
 }
-
-
-

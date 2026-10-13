@@ -3,6 +3,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,6 +34,7 @@ public class WxBridge {
         public String username = "";
         public String name = "";
         public long localId = -1;
+        public String serverId = "";
         public String type = "";
         public String sender = "";
         public String content = "";
@@ -70,6 +72,7 @@ public class WxBridge {
                 case "quote":  m.quote = s.group(2); break;
                 case "quote_kind": m.quoteKind = s.group(2); break;
                 case "media_path": m.mediaPath = s.group(2); break;
+                case "server_id": m.serverId = s.group(2); break;
                 case "create_time": m.createTime = s.group(2); break;
                 case "md5":      m.md5 = s.group(2); break;
             }
@@ -119,7 +122,7 @@ public class WxBridge {
                 if (args.length < 3) { usage(); return; }
                 String since = args[2];                 // "2026-10-05 12:00:00"
                 String chat  = args.length >= 4 ? args[3] : null;
-                List<String> cmd = new ArrayList<>(List.of(py, SCRIPT, "dump", "--since", since));
+                List<String> cmd = new ArrayList<>(Arrays.asList(py, SCRIPT, "dump", "--since", since));
                 if (chat != null) { cmd.add("--chat"); cmd.add(chat); }
                 if (mode.equals("fetchm")) { cmd.add("--media"); cmd.add(MEDIA); }
                 spawn(cmd);
@@ -128,7 +131,7 @@ public class WxBridge {
             // ② 实时监听：所有会话新消息
             case "listen":
             case "listenm": {
-                List<String> cmd = new ArrayList<>(List.of(py, SCRIPT, "listen"));
+                List<String> cmd = new ArrayList<>(Arrays.asList(py, SCRIPT, "listen"));
                 if (mode.equals("listenm")) { cmd.add("--media"); cmd.add(MEDIA); }
                 spawn(cmd);
                 break;

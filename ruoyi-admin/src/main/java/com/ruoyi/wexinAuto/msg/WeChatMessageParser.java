@@ -1,18 +1,28 @@
 package com.ruoyi.wexinAuto.msg;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 /**
- * 极简 NDJSON 解析器（字段均为扁平字符串/数字），
- * 与 wx_gateway.py 输出的消息字段一一对应。
+ * NDJSON 解析器：把 wx_gateway.py 打出的一行 JSON 转成 {@link WeChatMessage}。
+ *
+ * <p>使用 Jackson 解析（snake_case 字段自动映射到 camelCase POJO），
+ * 不再用「正则逐个字符回溯」。长消息时 Java 正则 {@code *}/{@code +} 的量词
+ * 会按字符深度递归，容易在小栈的 {@code wechat-listen} 线程上触发
+ * {@link StackOverflowError}，所以这里不回归正则方案。</p>
  */
 public final class WeChatMessageParser {
 
-    private static final Pattern STR = Pattern.compile("\"([^\"]+)\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"");
-    private static final Pattern NUM = Pattern.compile("\"([^\"]+)\"\\s*:\\s*(-?\\d+)");
+    /** 与 wx_gateway.py 输出的字段一一对应（JSON key 为 snake_case）。 */
+    private static final ObjectMapper MAPPER;
+
+    static {
+        MAPPER = new ObjectMapper();
+        MAPPER.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+        MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
 
     private WeChatMessageParser() {
     }
@@ -22,45 +32,15 @@ public final class WeChatMessageParser {
         return line != null && line.trim().startsWith("{");
     }
 
+    /** 解析一行 NDJSON 为 {@link WeChatMessage}；解析失败返回空对象（不抛异常）。 */
     public static WeChatMessage parse(String line) {
-        WeChatMessage m = new WeChatMessage();
-        Matcher s = STR.matcher(line);
-        while (s.find()) {
-            String v = unescape(s.group(2));
-            switch (s.group(1)) {
-                case "username":    m.setUsername(v); break;
-                case "name":        m.setName(v); break;
-                case "type":        m.setType(v); break;
-                case "sender":      m.setSender(v); break;
-                case "content":     m.setContent(v); break;
-                case "quote":       m.setQuote(v); break;
-                case "quote_kind":  m.setQuoteKind(v); break;
-                case "media_path":  m.setMediaPath(v); break;
-                case "md5":         m.setMd5(v); break;
-                case "create_time": m.setCreateTime(v); break;
-                default:            break;
-            }
+        if (line == null || line.trim().isEmpty()) {
+            return new WeChatMessage();
         }
-        Matcher n = NUM.matcher(line);
-        while (n.find()) {
-            switch (n.group(1)) {
-                case "local_id":    m.setLocalId(Long.parseLong(n.group(2))); break;
-                case "sort_seq":    m.setSortSeq(Long.parseLong(n.group(2))); break;
-                default:            break;
-            }
+        try {
+            return MAPPER.readValue(line, WeChatMessage.class);
+        } catch (Exception e) {
+            return new WeChatMessage();
         }
-        return m;
-    }
-
-    private static String unescape(String v) {
-        if (v == null) return "";
-        return v.replace("\\\\", "\\")
-                .replace("\\n", "\n")
-                .replace("\\t", "\t")
-                .replace("\\\"", "\"");
     }
 }
-
-
-
-

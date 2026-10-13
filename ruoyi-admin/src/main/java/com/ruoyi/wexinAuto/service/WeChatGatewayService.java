@@ -1,6 +1,10 @@
 package com.ruoyi.wexinAuto.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ruoyi.wexinAuto.analysis.HardRuleClassifier;
+import com.ruoyi.wexinAuto.analysis.MessageContext;
+import com.ruoyi.wexinAuto.analysis.WeChatLlmClassifier;
+import com.ruoyi.wexinAuto.analysis.WeChatMessageClassifier;
 import com.ruoyi.wexinAuto.config.WeChatGatewayProperties;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
 import com.ruoyi.wexinAuto.model.WeChatSendResult;
@@ -19,11 +23,18 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Deque;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -41,25 +52,35 @@ public class WeChatGatewayService {
 
     private final WeChatGatewayProperties props;
     private final WeChatMessageHandler handler;
+    private final WeChatLlmClassifier llm;
 
     private final Object listenLock = new Object();
     private Process listenProcess;
     private Thread listenThread;
     private volatile boolean listening = false;
     private final AtomicLong listenCount = new AtomicLong(0);
+    private final AtomicLong filteredCount = new AtomicLong(0);
+
+    /** 分类上下文窗口：参与判断的前 N 条历史消息（后续可移动到数据字典配置） */
+    private static final int ANALYSIS_WINDOW = 10;
+
+    /** 监听路径：每个会话最近 N 条已分类消息（供依赖上下文的规则使用；监听线程单线程读写） */
+    private final Map<String, Deque<WeChatMessage>> listenHistory = new ConcurrentHashMap<>();
 
     private final ObjectMapper jackson = new ObjectMapper();
 
     @Autowired
-    public WeChatGatewayService(WeChatGatewayProperties props, WeChatMessageHandler handler) {
+    public WeChatGatewayService(WeChatGatewayProperties props, WeChatMessageHandler handler,
+                                  WeChatLlmClassifier llm) {
         this.props = props;
         this.handler = handler;
+        this.llm = llm;
     }
 
     // ------------------------------------------------------------------
     // 主动拉取：按时间(到秒,闭区间) + 可选群/好友名
     // ------------------------------------------------------------------
-    public List<WeChatMessage> fetch(String since, String chat, boolean media) {
+    public List<WeChatMessage> fetch(String since, String chat, boolean media, Integer limit) {
         List<String> cmd = new ArrayList<>();
         cmd.add(props.getPython());
         cmd.add(props.getScript());
@@ -76,13 +97,13 @@ public class WeChatGatewayService {
             cmd.add("--media");
             cmd.add(props.getMediaDir());
         }
-        return runProcess(cmd, true);
+        return applyAnalysis(runProcess(cmd, true), limit);
     }
 
     // ------------------------------------------------------------------
     // 实时监听：生命周期
     // ------------------------------------------------------------------
-    public Map<String, Object> startListen(boolean media) {
+    public Map<String, Object> startListen(boolean media, boolean fresh) {
         synchronized (listenLock) {
             if (listening) {
                 return statusMap("已在监听中", true);
@@ -91,6 +112,10 @@ public class WeChatGatewayService {
             cmd.add(props.getPython());
             cmd.add(props.getScript());
             cmd.add("listen");
+            if (fresh) {
+                cmd.add("--fresh");
+                listenHistory.clear(); // fresh=只从此刻开始，历史上下文一并清空
+            }
             if (media) {
                 cmd.add("--media");
                 cmd.add(props.getMediaDir());
@@ -135,6 +160,7 @@ public class WeChatGatewayService {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("running", listening);
         m.put("processed", listenCount.get());
+        m.put("filtered", filteredCount.get());
         return m;
     }
 
@@ -170,6 +196,28 @@ public class WeChatGatewayService {
 
     private void dispatch(WeChatMessage msg) {
         try {
+            if (!passAnalysis(msg)) {
+                filteredCount.incrementAndGet();
+                log.info("过滤器丢弃消息: name={}, serverId={}", msg.getName(), msg.getServerId());
+                return;
+            }
+            // 同会话最近 N 条已分类消息作为上下文，供依赖历史的规则使用
+            String key = msg.getUsername();
+            Deque<WeChatMessage> dq = listenHistory.get(key);
+            List<WeChatMessage> history = dq == null ? Collections.emptyList() : new ArrayList<>(dq);
+            String hard = HardRuleClassifier.classify(msg);
+            if (hard != null) {
+                msg.setMsgCategory(hard);
+                msg.setCategorySource("HARD");
+            } else {
+                msg.setMsgCategory(WeChatMessageClassifier.classify(new MessageContext(msg, history)));
+                msg.setCategorySource("RULE");
+            }
+            Deque<WeChatMessage> dq2 = listenHistory.computeIfAbsent(key, k -> new ArrayDeque<>());
+            dq2.addLast(msg);
+            while (dq2.size() > ANALYSIS_WINDOW) {
+                dq2.removeFirst();
+            }
             handler.handle(msg);
             listenCount.incrementAndGet();
         } catch (Exception e) {
@@ -211,6 +259,7 @@ public class WeChatGatewayService {
         m.put("message", msg);
         m.put("running", running);
         m.put("processed", listenCount.get());
+        m.put("filtered", filteredCount.get());
         return m;
     }
 
@@ -219,6 +268,108 @@ public class WeChatGatewayService {
     // ------------------------------------------------------------------
     /** 发送参数数据字典类型（sys_dict_type.dict_type） */
     private static final String SEND_DICT_TYPE = "wechat_send_config";
+
+    // ------------------------------------------------------------------
+    // 消息分析：第一层(黑/白名单按 name 过滤) + 第二层(INQ/OFFER/TRACE/OTHER 打标签)
+    // ------------------------------------------------------------------
+    /** 消息分析参数数据字典类型（sys_dict_type.dict_type） */
+    private static final String ANALYSIS_DICT_TYPE = "wechat_analysis_config";
+
+    /** 读取字典里的名单（dict_label=whiteNames/blackNames，逗号拼接） */
+    private Set<String> analysisNames(String label) {
+        Set<String> names = new HashSet<>();
+        List<SysDictData> list = DictUtils.getDictCache(ANALYSIS_DICT_TYPE);
+        if (list != null) {
+            for (SysDictData d : list) {
+                if (label.equals(d.getDictLabel()) && StringUtils.isNotBlank(d.getDictValue())) {
+                    for (String n : d.getDictValue().split(",")) {
+                        if (StringUtils.isNotBlank(n)) {
+                            names.add(n.trim());
+                        }
+                    }
+                }
+            }
+        }
+        return names;
+    }
+
+    /** 第一层过滤器：白名单非空=只放行白名单；否则只过滤黑名单，其余放行。 */
+    private boolean passAnalysis(WeChatMessage m) {
+        if (m == null) {
+            return false;
+        }
+        Set<String> white = analysisNames("whiteNames");
+        Set<String> black = analysisNames("blackNames");
+        String name = StringUtils.trimToEmpty(m.getName());
+        if (!white.isEmpty()) {
+            return white.contains(name);
+        }
+        return !black.contains(name);
+    }
+
+    /** 应用两层分析：过滤 + 业务类型打标签。 */
+    private List<WeChatMessage> applyAnalysis(List<WeChatMessage> list, Integer limitPerChat) {
+        List<WeChatMessage> out = new ArrayList<>();
+        if (list == null || list.isEmpty()) {
+            return out;
+        }
+        // 按会话分组，组内按时间正序，逐条分类；分类管线：
+        //   缓存命中 → 硬规则(HARD) → 大模型精判(LLM，仅灰色地带) → 规则链兜底(RULE)
+        Map<String, List<WeChatMessage>> byChat = new LinkedHashMap<>();
+        for (WeChatMessage m : list) {
+            String key = m.getUsername() == null ? "" : m.getUsername();
+            byChat.computeIfAbsent(key, k -> new ArrayList<>()).add(m);
+        }
+        for (List<WeChatMessage> chatMsgs : byChat.values()) {
+            chatMsgs.sort(Comparator.comparingLong(WeChatMessage::getSortSeq));
+            if (limitPerChat != null && limitPerChat > 0 && chatMsgs.size() > limitPerChat) {
+                chatMsgs = new ArrayList<>(chatMsgs.subList(chatMsgs.size() - limitPerChat, chatMsgs.size()));
+            }
+            String chatName = chatMsgs.get(0).getName();
+            Deque<WeChatMessage> window = new ArrayDeque<>();
+            List<WeChatMessage> grays = new ArrayList<>();
+            for (WeChatMessage m : chatMsgs) {
+                if (!passAnalysis(m)) {
+                    continue;
+                }
+                String cached = llm.cached(m);
+                if (cached != null) {
+                    m.setMsgCategory(cached);
+                    m.setCategorySource("CACHE");
+                } else {
+                    String hard = HardRuleClassifier.classify(m);
+                    if (hard != null) {
+                        m.setMsgCategory(hard);
+                        m.setCategorySource("HARD");
+                    } else {
+                        grays.add(m);
+                    }
+                }
+                window.addLast(m);
+                while (window.size() > ANALYSIS_WINDOW) {
+                    window.removeFirst();
+                }
+                out.add(m);
+            }
+            // 灰色地带交给大模型精判（整群消息作为上下文，只覆盖灰色条目）
+            if (!grays.isEmpty() && llm.enabled()) {
+                llm.classify(chatMsgs, chatName);
+                for (WeChatMessage m : grays) {
+                    if (m.getMsgCategory() != null) {
+                        m.setCategorySource("LLM");
+                    }
+                }
+            }
+            // 大模型不可用/无结果时回退规则链（尽力而为，不阻塞返回）
+            for (WeChatMessage m : grays) {
+                if (m.getMsgCategory() == null) {
+                    m.setMsgCategory(WeChatMessageClassifier.classify(m));
+                    m.setCategorySource("RULE");
+                }
+            }
+        }
+        return out;
+    }
 
     public List<WeChatSendResult> batchSend(List<String> names, String template) {
         Map<String, Object> cfg = new LinkedHashMap<>();

@@ -73,8 +73,6 @@ public class CodexRunner {
         } catch (IOException e) {
             log.warn("创建 Codex 输出临时文件失败，改用 stdout 捕获", e);
         }
-        cmd.add(prompt);
-
         StringBuilder merged = new StringBuilder();
         try {
             ProcessBuilder pb = new ProcessBuilder(cmd);
@@ -95,6 +93,13 @@ public class CodexRunner {
             });
             reader.setDaemon(true);
             reader.start();
+
+            // 关键：把提示词写入子进程 stdin 并关闭（发送 EOF）。
+            // codex 在非交互(无 TTY)环境下从 stdin 读提示词；若不关闭 stdin，
+            // 它会一直等待直到超时。这里主动写入并 close 触发 EOF。
+            try (java.io.OutputStream stdin = p.getOutputStream()) {
+                stdin.write(prompt.getBytes(StandardCharsets.UTF_8));
+            }
 
             long timeoutSeconds = cfg.getTimeoutSeconds() > 0 ? cfg.getTimeoutSeconds() : 300;
             boolean finished = p.waitFor(timeoutSeconds, TimeUnit.SECONDS);

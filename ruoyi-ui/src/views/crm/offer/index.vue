@@ -1031,13 +1031,14 @@ export default {
       this.copyOfferLoading = true;
       copyOfferText(this.copyOfferDays).then(res => {
         // 兜底兼容旧后端：旧版接口重载歧义把文本放进了msg而非data（data为null），此处取msg；新后端data有值时优先用data
-        const text = res.data || (res.msg && res.msg !== '操作成功' ? res.msg : '') || '';
-        if (!text) { this.$modal.msgWarning('最近' + this.copyOfferDays + '天内没有Offer记录'); return }
+        const raw = res.data || (res.msg && res.msg !== '操作成功' ? res.msg : '') || '';
+        if (!raw) { this.$modal.msgWarning('最近' + this.copyOfferDays + '天内没有Offer记录'); return }
+        const text = this.withOfferHeader(raw);
         // 剪贴板写入为异步 Promise，成功/失败各自提示
         this.copyToClipboard(text).then(ok => {
           if (ok) {
             this.copyOfferFallbackText = '';
-            this.$modal.msgSuccess('已复制 ' + text.split('\n').length + ' 条物料信息到剪贴板');
+            this.$modal.msgSuccess('已复制 ' + (text.split('\n').length - 1) + ' 条物料信息到剪贴板');
           } else {
             // 自动复制失败：把完整文本展示在弹窗内供手动复制，保证数据不丢失
             this.copyOfferFallbackText = text;
@@ -1085,6 +1086,18 @@ export default {
       document.body.removeChild(ta);
       return ok;
     },
+/** 当前日期 yyyy-MM-dd */
+    todayStr() {
+      const d = new Date();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return d.getFullYear() + '-' + mm + '-' + dd;
+    },
+    /** 复制头部：M&E yyyy-MM-dd Offer： */
+    withOfferHeader(text) {
+      return 'M&E ' + this.todayStr() + ' Offer：' + '\n' + text;
+    },
+
     /** 构建一键复制文本：料号独占一行，其下记录以制表符缩进分隔，方便粘贴到微信；每组记录首行为英文表头，数量带pcs、价格带USD单位 */
     buildAiQueryCopyText() {
       const lines = [];
@@ -1101,7 +1114,8 @@ export default {
           });
         }
       });
-      return lines.join('\n');
+      if (lines.length === 0) { return '' }
+      return this.withOfferHeader(lines.join('\n'));
     },
     /** 一键复制Offer（AI录入比价弹窗按钮）：按当前比价分组的料号复制最近N天最低报价 */
     submitCopyOffersOfCompare() { this.doCopyOffers(this.aiCompareGroups, 'aiCompareFallbackText') },
@@ -1121,13 +1135,14 @@ export default {
       this.aiCopyLoading = true;
       copyAiQueryOffers({ days: days, partNumbers: partNumbers, extraFields: this.copyExtraFields }).then(res => {
         // 兜底兼容：data为空时尝试从msg取（后端双参重载返回，data恒有值，此分支仅防御性保留）
-        const text = res.data || (res.msg && res.msg !== '操作成功' ? res.msg : '') || '';
-        if (!text) { this.$modal.msgWarning('最近' + days + '天内这些物料没有Offer记录'); return }
+        const raw = res.data || (res.msg && res.msg !== '操作成功' ? res.msg : '') || '';
+        if (!raw) { this.$modal.msgWarning('最近' + days + '天内这些物料没有Offer记录'); return }
+        const text = this.withOfferHeader(raw);
         this.copyToClipboard(text).then(ok => {
           if (ok) {
             this[fallbackField] = '';
             // 首行为表头，条数=总行数-1
-            this.$modal.msgSuccess('已复制 ' + (text.split('\n').length - 1) + ' 条最低报价到剪贴板');
+            this.$modal.msgSuccess('已复制 ' + (text.split('\n').length - 2) + ' 条最低报价到剪贴板');
           } else {
             // 自动复制失败：把完整文本展示在弹窗内供手动复制，保证数据不丢失
             this[fallbackField] = text;

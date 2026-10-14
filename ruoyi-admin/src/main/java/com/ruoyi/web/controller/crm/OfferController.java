@@ -60,12 +60,9 @@ public class OfferController extends BaseController {
     public TableDataInfo list(@ApiParam CrmOffer offer) {
         startPage();
         List<CrmOffer> list = offerService.selectOfferList(offer);
-        // 列表列统一显示供应商编码（库中supplier_name已清洗为编码）；真实名称按数据权限放入 supplierNameReal：
-        // 有权限=供应商表真实名称（查不到时回退编码），无权限=null（前端点击时回退显示编码，不泄露名称）
+        // 列表列统一显示供应商编码（库中supplier_name已清洗为编码）；真实名称由点击事件实时查接口 supplierNameDetail 获取（后端判权限）
         for (CrmOffer o : list) {
-            String real = o.getSupplierName();
             o.setSupplierName(o.getSupplierCode());
-            o.setSupplierNameReal(real == null || "无".equals(real.trim()) ? null : real.trim());
         }
         return getDataTable(list);
     }
@@ -82,6 +79,16 @@ public class OfferController extends BaseController {
     @GetMapping("/todayCopyGroups")
     public AjaxResult todayCopyGroups() {
         return AjaxResult.success(offerService.todayCopyGroups());
+    }
+
+    /**
+     * 供应商名称详情：点击供应商名称列时实时查询（先判数据权限）：
+     * 有权限（admin/manager）返回供应商表真实名称（查不到返回编码），无权限只返回编码，不泄露真实名称
+     */
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @GetMapping("/supplierNameDetail")
+    public AjaxResult supplierNameDetail(@RequestParam("code") String code) {
+        return AjaxResult.success(offerService.supplierNameDetail(code));
     }
 
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")

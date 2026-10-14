@@ -45,8 +45,6 @@ public class CrmOffer extends BaseEntity {
     private String supplierCode;
     @Excel(name = "供应商名称")
     private String supplierName;
-    /** 供应商真实名称（列表点击展示用，不入库）：由后端按数据权限填充，无权限时为null */
-    private String supplierNameReal;
     @Excel(name = "标签1")
     private String tagsFirst;
     @Excel(name = "标签2")

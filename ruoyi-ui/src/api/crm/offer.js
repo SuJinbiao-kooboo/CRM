@@ -56,6 +56,11 @@ export function copyOfferText(days) {
   return request({ url: '/crm/offer/copyOfferText', params: { days: days }, method: 'get', timeout: 30000, silent: true })
 }
 
+// 供应商名称详情：按编码实时查询（后端先判数据权限：有权限返回供应商表真实名称，无权限只返回编码）
+export function getSupplierNameDetail(code) {
+  return request({ url: '/crm/offer/supplierNameDetail', params: { code: code }, method: 'get', timeout: 10000, silent: true })
+}
+
 // 复制Offer（当日料号比价）：后端取当日录入Offer的去重料号并按料号查近1个月历史，返回与AI查询相同的分组结构（前端按价格优势阈值自动勾选）
 // silent: 错误提示由页面自行处理；timeout: 30秒（纯数据库查询，无AI调用）
 export function fetchTodayCopyGroups() {

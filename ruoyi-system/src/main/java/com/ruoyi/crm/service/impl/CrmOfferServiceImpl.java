@@ -4,6 +4,7 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -470,6 +471,30 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             return new ArrayList<>();
         }
         return buildPartNumberGroups(partNumbers);
+    }
+
+    /**
+     * 供应商名称详情（点击列表供应商名称时实时查询）：先判数据权限，
+     * 有权限（admin/manager角色）查询供应商表返回真实名称（查不到或名称为空返回编码），无权限仅返回编码（不泄露真实名称）
+     */
+    @Override
+    public String supplierNameDetail(String code) {
+        if (code == null || code.trim().isEmpty()) {
+            return "";
+        }
+        String c = code.trim();
+        // 无权限：仅返回编码
+        if (!supplierService.isFullAccess()) {
+            return c;
+        }
+        // 有权限：查供应商表真实名称（upper 不区分大小写）；无记录或名称为空回退编码
+        List<CrmSupplier> list = supplierMapper.selectNamesByCodes(Collections.singletonList(c));
+        for (CrmSupplier s : list) {
+            if (s.getSupplierName() != null && !s.getSupplierName().trim().isEmpty()) {
+                return s.getSupplierName().trim();
+            }
+        }
+        return c;
     }
 
     /**

@@ -418,7 +418,7 @@
     </el-dialog>
 
     <!-- 复制Offer（当日料号比价）：取当日录入Offer的去重料号，按料号展示近1个月INQ/OFFER历史（与AI查询一致），有价格优势的料号自动勾选，可勾选追加字段一键复制 -->
-    <el-dialog title="复制Offer（当日料号比价）" :visible.sync="openTodayCopyDialog" width="90%" top="5vh" custom-class="offer-ai-dialog" append-to-body>
+    <el-dialog title="复制Offer（当日料号比价）" :visible.sync="openTodayCopyDialogVisible" width="90%" top="5vh" custom-class="offer-ai-dialog" append-to-body>
       <!-- 复制工具栏（与AI查询共用）：最近1/2/3天取每料号最低Offer价格，默认输出料号/数量/Offer价格，可勾选追加字段 -->
       <div class="copy-toolbar">
         <span class="adv-threshold-wrap">
@@ -630,7 +630,7 @@
 </template>
 
 <script>
-import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, fetchTodayCopyGroups, copyAiQueryOffers } from '@/api/crm/offer'
+import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, fetchTodayCopyGroups, getSupplierNameDetail, copyAiQueryOffers } from '@/api/crm/offer'
 import { listSupplierOptions, listSupplier, listSupplierSimple } from '@/api/crm/supplier'
 import { getDicts } from '@/api/system/dict/data'
 import { getConfigKey } from '@/api/system/config'
@@ -676,7 +676,7 @@ export default {
       priceAdvThreshold: 15,
       aiCopyLoading: false,
       // 复制Offer（当日料号比价）弹窗状态：加载中、分组结果（与AI查询相同结构）、待复制文本、复制失败兜底文本
-      openTodayCopyDialog: false,
+      openTodayCopyDialogVisible: false,
       todayCopyLoading: false,
       todayCopyGroups: [],
       todayCopyCopyText: '',
@@ -1064,7 +1064,7 @@ export default {
     },
     /** 打开复制Offer（当日料号比价）弹窗：打开即自动加载当日Offer去重料号的分组比价数据 */
     openTodayCopyDialog() {
-      this.openTodayCopyDialog = true;
+      this.openTodayCopyDialogVisible = true;
       this.loadTodayCopyGroups();
     },
     /** 加载今日Offer料号比价：后端取当日录入Offer的去重料号并按料号查近1个月历史（分组结构与AI查询一致） */
@@ -1092,11 +1092,16 @@ export default {
     },
     /** 一键复制Offer（复制Offer当日料号比价弹窗按钮）：按当前分组的料号复制最近N天最低报价 */
     submitCopyOffersOfToday() { this.doCopyOffers(this.todayCopyGroups, 'todayCopyFallbackText') },
-    /** 点击供应商名称：有权限弹真实名称（一闪即逝），无权限弹供应商编码（不泄露真实名称） */
+    /** 点击供应商名称：实时查询后端（先判数据权限，有权限返回供应商表真实名称，无权限只返回编码），一闪即逝 */
     showSupplierNameTip(row) {
-      const real = row.supplierNameReal;
-      const show = real ? real : (row.supplierCode || row.supplierName || '');
-      this.$message({ message: show, duration: 1200, showClose: false });
+      const code = row.supplierCode || row.supplierName || '';
+      if (!code) return;
+      getSupplierNameDetail(code).then(res => {
+        const show = (res && res.data != null && res.data !== '') ? res.data : code;
+        this.$message({ message: show, duration: 1200, showClose: false });
+      }).catch(() => {
+        this.$message({ message: code, duration: 1200, showClose: false });
+      })
     },
     /** 通用剪贴板写入：优先 navigator.clipboard API（安全上下文下可靠），
      *  带 3 秒超时兜底（Chrome 在无用户激活的异步回调中 writeText 可能永久 pending 导致界面无反馈），

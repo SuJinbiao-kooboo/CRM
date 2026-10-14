@@ -49,6 +49,12 @@ public interface ICrmOfferService {
     List<Map<String, Object>> todayCopyGroups();
 
     /**
+     * 供应商名称详情（点击列表供应商名称时实时查询）：先判数据权限，
+     * 有权限（admin/manager角色）返回供应商表真实名称（查不到返回编码），无权限仅返回编码（不泄露真实名称）
+     */
+    String supplierNameDetail(String code);
+
+    /**
      * 复制Offer：查询最近days天内的INQ/OFFER记录，按品牌排序、相同料号取成本最低（无价格记录也保留），
      * 组装为"料号 数量(带pcs) 品牌 DC 交期 详情 报价(带USD)"制表符分隔文本返回，首行为英文表头
      * （不输出成本，内容会发给客户）

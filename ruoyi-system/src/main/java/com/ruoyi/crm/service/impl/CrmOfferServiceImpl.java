@@ -486,7 +486,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         String c = code.trim();
         // 无权限：仅返回编码
         if (!supplierService.isFullAccess()) {
-            return c;
+            return "您无权查看";
         }
         // 有权限：查供应商表真实名称（upper 不区分大小写）；无记录或名称为空回退编码
         List<CrmSupplier> list = supplierMapper.selectNamesByCodes(Collections.singletonList(c));
@@ -495,7 +495,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 return s.getSupplierName().trim();
             }
         }
-        return c;
+        return "未找到名称";
     }
 
     /**
@@ -606,6 +606,29 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
     private String str(Object v) {
         return v == null ? "" : String.valueOf(v).trim();
     }
+    /** 产品类型分组值：为空返回空串（不显示"未分类"） */
+    private String typeOf(CrmOffer o) {
+        return str(o.getProductType());
+    }
+
+    /** 品牌分组值：为空返回空串（不显示"未分类"） */
+    private String brandOf(CrmOffer o) {
+        return str(o.getProductBrand());
+    }
+
+    /** 分组标题：类型+品牌均有则"类型-品牌"；仅有一方则只显示该方；均无则不输出标题 */
+    private String groupTitle(String type, String brand) {
+        if (type.isEmpty() && brand.isEmpty()) {
+            return "";
+        }
+        if (type.isEmpty()) {
+            return brand;
+        }
+        if (brand.isEmpty()) {
+            return type;
+        }
+        return type + "-" + brand;
+    }
 
     /**
      * 一键复制Offer（AI录入比价/AI查询共用）：按料号集合精确匹配（upper不区分大小写）查询最近days天内
@@ -652,13 +675,39 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         for (CrmOffer o : list) {
             dedup.putIfAbsent(str(o.getProductCode()).toUpperCase(), o);
         }
-        // 首行英文表头（随勾选字段变化），其后每行一条记录
+        // 首行英文表头（随勾选字段变化），其后按 产品类型-品牌 分组输出（组标题如 SSD-Samsung；类型或品牌为空时不拼接"-"，均为空则不输出标题；类型切换时空一行）
         StringBuilder sb = new StringBuilder("Part No.\tQty\tPrice");
         if (extras.contains("supplierCode")) sb.append("\tSupplier");
         if (extras.contains("productDetail")) sb.append("\tDetail");
         if (extras.contains("deliveryTime")) sb.append("\tDelivery");
         if (extras.contains("dc")) sb.append("\tDC");
-        for (CrmOffer o : dedup.values()) {
+        List<CrmOffer> rows = new ArrayList<>(dedup.values());
+        // 无类型/无品牌的排在最后，避免空分组混在开头
+        rows.sort(Comparator.comparing((CrmOffer o) -> typeOf(o).isEmpty())
+                .thenComparing(this::typeOf)
+                .thenComparing((CrmOffer o) -> brandOf(o).isEmpty())
+                .thenComparing(this::brandOf)
+                .thenComparing(o -> str(o.getProductCode()).toUpperCase()));
+        String prevType = null;
+        String prevGroupKey = null;
+        for (CrmOffer o : rows) {
+            String type = typeOf(o);
+            String brand = brandOf(o);
+            String groupKey = type + "\u0001" + brand;
+            if (!groupKey.equals(prevGroupKey)) {
+                if (prevGroupKey == null) {
+                    sb.append('\n');
+                } else if (type.equals(prevType)) {
+                    sb.append('\n');
+                } else {
+                    sb.append("\n\n");
+                }
+                prevGroupKey = groupKey;
+                String title = groupTitle(type, brand);
+                if (!title.isEmpty()) {
+                    sb.append(title);
+                }
+            }
             sb.append('\n')
                     .append(nvl(o.getProductCode())).append('\t')
                     .append(o.getQuantity() == null ? "" : o.getQuantity() + "pcs").append('\t')
@@ -667,6 +716,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             if (extras.contains("productDetail")) sb.append('\t').append(nvl(o.getProductDetail()));
             if (extras.contains("deliveryTime")) sb.append('\t').append(nvl(o.getDeliveryTime()));
             if (extras.contains("dc")) sb.append('\t').append(nvl(o.getDc()));
+            prevType = type;
         }
         return sb.toString();
     }

@@ -89,7 +89,8 @@ public class OfferController extends BaseController {
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @GetMapping("/supplierNameDetail")
     public AjaxResult supplierNameDetail(@RequestParam("code") String code) {
-        return AjaxResult.success(offerService.supplierNameDetail(code));
+        // 注意：返回String必须用双参重载，单参success(String)会把文本塞进msg导致前端取不到data
+        return AjaxResult.success("操作成功", offerService.supplierNameDetail(code));
     }
 
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="app-container">
     <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" label-width="88px">
       <el-form-item label="产品编码" prop="productCode">
@@ -1098,7 +1098,7 @@ export default {
       if (!code) return;
       getSupplierNameDetail(code).then(res => {
         const show = (res && res.data != null && res.data !== '') ? res.data : '查询失败';
-        this.$message({ message: show, duration: 1200, showClose: false });
+        this.$message({ message: show, duration: 1200, showClose: false, type: 'success' });
       }).catch(() => {
         this.$message({ message: '查询失败', duration: 1200, showClose: false });
       })
@@ -1187,8 +1187,8 @@ export default {
         this.copyToClipboard(text).then(ok => {
           if (ok) {
             this[fallbackField] = '';
-            // 首行为表头，条数=总行数-1
-            this.$modal.msgSuccess('已复制 ' + (text.split('\n').length - 2) + ' 条最低报价到剪贴板');
+            // 数据行均含制表符（组标题/空行不含），减去首行表头即数据条数
+            this.$modal.msgSuccess('已复制 ' + Math.max(0, text.split('\n').filter(l => l.indexOf('\t') >= 0).length - 1) + ' 条最低报价到剪贴板');
           } else {
             // 自动复制失败：把完整文本展示在弹窗内供手动复制，保证数据不丢失
             this[fallbackField] = text;

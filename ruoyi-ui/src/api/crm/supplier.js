@@ -20,6 +20,16 @@ export function updateSupplier(data) {
   return request({ url: '/crm/supplier', method: 'put', data: data })
 }
 
+// 行内编辑某个联系人字段：按联系人 id 更新（联系人姓名/手机号/邮箱/Teams/WhatsApp 等）
+export function updateSupplierContact(data) {
+  return request({ url: '/crm/supplier/contact', method: 'put', data: data })
+}
+
+// 写跟进：仅更新上次/下次跟进时间与结论/目标（列表"写跟进"弹窗提交）
+export function updateSupplierFollowUp(data) {
+  return request({ url: '/crm/supplier/followUp', method: 'put', data: data })
+}
+
 export function delSupplier(id) {
   return request({ url: '/crm/supplier/' + id, method: 'delete' })
 }
@@ -34,6 +44,11 @@ export function listSupplierOptions(query) {
 
 export function listSupplierSimple(query) {
   return request({ url: '/crm/supplier/simpleList', method: 'get', params: query })
+}
+
+// 跟进人选择数据源：当前系统启用用户（存登录名userName，显示昵称nickName）
+export function listSupplierUsers(query) {
+  return request({ url: '/crm/supplier/userOptions', method: 'get', params: query })
 }
 
 // 删除供应商附件（软删除，仅标记删除不物理删除）

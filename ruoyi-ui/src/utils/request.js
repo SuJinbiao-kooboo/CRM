@@ -117,7 +117,10 @@ service.interceptors.response.use(res => {
     } else if (message.includes("Request failed with status code")) {
       message = "系统接口" + message.substr(message.length - 3) + "异常"
     }
-    Message({ message: message, type: 'error', duration: 5 * 1000 })
+    // 标记为silent的请求不弹全局提示，由业务代码自行处理（如AI录入的长耗时请求超时提示）
+    if (!(error.config && error.config.silent)) {
+      Message({ message: message, type: 'error', duration: 5 * 1000 })
+    }
     return Promise.reject(error)
   }
 )

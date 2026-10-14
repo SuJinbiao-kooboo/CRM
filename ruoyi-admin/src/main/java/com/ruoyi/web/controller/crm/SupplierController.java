@@ -1,6 +1,7 @@
 package com.ruoyi.web.controller.crm;
 
 import java.util.List;
+import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 
 import com.ruoyi.crm.domain.dto.CrmSupplierVO;
@@ -23,6 +24,7 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.crm.domain.CrmSupplier;
+import com.ruoyi.crm.domain.CrmSupplierContact;
 import com.ruoyi.crm.service.ICrmSupplierService;
 
 @RestController
@@ -99,11 +101,47 @@ public class SupplierController extends BaseController {
         return toAjax(supplierService.updateSupplier(supplier));
     }
 
+    /**
+     * 写跟进：仅更新上次/下次跟进时间与结论/目标（列表操作列"写跟进"弹窗入口）
+     * 数据权限由 service 复用详情查询校验：非管理员/超级管理员仅能跟进人包含自己的供应商
+     */
+    @PreAuthorize("@ss.hasPermi('crm:supplier:edit')")
+    @Log(title = "供应商管理", businessType = BusinessType.UPDATE)
+    @PutMapping("/followUp")
+    public AjaxResult followUp(@RequestBody CrmSupplier supplier) {
+        if (supplier.getId() == null) {
+            return error("供应商ID不能为空");
+        }
+        supplier.setUpdateBy(SecurityUtils.getUsername());
+        return toAjax(supplierService.updateSupplierFollowUp(supplier));
+    }
+
+    /**
+     * 行内编辑某个联系人字段：按联系人 id 更新传入的非空字段（联系人姓名/手机号/邮箱/Teams/WhatsApp 等）
+     */
+    @PreAuthorize("@ss.hasPermi('crm:supplier:edit')")
+    @Log(title = "供应商管理", businessType = BusinessType.UPDATE)
+    @PutMapping("/contact")
+    public AjaxResult editContact(@RequestBody CrmSupplierContact contact) {
+        contact.setUpdateBy(SecurityUtils.getUsername());
+        return toAjax(supplierService.updateSupplierContact(contact));
+    }
+
     @PreAuthorize("@ss.hasPermi('crm:supplier:list')")
     @GetMapping("/options")
     public AjaxResult options(CrmSupplier supplier) {
         List<CrmSupplier> crmSuppliers = supplierService.selectSupplierOptions(supplier);
         return AjaxResult.success(crmSuppliers);
+    }
+
+    /**
+     * 跟进人选择数据源：当前系统启用用户（存登录名userName，显示昵称nickName）
+     */
+    @PreAuthorize("@ss.hasPermi('crm:supplier:list')")
+    @GetMapping("/userOptions")
+    public AjaxResult userOptions(@RequestParam(value = "keyword", required = false) String keyword) {
+        List<Map<String, Object>> users = supplierService.selectUserOptions(keyword);
+        return AjaxResult.success(users);
     }
 
     @PreAuthorize("@ss.hasPermi('crm:supplier:remove')")

@@ -26,15 +26,20 @@ public class CrmSupplierSendOfferServiceImpl implements ICrmSupplierSendOfferSer
     @Autowired
     private ISysDictDataService dictDataService;
 
+    /**
+     * 获取收件人列表并写入发送任务表（发送模式由前端弹窗单选决定，不再依赖字典 email_test_date 日期开关）
+     *
+     * @param testSend true=测试发送（仅发到字典 email_test_account 配置的测试邮箱）；false=正式发送（订阅邮箱+供应商邮箱）
+     */
     @Override
-    public List<String> listToOfferEmail() {
+    public List<String> listToOfferEmail(boolean testSend) {
         List<String> contactList = new ArrayList<>();
-        String emailAccount = dictDataService.selectDictLabel("crm_email_template_dict", "email_test_date");
-        // 字典里面的这个要设置成当前日期，才是发送正式Offer，否则都是测试Offer
-        if(DateUtil.today().equals(emailAccount)){
-            fillContactList(contactList);
-        }else{
+        if (testSend) {
+            // 测试发送：只发到测试邮箱，避免打扰正式收件人
             contactList.add(dictDataService.selectDictLabel("crm_email_template_dict", "email_test_account"));
+        } else {
+            // 正式发送：订阅邮箱列表 + 允许推送的供应商邮箱
+            fillContactList(contactList);
         }
 
         contactList = contactList.stream().filter(StrUtil::isNotEmpty).collect(Collectors.toList());

@@ -25,6 +25,6 @@ public class CrmOfferExportDTO extends BaseEntity {
     @Excel(name = "DC")
     private String dc;
 
-    @Excel(name = "供应商名称")
+    @Excel(name = "供应商编号")
     private String supplierName;
 }

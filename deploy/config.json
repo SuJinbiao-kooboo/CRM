@@ -1,0 +1,18 @@
+{
+  "server": {
+    "host": "114.132.93.127",
+    "port": 22,
+    "user": "root"
+  },
+  "paths": {
+    "remoteDist": "/opt/soft/crm/ruoyi-ui/dist",
+    "remoteJar": "/opt/soft/crm/ruoyi-admin.jar",
+    "nginxConf": "/etc/nginx/conf.d/crm.conf",
+    "serviceName": "ruoyi-admin"
+  },
+  "web": {
+    "port": 80,
+    "backendPort": 8081,
+    "basePath": "/prod-api"
+  }
+}

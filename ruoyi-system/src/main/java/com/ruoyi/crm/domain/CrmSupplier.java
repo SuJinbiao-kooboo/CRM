@@ -3,6 +3,7 @@ package com.ruoyi.crm.domain;
 import java.util.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -40,6 +41,12 @@ public class CrmSupplier extends BaseEntity {
     private String riskLevel;
     @Excel(name = "付款条件")
     private String paymentTerms;
+    @Excel(name = "合作方向")
+    private String cooperationDirection;
+    @Excel(name = "销售群")
+    private String salesGroup;
+    @Excel(name = "采购群")
+    private String purchaseGroup;
     @Excel(name = "合作状态")
     private String cooperationStatus;
     @Excel(name = "营业执照号")
@@ -64,6 +71,8 @@ public class CrmSupplier extends BaseEntity {
     private Integer status;
     @Excel(name = "跟进人")
     private String followUpBy;
+    /** 跟进人显示名称（昵称，逗号分隔，查询时由登录名解析，仅用于列表/详情展示） */
+    private String followUpByNames;
     private String createBy;
     private Date createTime;
     private String updateBy;
@@ -76,6 +85,19 @@ public class CrmSupplier extends BaseEntity {
     private String tagsThird;
     @Excel(name = "标签4")
     private String tagsSi;
+
+    @Excel(name = "上次跟进时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    private Date lastFollowUpTime;
+    /** 上次跟进结论（富文本 HTML，列表展示时前端剥标签为纯文本） */
+    @Excel(name = "上次跟进结论")
+    private String lastFollowUpResult;
+    @Excel(name = "下次跟进时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    private Date nextFollowUpTime;
+    /** 下次跟进目标（富文本 HTML，列表展示时前端剥标签为纯文本） */
+    @Excel(name = "下次跟进目标")
+    private String nextFollowUpGoal;
 
     private List<CrmSupplierContact> contacts;
     private List<CrmAttachment> attachments;

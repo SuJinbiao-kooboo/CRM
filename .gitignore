@@ -41,6 +41,11 @@ nbdist/
 *.xml.versionsBackup
 *.swp
 
+######################################################################
+# Deploy tooling (deploy/)
+/deploy/node_modules/
+/deploy/config.local.json
+
 !*/build/*.java
 !*/build/*.html
 !*/build/*.xml
@@ -49,3 +54,20 @@ nbdist/
 # DB Inspector tool runtime artifacts
 /tools/db-inspector/classes/
 /tools/db-inspector/db_schema.txt
+
+# 调试临时目录(不入库)
+tmp/
+# Word 打开时产生的锁文件(不入库)
+doc/~$*.docx
+
+# 临时探查目录（一次性）
+tools/lark-sdk-inspect/
+
+######################################################################
+# 飞书/微信机器人运行期产物与本地辅助文件(不入库)
+wechat-gateway/_javac_check/
+feishu-output/
+start_project.ps1
+*.class
+__pycache__/
+*.pyc

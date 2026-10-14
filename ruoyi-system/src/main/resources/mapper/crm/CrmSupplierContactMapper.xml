@@ -45,5 +45,25 @@
         delete from crm_supplier_contact where supplier_id = #{supplierId}
     </delete>
 
+    <update id="updateContact" parameterType="com.ruoyi.crm.domain.CrmSupplierContact">
+        update crm_supplier_contact
+        <set>
+            <if test="contactName != null">contact_name = #{contactName},</if>
+            <if test="post != null">post = #{post},</if>
+            <if test="position != null">position = #{position},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="whatsapp != null">whatsapp = #{whatsapp},</if>
+            <if test="wechat != null">wechat = #{wechat},</if>
+            <if test="teams != null">qq = #{teams},</if>
+            <if test="otherContactFirst != null">other_contact_first = #{otherContactFirst},</if>
+            <if test="otherContactSecond != null">other_contact_second = #{otherContactSecond},</if>
+            <if test="remarkFirst != null">remark_first = #{remarkFirst},</if>
+            <if test="remarkSecond != null">remark_second = #{remarkSecond},</if>
+            update_time = now()
+        </set>
+        where id = #{id}
+    </update>
+
 </mapper>
 

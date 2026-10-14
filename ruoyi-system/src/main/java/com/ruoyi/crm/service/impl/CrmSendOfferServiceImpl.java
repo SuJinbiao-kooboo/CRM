@@ -28,6 +28,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,6 +40,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -293,6 +295,9 @@ public class CrmSendOfferServiceImpl implements ICrmSendOfferService {
     }
 
     private String buildHtmlTable(List<String> addrs, List<CrmOfferImportDTO> offers) {
+        if(CollectionUtils.isEmpty(offers)){
+            throw new RuntimeException("当前无Offer可发送");
+        }
         java.util.List<java.lang.reflect.Field> fields = new java.util.ArrayList<>();
         for (java.lang.reflect.Field f : offers.get(0).getClass().getDeclaredFields()) {
             fields.add(f);

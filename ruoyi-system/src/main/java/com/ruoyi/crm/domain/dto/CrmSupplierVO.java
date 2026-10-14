@@ -4,6 +4,7 @@ import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
 import com.ruoyi.crm.domain.CrmAttachment;
 import com.ruoyi.crm.domain.CrmSupplierContact;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.util.Date;
@@ -39,6 +40,12 @@ public class CrmSupplierVO extends BaseEntity {
     private String riskLevel;
     @Excel(name = "付款条件")
     private String paymentTerms;
+    @Excel(name = "合作方向")
+    private String cooperationDirection;
+    @Excel(name = "销售群")
+    private String salesGroup;
+    @Excel(name = "采购群")
+    private String purchaseGroup;
     @Excel(name = "合作状态")
     private String cooperationStatus;
     @Excel(name = "营业执照号")
@@ -61,8 +68,11 @@ public class CrmSupplierVO extends BaseEntity {
     private String remarkSecond;
     @Excel(name = "状态", readConverterExp = "1=正常,0=停用")
     private Integer status;
-    @Excel(name = "跟进人")
+    /** 跟进人登录名（逗号分隔，存储格式，登录名全局唯一） */
     private String followUpBy;
+    /** 跟进人显示名称（昵称，逗号分隔，查询时由登录名解析） */
+    @Excel(name = "跟进人")
+    private String followUpByNames;
     private String createBy;
     private Date createTime;
     private String updateBy;
@@ -76,10 +86,24 @@ public class CrmSupplierVO extends BaseEntity {
     @Excel(name = "标签4")
     private String tagsSi;
 
+    @Excel(name = "上次跟进时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    private Date lastFollowUpTime;
+    /** 上次跟进结论（富文本 HTML，列表展示时前端剥标签为纯文本） */
+    @Excel(name = "上次跟进结论")
+    private String lastFollowUpResult;
+    @Excel(name = "下次跟进时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    private Date nextFollowUpTime;
+    /** 下次跟进目标（富文本 HTML，列表展示时前端剥标签为纯文本） */
+    @Excel(name = "下次跟进目标")
+    private String nextFollowUpGoal;
+
     private List<CrmSupplierContact> contacts;
     private List<CrmAttachment> attachments;
 
     @Excel(name = "联系人姓名")
+    private Long contactId;
     private String contactName;
     @Excel(name = "联系人岗位")
     private String post;

@@ -1,6 +1,10 @@
 <template>
   <div class="app-container">
     <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" label-width="88px">
+      <!-- 快捷筛选：供应商编码，置于第一个位置 -->
+      <el-form-item label="供应商编码">
+        <el-input v-model="queryParams.supplierCode" placeholder="请输入供应商编码" clearable @keyup.enter.native="handleQuery" />
+      </el-form-item>
       <el-form-item label="类型">
         <el-select v-model="queryParams.supplierTypeArr" multiple collapse-tags filterable placeholder="请选择">
           <el-option v-for="d in dictSupplierType" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
@@ -55,7 +59,11 @@
         <el-button icon="el-icon-refresh" size="mini" @click="resetQuery">重置</el-button>
         <el-button type="text" size="mini" @click="showMoreQuery = true">更多查询</el-button>
       </el-form-item>
-      <right-toolbar :showSearch.sync="showSearch" @queryTable="getList"></right-toolbar>
+      <right-toolbar :showSearch.sync="showSearch" @queryTable="getList">
+        <el-tooltip class="item" effect="dark" content="自定义列" placement="top">
+          <el-button size="mini" circle icon="el-icon-s-operation" @click="openColumnDialog" style="margin-left: 12px" />
+        </el-tooltip>
+      </right-toolbar>
     </el-form>
 
     <el-dialog title="更多查询" :visible.sync="showMoreQuery" width="600px" append-to-body>
@@ -136,7 +144,7 @@
           <el-descriptions-item label="风险等级">{{ detailData.riskLevel }}</el-descriptions-item>
           <el-descriptions-item label="付款条件">{{ detailData.paymentTerms }}</el-descriptions-item>
           <el-descriptions-item label="合作状态">{{ detailData.cooperationStatus }}</el-descriptions-item>
-          <el-descriptions-item label="跟进人">{{ detailData.followUpBy }}</el-descriptions-item>
+          <el-descriptions-item label="跟进人">{{ detailData.followUpByNames || detailData.followUpBy }}</el-descriptions-item>
           <el-descriptions-item label="状态">{{ detailData.status === 1 ? '正常' : '停用' }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ parseTime(detailData.createTime) }}</el-descriptions-item>
           <el-descriptions-item label="更新时间">{{ parseTime(detailData.updateTime) }}</el-descriptions-item>
@@ -230,48 +238,117 @@
       </el-col>
     </el-row>
 
-    <el-table v-loading="loading" :data="supplierList" @selection-change="handleSelectionChange">
+    <!-- :key=columnVersion：列顺序/显隐变化时强制重建表格，规避 element-ui 动态列调整后整列内容空白/错位的渲染不同步问题 -->
+    <el-table v-loading="loading" :key="columnVersion" :data="supplierList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="供应商名称" align="center" prop="supplierName">
+      <!-- 数据列由"自定义列"弹窗控制显隐/顺序（配置存 localStorage）；富文本字段经 enrichRows 剥标签为纯文本后展示 -->
+      <el-table-column v-for="col in renderColumns" :key="col.key" :label="col.label" align="center"
+                       :prop="col.textProp || col.prop" :width="col.width">
+        <!-- 注意：多个并列 template（v-if/v-else-if/v-else + slot-scope）在 Vue 2.6 编译时仅保留首个 v-if 分支，
+             其余分支被静默丢弃，导致除供应商名称外的所有列恒为空；必须在单个 template 内用元素级 v-if 分支渲染 -->
         <template slot-scope="scope">
-          <el-link type="primary" @click="openDetail(scope.row)">{{ scope.row.supplierName }}</el-link>
-        </template>
-      </el-table-column>
-      <el-table-column label="公司别名" align="center" prop="supplierAlias" show-overflow-tooltip />
-      <el-table-column label="类型" align="center" prop="supplierType" />
-      <el-table-column label="品牌" align="center" prop="brands" />
-      <el-table-column label="国家" align="center" prop="country" />
-      <el-table-column label="主营产品" align="center" prop="mainProducts" />
-      <el-table-column label="合作等级" align="center" prop="cooperationLevel" />
-      <el-table-column label="风险等级" align="center" prop="riskLevel" />
-      <el-table-column label="付款条件" align="center" prop="paymentTerms" />
-      <el-table-column label="合作状态" align="center" prop="cooperationStatus">
-        <template slot-scope="scope">
-          <el-select v-model="scope.row.cooperationStatus" placeholder="请选择" size="mini" @change="updateCooperationStatus(scope.row)">
+          <!-- 可编辑列：展示态（右上角铅笔进入编辑）↔ 编辑态（文本框/多选下拉/日期选择） -->
+          <div v-if="isEditable(col)" :data-edit="cellKey(scope.row, col)" :class="col.editType === 'multiSelect' || col.editType === 'userMulti' || col.editType === 'select' || col.editType === 'datetime' ? 'multiselect-cell' : 'inlinetext-cell'">
+            <template v-if="isEditing(scope.row, col)">
+              <el-select v-if="col.editType === 'multiSelect'" v-model="scope.row[col.arrProp]" multiple filterable size="mini" placeholder="请选择" @change="updateInlineMulti(scope.row, col)" @blur="exitEdit(scope.row, col)">
+                <el-option v-for="d in dictOptions(col)" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+              </el-select>
+              <el-select v-else-if="col.editType === 'userMulti'" v-model="scope.row[col.arrProp]" multiple filterable remote reserve-keyword size="mini" placeholder="请选择跟进人" :remote-method="remoteUsers" :loading="userLoading" @focus="remoteUsers('')" @change="commitInlineUserMulti(scope.row, col)" @blur="exitEdit(scope.row, col)">
+                <el-option v-for="u in userOptions" :key="u.userId" :label="u.nickName" :value="u.userName" />
+              </el-select>
+              <el-select v-else-if="col.editType === 'select'" v-model="editValue" size="mini" placeholder="请选择" @change="commitInlineSingle(scope.row, col)" @blur="exitEdit(scope.row, col)">
+                <el-option v-for="(lab, val) in col.selectOptions" :key="val" :label="lab" :value="Number(val)" />
+              </el-select>
+              <el-date-picker v-else-if="col.editType === 'datetime'" v-model="editValue" type="datetime" size="mini" placeholder="选择日期时间" format="yyyy-MM-dd HH:mm:ss" value-format="yyyy-MM-dd HH:mm:ss" @change="commitInlineSingle(scope.row, col)" @blur="exitEdit(scope.row, col)" />
+              <el-input v-else v-model="editValue" size="mini" @keyup.enter.native="commitInlineText(scope.row, col)" @blur="commitInlineText(scope.row, col)" />
+            </template>
+            <template v-else>
+              <el-link v-if="col.type === 'link'" type="primary" @click="openDetail(scope.row)">{{ scope.row[col.prop] }}</el-link>
+              <template v-else>
+                <div class="cell-body" @click.stop="enterEdit(scope.row, col)">
+                  <el-tag v-if="col.type === 'statusTag'" :type="scope.row[col.prop] === 1 ? 'success' : 'danger'">{{ scope.row[col.prop] === 1 ? '正常' : '停用' }}</el-tag>
+                  <template v-else-if="col.editType === 'multiSelect'">
+                    <el-tag v-for="(v, i) in (scope.row[col.arrProp] || [])" :key="i" size="mini" class="cell-tag">{{ labelOf(col, v) }}</el-tag>
+                    <span v-if="!(scope.row[col.arrProp] || []).length" class="cell-empty">-</span>
+                  </template>
+                  <span v-else-if="col.type === 'datetime'">{{ parseTime(scope.row[col.prop]) }}</span>
+                  <span v-else class="inline-text">{{ scope.row[col.textProp || col.prop] }}</span>
+                </div>
+                <i class="el-icon-edit cell-edit-icon" title="编辑" @click.stop="enterEdit(scope.row, col)"></i>
+              </template>
+            </template>
+          </div>
+          <!-- 创建/更新时间等系统时间、合作状态、供应商编码、联系人等只读列的兜底渲染 -->
+          <span v-else-if="col.type === 'datetime'">{{ parseTime(scope.row[col.prop]) }}</span>
+          <el-select v-else-if="col.type === 'statusSelect'" v-model="scope.row.cooperationStatus" placeholder="请选择" size="mini" @change="updateCooperationStatus(scope.row)">
             <el-option v-for="d in dictCooperationStatus" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
           </el-select>
+          <el-tag v-else-if="col.type === 'statusTag'" :type="scope.row.status === 1 ? 'success' : 'danger'">{{ scope.row.status === 1 ? '正常' : '停用' }}</el-tag>
+          <span v-else class="cell-text-ellipsis" :title="String(scope.row[col.textProp || col.prop] || '')">{{ scope.row[col.textProp || col.prop] }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="跟进人" align="center" prop="followUpBy" />
-      <el-table-column label="联系人" align="center" prop="contactName" width="200" />
-      <el-table-column label="手机号" align="center" prop="phone" width="200" />
-      <el-table-column label="邮箱" align="center" prop="email" width="240" />
-      <el-table-column label="Teams" align="center" prop="teams" width="200" />
-      <el-table-column label="WhatsApp" align="center" prop="whatsapp" width="200" />
-      <el-table-column label="创建时间" align="center" prop="createTime" width="180">
-        <template slot-scope="scope">
-          <span>{{ parseTime(scope.row.createTime) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+      <!-- 操作列（不固定）：跟随表格横向滚动 -->
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="210">
         <template slot-scope="scope">
           <el-button size="mini" type="text" icon="el-icon-edit" @click="handleUpdate(scope.row)" v-hasPermi="['crm:supplier:edit']">修改</el-button>
+          <el-button size="mini" type="text" icon="el-icon-message" @click="openFollowDialog(scope.row)" v-hasPermi="['crm:supplier:edit']">写跟进</el-button>
           <el-button size="mini" type="text" icon="el-icon-delete" @click="handleDelete(scope.row)" v-hasPermi="['crm:supplier:remove']">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <pagination v-show="total>0" :total="total" :page.sync="queryParams.pageNum" :limit.sync="queryParams.pageSize" :page-sizes="[10,20,50,100,200,300,500]" layout="total, sizes, prev, pager, next, jumper" @pagination="getList" />
+
+    <!-- 自定义列弹窗：控制列表字段显示/隐藏与顺序（改动即时生效并持久化到 localStorage） -->
+    <el-dialog title="自定义列" :visible.sync="columnDialogOpen" width="480px" append-to-body>
+      <div class="column-config-tip">勾选控制显示，箭头调整列顺序，改动即时生效</div>
+      <div class="column-config-toolbar">
+        <el-button type="text" size="mini" icon="el-icon-circle-check" @click="toggleColumnVisible(true)">全部显示</el-button>
+        <el-button type="text" size="mini" icon="el-icon-circle-close" @click="toggleColumnVisible(false)">全部隐藏</el-button>
+        <el-button type="text" size="mini" icon="el-icon-refresh-left" @click="resetColumns">恢复默认</el-button>
+      </div>
+      <div class="column-config-list">
+        <div v-for="(col, index) in tableColumns" :key="col.key" class="column-config-item">
+          <el-checkbox v-model="col.visible" @change="saveColumnConfig">{{ col.label }}</el-checkbox>
+          <span>
+            <el-button type="text" size="mini" icon="el-icon-top" title="前移" :disabled="index === 0" @click="moveColumn(index, -1)" />
+            <el-button type="text" size="mini" icon="el-icon-bottom" title="后移" :disabled="index === tableColumns.length - 1" @click="moveColumn(index, 1)" />
+          </span>
+        </div>
+      </div>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" @click="columnDialogOpen = false">完 成</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 写跟进弹窗：维护上次/下次跟进时间与结论/目标（富文本），仅更新跟进字段不影响其它供应商资料 -->
+    <el-dialog :title="'写跟进 - ' + followForm.supplierName" :visible.sync="followOpen" width="880px" append-to-body :close-on-click-modal="false">
+      <el-form :model="followForm" label-width="120px">
+        <el-row :gutter="10">
+          <el-col :span="12">
+            <el-form-item label="上次跟进时间">
+              <el-date-picker v-model="followForm.lastFollowUpTime" type="datetime" value-format="yyyy-MM-dd HH:mm:ss" placeholder="选择上次跟进时间（可清空）" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="下次跟进时间">
+              <el-date-picker v-model="followForm.nextFollowUpTime" type="datetime" value-format="yyyy-MM-dd HH:mm:ss" placeholder="选择下次跟进时间（可清空）" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="上次跟进结论">
+          <!-- v-if 挂载时机与弹窗同步，避免富文本编辑器实例残留 -->
+          <Editor v-if="followOpen" v-model="followForm.lastFollowUpResult" :minHeight="150" />
+        </el-form-item>
+        <el-form-item label="下次跟进目标">
+          <Editor v-if="followOpen" v-model="followForm.nextFollowUpGoal" :minHeight="150" />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" :loading="followLoading" @click="submitFollow">保 存</el-button>
+        <el-button @click="followOpen = false">取 消</el-button>
+      </div>
+    </el-dialog>
 
     <el-dialog :title="title" :visible.sync="open" width="900px" append-to-body>
       <el-form ref="form" :model="form" label-width="120px">
@@ -284,7 +361,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="供应商编号" prop="supplierCode">
-              <el-input v-model="form.supplierCode" placeholder="请输入供应商编号" />
+              <el-input v-model="form.supplierCode" placeholder="保存时自动生成（VC+月日+随机3位）" disabled />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -295,6 +372,13 @@
           <el-col :span="12">
             <el-form-item label="公司别名" prop="supplierAlias">
               <el-input v-model="form.supplierAlias" placeholder="请输入公司别名" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="跟进人" prop="followUpByArr">
+              <el-select v-model="form.followUpByArr" multiple collapse-tags filterable remote reserve-keyword placeholder="请选择跟进人" :remote-method="remoteUsers" :loading="userLoading" @focus="remoteUsers('')">
+                <el-option v-for="u in userOptions" :key="u.userId" :label="u.nickName" :value="u.userName" />
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -352,6 +436,23 @@
               <el-select v-model="form.paymentTermsArr" multiple collapse-tags filterable placeholder="请选择付款条件">
                 <el-option v-for="d in dictPaymentTerms" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
               </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="合作方向" prop="cooperationDirection">
+              <el-select v-model="form.cooperationDirectionArr" multiple collapse-tags filterable placeholder="请选择合作方向">
+                <el-option v-for="d in dictCooperationDirection" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="销售群" prop="salesGroup">
+              <el-input v-model="form.salesGroup" placeholder="多个群名请用逗号分隔" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="采购群" prop="purchaseGroup">
+              <el-input v-model="form.purchaseGroup" placeholder="多个群名请用逗号分隔" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -429,13 +530,6 @@
           <el-col :span="12">
             <el-form-item label="状态" prop="status">
               <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="跟进人" prop="followUpBy">
-              <el-select v-model="form.followUpBy" filterable remote reserve-keyword placeholder="选择跟进人" :remote-method="remoteUsers" value-key="userName">
-                <el-option v-for="u in userOptions" :key="u.userId" :label="u.userName" :value="u.userName" />
-              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
@@ -546,11 +640,92 @@
 </template>
 
 <script>
-import { listSupplier, getSupplier, addSupplier, updateSupplier, delSupplier, getSupplierDetail, delSupplierAttachment } from '@/api/crm/supplier'
+import { listSupplier, getSupplier, addSupplier, updateSupplier, updateSupplierContact, updateSupplierFollowUp, delSupplier, getSupplierDetail, delSupplierAttachment, listSupplierUsers } from '@/api/crm/supplier'
 import request from '@/utils/request'
-import { listUser } from '@/api/system/user'
 import { getDicts } from '@/api/system/dict/data'
 import { getToken } from '@/utils/auth'
+
+// 供应商列表可选字段全集：key 唯一；type 决定渲染方式：
+// plain=纯文本 / html=富文本(列表剥标签展示纯文本，textProp 为预处理后字段) / datetime=时间格式化 / link=供应商名称链接 / statusSelect=行内合作状态下拉 / statusTag=启停标签
+// editType=text 单行文本行内编辑；editType=multiSelect 多选下拉行内编辑（需配 arrProp+dict）；无 editType 的列为纯展示（供应商编码、联系人信息、时间等）
+// 默认全部显示；显示与顺序由右上角"自定义列"弹窗调整，配置持久化到 localStorage（按浏览器生效）
+const DEFAULT_COLUMNS = [
+  { key: 'supplierCode', label: '供应商编码', prop: 'supplierCode', width: 150, type: 'plain' },
+  { key: 'supplierName', label: '供应商名称', prop: 'supplierName', width: 220, type: 'link', editType: 'text' },
+  { key: 'supplierShortName', label: '供应商简称', prop: 'supplierShortName', width: 120, type: 'inlineText', editType: 'text' },
+  { key: 'supplierAlias', label: '公司别名', prop: 'supplierAlias', width: 140, type: 'inlineText', editType: 'text' },
+  { key: 'supplierType', label: '类型', prop: 'supplierType', width: 130, type: 'multiSelect', editType: 'multiSelect', arrProp: 'supplierTypeArr', dict: 'dictSupplierType' },
+  { key: 'brands', label: '品牌', prop: 'brands', width: 190, type: 'multiSelect', editType: 'multiSelect', arrProp: 'brandsArr', dict: 'dictProductBrand' },
+  { key: 'country', label: '国家', prop: 'country', width: 90, type: 'plain', editType: 'text' },
+  { key: 'followUpByNames', label: '跟进人', prop: 'followUpByNames', saveProp: 'followUpBy', arrProp: 'followUpByArr', width: 140, type: 'plain', editType: 'userMulti' },
+  { key: 'lastFollowUpTime', label: '上次跟进时间', prop: 'lastFollowUpTime', width: 160, type: 'datetime', editType: 'datetime' },
+  { key: 'lastFollowUpResult', label: '上次跟进结论', prop: 'lastFollowUpResult', textProp: 'textLastFollowUpResult', width: 220, type: 'html', editType: 'text' },
+  { key: 'nextFollowUpTime', label: '下次跟进时间', prop: 'nextFollowUpTime', width: 160, type: 'datetime', editType: 'datetime' },
+  { key: 'nextFollowUpGoal', label: '下次跟进目标', prop: 'nextFollowUpGoal', textProp: 'textNextFollowUpGoal', width: 220, type: 'html', editType: 'text' },
+  { key: 'mainProducts', label: '主营产品', prop: 'mainProducts', width: 170, type: 'multiSelect', editType: 'multiSelect', arrProp: 'mainProductsArr', dict: 'dictMainProducts' },
+  { key: 'cooperationLevel', label: '合作等级', prop: 'cooperationLevel', width: 110, type: 'multiSelect', editType: 'multiSelect', arrProp: 'cooperationLevelArr', dict: 'dictCooperationLevel' },
+  { key: 'riskLevel', label: '风险等级', prop: 'riskLevel', width: 110, type: 'multiSelect', editType: 'multiSelect', arrProp: 'riskLevelArr', dict: 'dictRiskLevel' },
+  { key: 'paymentTerms', label: '付款条件', prop: 'paymentTerms', width: 130, type: 'multiSelect', editType: 'multiSelect', arrProp: 'paymentTermsArr', dict: 'dictPaymentTerms' },
+  { key: 'cooperationDirection', label: '合作方向', prop: 'cooperationDirection', width: 190, type: 'multiSelect', editType: 'multiSelect', arrProp: 'cooperationDirectionArr', dict: 'dictCooperationDirection' },
+  { key: 'salesGroup', label: '销售群', prop: 'salesGroup', width: 160, type: 'plain', editType: 'text' },
+  { key: 'purchaseGroup', label: '采购群', prop: 'purchaseGroup', width: 160, type: 'plain', editType: 'text' },
+  { key: 'cooperationStatus', label: '合作状态', prop: 'cooperationStatus', width: 140, type: 'statusSelect' },
+  { key: 'businessLicense', label: '营业执照号', prop: 'businessLicense', width: 150, type: 'plain', editType: 'text' },
+  { key: 'taxNumber', label: '税号', prop: 'taxNumber', width: 130, type: 'plain', editType: 'text' },
+  { key: 'contactName', label: '联系人', prop: 'contactName', width: 110, type: 'plain', editType: 'text', contactField: true },
+  { key: 'phone', label: '手机号', prop: 'phone', width: 130, type: 'plain', editType: 'text', contactField: true },
+  { key: 'email', label: '邮箱', prop: 'email', width: 190, type: 'plain', editType: 'text', contactField: true },
+  { key: 'teams', label: 'Teams', prop: 'teams', width: 120, type: 'plain', editType: 'text', contactField: true },
+  { key: 'whatsapp', label: 'WhatsApp', prop: 'whatsapp', width: 130, type: 'plain', editType: 'text', contactField: true },
+  { key: 'tagsFirst', label: '标签1', prop: 'tagsFirst', width: 100, type: 'multiSelect', editType: 'multiSelect', arrProp: 'tagsFirstArr', dict: 'dictTagsFirst' },
+  { key: 'tagsSecond', label: '标签2', prop: 'tagsSecond', width: 100, type: 'multiSelect', editType: 'multiSelect', arrProp: 'tagsSecondArr', dict: 'dictTagsSecond' },
+  { key: 'tagsThird', label: '标签3', prop: 'tagsThird', width: 100, type: 'multiSelect', editType: 'multiSelect', arrProp: 'tagsThirdArr', dict: 'dictTagsThird' },
+  { key: 'tagsSi', label: '标签4', prop: 'tagsSi', width: 110, type: 'multiSelect', editType: 'multiSelect', arrProp: 'tagsSiArr', dict: 'dictTagsSi' },
+  { key: 'address', label: '地址', prop: 'address', width: 180, type: 'plain', editType: 'text' },
+  { key: 'website', label: '官网地址', prop: 'website', width: 180, type: 'plain', editType: 'text' },
+  { key: 'bankInfo', label: '银行信息', prop: 'bankInfo', textProp: 'textBankInfo', width: 200, type: 'html', editType: 'text' },
+  { key: 'bankAccount', label: '银行账号', prop: 'bankAccount', textProp: 'textBankAccount', width: 200, type: 'html', editType: 'text' },
+  { key: 'billTo', label: 'Bill to', prop: 'billTo', textProp: 'textBillTo', width: 200, type: 'html', editType: 'text' },
+  { key: 'shipTo', label: 'Ship to', prop: 'shipTo', textProp: 'textShipTo', width: 200, type: 'html', editType: 'text' },
+  { key: 'introduction', label: '介绍信息', prop: 'introduction', textProp: 'textIntroduction', width: 200, type: 'html', editType: 'text' },
+  { key: 'remark', label: '备注1', prop: 'remark', textProp: 'textRemark', width: 180, type: 'html', editType: 'text' },
+  { key: 'remarkSecond', label: '备注2', prop: 'remarkSecond', textProp: 'textRemarkSecond', width: 180, type: 'html', editType: 'text' },
+  { key: 'status', label: '状态', prop: 'status', width: 80, type: 'statusTag', editType: 'select', selectOptions: { 1: '正常', 0: '停用' } },
+  { key: 'createTime', label: '创建时间', prop: 'createTime', width: 160, type: 'datetime' },
+  { key: 'updateTime', label: '更新时间', prop: 'updateTime', width: 160, type: 'datetime' }
+]
+// localStorage 存储键（带版本号，后续列配置结构变更时调整版本即可平滑重置）
+const COLUMNS_STORAGE_KEY = 'crm:supplier:table-columns:v2'
+
+// 深拷贝默认列配置并默认全部可见（避免多个实例共享同一对象引用）
+function defaultColumns() {
+  return JSON.parse(JSON.stringify(DEFAULT_COLUMNS)).map(c => Object.assign(c, { visible: true }))
+}
+
+// 读取本地列配置并与默认列合并：旧缓存缺的列（新功能字段）自动补出，被删除的列自动忽略
+function loadColumnConfig() {
+  let saved = null
+  try {
+    saved = JSON.parse(localStorage.getItem(COLUMNS_STORAGE_KEY) || 'null')
+  } catch (e) {
+    saved = null
+  }
+  if (!Array.isArray(saved) || saved.length === 0) {
+    return defaultColumns()
+  }
+  const defMap = {}
+  defaultColumns().forEach(d => { defMap[d.key] = d })
+  const seen = {}
+  const merged = []
+  saved.forEach(c => {
+    const def = defMap[c.key]
+    if (!def) { return }
+    merged.push(Object.assign({}, def, { visible: c.visible !== false }))
+    seen[c.key] = true
+  })
+  defaultColumns().forEach(d => { if (!seen[d.key]) { merged.push(d) } })
+  return merged
+}
 
 export default {
   name: 'CrmSupplier',
@@ -560,6 +735,15 @@ export default {
       loading: false,
       showSearch: true,
       showMoreQuery: false,
+      columnDialogOpen: false,
+      // 跟进记录（写跟进弹窗）：上次/下次跟进时间 + 结论/目标富文本
+      followOpen: false,
+      followLoading: false,
+      followForm: { id: undefined, supplierName: '', lastFollowUpTime: '', lastFollowUpResult: '', nextFollowUpTime: '', nextFollowUpGoal: '' },
+      // 列表列配置（自定义列弹窗可调整显隐与顺序）
+      tableColumns: loadColumnConfig(),
+      // 列配置变更版本号：每次保存列配置 +1，用于 el-table :key 强制重建（规避动态列+固定列渲染不同步）
+      columnVersion: 0,
       total: 0,
       supplierList: [],
       ids: [],
@@ -576,14 +760,102 @@ export default {
       uploadUrl: process.env.VUE_APP_BASE_API + '/crm/supplier/attachment/upload',
       uploadHeaders: { Authorization: 'Bearer ' + getToken() },
       uploadFiles: [],
-      queryParams: { pageNum: 1, pageSize: 10, supplierName: '', supplierAlias: '', contactName: '', cooperationStatus: '', supplierTypeArr: [], brandsArr: [], mainProductsArr: [], cooperationLevelArr: [], riskLevelArr: [], paymentTermsArr: [], params: {} },
-      form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationStatus: '', businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
-      dictSupplierType: [], dictMainProducts: [], dictCooperationLevel: [], dictRiskLevel: [], dictPaymentTerms: [], dictProductBrand: [], dictCooperationStatus: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
-      userOptions: []
+      queryParams: { pageNum: 1, pageSize: 10, supplierCode: '', supplierName: '', supplierAlias: '', contactName: '', cooperationStatus: '', supplierTypeArr: [], brandsArr: [], mainProductsArr: [], cooperationLevelArr: [], riskLevelArr: [], paymentTermsArr: [], params: {} },
+      form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], salesGroup: '', purchaseGroup: '', cooperationStatus: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
+      dictSupplierType: [], dictMainProducts: [], dictCooperationLevel: [], dictRiskLevel: [], dictPaymentTerms: [], dictProductBrand: [], dictCooperationDirection: [], dictCooperationStatus: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
+      userOptions: [],
+      userLoading: false,
+      editingCells: {},
+      editingOriginal: '',
+      editValue: ''
     }
   },
-  created() { this.getList() },
+  computed: {
+    // 当前可见列（隐藏列不渲染，顺序即数组顺序）；visible 缺失时按可见处理
+    renderColumns() {
+      return this.tableColumns.filter(c => c.visible !== false)
+    }
+  },
+  created() {
+    this.getList()
+    this.loadDicts()
+  },
   methods: {
+    // ===== 自定义列：显示/隐藏与顺序，改动即时保存到 localStorage =====
+    openColumnDialog() { this.columnDialogOpen = true },
+    saveColumnConfig() {
+      localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(this.tableColumns))
+      // 列顺序/显隐变化可能引起 element-ui 表格渲染不同步，自增版本号触发表格整体重建
+      this.columnVersion++
+    },
+    moveColumn(index, dir) {
+      const target = index + dir
+      const len = this.tableColumns.length
+      if (target < 0 || target >= len) { return }
+      const tmp = this.tableColumns[index]
+      this.$set(this.tableColumns, index, this.tableColumns[target])
+      this.$set(this.tableColumns, target, tmp)
+      this.saveColumnConfig()
+    },
+    toggleColumnVisible(visible) {
+      this.tableColumns.forEach(c => { c.visible = visible })
+      this.saveColumnConfig()
+    },
+    resetColumns() {
+      this.tableColumns = defaultColumns()
+      this.saveColumnConfig()
+    },
+    // 富文本 HTML 转纯文本（去标签、空白归一），仅用于列表单元格展示
+    stripHtml(html) {
+      if (!html) { return '' }
+      return String(html).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim()
+    },
+    // 列表行预处理：为各富文本字段生成 text 前缀纯文本副本供列渲染；跟进人昵称缺失时回退登录名
+    enrichRows(rows) {
+      const list = Array.isArray(rows) ? rows.slice() : []
+      list.filter(r => r != null && typeof r === 'object').forEach(row => {
+        ;['lastFollowUpResult', 'nextFollowUpGoal', 'bankInfo', 'bankAccount', 'billTo', 'shipTo', 'introduction', 'remark', 'remarkSecond'].forEach(key => {
+          row['text' + key.charAt(0).toUpperCase() + key.slice(1)] = this.stripHtml(row[key])
+        })
+        ;['supplierType', 'brands', 'mainProducts', 'cooperationLevel', 'riskLevel', 'paymentTerms', 'cooperationDirection', 'tagsFirst', 'tagsSecond', 'tagsThird', 'tagsSi'].forEach(p => { row[p + 'Arr'] = row[p] == null ? [] : String(row[p]).split(',').filter(s => s !== '') })
+        ;['supplierAlias', 'supplierShortName', 'salesGroup', 'purchaseGroup'].forEach(p => { row[p] = row[p] == null ? '' : row[p] })
+        row.followUpByNames = row.followUpByNames || row.followUpBy || ''
+        row.followUpByArr = row.followUpBy == null ? [] : String(row.followUpBy).split(',').filter(s => s !== '')
+      })
+      return list
+    },
+    // ===== 写跟进：维护上次/下次跟进时间、结论/目标富文本 =====
+    openFollowDialog(row) {
+      this.followForm = {
+        id: row.id,
+        supplierName: row.supplierName,
+        lastFollowUpTime: row.lastFollowUpTime || '',
+        lastFollowUpResult: row.lastFollowUpResult || '',
+        nextFollowUpTime: row.nextFollowUpTime || '',
+        nextFollowUpGoal: row.nextFollowUpGoal || ''
+      }
+      this.followOpen = true
+    },
+    submitFollow() {
+      if (!this.followForm.id) { return }
+      this.followLoading = true
+      updateSupplierFollowUp({
+        id: this.followForm.id,
+        // 时间为空传 null 以支持清空已填时间；富文本默认为空串
+        lastFollowUpTime: this.followForm.lastFollowUpTime || null,
+        lastFollowUpResult: this.followForm.lastFollowUpResult || '',
+        nextFollowUpTime: this.followForm.nextFollowUpTime || null,
+        nextFollowUpGoal: this.followForm.nextFollowUpGoal || ''
+      }).then(() => {
+        this.followLoading = false
+        this.followOpen = false
+        this.$modal.msgSuccess('跟进记录已保存')
+        this.getList()
+      }).catch(err => {
+        this.followLoading = false
+        this.$modal.msgError(err && err.msg ? err.msg : '保存失败')
+      })
+    },
     openDetail(row) {
       const id = row.id
       getSupplierDetail(id).then(res => {
@@ -604,7 +876,8 @@ export default {
       this.queryParams.params.riskLevelList = this.queryParams.riskLevelArr
       this.queryParams.params.paymentTermsList = this.queryParams.paymentTermsArr
       listSupplier(this.queryParams).then(res => {
-        this.supplierList = res.rows
+        // 富文本字段剥标签转纯文本（text 前缀字段），供列表列直接展示；编辑仍走富文本弹窗
+        this.supplierList = this.enrichRows(res.rows)
         this.total = res.total
         this.loading = false
       })
@@ -616,10 +889,10 @@ export default {
       this.single = selection.length != 1
       this.multiple = !selection.length
     },
-    handleAdd() { this.resetFormData(); this.open = true; this.title = '新增供应商'; this.loadDicts() },
+    handleAdd() { this.resetFormData(); this.open = true; this.title = '新增供应商'; this.loadDicts(); this.remoteUsers('') },
     handleUpdate(row) {
       const id = row.id || this.ids[0]
-      getSupplier(id).then(res => { this.form = res.data || {}; if (!this.form.contacts) this.form.contacts = []; if (!this.form.attachments) this.form.attachments = []; this.uploadFiles = []; this.splitToArrays(); this.open = true; this.title = '修改供应商'; this.loadDicts() })
+      getSupplier(id).then(res => { Object.assign(this.form, res.data || {}); this.form.contacts = Array.isArray(res.data && res.data.contacts) ? res.data.contacts : []; this.form.attachments = Array.isArray(res.data && res.data.attachments) ? res.data.attachments : []; this.uploadFiles = []; this.splitToArrays(); this.remoteUsers(''); this.open = true; this.title = '修改供应商'; this.loadDicts() }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '获取供应商失败') })
     },
     handleDelete(row) {
       const ids = row.id ? [row.id] : this.ids
@@ -631,7 +904,7 @@ export default {
       this.download('/crm/supplier/export', { ids: this.ids }, `supplier_${new Date().getTime()}.xlsx`)
     },
     cancel() { this.open = false },
-    resetFormData() { this.form = { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] }; this.uploadFiles = [] },
+    resetFormData() { this.form = { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], salesGroup: '', purchaseGroup: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] }; this.uploadFiles = [] },
     addContact() { this.form.contacts.push({ contactName: '', post: '', phone: '', email: '', isPrimary: 0 }) },
     removeContact(index) { this.form.contacts.splice(index, 1) },
     onUploadSuccess(resp, file) {
@@ -680,10 +953,12 @@ export default {
       // Excel/Word：后端解析为 HTML 表格，弹窗展示
       if (['xlsx', 'xls', 'csv', 'docx'].includes(ext)) {
         request({ url: '/crm/supplier/attachment/preview/' + row.id, method: 'post' }).then(res => {
-          if (res.code === 200 && res.data) {
-            this.openPreviewDialog(row.fileName, res.data)
+          // 兼容旧后端：旧版接口把 String 预览 HTML 塞进 msg 而非 data（重载歧义），此处兜底取 msg；data 有值时优先用 data
+          const html = res.data || (res.msg && res.msg !== '操作成功' ? res.msg : '') || '';
+          if (res.code === 200 && html) {
+            this.openPreviewDialog(row.fileName, html)
           } else {
-            this.$modal.msgError(res.msg || '附件预览失败')
+            this.$modal.msgError((res.msg && res.msg !== '操作成功') ? res.msg : '附件预览失败')
           }
         }).catch(() => { this.$modal.msgError('附件预览失败') })
         return
@@ -717,6 +992,7 @@ export default {
       getDicts('crm_supplier_cooperation_level').then(res => { this.dictCooperationLevel = res.data })
       getDicts('crm_supplier_risk_level').then(res => { this.dictRiskLevel = res.data })
       getDicts('crm_supplier_payment_terms').then(res => { this.dictPaymentTerms = res.data })
+      getDicts('crm_supplier_cooperation_direction').then(res => { this.dictCooperationDirection = res.data })
       getDicts('crm_product_brand').then(res => { this.dictProductBrand = res.data })
       getDicts('crm_cooperation_status').then(res => { this.dictCooperationStatus = res.data })
       getDicts('crm_tags_first').then(res => { this.dictTagsFirst = res.data })
@@ -731,6 +1007,8 @@ export default {
       this.form.cooperationLevelArr = this.split(this.form.cooperationLevel)
       this.form.riskLevelArr = this.split(this.form.riskLevel)
       this.form.paymentTermsArr = this.split(this.form.paymentTerms)
+      this.form.cooperationDirectionArr = this.split(this.form.cooperationDirection)
+      this.form.followUpByArr = this.split(this.form.followUpBy)
       this.form.tagsFirstArr = this.split(this.form.tagsFirst)
       this.form.tagsSecondArr = this.split(this.form.tagsSecond)
       this.form.tagsThirdArr = this.split(this.form.tagsThird)
@@ -743,26 +1021,124 @@ export default {
       this.form.cooperationLevel = (this.form.cooperationLevelArr || []).join(',')
       this.form.riskLevel = (this.form.riskLevelArr || []).join(',')
       this.form.paymentTerms = (this.form.paymentTermsArr || []).join(',')
+      this.form.cooperationDirection = (this.form.cooperationDirectionArr || []).join(',')
       this.form.tagsFirst = (this.form.tagsFirstArr || []).join(',')
       this.form.tagsSecond = (this.form.tagsSecondArr || []).join(',')
       this.form.tagsThird = (this.form.tagsThirdArr || []).join(',')
       this.form.tagsSi = (this.form.tagsSiArr || []).join(',')
+      this.form.followUpBy = (this.form.followUpByArr || []).join(',')
     }
     ,updateCooperationStatus(row) {
       const data = { id: row.id, cooperationStatus: row.cooperationStatus }
       updateSupplier(data).then(() => { this.$modal.msgSuccess('合作状态已更新') }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '更新失败') })
     }
+    ,isEditable(col) { return !!(col && col.editType) }
+    ,isEditing(row, col) { return !!this.editingCells[this.cellKey(row, col)] }
+    ,cellKey(row, col) { return (row ? row.id : '') + '__' + (col ? col.prop : '') }
+    ,enterEdit(row, col) {
+      this.editingCells = { [this.cellKey(row, col)]: true }
+      this.editingOriginal = (row && row[col.prop] != null) ? row[col.prop] : ''
+      const raw = (row && row[col.prop] != null) ? row[col.prop] : ''
+      this.editValue = (col && col.editType === 'text') ? this.stripHtml(raw) : raw
+      if (col && col.editType === 'userMulti') { this.remoteUsers('') }
+      this.$nextTick(() => {
+        const cell = this.$el.querySelector('[data-edit="' + this.cellKey(row, col) + '"]')
+        const input = cell && cell.querySelector('input')
+        if (input) input.focus()
+      })
+    }
+    ,exitEdit() { this.editingCells = {} }
+    ,labelOf(col, v) {
+      const opt = (this.dictOptions(col) || []).find(d => String(d.dictValue) === String(v))
+      return opt ? opt.dictLabel : v
+    }
+    ,dictOptions(col) { return (col && this[col.dict]) || [] }
+    ,updateInlineMulti(row, col) {
+      if (!row || !col) return
+      const original = row[col.prop] || ''
+      const joined = (row[col.arrProp] || []).join(',')
+      if (joined === original) return
+      row[col.prop] = joined
+      updateSupplier({ id: row.id, [col.prop]: joined }).then(() => { this.$modal.msgSuccess('已更新') }).catch(err => { row[col.prop] = original; row[col.arrProp] = this.split(original); this.$modal.msgError(err && err.msg ? err.msg : '更新失败') })
+    }
+    ,saveInlineField(row, col, next, prev) {
+      const applyRevert = () => { row[col.prop] = prev; if (col.textProp) row[col.textProp] = this.stripHtml(prev) }
+      if (!next) { next = '' }
+      if (col.contactField) {
+        if (!row.contactId) { applyRevert(); this.$modal.msgWarning('该供应商暂无联系人记录，请先用“修改”新增联系人'); return }
+        return updateSupplierContact({ id: row.contactId, [col.prop]: next }).then(() => { this.$modal.msgSuccess('已更新') }).catch(err => { applyRevert(); this.$modal.msgError(err && err.msg ? err.msg : '更新失败') })
+      }
+      return updateSupplier({ id: row.id, [col.prop]: next }).then(() => { this.$modal.msgSuccess('已更新') }).catch(err => { applyRevert(); this.$modal.msgError(err && err.msg ? err.msg : '更新失败') })
+    }
+    ,commitInlineText(row, col) {
+      if (!row || !col || !this.isEditing(row, col)) return
+      const next = this.editValue == null ? '' : this.editValue
+      const prev = this.editingOriginal || ''
+      if (next !== prev) {
+        row[col.prop] = next
+        if (col.textProp) row[col.textProp] = this.stripHtml(next)
+        this.saveInlineField(row, col, next, prev)
+      }
+      this.exitEdit()
+    }
+    ,commitInlineSingle(row, col) {
+      if (!row || !col || !this.isEditing(row, col)) return
+      const next = this.editValue == null ? '' : this.editValue
+      const prev = this.editingOriginal == null ? '' : this.editingOriginal
+      if (String(next) !== String(prev)) {
+        row[col.prop] = next
+        this.saveInlineField(row, col, next, prev)
+      }
+      this.exitEdit()
+    }
+    ,commitInlineUserMulti(row, col) {
+      if (!row || !col || !this.isEditing(row, col)) return
+      const arr = (row[col.arrProp] || []).map(String)
+      const next = arr.join(',')
+      const original = (row[col.saveProp] || '').toString()
+      if (next !== original) {
+        row[col.saveProp] = next
+        row[col.prop] = arr.map(n => { const u = (this.userOptions || []).find(o => String(o.userName) === String(n)); return u ? u.nickName : n }).join(',')
+        updateSupplier({ id: row.id, [col.saveProp]: next }).then(() => { this.$modal.msgSuccess('已更新') }).catch(err => { row[col.saveProp] = original; row[col.arrProp] = this.split(original); row[col.prop] = this.editingOriginal || ''; this.$modal.msgError(err && err.msg ? err.msg : '更新失败') })
+      }
+      this.exitEdit()
+    }
     ,split(s) { return s ? s.split(',') : [] }
-    ,remoteUsers(query) { listUser({ userName: query, pageNum: 1, pageSize: 20 }).then(res => { this.userOptions = res.rows || [] }) }
+    ,remoteUsers(query) {
+      this.userLoading = true
+      listSupplierUsers({ keyword: query }).then(res => {
+        this.userOptions = res.data || []
+        this.userLoading = false
+      }).catch(() => { this.userLoading = false })
+    }
   }
 }
 </script>
 
 <style scoped>
+.inlinetext-cell { position: relative; }
+.inline-text-wrap { position: relative; min-height: 22px; padding-right: 16px; cursor: pointer; }
+.inline-text { word-break: break-all; }
+.multiselect-cell { position: relative; min-height: 24px; text-align: left; padding-right: 16px; }
+.cell-tag { margin: 1px 3px 1px 0; }
+.cell-empty { color: #c0c4cc; }
+.inlinetext-cell, .multiselect-cell { border-radius: 3px; transition: background-color .15s; }
+.inlinetext-cell:hover, .multiselect-cell:hover { background: #f5f7fa; }
+.cell-body { min-height: 22px; padding-right: 18px; cursor: pointer; }
+.cell-edit-icon { position: absolute; top: 4px; right: 4px; color: #909399; cursor: pointer; font-size: 14px; z-index: 1; opacity: .55; }
+.cell-edit-icon:hover, .inlinetext-cell:hover .cell-edit-icon, .multiselect-cell:hover .cell-edit-icon { color: #409eff; opacity: 1; }
 .mt10 { margin-top: 10px; }
 .preview-content { max-height: 70vh; overflow: auto; padding: 4px; }
 .preview-content >>> table { border-collapse: collapse; }
 .preview-content >>> td, .preview-content >>> th { border: 1px solid #dcdfe6; padding: 4px 8px; white-space: nowrap; }
 .preview-content >>> h4 { margin: 8px 0 4px; }
 .preview-content >>> p { margin: 4px 0; }
+/* 自定义列弹窗 */
+.column-config-tip { color: #909399; font-size: 12px; margin-bottom: 6px; }
+.column-config-toolbar { margin-bottom: 4px; }
+.column-config-list { max-height: 52vh; overflow-y: auto; border-top: 1px solid #ebeef5; }
+.column-config-item { display: flex; justify-content: space-between; align-items: center; padding: 2px 6px; }
+.column-config-item:hover { background: #f5f7fa; }
+/* 文本框底列单元格：单行省略 + 悬浮全文（show-overflow-tooltip 对带插槽列不生效，故用 CSS 实现同等效果） */
+.cell-text-ellipsis { display: inline-block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 </style>

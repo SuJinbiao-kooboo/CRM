@@ -247,6 +247,8 @@ export default {
       ],
       // 类型数据字典
       typeOptions: [],
+      // 记录已加载的字典ID，避免同一字典重复请求
+      lastDictId: null,
       // 查询参数
       queryParams: {
         pageNum: 1,
@@ -272,16 +274,39 @@ export default {
     }
   },
   created() {
-    const dictId = this.$route.params && this.$route.params.dictId
-    this.getType(dictId)
-    this.getTypeList()
+    this.loadDict()
+  },
+  watch: {
+    // 路由参数变化（切换到其他字典详情页）时重新按当前 dictId 加载，避免显示非对应字典的数据
+    $route() {
+      this.loadDict()
+    }
   },
   methods: {
+    /** 按当前路由的字典ID加载字典详情与数据（同一字典不重复请求，切换字典时重新加载） */
+    loadDict() {
+      const dictId = this.$route.params && this.$route.params.dictId
+      // 离开详情页（路由无 dictId）时不发起请求，仅重置状态，避免 getType(undefined)
+      if (!dictId) {
+        this.lastDictId = null
+        this.queryParams.dictType = undefined
+        this.defaultDictType = undefined
+        this.dataList = []
+        this.total = 0
+        return
+      }
+      this.getTypeList()
+      if (this.lastDictId === dictId) return
+      this.lastDictId = dictId
+      this.getType(dictId)
+    },
     /** 查询字典类型详细 */
     getType(dictId) {
       getType(dictId).then(response => {
-        this.queryParams.dictType = response.data.dictType
-        this.defaultDictType = response.data.dictType
+        // 防止切换字典后旧请求晚到而覆盖当前字典的数据
+        if (this.lastDictId !== dictId) return
+        this.queryParams.dictType = response.data && response.data.dictType
+        this.defaultDictType = this.queryParams.dictType
         this.getList()
       })
     },

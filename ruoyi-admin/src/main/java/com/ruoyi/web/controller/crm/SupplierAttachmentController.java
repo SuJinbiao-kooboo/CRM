@@ -85,11 +85,14 @@ public class SupplierAttachmentController extends BaseController
     /**
      * 预览附件：将 Excel（xls/xlsx/csv）和 Word（docx）解析为 HTML 片段返回，
      * 供前端弹窗展示；PDF/图片等由前端浏览器原生预览。
+     * 注意：previewHtml 返回 String，不能直接传 AjaxResult.success(Object) 单参——
+     * 重载解析会选中更具体的 success(String msg) 把 HTML 塞进 msg 字段、data 为 null，
+     * 必须用双参 success(String msg, Object data) 显式把内容放入 data
      */
     @PreAuthorize("@ss.hasPermi('crm:supplier:query')")
     @PostMapping("/preview/{id}")
     public AjaxResult preview(@PathVariable Long id)
     {
-        return AjaxResult.success(attachmentService.previewHtml(id));
+        return AjaxResult.success("操作成功", attachmentService.previewHtml(id));
     }
 }

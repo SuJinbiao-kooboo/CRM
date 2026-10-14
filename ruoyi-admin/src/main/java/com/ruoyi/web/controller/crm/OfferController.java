@@ -60,7 +60,50 @@ public class OfferController extends BaseController {
     public TableDataInfo list(@ApiParam CrmOffer offer) {
         startPage();
         List<CrmOffer> list = offerService.selectOfferList(offer);
+        // 供应商名称不暴露：库中supplier_name已统一存编码（数据已清洗），此处再覆盖一遍作为双保险
+        for (CrmOffer o : list) {
+            o.setSupplierName(o.getSupplierCode());
+        }
         return getDataTable(list);
+    }
+
+    /** 复制Offer：查询最近days天内INQ/OFFER记录，按品牌排序、相同料号取成本最低（无价格也保留），返回制表符分隔文本
+     *  注意：buildCopyOfferText 返回 String，不能直接传 AjaxResult.success(Object) 单参——
+     *  重载解析会选中更具体的 success(String msg) 把文本塞进 msg 字段、data 为 null，前端取不到数据，
+     *  必须用双参 success(String msg, Object data) 显式把文本放入 data */
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @GetMapping("/copyOfferText")
+    public AjaxResult copyOfferText(@RequestParam("days") int days) {
+        return AjaxResult.success("操作成功", offerService.buildCopyOfferText(days));
+    }
+
+    /**
+     * 一键复制Offer（AI录入比价/AI查询共用）：按料号集合+最近天数查询各料号Offer价格最低的一条（同价取日期最新），
+     * 默认输出 料号/数量/Offer价格，body.extraFields 勾选供应商编号/详情/交期/DC后按固定顺序追加对应列，
+     * 返回制表符分隔文本（首行英文表头随勾选字段变化）
+     */
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @PostMapping("/copyAiQueryOffers")
+    public AjaxResult copyAiQueryOffers(@RequestBody Map<String, Object> body) {
+        // days范围校验在service内（1-999）；非数字或缺省时默认1天；前端提供最近1/2/3天选项
+        int days = NumberUtil.parseInt(strOf(body.get("days")), 1);
+        List<String> partNumbers = new ArrayList<>();
+        Object pns = body.get("partNumbers");
+        if (pns instanceof List) {
+            for (Object o : (List<?>) pns) {
+                partNumbers.add(String.valueOf(o));
+            }
+        }
+        // extraFields：勾选的额外字段（supplierCode/productDetail/deliveryTime/dc），缺省时不追加任何列
+        List<String> extraFields = new ArrayList<>();
+        Object efs = body.get("extraFields");
+        if (efs instanceof List) {
+            for (Object o : (List<?>) efs) {
+                extraFields.add(String.valueOf(o));
+            }
+        }
+        // 注意：返回String必须用双参重载，单参success(String)会把文本塞进msg导致前端取不到data
+        return AjaxResult.success("操作成功", offerService.buildAiQueryCopyText(partNumbers, days, extraFields));
     }
 
     @PreAuthorize("@ss.hasPermi('crm:offer:export')")
@@ -162,8 +205,33 @@ public class OfferController extends BaseController {
         String content = strOf(body.get("content"));
         Double profitRatio = toDouble(body.get("profitRatio"));
         if (profitRatio == null) profitRatio = 2d;
-        int count = offerService.aiEntryOffers(supplierCode, supplierName, inqOfferType, profitRatio, content);
-        return AjaxResult.success("AI录入成功" + count + "条", count);
+        // 录入并拿到本批成功入库的Offer（用于录入后近1个月同料号价格比较）
+        List<CrmOffer> saved = offerService.aiEntryOffersReturning(supplierCode, supplierName, inqOfferType, profitRatio, content);
+        List<String> partNumbers = saved.stream().map(CrmOffer::getProductCode).collect(Collectors.toList());
+        // 比价数据（近1个月，按Offer日期倒排）；查询异常不影响录入结果，只记录日志
+        List<Map<String, Object>> compare = new ArrayList<>();
+        try {
+            compare = offerService.compareRecentOffers(partNumbers);
+        } catch (Exception e) {
+            logger.warn("AI录入比价查询失败", e);
+        }
+        // 注意：data 用 Map 显式作为 Object 传入双参重载，避免与单参 success(String msg) 产生歧义
+        Map<String, Object> data = new HashMap<>();
+        data.put("count", saved.size());
+        data.put("compare", compare);
+        return AjaxResult.success("AI录入成功" + saved.size() + "条", data);
+    }
+
+    /**
+     * AI料号查询：调用AI提取料号，查询最近1个月内的INQ/OFFER历史记录（组内按Offer日期倒排），按料号分组返回
+     */
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @Log(title = "Offer管理", businessType = BusinessType.OTHER)
+    @PostMapping("/aiQuery")
+    public AjaxResult aiQuery(@RequestBody Map<String, Object> body) {
+        String content = strOf(body.get("content"));
+        List<Map<String, Object>> groups = offerService.aiQueryHistory(content);
+        return AjaxResult.success(groups);
     }
 
     private String strOf(Object o) {
@@ -189,6 +257,10 @@ public class OfferController extends BaseController {
         return AjaxResult.success(crmOffers);
     }
 
+    /**
+     * 发送Offer邮件（请求体 params 中可传：testSend=true测试发送/false正式发送，默认测试；withPrice=true带报价/false不带，默认不带）
+     * 测试发送仅发到字典配置的测试邮箱，正式发送发到订阅邮箱+供应商邮箱
+     */
     @Anonymous
 //    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @PostMapping("/sendOffer")
@@ -201,9 +273,18 @@ public class OfferController extends BaseController {
     }
 
     private Collection<CrmOffer> doSendEmailOfferOrInq(CrmOffer offer) {
+        // 发送选项：来自前端发送弹窗单选（测试/正式、是否带价格）；缺省默认测试发送且不带价格，避免误发正式邮件/误下报价
+        Map<String, Object> sendParams = offer.getParams();
+        if (sendParams == null) {
+            sendParams = new HashMap<>();
+            offer.setParams(sendParams);
+        }
+        boolean testSend = !"false".equalsIgnoreCase(StrUtil.toStringOrNull(sendParams.get("testSend")));
+        boolean withPrice = "true".equalsIgnoreCase(StrUtil.toStringOrNull(sendParams.get("withPrice")));
+
         String lastHours = dictDataService.selectDictLabel("crm_email_template_dict", "crm_email_last_hours");
         // 限制只能发送最近16小时录入的Offer
-        offer.getParams().put("lastCreateTime", DateUtil.offsetHour(new Date(), -Integer.valueOf(lastHours)));
+        sendParams.put("lastCreateTime", DateUtil.offsetHour(new Date(), -Integer.valueOf(lastHours)));
 
         Collection<CrmOffer> list = offerService.selectOfferList(offer);
         if("Offer".equals(offer.getInqOfferType())){
@@ -212,8 +293,10 @@ public class OfferController extends BaseController {
                     .collect(Collectors.toList());
             LinkedHashMap<String, CrmOffer> offerMap = new LinkedHashMap<>();
             for (CrmOffer crmOffer : list) {
-                // 特殊逻辑 注释掉报价 TODO 报价
-//                crmOffer.setPriceOffer(null);
+                // 不带价格发送时清空报价（是否带报价由发送弹窗选择）；成本字段仅内部使用永不下发
+                if (!withPrice) {
+                    crmOffer.setPriceOffer(null);
+                }
                 if(!offerMap.containsKey(crmOffer.getProductCode())){
                     offerMap.put(crmOffer.getProductCode(), crmOffer);
                     continue;
@@ -247,7 +330,7 @@ public class OfferController extends BaseController {
         SendEmailReq sendEmailReq = new SendEmailReq();
         sendEmailReq.setOffers(list);
 
-        sendEmailReq.setEmailGroups(crmSupplierSendOfferService.listToOfferEmail());
+        sendEmailReq.setEmailGroups(crmSupplierSendOfferService.listToOfferEmail(testSend));
 
         // 发送消息
         crmSendOfferService.sendExcelEmail(sendEmailReq);

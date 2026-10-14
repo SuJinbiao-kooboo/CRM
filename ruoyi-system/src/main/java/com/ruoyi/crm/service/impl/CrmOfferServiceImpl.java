@@ -473,9 +473,10 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         return buildPartNumberGroups(partNumbers);
     }
 
-    /**
+        /**
      * 供应商名称详情（点击列表供应商名称时实时查询）：先判数据权限，
-     * 有权限（admin/manager角色）查询供应商表返回真实名称（查不到或名称为空返回编码），无权限仅返回编码（不泄露真实名称）
+     * 有权限（admin/manager角色）返回供应商表真实名称（查不到返回"未找到名称"），
+     * 无权限返回"您无权查看"（不返回编码，不泄露任何供应商信息）
      */
     @Override
     public String supplierNameDetail(String code) {

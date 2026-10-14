@@ -1092,15 +1092,15 @@ export default {
     },
     /** 一键复制Offer（复制Offer当日料号比价弹窗按钮）：按当前分组的料号复制最近N天最低报价 */
     submitCopyOffersOfToday() { this.doCopyOffers(this.todayCopyGroups, 'todayCopyFallbackText') },
-    /** 点击供应商名称：实时查询后端（先判数据权限，有权限返回供应商表真实名称，无权限只返回编码），一闪即逝 */
+    /** 点击供应商名称：实时查询后端（后端判权限：有权限返回真实名称，无权限返回"您无权查看"，查不到返回"未找到名称"），一闪即逝 */
     showSupplierNameTip(row) {
       const code = row.supplierCode || row.supplierName || '';
       if (!code) return;
       getSupplierNameDetail(code).then(res => {
-        const show = (res && res.data != null && res.data !== '') ? res.data : code;
+        const show = (res && res.data != null && res.data !== '') ? res.data : '查询失败';
         this.$message({ message: show, duration: 1200, showClose: false });
       }).catch(() => {
-        this.$message({ message: code, duration: 1200, showClose: false });
+        this.$message({ message: '查询失败', duration: 1200, showClose: false });
       })
     },
     /** 通用剪贴板写入：优先 navigator.clipboard API（安全上下文下可靠），

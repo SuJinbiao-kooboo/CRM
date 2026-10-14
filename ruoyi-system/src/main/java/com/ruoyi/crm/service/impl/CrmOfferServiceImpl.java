@@ -78,7 +78,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             if (!codes.isEmpty()) {
                 for (CrmSupplier s : supplierMapper.selectNamesByCodes(new ArrayList<>(codes))) {
                     if (s.getSupplierCode() != null) {
-                        nameMap.put(s.getSupplierCode().trim(), s.getSupplierName());
+                        nameMap.put(s.getSupplierCode().trim().toUpperCase(), s.getSupplierName());
                     }
                 }
             }
@@ -88,7 +88,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             if (!full) {
                 o.setSupplierName("无");
             } else {
-                String real = code == null ? null : nameMap.get(code);
+                String real = code == null ? null : nameMap.get(code.toUpperCase());
                 o.setSupplierName(real == null || real.trim().isEmpty() ? code : real);
             }
         }

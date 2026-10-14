@@ -286,9 +286,9 @@
 
     <select id="selectNamesByCodes" resultType="com.ruoyi.crm.domain.CrmSupplier">
         select supplier_code, supplier_name from crm_supplier
-        where supplier_code in
+        where upper(supplier_code) in
         <foreach collection="codes" item="c" open="(" separator="," close=")">
-            #{c}
+            upper(#{c})
         </foreach>
     </select>
 

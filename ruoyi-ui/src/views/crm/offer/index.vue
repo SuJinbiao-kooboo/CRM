@@ -76,7 +76,7 @@
         <el-button type="primary" plain icon="el-icon-aim" size="mini" @click="openAiQuery" v-hasPermi="['crm:offer:list']">AI查询</el-button>
       </el-col>
       <el-col :span="1.5">
-        <el-button type="primary" plain icon="el-icon-copy-document" size="mini" @click="openCopyOffer" v-hasPermi="['crm:offer:list']">复制Offer</el-button>
+        <el-button type="primary" plain icon="el-icon-copy-document" size="mini" @click="openTodayCopyDialog" v-hasPermi="['crm:offer:list']">复制Offer</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button type="success" plain icon="el-icon-edit" size="mini" :disabled="single" @click="handleUpdate" v-hasPermi="['crm:offer:edit']">修改</el-button>
@@ -108,7 +108,11 @@
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="产品编码" align="center" prop="productCode" width="180" show-overflow-tooltip />
       <el-table-column label="供应商编号" align="center" prop="supplierCode" width="160" show-overflow-tooltip />
-      <el-table-column label="供应商名称" align="center" prop="supplierName" width="140" show-overflow-tooltip />
+      <el-table-column label="供应商名称" align="center" width="140" show-overflow-tooltip>
+        <template slot-scope="scope">
+          <el-link type="primary" :underline="false" @click="showSupplierNameTip(scope.row)">{{ scope.row.supplierName }}</el-link>
+        </template>
+      </el-table-column>
       <el-table-column label="成本" align="center" prop="priceCost" show-overflow-tooltip />
       <el-table-column label="报价" align="center" prop="priceOffer" show-overflow-tooltip />
       <el-table-column label="数量" align="center" prop="quantity" show-overflow-tooltip />
@@ -413,28 +417,52 @@
       </div>
     </el-dialog>
 
-    <!-- 复制Offer：填N天=取N-1天前0点至当前时间（1=今天0点至当前，2=昨天0点至当前），仅Offer记录，按品牌排序、相同料号取成本最低（无价格也保留），制表符分隔复制到剪贴板 -->
-    <el-dialog title="复制Offer" :visible.sync="openCopyOfferDialog" width="480px" append-to-body>
-      <el-form label-width="110px">
-        <el-form-item label="最近天数">
-          <el-input-number v-model="copyOfferDays" :min="1" :max="365" :precision="0" controls-position="right" style="width: 160px" />
-          <span style="margin-left: 8px; color: #909399">天</span>
-        </el-form-item>
-        <el-form-item label="说明">
-          <div style="color: #909399; font-size: 12px; line-height: 1.7">
-            按库存日期查询范围：填1=今天0点至当前时间，填2=昨天0点至当前时间，填N=从N-1天前0点至当前时间，取全部Offer记录：
-            按品牌排序，相同料号取成本最低（无价格记录也保留），
-            以"料号、数量、品牌、DC、交期、详情、报价"制表符分隔复制到剪贴板，首行为英文表头（不包含成本，内容用于发给客户）。
-          </div>
-        </el-form-item>
-        <!-- 自动复制失败时的兜底内容：完整文本展示在此，供手动全选复制，保证接口数据不丢失 -->
-        <el-form-item v-if="copyOfferFallbackText" label="复制内容">
-          <el-input type="textarea" :rows="10" readonly v-model="copyOfferFallbackText" />
-        </el-form-item>
-      </el-form>
-      <div slot="footer" class="dialog-footer">
-        <el-button type="primary" :loading="copyOfferLoading" @click="submitCopyOffer">复 制</el-button>
-        <el-button @click="openCopyOfferDialog=false">取 消</el-button>
+    <!-- 复制Offer（当日料号比价）：取当日录入Offer的去重料号，按料号展示近1个月INQ/OFFER历史（与AI查询一致），有价格优势的料号自动勾选，可勾选追加字段一键复制 -->
+    <el-dialog title="复制Offer（当日料号比价）" :visible.sync="openTodayCopyDialog" width="90%" top="5vh" custom-class="offer-ai-dialog" append-to-body>
+      <!-- 复制工具栏（与AI查询共用）：最近1/2/3天取每料号最低Offer价格，默认输出料号/数量/Offer价格，可勾选追加字段 -->
+      <div class="copy-toolbar">
+        <span class="adv-threshold-wrap">
+          <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
+          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
+        </span>
+        <el-radio-group v-model="copyRecentDays" size="mini">
+          <el-radio-button :label="1">最近1天</el-radio-button>
+          <el-radio-button :label="2">最近2天</el-radio-button>
+          <el-radio-button :label="3">最近3天</el-radio-button>
+        </el-radio-group>
+        <el-checkbox-group v-model="copyExtraFields" size="mini" class="copy-extra-fields">
+          <el-checkbox label="supplierCode">供应商编号</el-checkbox>
+          <el-checkbox label="productDetail">详情</el-checkbox>
+          <el-checkbox label="deliveryTime">交期</el-checkbox>
+          <el-checkbox label="dc">DC</el-checkbox>
+        </el-checkbox-group>
+        <el-button size="mini" icon="el-icon-check" :disabled="todayCopyGroups.length === 0" @click="selectAllAdvantage">全选</el-button>
+        <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="todayCopyGroups.length === 0" @click="submitCopyOffersOfToday">一键复制Offer</el-button>
+        <el-button size="mini" icon="el-icon-document-copy" v-clipboard="todayCopyCopyText" v-clipboard:success="onCopyOk" :disabled="todayCopyGroups.length === 0">一键复制全部信息</el-button>
+      </div>
+      <div style="color:#909399; font-size:12px; margin-bottom:8px">今日去重后共 {{ todayCopyGroups.length }} 个料号，满足价格优势（今日最好价 ≤ 上两次报价最低价 - 阈值）的料号已自动勾选</div>
+      <div v-if="todayCopyLoading" style="color:#909399; text-align:center; padding: 30px 0">加载中，请稍候...</div>
+      <div v-if="todayCopyGroups.length === 0 && !todayCopyLoading" style="color:#909399; text-align:center; padding: 30px 0">今日暂无Offer记录</div>
+      <div v-for="(group, gi) in todayCopyGroups" :key="gi" class="ai-query-group">
+        <div class="ai-query-part-number">
+          <span>{{ group.partNumber }}（{{ (group.offers || []).length }}条记录）</span>
+          <el-checkbox v-model="group.checked" style="margin-left: 10px" @change="onGroupCheckedChange">复制</el-checkbox>
+        </div>
+        <div v-if="!group.offers || group.offers.length === 0" class="ai-query-empty">最近1个月无INQ/OFFER记录</div>
+        <el-table v-else :data="group.offers" size="mini" border :row-style="groupRowStyle">
+          <el-table-column label="供应商名称" prop="supplierName" min-width="140" show-overflow-tooltip />
+          <el-table-column label="成本价格" prop="priceCost" align="center" width="100" />
+          <el-table-column label="INQ/OFFER" prop="inqOfferType" align="center" width="110" />
+          <el-table-column label="数量" prop="quantity" align="center" width="80" />
+          <el-table-column label="OFFER价格" prop="priceOffer" align="center" width="100" />
+          <el-table-column label="Offer日期" prop="offerDate" align="center" width="145" />
+          <el-table-column label="交期" prop="deliveryTime" align="center" min-width="100" show-overflow-tooltip />
+          <el-table-column label="详情" prop="productDetail" min-width="200" show-overflow-tooltip />
+        </el-table>
+      </div>
+      <div v-if="todayCopyFallbackText" style="margin-top: 10px">
+        <div style="color:#909399; font-size: 12px; margin-bottom: 4px">浏览器自动复制失败，请手动全选下方文本复制：</div>
+        <el-input type="textarea" :rows="8" readonly v-model="todayCopyFallbackText" />
       </div>
     </el-dialog>
 
@@ -602,7 +630,7 @@
 </template>
 
 <script>
-import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, copyOfferText, copyAiQueryOffers } from '@/api/crm/offer'
+import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, fetchTodayCopyGroups, copyAiQueryOffers } from '@/api/crm/offer'
 import { listSupplierOptions, listSupplier, listSupplierSimple } from '@/api/crm/supplier'
 import { getDicts } from '@/api/system/dict/data'
 import { getConfigKey } from '@/api/system/config'
@@ -647,11 +675,12 @@ export default {
       // 价格优势阈值（单位USD）：默认15，优先读取系统参数 offer.price.advantage.threshold
       priceAdvThreshold: 15,
       aiCopyLoading: false,
-      // 复制Offer弹窗状态：最近天数、加载中、自动复制失败时的兜底文本（展示供手动复制）
-      openCopyOfferDialog: false,
-      copyOfferDays: 7,
-      copyOfferLoading: false,
-      copyOfferFallbackText: '',
+      // 复制Offer（当日料号比价）弹窗状态：加载中、分组结果（与AI查询相同结构）、待复制文本、复制失败兜底文本
+      openTodayCopyDialog: false,
+      todayCopyLoading: false,
+      todayCopyGroups: [],
+      todayCopyCopyText: '',
+      todayCopyFallbackText: '',
       openBatchDialog: false,
       supplierLoading: false,
       supplierOptions: [],
@@ -701,7 +730,11 @@ export default {
   watch: {
     aiQueryGroups: {
       deep: true,
-      handler() { this.aiQueryCopyText = this.buildAiQueryCopyText() }
+      handler() { this.aiQueryCopyText = this.buildGroupCopyText(this.aiQueryGroups) }
+    },
+    todayCopyGroups: {
+      deep: true,
+      handler() { this.todayCopyCopyText = this.buildGroupCopyText(this.todayCopyGroups) }
     }
   },
   methods: {
@@ -905,25 +938,31 @@ export default {
       this.autoSelectAdvantage();
     },
 
-    /** 全选：勾选全部料号复制框，便于一键复制全部 */
+    /** 全选：勾选全部料号复制框（AI查询/AI录入比价/复制Offer共用），便于一键复制全部 */
     selectAllAdvantage() {
-      const groups = (this.aiQueryGroups || []).concat(this.aiCompareGroups || []);
+      const groups = this.allCompareGroups();
       if (groups.length === 0) { return }
       groups.forEach(g => { this.$set(g, 'checked', true) });
       // 手动刷新"一键复制全部信息"文本：Vue2 中修改数组项属性不触发 watcher
-      this.aiQueryCopyText = this.buildAiQueryCopyText();
+      this.aiQueryCopyText = this.buildGroupCopyText(this.aiQueryGroups || []);
+      this.todayCopyCopyText = this.buildGroupCopyText(this.todayCopyGroups || []);
       this.$modal.msgSuccess('已全选 ' + groups.length + ' 个料号，可一键复制');
     },
 
-    /** 勾选变化：重建"一键复制全部信息"文本（Vue2数组项属性变更不触发watcher） */
+    /** 勾选变化：重建"一键复制全部信息"文本（Vue2数组项属性变更不触发watcher；AI查询/AI录入比价/复制Offer共用） */
     onGroupCheckedChange() {
-      this.aiQueryCopyText = this.buildAiQueryCopyText();
+      this.aiQueryCopyText = this.buildGroupCopyText(this.aiQueryGroups || []);
+      this.todayCopyCopyText = this.buildGroupCopyText(this.todayCopyGroups || []);
     },
-    /** 依据价格优势阈值自动勾选AI查询/AI录入比价中的料号 */
+    /** 全部比价分组（AI查询/AI录入比价/复制Offer），供全选与自动勾选统一处理 */
+    allCompareGroups() {
+      return (this.aiQueryGroups || []).concat(this.aiCompareGroups || [], this.todayCopyGroups || []);
+    },
+    /** 依据价格优势阈值自动勾选AI查询/AI录入比价/复制Offer中的料号 */
     autoSelectAdvantage() {
       const t = Number(this.priceAdvThreshold);
       const threshold = (t == null || isNaN(t)) ? 15 : t;
-      const groups = (this.aiQueryGroups || []).concat(this.aiCompareGroups || []);
+      const groups = this.allCompareGroups();
       // 用 $set 写入 checked，避免Vue2对后新增属性不做响应式导致v-model勾选无法刷新
       groups.forEach(g => { this.$set(g, 'checked', this.evaluateAdvantage(g, threshold)) });
     },
@@ -959,7 +998,7 @@ export default {
         this.aiQueryGroups = this.decorateOfferGroups(res.data || []);
         // 依据价格优势阈值自动勾选料号
         this.autoSelectAdvantage();
-        this.aiQueryCopyText = this.buildAiQueryCopyText();
+        this.aiQueryCopyText = this.buildGroupCopyText(this.aiQueryGroups);
         this.aiQueryFallbackText = '';
         if (!this.aiQueryGroups.length) this.$modal.msgWarning('查询完成，近1个月内无匹配的INQ/OFFER记录');
         else this.$modal.msgSuccess('查询完成，共匹配' + this.aiQueryGroups.length + '个料号');
@@ -1023,39 +1062,41 @@ export default {
       });
       return Object.keys(map).sort().map(k => map[k]);
     },
-    /** 打开复制Offer弹窗：默认最近1天，清空上次的兜底文本 */
-    openCopyOffer() { this.copyOfferDays = 1; this.copyOfferFallbackText = ''; this.openCopyOfferDialog = true },
-    /** 提交复制Offer：查询最近N天记录，组装制表符文本后写入剪贴板，失败时文本展示在弹窗内供手动复制 */
-    submitCopyOffer() {
-      if (!this.copyOfferDays || this.copyOfferDays < 1) { this.$modal.msgError('请选择最近天数'); return }
-      this.copyOfferLoading = true;
-      copyOfferText(this.copyOfferDays).then(res => {
-        // 兜底兼容旧后端：旧版接口重载歧义把文本放进了msg而非data（data为null），此处取msg；新后端data有值时优先用data
-        const raw = res.data || (res.msg && res.msg !== '操作成功' ? res.msg : '') || '';
-        if (!raw) { this.$modal.msgWarning('最近' + this.copyOfferDays + '天内没有Offer记录'); return }
-        const text = this.withOfferHeader(raw);
-        // 剪贴板写入为异步 Promise，成功/失败各自提示
-        this.copyToClipboard(text).then(ok => {
-          if (ok) {
-            this.copyOfferFallbackText = '';
-            this.$modal.msgSuccess('已复制 ' + (text.split('\n').length - 1) + ' 条物料信息到剪贴板');
-          } else {
-            // 自动复制失败：把完整文本展示在弹窗内供手动复制，保证数据不丢失
-            this.copyOfferFallbackText = text;
-            this.$modal.msgError('浏览器自动复制失败，请手动全选下方"复制内容"框中的文本复制');
-          }
-        });
+    /** 打开复制Offer（当日料号比价）弹窗：打开即自动加载当日Offer去重料号的分组比价数据 */
+    openTodayCopyDialog() {
+      this.openTodayCopyDialog = true;
+      this.loadTodayCopyGroups();
+    },
+    /** 加载今日Offer料号比价：后端取当日录入Offer的去重料号并按料号查近1个月历史（分组结构与AI查询一致） */
+    loadTodayCopyGroups() {
+      this.todayCopyLoading = true;
+      fetchTodayCopyGroups().then(res => {
+        this.todayCopyGroups = this.decorateOfferGroups(res.data || []);
+        // 依据价格优势阈值自动勾选
+        this.autoSelectAdvantage();
+        this.todayCopyCopyText = this.buildGroupCopyText(this.todayCopyGroups);
+        this.todayCopyFallbackText = '';
+        if (!this.todayCopyGroups.length) { this.$modal.msgWarning('今日暂无Offer记录'); }
+        else { this.$modal.msgSuccess('已获取今日' + this.todayCopyGroups.length + '个去重料号'); }
       }).catch(err => {
         const e = err || {};
         const msg = String(e.message || '');
         if (msg.includes('timeout')) {
-          this.$modal.msgError('查询超时，请减小最近天数后重试');
+          this.$modal.msgError('查询超时，请稍后重试');
         } else if (msg.includes('Network Error')) {
           this.$modal.msgError('无法连接后端接口，请确认后端服务（8081端口）已正常启动');
         } else {
-          this.$modal.msgError(e.msg || msg || '复制Offer失败');
+          this.$modal.msgError(e.msg || msg || '复制Offer加载失败');
         }
-      }).finally(() => { this.copyOfferLoading = false })
+      }).finally(() => { this.todayCopyLoading = false })
+    },
+    /** 一键复制Offer（复制Offer当日料号比价弹窗按钮）：按当前分组的料号复制最近N天最低报价 */
+    submitCopyOffersOfToday() { this.doCopyOffers(this.todayCopyGroups, 'todayCopyFallbackText') },
+    /** 点击供应商名称：有权限弹真实名称（一闪即逝），无权限弹供应商编码（不泄露真实名称） */
+    showSupplierNameTip(row) {
+      const real = row.supplierNameReal;
+      const show = real ? real : (row.supplierCode || row.supplierName || '');
+      this.$message({ message: show, duration: 1200, showClose: false });
     },
     /** 通用剪贴板写入：优先 navigator.clipboard API（安全上下文下可靠），
      *  带 3 秒超时兜底（Chrome 在无用户激活的异步回调中 writeText 可能永久 pending 导致界面无反馈），
@@ -1098,10 +1139,10 @@ export default {
       return 'M&E ' + this.todayStr() + ' Offer：' + '\n' + text;
     },
 
-    /** 构建一键复制文本：料号独占一行，其下记录以制表符缩进分隔，方便粘贴到微信；每组记录首行为英文表头，数量带pcs、价格带USD单位 */
-    buildAiQueryCopyText() {
+    /** 构建一键复制文本（AI查询/AI录入比价/复制Offer共用）：料号独占一行，其下记录以制表符缩进分隔，方便粘贴到微信；每组记录首行为英文表头，数量带pcs、价格带USD单位 */
+    buildGroupCopyText(groups) {
       const lines = [];
-      (this.aiQueryGroups || []).forEach(g => {
+      (groups || []).forEach(g => {
         if (g.checked !== true) return;
         lines.push(g.partNumber);
         const offers = g.offers || [];

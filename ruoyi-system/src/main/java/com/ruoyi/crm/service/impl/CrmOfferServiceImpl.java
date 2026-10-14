@@ -416,15 +416,23 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         if (partNumbers.isEmpty()) {
             throw new ServiceException("AI未能从内容中识别出料号，请检查粘贴内容");
         }
-        // 3. 按用户提供的料号前缀模糊查询最近1个月内（Offer日期口径）的INQ/OFFER记录（SQL用upper不区分大小写，按料号、Offer日期倒序）
-        List<CrmOffer> records = offerMapper.selectHistoryByPartNumbers(new ArrayList<>(partNumbers));
+        // 3. 按料号集合查询近1个月历史并装配为分组结构（AI查询、AI录入比价、复制Offer共用）
+        return buildPartNumberGroups(new ArrayList<>(partNumbers));
+    }
+
+    /**
+     * 按料号集合查询最近1个月内（Offer日期口径：库存日期优先、为空回退创建时间）的INQ/OFFER记录，
+     * 按实际匹配到的完整料号分组返回（组内按Offer日期倒排），供应商名称已按数据权限处理；
+     * 供AI料号查询/复制Offer（当日料号比价）共用
+     */
+    private List<Map<String, Object>> buildPartNumberGroups(List<String> partNumbers) {
+        List<CrmOffer> records = offerMapper.selectHistoryByPartNumbers(partNumbers);
         applySupplierNameAccess(records);
         Map<String, List<CrmOffer>> groupMap = new LinkedHashMap<>();
         for (CrmOffer o : records) {
             String key = str(o.getProductCode()).trim().toUpperCase();
             groupMap.computeIfAbsent(key, k -> new ArrayList<>()).add(o);
         }
-        // 4. 按实际匹配到的完整料号分组返回（一个前缀可能匹配到多个料号）
         List<Map<String, Object>> result = new ArrayList<>();
         for (Map.Entry<String, List<CrmOffer>> entry : groupMap.entrySet()) {
             Map<String, Object> group = new HashMap<>();
@@ -449,6 +457,19 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             result.add(group);
         }
         return result;
+    }
+
+    /**
+     * 复制Offer（当日料号比价）：取当日（创建时间>=今天0点）录入的全部Offer去重料号，
+     * 按料号查询最近1个月历史，返回与AI料号查询相同的分组结构（前端按价格优势阈值自动勾选）
+     */
+    @Override
+    public List<Map<String, Object>> todayCopyGroups() {
+        List<String> partNumbers = offerMapper.selectTodayOfferedPartNumbers();
+        if (partNumbers == null || partNumbers.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return buildPartNumberGroups(partNumbers);
     }
 
     /**

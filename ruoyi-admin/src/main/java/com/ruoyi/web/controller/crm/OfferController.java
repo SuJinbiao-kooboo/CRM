@@ -60,9 +60,12 @@ public class OfferController extends BaseController {
     public TableDataInfo list(@ApiParam CrmOffer offer) {
         startPage();
         List<CrmOffer> list = offerService.selectOfferList(offer);
-        // 供应商名称不暴露：库中supplier_name已统一存编码（数据已清洗），此处再覆盖一遍作为双保险
+        // 列表列统一显示供应商编码（库中supplier_name已清洗为编码）；真实名称按数据权限放入 supplierNameReal：
+        // 有权限=供应商表真实名称（查不到时回退编码），无权限=null（前端点击时回退显示编码，不泄露名称）
         for (CrmOffer o : list) {
+            String real = o.getSupplierName();
             o.setSupplierName(o.getSupplierCode());
+            o.setSupplierNameReal(real == null || "无".equals(real.trim()) ? null : real.trim());
         }
         return getDataTable(list);
     }
@@ -71,6 +74,16 @@ public class OfferController extends BaseController {
      *  注意：buildCopyOfferText 返回 String，不能直接传 AjaxResult.success(Object) 单参——
      *  重载解析会选中更具体的 success(String msg) 把文本塞进 msg 字段、data 为 null，前端取不到数据，
      *  必须用双参 success(String msg, Object data) 显式把文本放入 data */
+    /**
+     * 复制Offer（当日料号比价）：取当日录入的全部Offer去重料号，按料号查询最近1个月历史，
+     * 返回与AI料号查询相同的分组结构（含供应商名称权限处理），前端按价格优势阈值自动勾选并复制
+     */
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @GetMapping("/todayCopyGroups")
+    public AjaxResult todayCopyGroups() {
+        return AjaxResult.success(offerService.todayCopyGroups());
+    }
+
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @GetMapping("/copyOfferText")
     public AjaxResult copyOfferText(@RequestParam("days") int days) {

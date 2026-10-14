@@ -43,6 +43,12 @@ public interface ICrmOfferService {
     List<Map<String, Object>> aiQueryHistory(String content);
 
     /**
+     * 复制Offer（当日料号比价）：取当日录入的全部Offer去重料号，按料号查询最近1个月内的INQ/OFFER历史记录，
+     * 返回与AI料号查询相同的分组结构（{ partNumber, offers:[...] }），由前端按价格优势阈值自动勾选；当日无Offer时返回空列表
+     */
+    List<Map<String, Object>> todayCopyGroups();
+
+    /**
      * 复制Offer：查询最近days天内的INQ/OFFER记录，按品牌排序、相同料号取成本最低（无价格记录也保留），
      * 组装为"料号 数量(带pcs) 品牌 DC 交期 详情 报价(带USD)"制表符分隔文本返回，首行为英文表头
      * （不输出成本，内容会发给客户）

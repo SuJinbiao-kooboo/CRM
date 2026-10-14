@@ -149,6 +149,15 @@
         order by coalesce(stock_date, create_time) desc, id desc
     </select>
 
+    <!-- 复制Offer（当日料号比价）：当日（创建时间>=今天0点）录入的Offer去重料号（大写），按料号升序 -->
+    <select id="selectTodayOfferedPartNumbers" resultType="string">
+        select distinct upper(product_code) from crm_offer
+        where create_time &gt;= curdate()
+        and inq_offer_type = 'Offer'
+        and product_code is not null and product_code &lt;&gt; ''
+        order by upper(product_code)
+    </select>
+
     <insert id="insertOffer" parameterType="com.ruoyi.crm.domain.CrmOffer" useGeneratedKeys="true" keyProperty="id">
         insert into crm_offer(
             product_code, product_brand, stock_date, product_detail, price_cost, price_offer, price_unit,

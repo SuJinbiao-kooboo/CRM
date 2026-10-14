@@ -56,6 +56,12 @@ export function copyOfferText(days) {
   return request({ url: '/crm/offer/copyOfferText', params: { days: days }, method: 'get', timeout: 30000, silent: true })
 }
 
+// 复制Offer（当日料号比价）：后端取当日录入Offer的去重料号并按料号查近1个月历史，返回与AI查询相同的分组结构（前端按价格优势阈值自动勾选）
+// silent: 错误提示由页面自行处理；timeout: 30秒（纯数据库查询，无AI调用）
+export function fetchTodayCopyGroups() {
+  return request({ url: '/crm/offer/todayCopyGroups', method: 'get', timeout: 30000, silent: true })
+}
+
 // 一键复制Offer（AI录入比价/AI查询共用）：按料号集合+最近days天（1=当天、2=今天+昨天、3=今天+昨天+前天）查询各料号报价最低的Offer，
 // 默认输出 料号/数量/Offer价格，extraFields 勾选后按固定顺序追加 供应商编号/详情/交期/DC，返回制表符分隔文本
 // silent: 错误提示由页面自行处理；timeout: 30秒（纯数据库查询，无AI调用）

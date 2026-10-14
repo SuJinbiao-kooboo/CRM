@@ -158,7 +158,7 @@ feishu:
   enabled: true
   # 飞书自建应用凭证
   app-id: cli_aa46fffc27b85bd8
-  app-secret: FEISHU_APP_SECRET_FROM_ENV
+  app-secret: ${FEISHU_APP_SECRET:}
   # 机器人名称
   bot-name: Eke
   # 飞书开放平台地址（国内默认）

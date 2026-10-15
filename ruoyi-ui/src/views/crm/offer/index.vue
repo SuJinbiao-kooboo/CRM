@@ -323,7 +323,7 @@
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
           <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
         </span>
-        <el-radio-group v-model="copyRecentDays" size="mini">
+        <el-radio-group v-model="copyRecentDays" size="mini" @change="onCopyRecentDaysChange">
           <el-radio-button :label="1">最近1天</el-radio-button>
           <el-radio-button :label="2">最近2天</el-radio-button>
           <el-radio-button :label="3">最近3天</el-radio-button>
@@ -377,7 +377,7 @@
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
           <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
         </span>
-        <el-radio-group v-model="copyRecentDays" size="mini">
+        <el-radio-group v-model="copyRecentDays" size="mini" @change="onCopyRecentDaysChange">
           <el-radio-button :label="1">最近1天</el-radio-button>
           <el-radio-button :label="2">最近2天</el-radio-button>
           <el-radio-button :label="3">最近3天</el-radio-button>
@@ -418,14 +418,14 @@
     </el-dialog>
 
     <!-- 复制Offer（当日料号比价）：取当日录入Offer的去重料号，按料号展示近1个月INQ/OFFER历史（与AI查询一致），有价格优势的料号自动勾选，可勾选追加字段一键复制 -->
-    <el-dialog title="复制Offer（当日料号比价）" :visible.sync="openTodayCopyDialogVisible" width="90%" top="5vh" custom-class="offer-ai-dialog" append-to-body>
+    <el-dialog title="复制Offer（最近N天料号比价）" :visible.sync="openTodayCopyDialogVisible" width="90%" top="5vh" custom-class="offer-ai-dialog" append-to-body>
       <!-- 复制工具栏（与AI查询共用）：最近1/2/3天取每料号最低Offer价格，默认输出料号/数量/Offer价格，可勾选追加字段 -->
       <div class="copy-toolbar">
         <span class="adv-threshold-wrap">
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
           <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
         </span>
-        <el-radio-group v-model="copyRecentDays" size="mini">
+        <el-radio-group v-model="copyRecentDays" size="mini" @change="onCopyRecentDaysChange">
           <el-radio-button :label="1">最近1天</el-radio-button>
           <el-radio-button :label="2">最近2天</el-radio-button>
           <el-radio-button :label="3">最近3天</el-radio-button>
@@ -440,9 +440,9 @@
         <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="todayCopyGroups.length === 0" @click="submitCopyOffersOfToday">一键复制Offer</el-button>
         <el-button size="mini" icon="el-icon-document-copy" v-clipboard="todayCopyCopyText" v-clipboard:success="onCopyOk" :disabled="todayCopyGroups.length === 0">一键复制全部信息</el-button>
       </div>
-      <div style="color:#909399; font-size:12px; margin-bottom:8px">今日去重后共 {{ todayCopyGroups.length }} 个料号，满足价格优势（今日最好价 ≤ 上两次报价最低价 - 阈值）的料号已自动勾选</div>
+      <div style="color:#909399; font-size:12px; margin-bottom:8px">最近{{ copyRecentDays }}天去重后共 {{ todayCopyGroups.length }} 个料号，满足价格优势（区间最好价 ≤ 上两次报价最低价 - 阈值）的料号已自动勾选</div>
       <div v-if="todayCopyLoading" style="color:#909399; text-align:center; padding: 30px 0">加载中，请稍候...</div>
-      <div v-if="todayCopyGroups.length === 0 && !todayCopyLoading" style="color:#909399; text-align:center; padding: 30px 0">今日暂无Offer记录</div>
+      <div v-if="todayCopyGroups.length === 0 && !todayCopyLoading" style="color:#909399; text-align:center; padding: 30px 0">最近{{ copyRecentDays }}天暂无Offer记录</div>
       <div v-for="(group, gi) in todayCopyGroups" :key="gi" class="ai-query-group">
         <div class="ai-query-part-number">
           <span>{{ group.partNumber }}（{{ (group.offers || []).length }}条记录）</span>
@@ -1067,17 +1067,22 @@ export default {
       this.openTodayCopyDialogVisible = true;
       this.loadTodayCopyGroups();
     },
-    /** 加载今日Offer料号比价：后端取当日录入Offer的去重料号并按料号查近1个月历史（分组结构与AI查询一致） */
+    /** 切换"最近N天"范围：重新加载复制Offer（当日料号比价）的去重料号列表 */
+    onCopyRecentDaysChange() {
+      if (this.openTodayCopyDialogVisible) { this.loadTodayCopyGroups(); }
+    },
+    /** 加载最近N天Offer料号比价：后端取最近N天一录入Offer的去重料号并按料号查近1个月历史（分组结构与AI查询一致） */
     loadTodayCopyGroups() {
       this.todayCopyLoading = true;
-      fetchTodayCopyGroups().then(res => {
+      const days = this.copyRecentDays || 1;
+      fetchTodayCopyGroups(days).then(res => {
         this.todayCopyGroups = this.decorateOfferGroups(res.data || []);
         // 依据价格优势阈值自动勾选
         this.autoSelectAdvantage();
         this.todayCopyCopyText = this.buildGroupCopyText(this.todayCopyGroups);
         this.todayCopyFallbackText = '';
-        if (!this.todayCopyGroups.length) { this.$modal.msgWarning('今日暂无Offer记录'); }
-        else { this.$modal.msgSuccess('已获取今日' + this.todayCopyGroups.length + '个去重料号'); }
+        if (!this.todayCopyGroups.length) { this.$modal.msgWarning('最近' + days + '天暂无Offer记录'); }
+        else { this.$modal.msgSuccess('已获取最近' + days + '天' + this.todayCopyGroups.length + '个去重料号'); }
       }).catch(err => {
         const e = err || {};
         const msg = String(e.message || '');

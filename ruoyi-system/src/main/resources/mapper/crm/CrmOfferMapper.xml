@@ -152,7 +152,7 @@
     <!-- 复制Offer（当日料号比价）：当日（创建时间>=今天0点）录入的Offer去重料号（大写），按料号升序 -->
     <select id="selectTodayOfferedPartNumbers" resultType="string">
         select distinct upper(product_code) from crm_offer
-        where create_time &gt;= curdate()
+        where create_time &gt;= date_sub(curdate(), interval (#{days} - 1) day)
         and inq_offer_type = 'Offer'
         and product_code is not null and product_code &lt;&gt; ''
         order by upper(product_code)

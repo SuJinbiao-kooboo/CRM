@@ -461,12 +461,15 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
     }
 
     /**
-     * 复制Offer（当日料号比价）：取当日（创建时间>=今天0点）录入的全部Offer去重料号，
-     * 按料号查询最近1个月历史，返回与AI料号查询相同的分组结构（前端按价格优势阈值自动勾选）
+     * 复制Offer（最近N天料号比价）：取最近N天（N=1当天0点起、N=2昨天0点起、N=3前天0点起，按创建时间口径）
+     * 录入的全部Offer去重料号，按料号查询最近1个月历史，返回与AI料号查询相同的分组结构（前端按价格优势阈值自动勾选）
      */
     @Override
-    public List<Map<String, Object>> todayCopyGroups() {
-        List<String> partNumbers = offerMapper.selectTodayOfferedPartNumbers();
+    public List<Map<String, Object>> todayCopyGroups(int days) {
+        if (days < 1 || days > 365) {
+            throw new ServiceException("最近天数范围应为1-365天");
+        }
+        List<String> partNumbers = offerMapper.selectTodayOfferedPartNumbers(days);
         if (partNumbers == null || partNumbers.isEmpty()) {
             return new ArrayList<>();
         }

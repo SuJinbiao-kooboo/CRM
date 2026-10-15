@@ -34,7 +34,7 @@ public interface CrmOfferMapper {
     /**
      * 复制Offer（当日料号比价）：查询当日（创建时间>=今天0点）录入的全部Offer去重料号（大写）
      */
-    List<String> selectTodayOfferedPartNumbers();
+    List<String> selectTodayOfferedPartNumbers(@Param("days") int days);
     int insertOffer(CrmOffer offer);
     int updateOffer(CrmOffer offer);
     int deleteOfferByIds(Long[] ids);

@@ -77,8 +77,8 @@ public class OfferController extends BaseController {
      */
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @GetMapping("/todayCopyGroups")
-    public AjaxResult todayCopyGroups() {
-        return AjaxResult.success(offerService.todayCopyGroups());
+    public AjaxResult todayCopyGroups(@RequestParam(defaultValue = "1") int days) {
+        return AjaxResult.success(offerService.todayCopyGroups(days));
     }
 
         /**

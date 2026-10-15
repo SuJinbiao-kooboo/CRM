@@ -46,7 +46,7 @@ public interface ICrmOfferService {
      * 复制Offer（当日料号比价）：取当日录入的全部Offer去重料号，按料号查询最近1个月内的INQ/OFFER历史记录，
      * 返回与AI料号查询相同的分组结构（{ partNumber, offers:[...] }），由前端按价格优势阈值自动勾选；当日无Offer时返回空列表
      */
-    List<Map<String, Object>> todayCopyGroups();
+    List<Map<String, Object>> todayCopyGroups(int days);
 
         /**
      * 供应商名称详情（点击列表供应商名称时实时查询）：先判数据权限，

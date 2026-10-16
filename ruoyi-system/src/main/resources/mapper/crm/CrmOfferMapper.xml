@@ -18,6 +18,7 @@
         <result column="moq_quantity" property="moqQuantity" />
         <result column="warranty_detail" property="warrantyDetail" />
         <result column="dc" property="dc" />
+        <result column="coo" property="coo" />
         <result column="supplier_code" property="supplierCode" />
         <result column="supplier_name" property="supplierName" />
         <result column="tags_first" property="tagsFirst" />
@@ -36,7 +37,7 @@
 
     <sql id="Base_Column_List">
         id, product_code, product_brand, stock_date, product_detail, price_cost, price_offer, price_unit,
-        quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, dc, supplier_code, supplier_name, tags_first, tags_second, tags_third, tags_si,
+        quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, dc, coo, supplier_code, supplier_name, tags_first, tags_second, tags_third, tags_si,
         status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type
     </sql>
 
@@ -161,11 +162,11 @@
     <insert id="insertOffer" parameterType="com.ruoyi.crm.domain.CrmOffer" useGeneratedKeys="true" keyProperty="id">
         insert into crm_offer(
             product_code, product_brand, stock_date, product_detail, price_cost, price_offer, price_unit,
-            quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, dc, supplier_code, supplier_name,
+            quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, dc, coo, supplier_code, supplier_name,
             tags_first, tags_second, tags_third, tags_si, status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type
         ) values (
             upper(#{productCode}), #{productBrand}, #{stockDate}, #{productDetail}, #{priceCost}, #{priceOffer}, #{priceUnit},
-            #{quantity}, #{deliveryTime}, #{remark}, #{sheetName}, #{moqQuantity}, #{warrantyDetail}, #{dc}, #{supplierCode}, #{supplierCode},
+            #{quantity}, #{deliveryTime}, #{remark}, #{sheetName}, #{moqQuantity}, #{warrantyDetail}, #{dc}, #{coo}, #{supplierCode}, #{supplierCode},
             #{tagsFirst}, #{tagsSecond}, #{tagsThird}, #{tagsSi}, #{status}, now(), now(), #{createBy}, #{updateBy}, #{productType}, upper(#{productDetailCode}), #{inqOfferType}
         )
     </insert>
@@ -187,6 +188,7 @@
             <if test="moqQuantity != null">moq_quantity = #{moqQuantity},</if>
             <if test="warrantyDetail != null">warranty_detail = #{warrantyDetail},</if>
             <if test="dc != null">dc = #{dc},</if>
+            <if test="coo != null">coo = #{coo},</if>
             <if test="supplierCode != null">supplier_code = #{supplierCode},</if>
             <!-- 不存供应商名称：supplier_name字段统一存供应商编码（历史数据已清洗） -->
             <if test="supplierCode != null">supplier_name = #{supplierCode},</if>
@@ -226,6 +228,7 @@
             <if test="offer.deliveryTime != null and offer.deliveryTime != ''">delivery_time = #{offer.deliveryTime},</if>
             <if test="offer.moqQuantity != null">moq_quantity = #{offer.moqQuantity},</if>
             <if test="offer.warrantyDetail != null and offer.warrantyDetail != ''">warranty_detail = #{offer.warrantyDetail},</if>
+            <if test="offer.coo != null and offer.coo != ''">coo = #{offer.coo},</if>
             <if test="offer.remark != null and offer.remark != ''">remark = #{offer.remark},</if>
             <if test="offer.tagsFirst != null and offer.tagsFirst != ''">tags_first = #{offer.tagsFirst},</if>
             <if test="offer.tagsSecond != null and offer.tagsSecond != ''">tags_second = #{offer.tagsSecond},</if>

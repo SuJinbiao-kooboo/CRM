@@ -323,11 +323,8 @@
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
           <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
         </span>
-        <el-radio-group v-model="copyRecentDays" size="mini" @change="onCopyRecentDaysChange">
-          <el-radio-button :label="1">最近1天</el-radio-button>
-          <el-radio-button :label="2">最近2天</el-radio-button>
-          <el-radio-button :label="3">最近3天</el-radio-button>
-        </el-radio-group>
+        <span style="color:#909399; font-size:12px">最近天数:</span>
+        <el-input-number v-model="copyRecentDays" :min="1" :max="365" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onCopyRecentDaysChange" />
         <el-checkbox-group v-model="copyExtraFields" size="mini" class="copy-extra-fields">
           <el-checkbox label="supplierCode">供应商编号</el-checkbox>
           <el-checkbox label="productDetail">详情</el-checkbox>
@@ -358,6 +355,9 @@
           <el-table-column label="OFFER价格" prop="priceOffer" align="center" width="100" />
           <el-table-column label="Offer日期" prop="offerDate" align="center" width="145" />
           <el-table-column label="交期" prop="deliveryTime" align="center" min-width="100" show-overflow-tooltip />
+          <el-table-column label="产品类型" prop="productType" align="center" width="100" />
+          <el-table-column label="COO" prop="coo" align="center" width="90" />
+          <el-table-column label="DC" prop="dc" align="center" width="100" />
           <el-table-column label="详情" prop="productDetail" min-width="200" show-overflow-tooltip />
         </el-table>
       </div>
@@ -377,11 +377,8 @@
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
           <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
         </span>
-        <el-radio-group v-model="copyRecentDays" size="mini" @change="onCopyRecentDaysChange">
-          <el-radio-button :label="1">最近1天</el-radio-button>
-          <el-radio-button :label="2">最近2天</el-radio-button>
-          <el-radio-button :label="3">最近3天</el-radio-button>
-        </el-radio-group>
+        <span style="color:#909399; font-size:12px">最近天数:</span>
+        <el-input-number v-model="copyRecentDays" :min="1" :max="365" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onCopyRecentDaysChange" />
         <el-checkbox-group v-model="copyExtraFields" size="mini" class="copy-extra-fields">
           <el-checkbox label="supplierCode">供应商编号</el-checkbox>
           <el-checkbox label="productDetail">详情</el-checkbox>
@@ -406,7 +403,9 @@
           <el-table-column label="INQ/OFFER" prop="inqOfferType" align="center" width="110" />
           <el-table-column label="数量" prop="quantity" align="center" width="80" />
           <el-table-column label="交期" prop="deliveryTime" align="center" min-width="110" show-overflow-tooltip />
-          <el-table-column label="DC" prop="dc" align="center" width="90" />
+          <el-table-column label="产品类型" prop="productType" align="center" width="100" />
+          <el-table-column label="COO" prop="coo" align="center" width="90" />
+          <el-table-column label="DC" prop="dc" align="center" width="100" />
           <el-table-column label="详情" prop="productDetail" min-width="200" show-overflow-tooltip />
         </el-table>
       </div>
@@ -425,11 +424,8 @@
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
           <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
         </span>
-        <el-radio-group v-model="copyRecentDays" size="mini" @change="onCopyRecentDaysChange">
-          <el-radio-button :label="1">最近1天</el-radio-button>
-          <el-radio-button :label="2">最近2天</el-radio-button>
-          <el-radio-button :label="3">最近3天</el-radio-button>
-        </el-radio-group>
+        <span style="color:#909399; font-size:12px">最近天数:</span>
+        <el-input-number v-model="copyRecentDays" :min="1" :max="365" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onCopyRecentDaysChange" />
         <el-checkbox-group v-model="copyExtraFields" size="mini" class="copy-extra-fields">
           <el-checkbox label="supplierCode">供应商编号</el-checkbox>
           <el-checkbox label="productDetail">详情</el-checkbox>
@@ -457,6 +453,9 @@
           <el-table-column label="OFFER价格" prop="priceOffer" align="center" width="100" />
           <el-table-column label="Offer日期" prop="offerDate" align="center" width="145" />
           <el-table-column label="交期" prop="deliveryTime" align="center" min-width="100" show-overflow-tooltip />
+          <el-table-column label="产品类型" prop="productType" align="center" width="100" />
+          <el-table-column label="COO" prop="coo" align="center" width="90" />
+          <el-table-column label="DC" prop="dc" align="center" width="100" />
           <el-table-column label="详情" prop="productDetail" min-width="200" show-overflow-tooltip />
         </el-table>
       </div>
@@ -967,22 +966,28 @@ export default {
       groups.forEach(g => { this.$set(g, 'checked', this.evaluateAdvantage(g, threshold)) });
     },
     /** 判定单个料号是否存在价格优势（仅用Offer价 priceOffer）：
-     *  今天最好价 <= 上两次有报价的最低价 - 阈值 则视为有优势；今天无报价或上两次报价不足时无优势 */
+     *  最近N天（copyRecentDays，默认1=当天）区间内最好价 <= 区间之前上两次有报价的最低价 - 阈值 则视为有优势；
+     *  区间内无报价或区间前报价不足两次时无优势 */
     evaluateAdvantage(g, threshold) {
+      const days = Math.max(1, Math.floor(Number(this.copyRecentDays)) || 1);
       const todayKey = this.todayDateKey();
+      // 窗口起点：今天往前 (days-1) 天，yyyy-MM-dd（字符串比较即时间顺序）
+      const winStart = new Date(Date.now() - (days - 1) * 86400000);
+      const winStartKey = winStart.getFullYear() + '-' + String(winStart.getMonth() + 1).padStart(2, '0') + '-' + String(winStart.getDate()).padStart(2, '0');
       const keyOf = o => String(o.offerDate || '').slice(0, 10);
       // 只统计 Offer 类型记录，INQ 价格不得参与优势计算（列表同时展示 INQ/OFFER 两种记录）
       const offers = (g.offers || []).filter(o => o.offerDate && String(o.inqOfferType || '').toUpperCase() === 'OFFER' && !isNaN(Number(o.priceOffer)));
       if (offers.length === 0) return false;
-      const todayPrices = offers.filter(o => keyOf(o) === todayKey).map(o => Number(o.priceOffer));
-      // 今天之前（Offer日期小于今天）的报价，按Offer日期从新到旧排列
-      const prevOffers = offers.filter(o => keyOf(o) !== '' && keyOf(o) < todayKey)
+      // 区间内（最近N天）报价
+      const windowPrices = offers.filter(o => { const k = keyOf(o); return k >= winStartKey && k <= todayKey }).map(o => Number(o.priceOffer));
+      // 区间之前（早于窗口起点）的报价，按Offer日期从新到旧排列
+      const prevOffers = offers.filter(o => keyOf(o) !== '' && keyOf(o) < winStartKey)
         .sort((a, b) => String(b.offerDate || '').localeCompare(String(a.offerDate || '')));
-      if (todayPrices.length === 0) return false;   // 今天无报价
-      if (prevOffers.length < 2) return false;       // 上两次报价不足
-      const todayBest = Math.min(...todayPrices);
+      if (windowPrices.length === 0) return false;   // 区间内无报价
+      if (prevOffers.length < 2) return false;       // 区间前上两次报价不足
+      const windowBest = Math.min(...windowPrices);
       const baseline = Math.min(Number(prevOffers[0].priceOffer), Number(prevOffers[1].priceOffer));
-      return (baseline - todayBest) >= threshold;
+      return (baseline - windowBest) >= threshold;
     },
     /** 今天的日期键 yyyy-MM-dd */
     todayDateKey() {
@@ -1067,8 +1072,11 @@ export default {
       this.openTodayCopyDialogVisible = true;
       this.loadTodayCopyGroups();
     },
-    /** 切换"最近N天"范围：重新加载复制Offer（当日料号比价）的去重料号列表 */
+    /** 切换/输入"最近N天"范围：非法值重置为1；复制Offer弹窗打开时重新加载去重料号（AI查询/AI录入只影响复制天数） */
     onCopyRecentDaysChange() {
+      let d = Math.floor(Number(this.copyRecentDays));
+      if (!d || isNaN(d) || d < 1) { d = 1; this.copyRecentDays = 1; }
+      if (d > 365) { d = 365; this.copyRecentDays = 365; }
       if (this.openTodayCopyDialogVisible) { this.loadTodayCopyGroups(); }
     },
     /** 加载最近N天Offer料号比价：后端取最近N天一录入Offer的去重料号并按料号查近1个月历史（分组结构与AI查询一致） */

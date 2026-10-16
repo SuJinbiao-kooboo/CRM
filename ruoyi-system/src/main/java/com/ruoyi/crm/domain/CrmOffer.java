@@ -41,6 +41,8 @@ public class CrmOffer extends BaseEntity {
     private String warrantyDetail;
     @Excel(name = "DC")
     private String dc;
+    @Excel(name = "COO产地")
+    private String coo;
     @Excel(name = "供应商编码")
     private String supplierCode;
     @Excel(name = "供应商名称")

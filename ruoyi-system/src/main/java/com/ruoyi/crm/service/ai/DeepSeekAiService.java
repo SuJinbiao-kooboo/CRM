@@ -76,19 +76,23 @@ public class DeepSeekAiService {
 
     /** 默认基础提示词：定义JSON输出格式与字段映射（配合解析示例一起生效） */
     private static final String DEFAULT_SYSTEM_PROMPT_BASE = "你是IT硬件物料信息整理助手。用户会粘贴包含IT配件（SSD、HDD、CPU、GPU、内存、主板、交换机等）的物料信息文本，"
-            + "其中可能包含品牌、料号、型号、规格、数量、报价等信息。"
+            + "其中可能包含品牌、料号、型号、规格、数量、报价、DC编码、产地COO、交期等信息。"
             + "请把文本中的每一条物料整理成结构化数据，并严格按如下JSON格式输出："
-            + "{\"items\":[{\"brand\":\"品牌\",\"partNumber\":\"料号\",\"model\":\"型号\",\"spec\":\"规格型号\",\"quantity\":数量,\"price\":报价}]}"
+            + "{\"items\":[{\"brand\":\"品牌\",\"partNumber\":\"料号\",\"model\":\"型号\",\"spec\":\"规格细节\",\"quantity\":数量,\"price\":报价,\"dc\":\"DC编码\",\"coo\":\"产地\",\"deliveryTime\":\"交期\",\"productType\":\"产品类型\",\"productDetail\":\"详情\"}]}"
             + "字段规则：1. brand为品牌名称，按常见品牌对照表统一名称；"
             + "2. partNumber为料号/型号（唯一标识符），不要修改或截断；注意CPU的料号"
-            + "3. 注意交期字段也要，默认为空，L/T，LT，Lead Time，3d 2w 之类的字眼就是交期相关信息，没有的时候置空"
-            + "4. spec为其余规格描述与附加信息（容量、接口、DC、COO、备注等，用逗号分隔）；若数量带+或范围等不确定后缀，在spec中保留原始数量表达；"
+            + "3. deliveryTime为交期：L/T、LT、Lead Time、3d、2w、4-6周、货期之类的字眼就是交期信息，提取为简洁交期描述，没有的时候置空字符串"
+            + "4. spec为原文中的规格细节（容量、接口、备注等，用逗号分隔），仅整理原文信息不做扩展；若数量带+或范围等不确定后缀，在spec中保留原始数量表达；"
             + "5. 品牌字段是必须的"
             + "6. quantity为整数（1k换算为1000、500+取500、40pcs取40），无法识别时输出null；"
             + "7. price为纯数字（去掉货币符号和单位），无法识别或原文为No price/Not specified时输出null；"
-            + "8. 不要遗漏任何一条物料，也不要编造原文中不存在的信息；"
-            + "9. 料号的识别要特别注意，特别是CPU的，料号可能很短，比如 6338         SRKJ9      $1010    440pcs  6338 才是我要的料号，对料号的识别要做二次确认才行"
-            + "10. 最终输出字段需要至少有料号 型号 spec 品牌 数量 价格 品牌大部分时候是空的，需要帮我根据料号查询信息补充，详情也最好也补充，但是一定要保证正确才能补充且需要简短 说明规格和主要参数即可";
+            + "8. dc为DC编码（如DCA-0305、D/C 23、N2024等年份/批次码，或原文中的DC列值），没有的时候置空字符串"
+            + "9. coo为产地（Made in Taiwan/China/Japan/Korea/Malaysia，或台产/国产/马来西亚产，或原产地国别），没有的时候置空字符串"
+            + "10. productType为产品类型，必须从以下分类中选择：SSD、HDD、CPU、GPU、RAM内存、主板、交换机、网卡、电源、服务器整机、其他；根据料号前缀和描述推断，无法确定时置空字符串不要乱猜"
+            + "11. productDetail为详情：根据料号补充简短规格与主要参数（容量、接口、速度、系列、核心数等，如 4TB M.2 NVMe）；必须保证正确才能补充，不确定时使用原文描述；productDetail是汇总详情，spec保留原文细节"
+            + "12. 不要遗漏任何一条物料，也不要编造原文中不存在的信息；"
+            + "13. 料号的识别要特别注意，特别是CPU的，料号可能很短，比如 6338         SRKJ9      $1010    440pcs  6338 才是我要的料号，对料号的识别要做二次确认才行"
+            + "14. 最终输出字段需要至少有料号 型号 spec 品牌 数量 价格 dc coo deliveryTime productType productDetail；品牌大部分时候是空的，需要帮我根据料号查询信息补充，详情也最好也补充，但是一定要保证正确才能补充且需要简短 说明规格和主要参数即可";
 
     /**
      * 调用 DeepSeek 接口，把无规则的物料文本整理为结构化物料列表
@@ -169,6 +173,11 @@ public class DeepSeekAiService {
             row.put("spec", strVal(item, "spec"));
             row.put("quantity", intVal(item, "quantity"));
             row.put("price", doubleVal(item, "price"));
+            row.put("dc", strVal(item, "dc"));
+            row.put("coo", strVal(item, "coo"));
+            row.put("deliveryTime", strVal(item, "deliveryTime"));
+            row.put("productType", strVal(item, "productType"));
+            row.put("productDetail", strVal(item, "productDetail"));
             // 关键字段全空的无效行直接跳过
             if (isBlank((String) row.get("partNumber")) && isBlank((String) row.get("brand"))
                     && isBlank((String) row.get("model")) && isBlank((String) row.get("spec"))) {

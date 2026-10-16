@@ -359,7 +359,13 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             offer.setProductCode(str(item.get("partNumber")));
             offer.setProductBrand(str(item.get("brand")));
             offer.setProductDetailCode(str(item.get("model")));
-            offer.setProductDetail(str(item.get("spec")));
+            String aiDetail = str(item.get("productDetail"));
+            // 详情优先取AI补充的汇总详情，为空时回退原文规格细节
+            offer.setProductDetail(aiDetail.isEmpty() ? str(item.get("spec")) : aiDetail);
+            offer.setDc(str(item.get("dc")));
+            offer.setCoo(str(item.get("coo")));
+            offer.setDeliveryTime(str(item.get("deliveryTime")));
+            offer.setProductType(str(item.get("productType")));
             offer.setQuantity((Integer) item.get("quantity"));
             Double cost = (Double) item.get("price");
             offer.setPriceCost(cost);
@@ -442,6 +448,10 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             for (CrmOffer o : entry.getValue()) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("supplierName", o.getSupplierName());
+                m.put("supplierCode", o.getSupplierCode());
+                m.put("productType", o.getProductType());
+                m.put("dc", o.getDc());
+                m.put("coo", o.getCoo());
                 m.put("priceCost", o.getPriceCost());
                 m.put("inqOfferType", o.getInqOfferType());
                 m.put("quantity", o.getQuantity());

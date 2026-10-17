@@ -21,6 +21,8 @@ public class CrmOffer extends BaseEntity {
     private Date stockDate;
     @Excel(name = "产品详情")
     private String productDetail;
+    @Excel(name = "规格")
+    private String spec;
     @Excel(name = "单价-成本")
     private Double priceCost;
     @Excel(name = "单价-报价")

@@ -362,6 +362,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             String aiDetail = str(item.get("productDetail"));
             // 详情优先取AI补充的汇总详情，为空时回退原文规格细节
             offer.setProductDetail(aiDetail.isEmpty() ? str(item.get("spec")) : aiDetail);
+            offer.setSpec(str(item.get("spec")));
             offer.setDc(str(item.get("dc")));
             offer.setCoo(str(item.get("coo")));
             offer.setDeliveryTime(str(item.get("deliveryTime")));
@@ -461,6 +462,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 Date offerDate = o.getStockDate() != null ? o.getStockDate() : o.getCreateTime();
                 m.put("offerDate", offerDate == null ? "" : DateUtil.format(offerDate, "yyyy-MM-dd HH:mm"));
                 m.put("deliveryTime", o.getDeliveryTime());
+                m.put("spec", o.getSpec());
                 m.put("productDetail", o.getProductDetail());
                 offerList.add(m);
             }
@@ -549,6 +551,9 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             m.put("productDetail", o.getProductDetail());
             m.put("quantity", o.getQuantity());
             m.put("deliveryTime", o.getDeliveryTime());
+            m.put("productType", o.getProductType());
+            m.put("coo", o.getCoo());
+            m.put("spec", o.getSpec());
             m.put("dc", o.getDc());
             m.put("inqOfferType", o.getInqOfferType());
             result.add(m);
@@ -652,7 +657,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         }
         // 额外字段白名单校验并按固定顺序排列（供应商编号→详情→交期→DC），前端勾选先后不影响输出列顺序
         LinkedHashSet<String> extras = new LinkedHashSet<>();
-        for (String f : new String[]{"supplierCode", "productDetail", "deliveryTime", "dc"}) {
+        for (String f : new String[]{"supplierCode", "productDetail", "deliveryTime", "dc", "spec"}) {
             if (extraFields != null && extraFields.contains(f)) {
                 extras.add(f);
             }
@@ -675,6 +680,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         if (extras.contains("productDetail")) sb.append("\tDetail");
         if (extras.contains("deliveryTime")) sb.append("\tDelivery");
         if (extras.contains("dc")) sb.append("\tDC");
+        if (extras.contains("spec")) sb.append("\tSpec");
         List<CrmOffer> rows = new ArrayList<>(dedup.values());
         // 无品牌的排在最后，避免空分组混在开头
         rows.sort(Comparator.comparing((CrmOffer o) -> brandOf(o).isEmpty())
@@ -702,6 +708,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             if (extras.contains("productDetail")) sb.append('\t').append(nvl(o.getProductDetail()));
             if (extras.contains("deliveryTime")) sb.append('\t').append(nvl(o.getDeliveryTime()));
             if (extras.contains("dc")) sb.append('\t').append(nvl(o.getDc()));
+            if (extras.contains("spec")) sb.append('\t').append(nvl(o.getSpec()));
         }
         return sb.toString();
     }

@@ -8,6 +8,7 @@
         <result column="product_brand" property="productBrand" />
         <result column="stock_date" property="stockDate" />
         <result column="product_detail" property="productDetail" />
+        <result column="spec" property="spec" />
         <result column="price_cost" property="priceCost" />
         <result column="price_offer" property="priceOffer" />
         <result column="price_unit" property="priceUnit" />
@@ -36,7 +37,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, product_code, product_brand, stock_date, product_detail, price_cost, price_offer, price_unit,
+        id, product_code, product_brand, stock_date, product_detail, spec, price_cost, price_offer, price_unit,
         quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, dc, coo, supplier_code, supplier_name, tags_first, tags_second, tags_third, tags_si,
         status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type
     </sql>
@@ -67,6 +68,7 @@
                 </foreach>
                 )
             </if>
+            <if test="spec != null and spec != ''">and spec like concat('%', #{spec}, '%')</if>
             <if test="params != null and params.productTypeList != null and params.productTypeList.length() > 0">
                 and (
                 <foreach collection="params.productTypeList.split(',')" item="pt" separator=" or ">
@@ -161,11 +163,11 @@
 
     <insert id="insertOffer" parameterType="com.ruoyi.crm.domain.CrmOffer" useGeneratedKeys="true" keyProperty="id">
         insert into crm_offer(
-            product_code, product_brand, stock_date, product_detail, price_cost, price_offer, price_unit,
+            product_code, product_brand, stock_date, product_detail, spec, price_cost, price_offer, price_unit,
             quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, dc, coo, supplier_code, supplier_name,
             tags_first, tags_second, tags_third, tags_si, status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type
         ) values (
-            upper(#{productCode}), #{productBrand}, #{stockDate}, #{productDetail}, #{priceCost}, #{priceOffer}, #{priceUnit},
+            upper(#{productCode}), #{productBrand}, #{stockDate}, #{productDetail}, #{spec}, #{priceCost}, #{priceOffer}, #{priceUnit},
             #{quantity}, #{deliveryTime}, #{remark}, #{sheetName}, #{moqQuantity}, #{warrantyDetail}, #{dc}, #{coo}, #{supplierCode}, #{supplierCode},
             #{tagsFirst}, #{tagsSecond}, #{tagsThird}, #{tagsSi}, #{status}, now(), now(), #{createBy}, #{updateBy}, #{productType}, upper(#{productDetailCode}), #{inqOfferType}
         )
@@ -178,6 +180,7 @@
             <if test="productBrand != null">product_brand = #{productBrand},</if>
             <if test="stockDate != null">stock_date = #{stockDate},</if>
             <if test="productDetail != null">product_detail = #{productDetail},</if>
+            <if test="spec != null">spec = #{spec},</if>
             <if test="priceCost != null">price_cost = #{priceCost},</if>
             <if test="priceOffer != null">price_offer = #{priceOffer},</if>
             <if test="priceUnit != null">price_unit = #{priceUnit},</if>
@@ -221,6 +224,7 @@
             <if test="offer.productBrand != null and offer.productBrand != ''">product_brand = #{offer.productBrand},</if>
             <if test="offer.stockDate != null">stock_date = #{offer.stockDate},</if>
             <if test="offer.productDetail != null and offer.productDetail != ''">product_detail = #{offer.productDetail},</if>
+            <if test="offer.spec != null and offer.spec != ''">spec = #{offer.spec},</if>
             <if test="offer.priceCost != null and offer.priceCost != 0">price_cost = #{offer.priceCost},</if>
             <if test="offer.priceOffer != null and offer.priceOffer != 0">price_offer = #{offer.priceOffer},</if>
             <if test="offer.priceUnit != null and offer.priceUnit != ''">price_unit = #{offer.priceUnit},</if>

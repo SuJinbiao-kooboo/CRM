@@ -31,6 +31,9 @@
           <el-option v-for="d in dictProductType" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
         </el-select>
       </el-form-item>
+      <el-form-item label="规格">
+        <el-input v-model="queryParams.spec" placeholder="请输入规格（容量/转速等）" clearable size="mini" style="width: 180px" @keyup.enter.native="handleQuery" />
+      </el-form-item>
       <el-form-item label="标签1">
         <el-select v-model="queryParams.tagsFirst" clearable filterable placeholder="标签1">
           <el-option v-for="d in dictTagsFirst" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
@@ -123,6 +126,7 @@
       </el-table-column>
       <el-table-column label="品牌" align="center" prop="productBrand" show-overflow-tooltip />
       <el-table-column label="产品详情" align="center" prop="productDetail" min-width="220" show-overflow-tooltip />
+      <el-table-column label="规格" align="center" prop="spec" min-width="140" show-overflow-tooltip />
       <el-table-column label="价格单位" align="center" prop="priceUnit" show-overflow-tooltip />
       <el-table-column label="产品类型" align="center" prop="productType" show-overflow-tooltip />
       <el-table-column label="DC" align="center" prop="dc" show-overflow-tooltip />
@@ -186,8 +190,14 @@
         <el-form-item label="产品详情" prop="productDetail">
           <el-input type="textarea" :rows="3" v-model="form.productDetail" placeholder="请输入产品详情（规格型号等）" />
         </el-form-item>
+        <el-form-item label="规格" prop="spec">
+          <el-input v-model="form.spec" placeholder="请输入规格（容量/转速等）" />
+        </el-form-item>
         <el-form-item label="交货时间" prop="deliveryTime">
           <el-input v-model="form.deliveryTime" placeholder="请输入交货时间" />
+        </el-form-item>
+        <el-form-item label="COO" prop="coo">
+          <el-input v-model="form.coo" placeholder="请输入产地/原产国（如 CN、MY、NON CN）" />
         </el-form-item>
         <el-form-item label="MOQ数量" prop="moqQuantity">
           <el-input-number v-model="form.moqQuantity" :controls="false" :precision="0" :min="0" placeholder="请输入MOQ数量" style="width:100%" />
@@ -330,6 +340,7 @@
           <el-checkbox label="productDetail">详情</el-checkbox>
           <el-checkbox label="deliveryTime">交期</el-checkbox>
           <el-checkbox label="dc">DC</el-checkbox>
+          <el-checkbox label="spec">规格</el-checkbox>
         </el-checkbox-group>
         <el-button size="mini" icon="el-icon-check" :disabled="aiQueryGroups.length === 0" @click="selectAllAdvantage">全选</el-button>
         <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="aiQueryGroups.length === 0" @click="submitCopyOffersOfQuery">一键复制Offer</el-button>
@@ -359,6 +370,7 @@
           <el-table-column label="COO" prop="coo" align="center" width="90" />
           <el-table-column label="DC" prop="dc" align="center" width="100" />
           <el-table-column label="详情" prop="productDetail" min-width="200" show-overflow-tooltip />
+          <el-table-column label="规格" prop="spec" min-width="120" show-overflow-tooltip />
         </el-table>
       </div>
       <!-- 自动复制失败时的兜底内容：完整文本展示在此，供手动全选复制，保证数据不丢失 -->
@@ -384,6 +396,7 @@
           <el-checkbox label="productDetail">详情</el-checkbox>
           <el-checkbox label="deliveryTime">交期</el-checkbox>
           <el-checkbox label="dc">DC</el-checkbox>
+          <el-checkbox label="spec">规格</el-checkbox>
         </el-checkbox-group>
         <el-button size="mini" icon="el-icon-check" :disabled="aiCompareGroups.length === 0" @click="selectAllAdvantage">全选</el-button>
         <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="aiCompareGroups.length === 0" @click="submitCopyOffersOfCompare">一键复制Offer</el-button>
@@ -407,6 +420,7 @@
           <el-table-column label="COO" prop="coo" align="center" width="90" />
           <el-table-column label="DC" prop="dc" align="center" width="100" />
           <el-table-column label="详情" prop="productDetail" min-width="200" show-overflow-tooltip />
+          <el-table-column label="规格" prop="spec" min-width="120" show-overflow-tooltip />
         </el-table>
       </div>
       <!-- 自动复制失败时的兜底内容：完整文本展示在此，供手动全选复制，保证数据不丢失 -->
@@ -431,6 +445,7 @@
           <el-checkbox label="productDetail">详情</el-checkbox>
           <el-checkbox label="deliveryTime">交期</el-checkbox>
           <el-checkbox label="dc">DC</el-checkbox>
+          <el-checkbox label="spec">规格</el-checkbox>
         </el-checkbox-group>
         <el-button size="mini" icon="el-icon-check" :disabled="todayCopyGroups.length === 0" @click="selectAllAdvantage">全选</el-button>
         <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="todayCopyGroups.length === 0" @click="submitCopyOffersOfToday">一键复制Offer</el-button>
@@ -457,6 +472,7 @@
           <el-table-column label="COO" prop="coo" align="center" width="90" />
           <el-table-column label="DC" prop="dc" align="center" width="100" />
           <el-table-column label="详情" prop="productDetail" min-width="200" show-overflow-tooltip />
+          <el-table-column label="规格" prop="spec" min-width="120" show-overflow-tooltip />
         </el-table>
       </div>
       <div v-if="todayCopyFallbackText" style="margin-top: 10px">
@@ -692,7 +708,7 @@ export default {
       queryParams: { pageNum: 1, pageSize: 10, productCode: undefined, supplierCodes: [], productBrandArr: [], productTypeArr: [], inqOfferType: undefined, tagsFirst: undefined, tagsSecond: undefined, tagsThird: undefined, tagsSi: undefined, params: {} },
       moreTags: false,
       stockDateRange: [],
-      form: { id: undefined, supplierCode: '', supplierName: '', productCode: '', productDetailCode: '', productBrand: '', productBrandArr: [], stockDate: undefined, priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, productDetail: '', deliveryTime: '', remark: '', sheetName: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer', status: 1 },
+      form: { id: undefined, supplierCode: '', supplierName: '', productCode: '', productDetailCode: '', productBrand: '', productBrandArr: [], stockDate: undefined, priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, productDetail: '', spec: '', coo: '', deliveryTime: '', remark: '', sheetName: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer', status: 1 },
       dictProductBrand: [], dictPriceUnit: [], dictProductType: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       importForm: { inqOfferType: 'Offer', profitRatio: 2 },
       uploadAction: process.env.VUE_APP_BASE_API + '/crm/offer/import',
@@ -1167,9 +1183,9 @@ export default {
         if (offers.length === 0) {
           lines.push('\t最近1个月无INQ/OFFER记录');
         } else {
-          lines.push('\tSupplier\tType\tQty\tPrice\tCreated\tDelivery\tDetail');
+          lines.push('\tSupplier\tType\tQty\tPrice\tCreated\tDelivery\tSpec\tDetail');
           offers.forEach(o => {
-            lines.push(['', o.supplierName || '', o.inqOfferType || '', o.quantity == null ? '' : o.quantity + 'pcs', o.priceOffer == null ? '' : o.priceOffer + 'USD', o.createTime || '', o.deliveryTime || '', o.productDetail || ''].join('\t'));
+            lines.push(['', o.supplierName || '', o.inqOfferType || '', o.quantity == null ? '' : o.quantity + 'pcs', o.priceOffer == null ? '' : o.priceOffer + 'USD', o.createTime || '', o.deliveryTime || '', o.spec || '', o.productDetail || ''].join('\t'));
           });
         }
       });

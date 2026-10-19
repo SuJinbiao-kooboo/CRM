@@ -243,7 +243,8 @@ public class DeepSeekAiService {
             }
             return SESSION_KEY_PREFIX + userId;
         } catch (Exception e) {
-            log.warn("获取当前登录用户失败，本次调用不启用会话复用", e);
+            // 定时任务/匿名调用等无登录上下文场景属正常，无需打印完整堆栈
+            log.warn("非登录上下文(定时任务/匿名调用)，本次AI解析不启用会话复用: {}", e.getMessage());
             return null;
         }
     }

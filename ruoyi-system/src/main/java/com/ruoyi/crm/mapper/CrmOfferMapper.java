@@ -36,6 +36,10 @@ public interface CrmOfferMapper {
      */
     List<String> selectTodayOfferedPartNumbers(@Param("days") int days);
     int insertOffer(CrmOffer offer);
+    /**
+     * 统计某条微信消息已录入的 Offer 行数（按来源关联字段精确匹配，供自动录入幂等判断）。
+     */
+    int countByWechat(@Param("serverId") String serverId, @Param("username") String username, @Param("localId") long localId);
     int updateOffer(CrmOffer offer);
     int deleteOfferByIds(Long[] ids);
     int deleteOfferById(Long id);

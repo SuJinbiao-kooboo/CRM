@@ -9,6 +9,9 @@ import lombok.Data;
 @Data
 public class WeChatMessage {
 
+    /** 库表自增主键（入库/查询后才有值） */
+    private Long id;
+
     /** 会话（微信号/群id） */
     private String username;
 
@@ -32,6 +35,24 @@ public class WeChatMessage {
     @JsonProperty("category_source")
     private String categorySource;
 
+    /** 分类理由（大模型 why 简短一句，便于人工复核） */
+    @JsonProperty("category_reason")
+    private String categoryReason;
+
+    /** 打标状态：0=未打标(分类后待处理) 1=已打标(分类已写回、下一环节可消费)；未分类为 0 */
+    @JsonProperty("status")
+    private Integer status;
+    /** AI录入失败次数：连续失败达 offerEntryMaxFail 次时置 status=3(无需处理)；0=未失败 */
+    @JsonProperty("entry_fail_count")
+    private Integer entryFailCount;
+
+    /** 关联INQ(JSON: id/server_id/sender/content/create_time)：OFFER=回应的INQ；TRACE=对应的INQ */
+    @JsonProperty("relat_inq")
+    private String relatInq;
+
+    /** 关联OFFER(JSON: id/server_id/sender/content/create_time)：TRACE=对应的OFFER；OFFER自身为空 */
+    @JsonProperty("relat_offer")
+    private String relatOffer;
     /** 发言人显示名 */
     private String sender;
 

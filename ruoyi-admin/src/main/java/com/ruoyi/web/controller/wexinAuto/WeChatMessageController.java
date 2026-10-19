@@ -23,7 +23,12 @@ import java.util.Map;
  *
  * <p>前置：微信 4.1.15.13 已登录、主窗口打开；首次运行需从进程内存提取密钥。</p>
  * <ul>
- *   <li>GET  /wechat/messages        主动拉取：since(可选,含到秒) chat(可选) media(可选)</li>
+ *   <li>GET  /wechat/messages        主动拉取：since(可选,含到秒) chat(可选) media(可选) status(可选)</li>
+ *   <li>POST /wechat/poll/run       手动触发一次轮询拉取(可选 chat=群/好友名只拉该会话)</li>
+ *   <li>GET  /wechat/poll/status    轮询拉取/分类参数与状态</li>
+ *   <li>POST /wechat/classify/run   手动触发一次分类(可选 chat=群/好友名只处理该会话)</li>
+ *   <li>POST /wechat/offer/entry/run 手动触发一次INQ/OFFER自动录入(可选 chat=群/好友名只录入该会话)</li>
+ *   <li>GET  /wechat/offer/entry/status INQ/OFFER录入参数与状态</li>
  *   <li>POST /wechat/listen/start   启动实时监听（之后逐条回调 WeChatMessageHandler）</li>
  *   <li>GET  /wechat/listen/status  查询监听状态</li>
  *   <li>POST /wechat/listen/stop    停止监听</li>
@@ -54,9 +59,61 @@ public class WeChatMessageController {
     public AjaxResult messages(@RequestParam(required = false) String since,
                                @RequestParam(required = false) String chat,
                                @RequestParam(required = false, defaultValue = "false") boolean media,
-                               @RequestParam(required = false) Integer limit) {
-        List<WeChatMessage> list = gateway.fetch(since, chat, media, limit);
+                               @RequestParam(required = false) Integer limit,
+                               @RequestParam(required = false) Integer status) {
+        List<WeChatMessage> list = gateway.fetch(since, chat, media, limit, status);
         return AjaxResult.success(list);
+    }
+
+    /**
+     * 手动触发一次轮询拉取：把微信消息拉入 wechat_message 库(status=0)。
+     *
+     * @param chat  群名/好友名，可选；不填=所有会话增量；填了=只拉该会话
+     * @param since 拉取起点时间(格式 yyyy-MM-dd HH:mm:ss，含该秒)，可选；
+     *              不填=按轮询水位只拉新增；填了=重新拉该时刻之后的所有消息，
+     *              已入库的按唯一键 username+local_id 自动跳过，不会重复处理
+     */
+    @PostMapping("/poll/run")
+    public AjaxResult pollRun(@RequestParam(required = false) String chat,
+                              @RequestParam(required = false) String since) {
+        return AjaxResult.success(gateway.pollOnce(chat, since, true));
+    }
+
+    /**
+     * 轮询拉取/分类配置与运行状态（含未分类消息数、水位时间），便于 Postman 观察。
+     */
+    @GetMapping("/poll/status")
+    public AjaxResult pollStatus() {
+        return AjaxResult.success(gateway.pollStatus());
+    }
+
+    /**
+     * 手动触发一次分类：对最早未分类(status=0)的 classifyBatchSize 条消息做 AI 分类并回写。
+     *
+     * @param chat 群名/好友名，可选；不填=全部会话；填了=只处理该会话最早未分类的消息
+     */
+    @PostMapping("/classify/run")
+    public AjaxResult classifyRun(@RequestParam(required = false) String chat) {
+        return AjaxResult.success(gateway.classifyOnce(chat));
+    }
+
+    /**
+     * 手动触发一次 INQ/OFFER 自动录入：把已分类未处理(status=1)且分类命中 offerEntryCategories
+     * 的消息按 Offer 列表 AI 录入逻辑写入 crm_offer（写入 wechat_server_id 来源关联），成功后 status=2。
+     *
+     * @param chat 群名/好友名，可选；不填=全部会话(注意按 offerEntryScanSec 限频)；填了=立即只处理该会话
+     */
+    @PostMapping("/offer/entry/run")
+    public AjaxResult offerEntryRun(@RequestParam(required = false) String chat) {
+        return AjaxResult.success(gateway.offerEntryOnce(chat));
+    }
+
+    /**
+     * INQ/OFFER 自动录入参数与运行状态（含待录入消息数），便于 Postman 观察。
+     */
+    @GetMapping("/offer/entry/status")
+    public AjaxResult offerEntryStatus() {
+        return AjaxResult.success(gateway.offerEntryStatus());
     }
 
     /**

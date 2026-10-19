@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.wexinAuto.mapper.WeChatMessageMapper">
+
+    <resultMap id="WeChatMessageResult" type="com.ruoyi.wexinAuto.model.WeChatMessage">
+        <id     property="id"              column="id" />
+        <result property="username"        column="username" />
+        <result property="name"            column="name" />
+        <result property="localId"         column="local_id" />
+        <result property="serverId"        column="server_id" />
+        <result property="type"            column="type" />
+        <result property="sender"          column="sender" />
+        <result property="content"         column="content" />
+        <result property="quote"           column="quote" />
+        <result property="quoteKind"       column="quote_kind" />
+        <result property="mediaPath"       column="media_path" />
+        <result property="createTime"      column="create_time" />
+        <result property="sortSeq"         column="sort_seq" />
+        <result property="md5"             column="md5" />
+        <result property="msgCategory"     column="msg_category" />
+        <result property="categorySource"  column="category_source" />
+        <result property="categoryReason"  column="category_reason" />
+        <result property="status"          column="status" />
+        <result property="relatInq"        column="relat_inq" />
+        <result property="relatOffer"      column="relat_offer" />
+        <result property="entryFailCount"  column="entry_fail_count" />
+    </resultMap>
+
+    <sql id="selectWechatMessageVo">
+        SELECT id, username, name, local_id, server_id, type, sender, content, quote, quote_kind,
+               media_path, create_time, sort_seq, md5, msg_category, category_source, category_reason, status,
+               relat_inq, relat_offer, entry_fail_count
+        FROM wechat_message
+    </sql>
+
+    <insert id="batchUpsert">
+        INSERT INTO wechat_message (username, name, local_id, server_id, type, sender, content, quote, quote_kind,
+            media_path, create_time, sort_seq, md5, msg_category, category_source, category_reason, status,
+            relat_inq, relat_offer, entry_fail_count)
+        VALUES
+        <foreach collection="list" item="m" separator=",">
+            (#{m.username}, #{m.name}, #{m.localId}, #{m.serverId}, #{m.type}, #{m.sender}, #{m.content}, #{m.quote}, #{m.quoteKind},
+             #{m.mediaPath}, #{m.createTime}, #{m.sortSeq}, #{m.md5}, #{m.msgCategory}, #{m.categorySource}, #{m.categoryReason}, COALESCE(#{m.status}, 0),
+             #{m.relatInq}, #{m.relatOffer}, COALESCE(#{m.entryFailCount}, 0))
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            username = VALUES(username)
+    </insert>
+
+    <update id="updateCategory">
+        UPDATE wechat_message
+        SET msg_category = #{m.msgCategory}, category_source = #{m.categorySource}, category_reason = #{m.categoryReason},
+            relat_inq = #{m.relatInq}, relat_offer = #{m.relatOffer}, status = 1
+        WHERE username = #{m.username} AND local_id = #{m.localId}
+    </update>
+
+    <insert id="insertBlackBatch">
+        INSERT INTO wechat_message_black (username, name, local_id, server_id, type, sender, content, quote, quote_kind,
+            media_path, create_time, sort_seq, md5)
+        VALUES
+        <foreach collection="list" item="m" separator=",">
+            (#{m.username}, #{m.name}, #{m.localId}, #{m.serverId}, #{m.type}, #{m.sender}, #{m.content}, #{m.quote}, #{m.quoteKind},
+             #{m.mediaPath}, #{m.createTime}, #{m.sortSeq}, #{m.md5})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            username = VALUES(username)
+    </insert>
+
+    <select id="querySince" resultMap="WeChatMessageResult">
+        <include refid="selectWechatMessageVo" />
+        <where>
+            <if test="since != null and since != ''"> AND create_time &gt;= #{since} </if>
+            <if test="chat != null and chat != ''"> AND name = #{chat} </if>
+            <if test="status != null"> AND status = #{status} </if>
+        </where>
+        ORDER BY sort_seq ASC
+        LIMIT #{max}
+    </select>
+
+    <select id="queryUnclassified" resultMap="WeChatMessageResult">
+        <include refid="selectWechatMessageVo" />
+        WHERE status = 0
+        ORDER BY sort_seq ASC
+        LIMIT #{max}
+    </select>
+
+    <select id="unclassifiedStats" resultType="java.util.Map">
+        SELECT COUNT(*) AS cnt, MIN(create_time) AS earliest
+        FROM wechat_message
+        WHERE status = 0
+    </select>
+
+    <select id="queryProcessable" resultMap="WeChatMessageResult">
+        <include refid="selectWechatMessageVo" />
+        WHERE status = 1
+        AND msg_category IN
+        <foreach collection="categories" item="cat" open="(" separator="," close=")">
+            #{cat}
+        </foreach>
+        <if test="chat != null and chat != ''">
+            AND name = #{chat}
+        </if>
+        <if test="chats != null and chats.size() > 0">
+            AND name IN
+            <foreach collection="chats" item="nm" open="(" separator="," close=")">
+                #{nm}
+            </foreach>
+        </if>
+        ORDER BY sort_seq ASC
+        LIMIT #{max}
+    </select>
+
+    <select id="processableStats" resultType="java.util.Map">
+        SELECT COUNT(*) AS cnt, MIN(create_time) AS earliest
+        FROM wechat_message
+        WHERE status = 1
+        AND msg_category IN
+        <foreach collection="categories" item="cat" open="(" separator="," close=")">
+            #{cat}
+        </foreach>
+    </select>
+
+    <update id="updateEntryResult">
+        UPDATE wechat_message
+        SET status = #{status}, entry_fail_count = #{failCount}
+        WHERE username = #{username} AND local_id = #{localId}
+    </update>
+
+    <delete id="purgeBefore">
+        DELETE FROM wechat_message WHERE create_time &lt; #{before}
+    </delete>
+
+</mapper>

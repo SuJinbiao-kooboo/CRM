@@ -28,15 +28,14 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 大模型（DeepSeek）精判分类器。
+ * 大模型(AI)分类器：模仿 CRM「Offer AI 录入」的调用方式——
+ * 提示词(基础规则+few-shot示例)放数据字典可随时调优，temperature=0，
+ * json_object 输出；同一会话的待判消息按批调用，并把该会话最近
+ * {@code aiContextWindow} 条已分类消息作为上下文一起给模型。
  *
- * <p>只负责“灰色地带”消息：{@link HardRuleClassifier} 无法确定的消息交给本类，
- * 按群分批（默认 20 条/批、2 路并行）调用 OpenAI 兼容接口，
- * 输出 INQ/OFFER/TRACE/OTHER 四选一。配置全部来自数据字典
- * {@code wechat_analysis_config}（dict_label：llmEnabled/llmApiKey/llmApiBase/llmModel/
- * llmBatchSize/llmConcurrency/llmTimeoutSec），改字典即可生效，无需重启。</p>
- *
- * <p>结果以 (username|localId) 为 key 缓存，重复查询直接命中，不重复调用模型。</p>
+ * <p>配置来自数据字典 {@code wechat_analysis_config}：llmEnabled / llmApiKey /
+ * llmApiBase / llmModel / llmBatchSize / llmConcurrency / llmTimeoutSec /
+ * llmPromptBase(留空用内置默认) / llmExamples(留空用内置默认)。</p>
  */
 @Slf4j
 @Component
@@ -47,6 +46,9 @@ public class WeChatLlmClassifier {
 
     private static final Set<String> CATS =
             new HashSet<>(Arrays.asList("INQ", "OFFER", "TRACE", "OTHER"));
+
+    /** 单条消息送模型的正文长度上限(超长保头尾) */
+    private static final int CONTENT_MAX = 1200;
 
     private static final int CACHE_MAX = 50000;
 
@@ -77,8 +79,8 @@ public class WeChatLlmClassifier {
     }
 
     private boolean cfgBool(String label, boolean def) {
-        String v = cfg(label, def ? "true" : "false");
-        return "true".equalsIgnoreCase(v) || "1".equals(v);
+        return "true".equalsIgnoreCase(cfg(label, def ? "true" : "false"))
+                || "1".equals(cfg(label, def ? "1" : "0"));
     }
 
     private int cfgInt(String label, int def) {
@@ -89,7 +91,7 @@ public class WeChatLlmClassifier {
         }
     }
 
-    /** 是否启用大模型分类（字典 llmEnabled=true 且已配置 Key）。 */
+    /** 是否启用 AI 分类（llmEnabled=true 且已配置 Key）。 */
     public boolean enabled() {
         if (!cfgBool("llmEnabled", true)) {
             return false;
@@ -112,7 +114,7 @@ public class WeChatLlmClassifier {
         return (m.getUsername() == null ? "" : m.getUsername()) + "|" + m.getLocalId();
     }
 
-    /** 查询缓存分类（无则 null）。 */
+    /** 查询缓存分类(无则 null)。 */
     public String cached(WeChatMessage m) {
         return cache.get(cacheKey(m));
     }
@@ -131,31 +133,36 @@ public class WeChatLlmClassifier {
     // 批分类主入口
     // ------------------------------------------------------------------
     /**
-     * 对同一会话的一组消息（时间正序）做精判：只覆盖尚未分类（灰色）的消息。
+     * 对同一会话的待判消息做 AI 分类(时间正序)。
      *
-     * @param chatMessages 同会话全量消息（含已硬判的，作为上下文给模型）
-     * @param chatName     会话名
+     * @param context  该会话最近已分类消息(作为上下文给模型，可空)
+     * @param pending  待判消息(每条都会尝试让模型给出分类；失败保留 null 由定时任务重试)
+     * @param chatName 会话名
      */
-    public void classify(List<WeChatMessage> chatMessages, String chatName) {
-        if (chatMessages == null || chatMessages.isEmpty()) {
-            return;
-        }
-        List<WeChatMessage> grays = new ArrayList<>();
-        for (WeChatMessage m : chatMessages) {
-            if (m.getMsgCategory() == null) {
-                grays.add(m);
-            }
-        }
-        if (grays.isEmpty()) {
+    public void classify(List<WeChatMessage> context, List<WeChatMessage> pending, String chatName) {
+        if (pending == null || pending.isEmpty() || !enabled()) {
             return;
         }
         int batchSize = Math.max(1, Math.min(20, cfgInt("llmBatchSize", 20)));
         int concurrency = Math.max(1, Math.min(4, cfgInt("llmConcurrency", 2)));
+        int ctxWindow = Math.max(0, cfgInt("aiContextWindow", 10));
+        String promptBase = cfg("llmPromptBase", "");
+        String examples = cfg("llmExamples", "");
         final String api = apiKey();
         final String base = cfg("llmApiBase", "https://api.deepseek.com");
         final String model = cfg("llmModel", "deepseek-chat");
 
-        List<List<WeChatMessage>> batches = partition(grays, batchSize);
+        List<WeChatMessage> ctx = new ArrayList<>();
+        if (context != null) {
+            for (int i = Math.max(0, context.size() - ctxWindow); i < context.size(); i++) {
+                WeChatMessage m = context.get(i);
+                if (m != null && StringUtils.isNotBlank(m.getMsgCategory())) {
+                    ctx.add(m);
+                }
+            }
+        }
+
+        List<List<WeChatMessage>> batches = partition(pending, batchSize);
         ExecutorService pool = Executors.newFixedThreadPool(concurrency, r -> {
             Thread t = new Thread(r, "wechat-llm");
             t.setDaemon(true);
@@ -165,13 +172,13 @@ public class WeChatLlmClassifier {
             List<Future<?>> futures = new ArrayList<>();
             for (List<WeChatMessage> batch : batches) {
                 futures.add(pool.submit(() ->
-                        classifyBatch(batch, chatName, api, base, model)));
+                        classifyBatch(batch, ctx, chatName, promptBase, examples, api, base, model)));
             }
             for (Future<?> f : futures) {
                 try {
                     f.get(20, TimeUnit.MINUTES);
                 } catch (Exception e) {
-                    log.warn("LLM 批分类异常: {}", e.toString());
+                    log.warn("AI 批分类异常: {}", e.toString());
                 }
             }
         } finally {
@@ -190,19 +197,20 @@ public class WeChatLlmClassifier {
     // ------------------------------------------------------------------
     // 单批调用与解析
     // ------------------------------------------------------------------
-    private void classifyBatch(List<WeChatMessage> batch, String chatName,
-                               String api, String base, String model) {
-        String prompt = buildPrompt(batch, chatName);
+    private void classifyBatch(List<WeChatMessage> batch, List<WeChatMessage> ctx, String chatName,
+                               String promptBase, String examples, String api, String base, String model) {
+        String prompt = buildPrompt(batch, ctx, chatName);
+        String sysPrompt = buildSystemPrompt(promptBase, examples);
         String body;
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("model", model);
-            payload.put("temperature", 0.1);
+            payload.put("temperature", 0);
             payload.put("max_tokens", 4000);
             List<Map<String, String>> messages = new ArrayList<>();
             Map<String, String> sys = new LinkedHashMap<>();
             sys.put("role", "system");
-            sys.put("content", SYSTEM_PROMPT);
+            sys.put("content", sysPrompt);
             messages.add(sys);
             Map<String, String> user = new LinkedHashMap<>();
             user.put("role", "user");
@@ -211,14 +219,12 @@ public class WeChatLlmClassifier {
             payload.put("messages", messages);
             body = jackson.writeValueAsString(payload);
         } catch (Exception e) {
-            log.warn("LLM 请求构造失败: {}", e.getMessage());
+            log.warn("AI 请求构造失败: {}", e.getMessage());
             return;
         }
         String respText = post(base, body, api);
         if (respText == null) {
-            for (WeChatMessage m : batch) {
-                log.warn("LLM 无结果, 回退规则: {} | {}", m.getSender(), snippet(m));
-            }
+            log.warn("AI 无结果：{} 条待判消息保留待重试 | chat={}", batch.size(), chatName);
             return;
         }
         Map<Long, String> parsed = parse(respText, batch);
@@ -226,12 +232,9 @@ public class WeChatLlmClassifier {
             String cat = parsed.get(m.getLocalId());
             if (cat != null) {
                 m.setMsgCategory(cat);
+                m.setCategorySource("LLM");
                 put(m, cat);
             }
-        }
-        int miss = batch.size() - parsed.size();
-        if (miss > 0) {
-            log.warn("LLM 批分类缺 {} 条结果", miss);
         }
     }
 
@@ -256,7 +259,7 @@ public class WeChatLlmClassifier {
                 try (Response resp = http.newCall(req).execute()) {
                     String text = resp.body() == null ? "" : resp.body().string();
                     if (!resp.isSuccessful()) {
-                        log.warn("LLM HTTP {}: {}", resp.code(), snippet(text));
+                        log.warn("AI HTTP {}: {}", resp.code(), snippet(text));
                         last = new IllegalStateException("HTTP " + resp.code());
                         continue;
                     }
@@ -264,10 +267,10 @@ public class WeChatLlmClassifier {
                 }
             } catch (Exception e) {
                 last = e;
-                log.warn("LLM 调用异常(第{}次): {}", attempt + 1, e.toString());
+                log.warn("AI 调用异常(第{}次): {}", attempt + 1, e.toString());
             }
         }
-        log.error("LLM 调用最终失败: {}", last == null ? "unknown" : last.toString());
+        log.error("AI 调用最终失败: {}", last == null ? "unknown" : last.toString());
         return null;
     }
 
@@ -278,18 +281,23 @@ public class WeChatLlmClassifier {
             String content = root.path("choices").path(0).path("message").path("content").asText("");
             JsonNode arr = extractArray(content);
             if (arr == null || !arr.isArray()) {
-                log.warn("LLM 返回不可解析: {}", snippet(content));
+                log.warn("AI 返回不可解析: {}", snippet(content));
                 return out;
             }
             for (JsonNode item : arr) {
                 int idx = item.path("i").asInt(-1);
                 String cat = item.path("cat").asText("").trim().toUpperCase();
+                String why = item.path("why").asText("").trim();
                 if (idx >= 0 && idx < batch.size() && CATS.contains(cat)) {
-                    out.put(batch.get(idx).getLocalId(), cat);
+                    WeChatMessage m = batch.get(idx);
+                    out.put(m.getLocalId(), cat);
+                    if (StringUtils.isNotBlank(why)) {
+                        m.setCategoryReason(why.length() > 300 ? why.substring(0, 300) : why);
+                    }
                 }
             }
         } catch (Exception e) {
-            log.warn("LLM 响应解析失败: {}", e.toString());
+            log.warn("AI 响应解析失败: {}", e.toString());
         }
         return out;
     }
@@ -311,11 +319,6 @@ public class WeChatLlmClassifier {
         }
     }
 
-    private static String snippet(WeChatMessage m) {
-        String c = m.getContent() == null ? "" : m.getContent();
-        return c.length() > 40 ? c.substring(0, 40) : c;
-    }
-
     private static String snippet(String s) {
         if (s == null) {
             return "";
@@ -326,26 +329,91 @@ public class WeChatLlmClassifier {
     // ------------------------------------------------------------------
     // 提示词
     // ------------------------------------------------------------------
-    private static final String SYSTEM_PROMPT =
-            "你是微信商业群\"询报价\"消息分类专家。只允许输出四种分类：\n" +
-            "INQ=询价/求购（买方要货、问价）  OFFER=报价/出货（卖方给价、卖货清单）  TRACE=对询报价的跟进追问  OTHER=闲聊/广告/系统消息/无法判断\n\n" +
-            "判断规则：\n" +
-            "1. INQ：含 inq/rfq/询价/谁有/有货吗/报个价/目标价TP/pls chk/请查；纯\"型号+数量\"无价格；问\"这个多少钱\"；\"求购/找货\"+具体型号数量。注意TP5400usd是目标价=INQ。\n" +
-            "2. OFFER：含 $/USD/RMB/CNY/元/¥ 等价格；报价单（型号+价格表）；引用回答\"这个950\"；上一条是询价时纯数字回复如\"2900\"；报价补充如\"1wk\"；以 出/现货出/一手现货/库存清单/在仓/好价出/特价出/源头供应/大量到货 开头的卖货清单即使没有价格也是OFFER。\n" +
-            "3. TRACE：对询报价的追问：更新/考虑/确认/优惠/货期/排单/数量多少/给具体价格/还在吗/订了吗 等。\n" +
-            "4. OTHER：闲聊(好/没/早/收到/谢谢/辛苦了)；收购广告(长期收/高价收/实单收/求购广告/有货滴滴/有货的++/换群/没好友/全国可飞/打款秒付)；既收又出的大段广告(含热线电话/++想加好友)；图片XML/系统消息；纯公司介绍或纯型号列表+热线电话但无出货动词的广告。\n\n" +
-            "输出格式（不要输出任何其他文字）：\n" +
-            "[{\"i\":0,\"cat\":\"INQ\",\"why\":\"一句话理由\"},{\"i\":1,\"cat\":\"OFFER\",\"why\":\"...\"},...]";
+    private static final String DEFAULT_SYSTEM_PROMPT =
+            "你是微信「询报价」业务消息分类专家。用户会把一个聊天会话最近的一批消息给你" +
+            "（每条含序号、发言人、时间、内容，开头可能带【上下文】=该条之前已分类的消息）。" +
+            "请对【每条待判消息】输出唯一分类：\n" +
+            "INQ=询价/求购（买方要货：型号+数量、问价、有没有货、目标价TP、RFQ/pls chk）\n" +
+            "OFFER=报价/出货（卖方给价：型号+单价/表格式报价单、$USD/RMB价格、出货清单、对询价的报价回复）\n" +
+            "TRACE=对询报价的跟进/追问（更新、考虑得怎样、确认、优惠、货期、排单、数量多少、还在吗、订了吗）\n" +
+            "OTHER=闲聊/广告/收购广告/系统消息/图片XML/无业务含义\n\n" +
+            "判断要点：\n" +
+            "1. 必须结合上下文：上一条是INQ时，纯数字或短报价回复多为OFFER；上一条是OFFER时，还价/问交期多为TRACE或INQ。\n" +
+            "2. 含$、USD、RMB、元、¥等价格证据且说话人在给价(非问价) → OFFER；纯「型号+数量」无价格且是询问语气 → INQ。\n" +
+            "3. TP5400usd这类「目标价」是INQ不是OFFER；「这个950」「2900」对上一条询价的回复是OFFER。\n" +
+            "4. 收购广告(长期收/高价收/有货滴滴/实单收等)、闲聊、单字回复(好/没/收到/谢谢)、XML/图片/语音 → OTHER。\n" +
+            "5. 拿不准时按 OTHER，不要编造。\n\n" +
+            "输出格式：只输出JSON数组，不要输出任何其他文字：\n" +
+            "[{\"i\":0,\"cat\":\"INQ\",\"why\":\"一句话理由\"},{\"i\":1,\"cat\":\"OFFER\",\"why\":\"...\"}]";
 
-    private String buildPrompt(List<WeChatMessage> batch, String chatName) {
+    private static final String DEFAULT_EXAMPLES =
+            "真实示例（<换人>表示消息来自不同发言人）：\n" +
+            "示例1：<A> inq: 9275F 2pcs → INQ；<B> 2900 → OFFER（对上一条询价的报价）\n" +
+            "示例2：<A> INQ\\n6444Y - 60pcs\\n6538Y+ - 12pcs（型号+数量、无价格）→ INQ；" +
+            "<B> 同样型号但每行带价格(3650/2300) → OFFER\n" +
+            "示例3：<A> 现货出 5955WX 470 / 7995wx 7800（型号+价格清单）→ OFFER\n" +
+            "示例4：<A> @朝阳 2565X 1pcs有货吗 → INQ；<B> 没 → OTHER（答复但无报价）\n" +
+            "示例5：<A> please check today's offer: 4310 USD 435 FS 7-9days → OFFER\n" +
+            "示例6：<A> 早上好 / 收到 / 谢谢 → OTHER；<A> 早上好，询一下 5317 10pcs → INQ";
+
+    private String buildSystemPrompt(String base, String examples) {
         StringBuilder sb = new StringBuilder();
-        sb.append("微信群【").append(chatName == null ? "" : chatName).append("】最近消息（时间从早到晚，序号连续）：\n");
+        if (StringUtils.isNotBlank(base)) {
+            sb.append(base);
+        } else {
+            sb.append(DEFAULT_SYSTEM_PROMPT);
+        }
+        sb.append("\n\n");
+        if (StringUtils.isNotBlank(examples)) {
+            sb.append("以下是你的业务示例（请严格参考）：\n").append(examples);
+        } else {
+            sb.append("以下是你的业务示例（请严格参考）：\n").append(DEFAULT_EXAMPLES);
+        }
+        return sb.toString();
+    }
+
+    private String buildPrompt(List<WeChatMessage> batch, List<WeChatMessage> ctx, String chatName) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("聊天会话【").append(chatName == null ? "" : chatName).append("】\n");
+        if (ctx != null && !ctx.isEmpty()) {
+            sb.append("【上下文-此前的消息，仅作参考，不需要输出分类】\n");
+            for (WeChatMessage m : ctx) {
+                sb.append("- [").append(sender(m)).append("] ").append(line(m)).append("\n");
+            }
+            sb.append("【待判消息】\n");
+        }
         for (int i = 0; i < batch.size(); i++) {
             WeChatMessage m = batch.get(i);
-            sb.append(i).append(". [").append(m.getSender() == null ? "?" : m.getSender())
-              .append("] ").append(snippet(m)).append("\n");
+            sb.append(i).append(". [").append(sender(m)).append("] ").append(m.getCreateTime() == null ? "" : m.getCreateTime())
+              .append(" ").append(line(m)).append("\n");
         }
-        sb.append("\n请对【每条】消息输出分类，只输出 JSON 数组。");
+        sb.append("\n请对每条待判消息(编号i)输出分类，只输出JSON数组。");
         return sb.toString();
+    }
+
+    private static String sender(WeChatMessage m) {
+        return m.getSender() == null ? "?" : m.getSender();
+    }
+
+    /** 内容+引用整理成一行内可读文本，超长保头尾。 */
+    private static String line(WeChatMessage m) {
+        StringBuilder sb = new StringBuilder();
+        String c = m.getContent() == null ? "" : m.getContent().trim();
+        if (c.isEmpty()) {
+            sb.append("(无文本)");
+        } else {
+            c = c.replace('\r', ' ').replace('\n', ' ');
+            sb.append(c);
+        }
+        if (StringUtils.isNotBlank(m.getQuote()) && !m.getQuote().equals(m.getContent())) {
+            sb.append(" 【引用: ").append(m.getQuote().replace('\r', ' ').replace('\n', ' ')).append("】");
+        }
+        String t = sb.toString();
+        if (t.length() <= CONTENT_MAX) {
+            return t;
+        }
+        int head = CONTENT_MAX * 2 / 3;
+        return t.substring(0, head) + "…[中间省略" + (t.length() - CONTENT_MAX) + "字]…"
+                + t.substring(t.length() - (CONTENT_MAX - head));
     }
 }

@@ -34,12 +34,15 @@
         <result column="product_type" property="productType" />
         <result column="product_detail_code" property="productDetailCode" />
         <result column="inq_offer_type" property="inqOfferType" />
+        <result column="wechat_server_id" property="wechatServerId" />
+        <result column="wechat_username" property="wechatUsername" />
+        <result column="wechat_local_id" property="wechatLocalId" />
     </resultMap>
 
     <sql id="Base_Column_List">
         id, product_code, product_brand, stock_date, product_detail, spec, price_cost, price_offer, price_unit,
         quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, dc, coo, supplier_code, supplier_name, tags_first, tags_second, tags_third, tags_si,
-        status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type
+        status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type, wechat_server_id, wechat_username, wechat_local_id
     </sql>
 
     <select id="selectOfferList" parameterType="com.ruoyi.crm.domain.CrmOffer" resultMap="CrmOfferMap">
@@ -165,13 +168,18 @@
         insert into crm_offer(
             product_code, product_brand, stock_date, product_detail, spec, price_cost, price_offer, price_unit,
             quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, dc, coo, supplier_code, supplier_name,
-            tags_first, tags_second, tags_third, tags_si, status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type
+            tags_first, tags_second, tags_third, tags_si, status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type, wechat_server_id, wechat_username, wechat_local_id
         ) values (
             upper(#{productCode}), #{productBrand}, #{stockDate}, #{productDetail}, #{spec}, #{priceCost}, #{priceOffer}, #{priceUnit},
             #{quantity}, #{deliveryTime}, #{remark}, #{sheetName}, #{moqQuantity}, #{warrantyDetail}, #{dc}, #{coo}, #{supplierCode}, #{supplierCode},
-            #{tagsFirst}, #{tagsSecond}, #{tagsThird}, #{tagsSi}, #{status}, now(), now(), #{createBy}, #{updateBy}, #{productType}, upper(#{productDetailCode}), #{inqOfferType}
+            #{tagsFirst}, #{tagsSecond}, #{tagsThird}, #{tagsSi}, #{status}, now(), now(), #{createBy}, #{updateBy}, #{productType}, upper(#{productDetailCode}), #{inqOfferType}, #{wechatServerId}, #{wechatUsername}, #{wechatLocalId}
         )
     </insert>
+
+    <select id="countByWechat" resultType="int">
+        SELECT COUNT(*) FROM crm_offer
+        WHERE wechat_server_id = #{serverId} AND wechat_username = #{username} AND wechat_local_id = #{localId}
+    </select>
 
     <update id="updateOffer" parameterType="com.ruoyi.crm.domain.CrmOffer">
         update crm_offer
@@ -203,6 +211,9 @@
             <if test="productType != null">product_type = #{productType},</if>
             <if test="productDetailCode != null">product_detail_code = upper(#{productDetailCode}),</if>
             <if test="inqOfferType != null">inq_offer_type = #{inqOfferType},</if>
+            <if test="wechatServerId != null">wechat_server_id = #{wechatServerId},</if>
+            <if test="wechatUsername != null">wechat_username = #{wechatUsername},</if>
+            <if test="wechatLocalId != null">wechat_local_id = #{wechatLocalId},</if>
             update_by = #{updateBy},
             update_time = now()
         </set>
@@ -248,3 +259,5 @@
     </update>
 
 </mapper>
+
+

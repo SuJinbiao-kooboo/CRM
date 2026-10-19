@@ -69,6 +69,12 @@ public class CrmOffer extends BaseEntity {
     private String productDetailCode;
     @Excel(name = "询报价类型 Offer/Inq")
     private String inqOfferType;
+    @Excel(name = "来源微信消息ID(server_id)")
+    private String wechatServerId;
+    @Excel(name = "来源微信会话标识")
+    private String wechatUsername;
+    @Excel(name = "来源微信消息local_id", cellType = ColumnType.NUMERIC)
+    private Long wechatLocalId;
 
       @Override
     public String toString() {
@@ -102,6 +108,9 @@ public class CrmOffer extends BaseEntity {
                 .append("productType", getProductType())
                 .append("productDetailCode", getProductDetailCode())
                 .append("inqOfferType", getInqOfferType())
+                .append("wechatServerId", getWechatServerId())
+                .append("wechatUsername", getWechatUsername())
+                .append("wechatLocalId", getWechatLocalId())
                 .toString();
     }
 }

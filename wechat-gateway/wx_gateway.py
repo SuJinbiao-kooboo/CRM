@@ -28,7 +28,7 @@
     sort_seq  排序键(增量断点)    md5        消息md5(媒体消息)
 """
 from __future__ import annotations
-import argparse, datetime, json, os, random, re, sqlite3, sys, tempfile, time, xml.etree.ElementTree as ET
+import argparse, atexit, datetime, json, os, random, re, shutil, sqlite3, sys, tempfile, time, xml.etree.ElementTree as ET
 
 try:
     os.system("chcp 65001 >nul 2>&1")
@@ -42,6 +42,67 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
 
 MSG_FIELDS = ["username", "name", "local_id", "type", "sender",
               "content", "media_path", "create_time", "sort_seq", "md5"]
+
+
+def _proc_root():
+    """wechatauto 临时解密目录根：%TEMP%/wechatauto_db/_proc/<pid>/"""
+    return os.path.join(tempfile.gettempdir(), "wechatauto_db", "_proc")
+
+
+def _pid_alive(pid):
+    try:
+        import psutil
+        return psutil.pid_exists(pid)
+    except Exception:
+        pass
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def cleanup_stale_proc_dirs():
+    """启动时清扫历史遗留：_proc/<pid> 中 pid 已不存在的目录直接删除。
+
+    wechatauto 每次运行会把解密的消息库(约79MB/份)写到 %TEMP%/wechatauto_db/_proc/<pid>/，
+    进程异常退出(强杀/断电)会留下垃圾。网关被高频调用(定时轮询 dump)时如不清理会堆出十几 GB。
+    """
+    root = _proc_root()
+    try:
+        if not os.path.isdir(root):
+            return
+        removed = 0
+        for name in os.listdir(root):
+            if not name.isdigit():
+                continue
+            pid_dir = os.path.join(root, name)
+            if _pid_alive(int(name)):
+                continue  # 进程还活着(可能是并发中的 dump/listen)，跳过避免误删
+            try:
+                shutil.rmtree(pid_dir)
+                removed += 1
+            except Exception as e:
+                log("[清理] 删除遗留目录失败 %s: %s" % (pid_dir, e))
+        if removed:
+            log("[清理] 已删除 %d 个已退出进程的临时解密目录" % removed)
+    except Exception as e:
+        log("[清理] 扫描临时目录失败: %s" % e)
+
+
+def cleanup_own_proc_dir():
+    """进程退出时删除自己的临时解密目录，保证正常结束时不留垃圾。"""
+    d = os.path.join(_proc_root(), str(os.getpid()))
+    try:
+        if os.path.isdir(d):
+            shutil.rmtree(d)
+            log("[清理] 已删除自身临时解密目录: %s" % d)
+    except Exception as e:
+        log("[清理] 删除自身临时目录失败 %s: %s" % (d, e))
+
+
+atexit.register(cleanup_own_proc_dir)
+
 
 def log(*a):
     print(*a, file=sys.stderr, flush=True)
@@ -183,7 +244,14 @@ def cmd_dump(args):
 
     if since is not None:
         since_seq = max(0, int(since * 1000.0) - 1)
-        hits = _global_messages_after(db, since_seq, args.limit)
+        only_user = None
+        if args.chat:
+            hit = resolve_chat(db, args.chat)
+            if not hit:
+                die("没有找到会话: %r（试试不用全名，或检查是否与群/微信号一致）" % args.chat)
+            only_user, disp = hit
+            log("会话已锁定: %s (%s)" % (disp, only_user))
+        hits = _global_messages_after(db, since_seq, args.limit, only_user=only_user)
         log("增量扫描: sort_seq>%d, 命中 %d 条" % (since_seq, len(hits)))
         added = skip = 0
         for name, user, m in hits:
@@ -230,7 +298,7 @@ def cmd_dump(args):
     log("完成: 新增 %d, 跳过重复 %d" % (added, skip))
 
 
-def _global_messages_after(db, since_seq, limit):
+def _global_messages_after(db, since_seq, limit, only_user=None):
     """全库增量扫描：每个分片库只打开一次连接，对每个会话表
     Msg_<md5(username)> 执行 WHERE sort_seq > since_seq，跨表合并按 sort_seq 升序。
     相比逐会话 get_new_messages（每次都重开全部分片连接），会话多时快几十倍。"""
@@ -247,6 +315,8 @@ def _global_messages_after(db, since_seq, limit):
         for c in chats:
             user = str(c.get("username") or "")
             if not user:
+                continue
+            if only_user and user != only_user:
                 continue
             target = "Msg_" + hashlib.md5(user.encode("utf-8")).hexdigest()
             for conn in conns:
@@ -534,6 +604,7 @@ def main():
                        help="批量发送(从 stdin 读 JSON 配置)，逐条结果 NDJSON 到 stdout")
     p.set_defaults(func=cmd_batch_send)
     args = ap.parse_args()
+    cleanup_stale_proc_dirs()
     try:
         args.func(args)
     except KeyboardInterrupt:

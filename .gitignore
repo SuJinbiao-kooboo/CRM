@@ -71,3 +71,5 @@ start_project.ps1
 *.class
 __pycache__/
 *.pyc
+# Excel/WPS 打开文件时产生的临时锁文件
+~$*

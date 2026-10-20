@@ -145,7 +145,7 @@ public class WeChatLlmClassifier {
         }
         int batchSize = Math.max(1, Math.min(20, cfgInt("llmBatchSize", 20)));
         int concurrency = Math.max(1, Math.min(4, cfgInt("llmConcurrency", 2)));
-        int ctxWindow = Math.max(0, cfgInt("aiContextWindow", 10));
+        int ctxWindow = Math.max(0, cfgInt("aiContextWindow", 20));
         String promptBase = cfg("llmPromptBase", "");
         String examples = cfg("llmExamples", "");
         final String api = apiKey();

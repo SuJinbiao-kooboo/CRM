@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.crm.mapper.CrmOrderMapper">
+
+    <resultMap id="CrmOrderMap" type="com.ruoyi.crm.domain.CrmOrder">
+        <id     column="id"               property="id" />
+        <result column="order_no"         property="orderNo" />
+        <result column="order_type"       property="orderType" />
+        <result column="order_date"       property="orderDate" />
+        <result column="seller_id"        property="sellerId" />
+        <result column="seller_contact_id" property="sellerContactId" />
+        <result column="seller_snapshot"  property="sellerSnapshot" />
+        <result column="buyer_id"         property="buyerId" />
+        <result column="buyer_snapshot"   property="buyerSnapshot" />
+        <result column="currency"         property="currency" />
+        <result column="total_amount"     property="totalAmount" />
+        <result column="status"           property="status" />
+        <result column="remark"           property="remark" />
+        <result column="create_by"        property="createBy" />
+        <result column="create_time"      property="createTime" />
+        <result column="update_by"        property="updateBy" />
+        <result column="update_time"      property="updateTime" />
+        <result column="seller_name"      property="sellerName" />
+    </resultMap>
+
+    <sql id="selectOrderVo">
+        select o.id, o.order_no, o.order_type, o.order_date, o.seller_id, o.seller_contact_id,
+               o.seller_snapshot, o.buyer_id, o.buyer_snapshot, o.currency, o.total_amount,
+               o.status, o.remark, o.create_by, o.create_time, o.update_by, o.update_time,
+               s.supplier_name as seller_name
+        from crm_order o
+        left join crm_supplier s on s.id = o.seller_id
+    </sql>
+
+    <select id="selectOrderList" parameterType="com.ruoyi.crm.domain.CrmOrder" resultMap="CrmOrderMap">
+        <include refid="selectOrderVo"/>
+        <where>
+            <if test="orderNo != null and orderNo != ''"> and o.order_no like concat('%', #{orderNo}, '%')</if>
+            <if test="orderType != null and orderType != ''"> and o.order_type = #{orderType}</if>
+            <if test="sellerId != null"> and o.seller_id = #{sellerId}</if>
+            <if test="sellerName != null and sellerName != ''"> and s.supplier_name like concat('%', #{sellerName}, '%')</if>
+            <if test="status != null and status != ''"> and o.status = #{status}</if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(o.order_date, '%Y%m%d') &gt;= date_format(#{params.beginTime}, '%Y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(o.order_date, '%Y%m%d') &lt;= date_format(#{params.endTime}, '%Y%m%d')
+            </if>
+        </where>
+        order by o.id desc
+    </select>
+
+    <select id="selectOrderById" parameterType="long" resultMap="CrmOrderMap">
+        <include refid="selectOrderVo"/>
+        where o.id = #{id}
+    </select>
+
+    <insert id="insertOrder" parameterType="com.ruoyi.crm.domain.CrmOrder" useGeneratedKeys="true" keyProperty="id">
+        insert into crm_order(
+            order_no, order_type, order_date, seller_id, seller_contact_id, seller_snapshot,
+            buyer_id, buyer_snapshot, currency, total_amount, status, remark,
+            create_by, create_time, update_by, update_time
+        ) values (
+            #{orderNo}, #{orderType}, #{orderDate}, #{sellerId}, #{sellerContactId}, #{sellerSnapshot},
+            #{buyerId}, #{buyerSnapshot}, #{currency}, #{totalAmount}, #{status}, #{remark},
+            #{createBy}, now(), #{updateBy}, now()
+        )
+    </insert>
+
+    <update id="updateOrder" parameterType="com.ruoyi.crm.domain.CrmOrder">
+        update crm_order
+        <set>
+            <if test="orderNo != null">order_no = #{orderNo},</if>
+            <if test="orderType != null">order_type = #{orderType},</if>
+            <if test="orderDate != null">order_date = #{orderDate},</if>
+            seller_id = #{sellerId},
+            seller_contact_id = #{sellerContactId},
+            seller_snapshot = #{sellerSnapshot},
+            buyer_id = #{buyerId},
+            buyer_snapshot = #{buyerSnapshot},
+            <if test="currency != null">currency = #{currency},</if>
+            <if test="totalAmount != null">total_amount = #{totalAmount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy},
+            update_time = now()
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteOrderByIds">
+        delete from crm_order where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+
+    <select id="selectSeqForUpdate" resultType="java.lang.Integer">
+        select seq_val from crm_order_seq where seq_key = #{seqKey} for update
+    </select>
+
+    <insert id="insertSeq">
+        insert into crm_order_seq(seq_key, seq_val, update_time) values (#{seqKey}, 0, now())
+    </insert>
+
+    <update id="incrementSeq">
+        update crm_order_seq set seq_val = seq_val + 1, update_time = now() where seq_key = #{seqKey}
+    </update>
+
+</mapper>

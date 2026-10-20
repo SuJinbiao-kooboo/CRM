@@ -789,7 +789,7 @@ public class WeChatGatewayService {
         }
         try {
             String chatName = pending.get(0).getName();
-            int ctxWin = Math.max(0, analysisInt("aiContextWindow", 10));
+            int ctxWin = Math.max(0, analysisInt("aiContextWindow", 20));
             Deque<WeChatMessage> hq = listenHistory.get(key);
             List<WeChatMessage> context = hq == null ? new ArrayList<>() : lastN(hq, ctxWin);
             classifyWithContext(key, context, pending, chatName);
@@ -1025,7 +1025,7 @@ public class WeChatGatewayService {
     private void pushHistory(String key, WeChatMessage m) {
         Deque<WeChatMessage> dq = listenHistory.computeIfAbsent(key, k -> new ArrayDeque<>());
         dq.addLast(m);
-        while (dq.size() > Math.max(1, analysisInt("aiContextWindow", 10))) {
+        while (dq.size() > Math.max(1, analysisInt("aiContextWindow", 20))) {
             dq.removeFirst();
         }
     }

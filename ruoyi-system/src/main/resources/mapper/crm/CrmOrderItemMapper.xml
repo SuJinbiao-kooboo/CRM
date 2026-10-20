@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.crm.mapper.CrmOrderItemMapper">
+
+    <resultMap id="CrmOrderItemMap" type="com.ruoyi.crm.domain.CrmOrderItem">
+        <id     column="id"          property="id" />
+        <result column="order_id"    property="orderId" />
+        <result column="line_no"     property="lineNo" />
+        <result column="brand"       property="brand" />
+        <result column="item_name"   property="itemName" />
+        <result column="spec"        property="spec" />
+        <result column="qty"         property="qty" />
+        <result column="warranty"    property="warranty" />
+        <result column="unit_price"  property="unitPrice" />
+        <result column="amount"      property="amount" />
+        <result column="lead_time"   property="leadTime" />
+        <result column="remark"      property="remark" />
+    </resultMap>
+
+    <select id="selectItemsByOrderId" parameterType="long" resultMap="CrmOrderItemMap">
+        select * from crm_order_item where order_id = #{orderId} order by line_no asc, id asc
+    </select>
+
+    <insert id="batchInsertItems">
+        insert into crm_order_item(
+            order_id, line_no, brand, item_name, spec, qty, warranty,
+            unit_price, amount, lead_time, remark, create_by, create_time, update_by, update_time
+        ) values
+        <foreach collection="list" item="it" separator=",">
+            (#{it.orderId}, #{it.lineNo}, #{it.brand}, #{it.itemName}, #{it.spec}, #{it.qty}, #{it.warranty},
+             #{it.unitPrice}, #{it.amount}, #{it.leadTime}, #{it.remark}, #{it.createBy}, now(), #{it.updateBy}, now())
+        </foreach>
+    </insert>
+
+    <delete id="deleteItemsByOrderId" parameterType="long">
+        delete from crm_order_item where order_id = #{orderId}
+    </delete>
+
+    <delete id="deleteItemsByOrderIds">
+        delete from crm_order_item where order_id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+
+</mapper>

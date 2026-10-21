@@ -35,6 +35,8 @@ public class OrderDocumentFiller {
     private static final int ROW_DATE = 1;
     private static final int COL_DATE = 5;
     private static final int ROW_SELLER = 2;
+    /** Ship to 行（0-based，对应模板第 4 行） */
+    private static final int ROW_SHIP_TO = 3;
     private static final int COL_BUYER = 0;
     private static final int COL_SELLER = 5;
 
@@ -64,7 +66,7 @@ public class OrderDocumentFiller {
      */
     public static void fillPurchaseOrder(InputStream template, OutputStream out, String orderNo, Date orderDate,
                                          String sellerText, List<CrmOrderItem> items) throws IOException {
-        fillInvoice(template, out, orderNo, orderDate, null, sellerText, items);
+        fillInvoice(template, out, orderNo, orderDate, null, sellerText, null, items);
     }
 
     /**
@@ -73,9 +75,10 @@ public class OrderDocumentFiller {
      *
      * @param blockA3 买方信息块（null 表示保留模板原内容）
      * @param blockF3 卖方信息块（null 表示保留模板原内容）
+     * @param shipTo  收货信息块，写 A4（null 表示保留模板原内容）
      */
     public static void fillInvoice(InputStream template, OutputStream out, String orderNo, Date orderDate,
-                                   String blockA3, String blockF3, List<CrmOrderItem> items) throws IOException {
+                                   String blockA3, String blockF3, String shipTo, List<CrmOrderItem> items) throws IOException {
         try (XSSFWorkbook wb = new XSSFWorkbook(template)) {
             XSSFSheet sheet = wb.getSheetAt(0);
             int itemCount = items == null ? 0 : items.size();
@@ -92,6 +95,9 @@ public class OrderDocumentFiller {
             }
             if (blockF3 != null) {
                 writeCell(sheet, ROW_SELLER, COL_SELLER, blockF3);
+            }
+            if (shipTo != null) {
+                writeCell(sheet, ROW_SHIP_TO, COL_BUYER, shipTo);
             }
 
             // 3. 明细多于 1 行时插入行

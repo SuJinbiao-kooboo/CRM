@@ -1,8 +1,10 @@
 package com.ruoyi.crm.service.util;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import com.ruoyi.crm.domain.dto.DocField;
@@ -36,6 +38,11 @@ public class DocTypeRegistry {
     private DocTypeRegistry() {
     }
 
+    /** 日期默认值：当天 yyyy-MM-dd */
+    private static String today() {
+        return new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+    }
+
     /** PO/PI/CI 明细列（模板 9 列中的可填项，AMOUNT 自动算） */
     private static List<DocItemColumn> invoiceItemColumns() {
         List<DocItemColumn> cols = new ArrayList<>();
@@ -61,7 +68,7 @@ public class DocTypeRegistry {
         po.setFileNameHint("PO 单号.xlsx");
         po.setFields(Arrays.asList(
                 DocField.of("orderNo", "PO No", "text").req(),
-                DocField.of("dateText", "Order Date", "date").req(),
+                DocField.of("dateText", "Order Date", "date").req().def(today()),
                 DocField.of("sellerId", "供应商(Seller)", "supplier").req(),
                 DocField.of("sellerText", "Seller 信息块", "textarea")));
         po.setItemColumns(invoiceItemColumns());
@@ -75,9 +82,10 @@ public class DocTypeRegistry {
         pi.setFileNameHint("PI 单号.xlsx");
         pi.setFields(Arrays.asList(
                 DocField.of("orderNo", "PI No", "text").req(),
-                DocField.of("dateText", "Order Date", "date").req(),
+                DocField.of("dateText", "Order Date", "date").req().def(today()),
                 DocField.of("buyerId", "买方(BUYER)", "supplier").req(),
-                DocField.of("buyerText", "BUYER 信息块", "textarea")));
+                DocField.of("buyerText", "BUYER 信息块", "textarea"),
+                DocField.of("shipTo", "Ship To 信息", "textarea").req()));
         pi.setItemColumns(invoiceItemColumns());
         list.add(pi);
 
@@ -89,9 +97,10 @@ public class DocTypeRegistry {
         ci.setFileNameHint("CI 单号.xlsx");
         ci.setFields(Arrays.asList(
                 DocField.of("orderNo", "CI No", "text").req(),
-                DocField.of("dateText", "Order Date", "date").req(),
+                DocField.of("dateText", "Order Date", "date").req().def(today()),
                 DocField.of("buyerId", "买方(BUYER)", "supplier").req(),
-                DocField.of("buyerText", "BUYER 信息块", "textarea")));
+                DocField.of("buyerText", "BUYER 信息块", "textarea"),
+                DocField.of("shipTo", "Ship To 信息", "textarea").req()));
         ci.setItemColumns(invoiceItemColumns());
         list.add(ci);
 
@@ -105,7 +114,7 @@ public class DocTypeRegistry {
         pl.setFileNameHint("PL-Packing List + 客户PO号");
         pl.setFields(Arrays.asList(
                 DocField.of("customerPoNo", "客户 PO 号", "text").req().ph("用于生成文件名，如 POHK-027716"),
-                DocField.of("dateText", "Date", "date").req(),
+                DocField.of("dateText", "Date", "date").req().def(today()),
                 DocField.of("shipTo", "SHIP TO 信息", "textarea").req()));
         pl.setItemColumns(Collections.emptyList());
         list.add(pl);
@@ -132,7 +141,7 @@ public class DocTypeRegistry {
                 DocUpload.of("plFile", "PL 文件").hint("上传 PL 文件可自动带出 品名/数量/毛重")));
         entrust.setFileNameHint("交货委托单.xlsx");
         entrust.setFields(Arrays.asList(
-                DocField.of("dateText", "日期", "date").req(),
+                DocField.of("dateText", "日期", "date").req().def(today()),
                 DocField.of("receiverInfo", "收货公司信息", "textarea").req()
                         .ph("公司名称/地址/联系人/电话等"),
                 DocField.of("deliveryMethod", "交货方式", "select").req().options(DELIVERY),

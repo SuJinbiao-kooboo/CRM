@@ -61,11 +61,11 @@ public class DocGenerateServiceImpl implements IDocGenerateService {
         }
         switch (type.toUpperCase()) {
             case DocTypeRegistry.PO:
-                return fillInvoiceTpl(DocTypeRegistry.TPL_PO, req, req.getSellerText(), null);
+                return fillInvoiceTpl(DocTypeRegistry.TPL_PO, req, null, req.getSellerText(), null);
             case DocTypeRegistry.PI:
-                return fillInvoiceTpl(DocTypeRegistry.TPL_PI, req, null, req.getBuyerText());
+                return fillInvoiceTpl(DocTypeRegistry.TPL_PI, req, req.getBuyerText(), null, req.getShipTo());
             case DocTypeRegistry.CI:
-                return fillInvoiceTpl(DocTypeRegistry.TPL_CI, req, null, req.getBuyerText());
+                return fillInvoiceTpl(DocTypeRegistry.TPL_CI, req, req.getBuyerText(), null, req.getShipTo());
             case DocTypeRegistry.SN:
                 return fillSn(req);
             case DocTypeRegistry.PL:
@@ -93,11 +93,11 @@ public class DocGenerateServiceImpl implements IDocGenerateService {
         }
     }
 
-    private byte[] fillInvoiceTpl(String tpl, DocGenerateReq req, String sellerText, String buyerText) throws IOException {
+    private byte[] fillInvoiceTpl(String tpl, DocGenerateReq req, String buyerText, String sellerText, String shipTo) throws IOException {
         try (InputStream in = new ClassPathResource(tpl).getInputStream();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             OrderDocumentFiller.fillInvoice(in, out, req.getOrderNo(), parseDate(req.getDateText()),
-                    buyerText, sellerText, toItems(req.getItems()));
+                    buyerText, sellerText, shipTo, toItems(req.getItems()));
             return out.toByteArray();
         }
     }

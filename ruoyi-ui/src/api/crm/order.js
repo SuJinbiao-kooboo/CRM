@@ -35,49 +35,45 @@ export function resolveSeller(supplierId) {
   return request({ url: '/crm/order/resolveSeller/' + supplierId, method: 'get' })
 }
 
-// 生成单据 Excel（PO）
+// 生成 PO 单据 Excel（订单列表行内导出）
 export function generateOrderExcel(data) {
   return request({ url: '/crm/order/generateExcel', method: 'post', data: data, responseType: 'blob' })
 }
-
-// 生成单据 PDF（PO）
-export function generateOrderPdf(data) {
-  return request({ url: '/crm/order/generatePdf', method: 'post', data: data, responseType: 'blob' })
-}
-
 
 // 单据类型定义（驱动动态表单）
 export function docTypes() {
   return request({ url: '/crm/order/doc/types', method: 'get' })
 }
 
-// 生成单据 Excel
-export function generateDoc(payload, file) {
+function buildFormData(payload, files) {
   const formData = new FormData()
   formData.append('payload', JSON.stringify(payload))
-  if (file) {
-    formData.append('file', file)
+  if (files) {
+    Object.keys(files).forEach(key => {
+      if (files[key]) {
+        formData.append(key, files[key])
+      }
+    })
   }
+  return formData
+}
+
+// 解析上传的 PO / PL 文件，返回可编辑明细
+export function parseDocItems(payload, files) {
   return request({
-    url: '/crm/order/doc/generate',
+    url: '/crm/order/doc/parseItems',
     method: 'post',
-    data: formData,
-    headers: { 'Content-Type': 'multipart/form-data' },
-    responseType: 'blob'
+    data: buildFormData(payload, files),
+    headers: { 'Content-Type': 'multipart/form-data' }
   })
 }
 
-// 生成单据 PDF
-export function generateDocPdf(payload, file) {
-  const formData = new FormData()
-  formData.append('payload', JSON.stringify(payload))
-  if (file) {
-    formData.append('file', file)
-  }
+// 生成单据 Excel
+export function generateDoc(payload, files) {
   return request({
-    url: '/crm/order/doc/generatePdf',
+    url: '/crm/order/doc/generate',
     method: 'post',
-    data: formData,
+    data: buildFormData(payload, files),
     headers: { 'Content-Type': 'multipart/form-data' },
     responseType: 'blob'
   })

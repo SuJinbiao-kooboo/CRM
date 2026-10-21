@@ -8,6 +8,7 @@ import java.util.List;
 import com.ruoyi.crm.domain.dto.DocField;
 import com.ruoyi.crm.domain.dto.DocItemColumn;
 import com.ruoyi.crm.domain.dto.DocTypeDef;
+import com.ruoyi.crm.domain.dto.DocUpload;
 
 /**
  * 单据类型注册表：集中声明每种单据的字段与明细列，驱动前端动态表单 + 后端填充。
@@ -21,14 +22,13 @@ public class DocTypeRegistry {
     public static final String SN = "SN";
     public static final String ENTRUST = "ENTRUST";
 
-    /** PO/PI/CI 共用模板路径 */
+    /** 各模板路径（classpath） */
     public static final String TPL_PO = "order-template/PO-Purchasing Order template.xlsx";
     public static final String TPL_PI = "order-template/PI-Proforma Invoice template.xlsx";
     public static final String TPL_CI = "order-template/CI-template.xlsx";
     public static final String TPL_PL = "order-template/PL-Packing List template.xlsx";
     public static final String TPL_ENTRUST = "order-template/香港仓库交货委托单.xlsx";
 
-    private static final List<String> YES_NO = Arrays.asList("是", "否");
     private static final List<String> DELIVERY = Arrays.asList("送货", "自提", "快递");
     private static final List<String> ATTACH = Arrays.asList("附发票", "附装箱单");
     private static final List<String> PAY_TYPE = Arrays.asList("预付", "到付");
@@ -57,7 +57,8 @@ public class DocTypeRegistry {
         po.setKey(PO);
         po.setName("采购订单 PO");
         po.setItems(true);
-        po.setFileNameHint("PO 单号.xlsx / .pdf");
+        po.setUploads(Collections.emptyList());
+        po.setFileNameHint("PO 单号.xlsx");
         po.setFields(Arrays.asList(
                 DocField.of("orderNo", "PO No", "text").req(),
                 DocField.of("dateText", "Order Date", "date").req(),
@@ -70,7 +71,8 @@ public class DocTypeRegistry {
         pi.setKey(PI);
         pi.setName("形式发票 PI");
         pi.setItems(true);
-        pi.setFileNameHint("PI 单号.xlsx / .pdf");
+        pi.setUploads(Collections.emptyList());
+        pi.setFileNameHint("PI 单号.xlsx");
         pi.setFields(Arrays.asList(
                 DocField.of("orderNo", "PI No", "text").req(),
                 DocField.of("dateText", "Order Date", "date").req(),
@@ -83,7 +85,8 @@ public class DocTypeRegistry {
         ci.setKey(CI);
         ci.setName("商业发票 CI");
         ci.setItems(true);
-        ci.setFileNameHint("CI 单号.xlsx / .pdf");
+        ci.setUploads(Collections.emptyList());
+        ci.setFileNameHint("CI 单号.xlsx");
         ci.setFields(Arrays.asList(
                 DocField.of("orderNo", "CI No", "text").req(),
                 DocField.of("dateText", "Order Date", "date").req(),
@@ -96,8 +99,9 @@ public class DocTypeRegistry {
         pl.setKey(PL);
         pl.setName("装箱单 PL");
         pl.setItems(false);
-        pl.setUpload(true);
-        pl.setUploadHint("上传供应商提供的 PL-Packing List 文件(.xlsx)，其物料信息将原样抄入模板");
+        pl.setUploads(Collections.singletonList(
+                DocUpload.of("file", "供应商 PL 文件").req()
+                        .hint("上传供应商提供的 PL-Packing List 文件(.xlsx)，其物料信息将原样抄入模板")));
         pl.setFileNameHint("PL-Packing List + 客户PO号");
         pl.setFields(Arrays.asList(
                 DocField.of("customerPoNo", "客户 PO 号", "text").req().ph("用于生成文件名，如 POHK-027716"),
@@ -110,8 +114,9 @@ public class DocTypeRegistry {
         sn.setKey(SN);
         sn.setName("SN List");
         sn.setItems(false);
-        sn.setFileNameHint("SN List.xlsx / .pdf");
-        sn.setFields(Arrays.asList(
+        sn.setUploads(Collections.emptyList());
+        sn.setFileNameHint("SN List.xlsx");
+        sn.setFields(Collections.singletonList(
                 DocField.of("snText", "SN 内容（每行一个）", "textarea").req()
                         .ph("一行一个 SN，生成的表格为 N 行单列")));
         sn.setItemColumns(Collections.emptyList());
@@ -121,7 +126,11 @@ public class DocTypeRegistry {
         entrust.setKey(ENTRUST);
         entrust.setName("香港仓库交货委托单");
         entrust.setItems(true);
-        entrust.setFileNameHint("交货委托单.xlsx / .pdf");
+        entrust.setParseItems(true);
+        entrust.setUploads(Arrays.asList(
+                DocUpload.of("poFile", "PO 文件").hint("上传 PO 文件可自动带出 品名/型号/数量/单价/金额"),
+                DocUpload.of("plFile", "PL 文件").hint("上传 PL 文件可自动带出 品名/数量/毛重")));
+        entrust.setFileNameHint("交货委托单.xlsx");
         entrust.setFields(Arrays.asList(
                 DocField.of("dateText", "日期", "date").req(),
                 DocField.of("receiverInfo", "收货公司信息", "textarea").req()

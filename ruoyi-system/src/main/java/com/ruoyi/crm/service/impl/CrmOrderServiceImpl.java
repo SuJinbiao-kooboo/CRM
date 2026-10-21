@@ -31,7 +31,6 @@ import com.ruoyi.crm.mapper.CrmSupplierContactMapper;
 import com.ruoyi.crm.mapper.CrmSupplierMapper;
 import com.ruoyi.crm.service.ICrmOrderService;
 import com.ruoyi.crm.service.util.OrderDocumentFiller;
-import com.ruoyi.crm.service.util.OrderPdfConverter;
 
 @Service
 public class CrmOrderServiceImpl implements ICrmOrderService {
@@ -40,9 +39,6 @@ public class CrmOrderServiceImpl implements ICrmOrderService {
     @Value("${order.po-template:order-template/PO-Purchasing Order template.xlsx}")
     private String poTemplate;
 
-    /** LibreOffice 可执行文件路径（用于 Excel 转 PDF） */
-    @Value("${order.libreoffice-path:soffice}")
-    private String libreofficePath;
 
     @Autowired
     private CrmOrderMapper orderMapper;
@@ -171,15 +167,6 @@ public class CrmOrderServiceImpl implements ICrmOrderService {
         }
     }
 
-    @Override
-    public byte[] generatePdf(CrmOrder order) {
-        byte[] xlsx = generateExcel(order);
-        try {
-            return OrderPdfConverter.toPdf(xlsx, libreofficePath);
-        } catch (IOException e) {
-            throw new ServiceException("生成 PO 单据 PDF 失败：" + e.getMessage());
-        }
-    }
 
     /** 组装 Seller 信息块文本：公司/地址/联系人/邮箱/电话 */
     private String buildSellerText(CrmSupplier supplier, CrmSupplierContact contact) {

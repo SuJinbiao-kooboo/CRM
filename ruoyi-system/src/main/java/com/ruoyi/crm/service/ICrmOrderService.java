@@ -26,6 +26,4 @@ public interface ICrmOrderService {
     /** 生成单据 Excel（PO） */
     byte[] generateExcel(CrmOrder order);
 
-    /** 生成单据 PDF（PO） */
-    byte[] generatePdf(CrmOrder order);
 }

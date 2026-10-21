@@ -48,8 +48,7 @@
       <el-table-column label="操作" align="center" width="280" fixed="right">
         <template slot-scope="scope">
           <el-button size="mini" type="text" icon="el-icon-edit" @click="handleUpdate(scope.row)" v-hasPermi="['crm:order:edit']">修改</el-button>
-          <el-button size="mini" type="text" icon="el-icon-download" @click="handleGenerate(scope.row, 'excel')" v-hasPermi="['crm:order:generate']">Excel</el-button>
-          <el-button size="mini" type="text" icon="el-icon-document" @click="handleGenerate(scope.row, 'pdf')" v-hasPermi="['crm:order:generate']">PDF</el-button>
+          <el-button size="mini" type="text" icon="el-icon-download" @click="handleGenerate(scope.row)" v-hasPermi="['crm:order:generate']">Excel</el-button>
           <el-button size="mini" type="text" icon="el-icon-delete" @click="handleDelete(scope.row)" v-hasPermi="['crm:order:remove']">删除</el-button>
         </template>
       </el-table-column>
@@ -143,8 +142,7 @@
       </el-table>
 
       <div slot="footer" class="dialog-footer">
-        <el-button type="warning" icon="el-icon-download" :loading="genExcelLoading" @click="genDoc('excel')" v-hasPermi="['crm:order:generate']">生成 Excel</el-button>
-        <el-button type="warning" plain icon="el-icon-document" :loading="genPdfLoading" @click="genDoc('pdf')" v-hasPermi="['crm:order:generate']">生成 PDF</el-button>
+        <el-button type="warning" icon="el-icon-download" :loading="genExcelLoading" @click="genDoc()" v-hasPermi="['crm:order:generate']">生成 Excel</el-button>
         <el-button type="primary" @click="submitForm">确 定</el-button>
         <el-button @click="cancel">取 消</el-button>
       </div>
@@ -154,7 +152,7 @@
 
 <script>
 import { saveAs } from 'file-saver'
-import { listOrder, getOrder, addOrder, updateOrder, delOrder, nextOrderNo, resolveSeller, generateOrderExcel, generateOrderPdf } from '@/api/crm/order'
+import { listOrder, getOrder, addOrder, updateOrder, delOrder, nextOrderNo, resolveSeller, generateOrderExcel } from '@/api/crm/order'
 import { listSupplierOptions } from '@/api/crm/supplier'
 
 export default {
@@ -183,7 +181,6 @@ export default {
       title: '',
       open: false,
       genExcelLoading: false,
-      genPdfLoading: false,
       form: {},
       rules: {
         orderType: [{ required: true, message: '单据类型不能为空', trigger: 'change' }],
@@ -314,31 +311,26 @@ export default {
       const items = (this.form.items || []).filter(it => it.itemName || it.brand || it.spec)
       return Object.assign({}, this.form, { items: items })
     },
-    genDoc(type) {
+    genDoc() {
       this.$refs['form'].validate(valid => {
         if (!valid) {
           return
         }
         const payload = this.buildPayload()
-        const loadingKey = type === 'pdf' ? 'genPdfLoading' : 'genExcelLoading'
-        const api = type === 'pdf' ? generateOrderPdf : generateOrderExcel
-        this[loadingKey] = true
-        api(payload).then(blob => {
-          const filename = (payload.orderNo || 'PO') + (type === 'pdf' ? '.pdf' : '.xlsx')
-          saveAs(new Blob([blob]), filename)
-          this[loadingKey] = false
+        this.genExcelLoading = true
+        generateOrderExcel(payload).then(blob => {
+          saveAs(new Blob([blob]), (payload.orderNo || 'PO') + '.xlsx')
+          this.genExcelLoading = false
         }).catch(() => {
-          this[loadingKey] = false
+          this.genExcelLoading = false
         })
       })
     },
-    handleGenerate(row, type) {
+    handleGenerate(row) {
       getOrder(row.id).then(response => {
         const payload = response.data
-        const api = type === 'pdf' ? generateOrderPdf : generateOrderExcel
-        api(payload).then(blob => {
-          const filename = (payload.orderNo || 'PO') + (type === 'pdf' ? '.pdf' : '.xlsx')
-          saveAs(new Blob([blob]), filename)
+        generateOrderExcel(payload).then(blob => {
+          saveAs(new Blob([blob]), (payload.orderNo || 'PO') + '.xlsx')
         })
       })
     },

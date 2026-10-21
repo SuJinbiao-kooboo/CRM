@@ -199,5 +199,3 @@ feishu:
 order:
   # PO 模板路径（classpath）
   po-template: order-template/PO-Purchasing Order template.xlsx
-  # LibreOffice 可执行文件路径（Excel 转 PDF）。Windows 示例：C:/Program Files/LibreOffice/program/soffice.exe
-  libreoffice-path: soffice

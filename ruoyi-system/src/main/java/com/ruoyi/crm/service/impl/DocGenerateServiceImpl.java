@@ -1,6 +1,5 @@
 package com.ruoyi.crm.service.impl;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,7 +12,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,10 +22,10 @@ import com.ruoyi.crm.domain.CrmOrderItem;
 import com.ruoyi.crm.domain.dto.DocGenerateReq;
 import com.ruoyi.crm.domain.dto.DocTypeDef;
 import com.ruoyi.crm.service.IDocGenerateService;
+import com.ruoyi.crm.service.util.DocItemParser;
 import com.ruoyi.crm.service.util.DocTypeRegistry;
 import com.ruoyi.crm.service.util.EntrustFiller;
 import com.ruoyi.crm.service.util.OrderDocumentFiller;
-import com.ruoyi.crm.service.util.OrderPdfConverter;
 import com.ruoyi.crm.service.util.PackingListFiller;
 import com.ruoyi.crm.service.util.SnListFiller;
 
@@ -37,16 +35,26 @@ public class DocGenerateServiceImpl implements IDocGenerateService {
     private static final String TPL_SN = "order-template/SN List.xlsx";
     private static final String DATE_PATTERN = "yyyy-MM-dd";
 
-    @Value("${order.libreoffice-path:soffice}")
-    private String libreofficePath;
-
     @Override
     public List<DocTypeDef> listTypes() {
         return DocTypeRegistry.list();
     }
 
     @Override
-    public byte[] generateExcel(DocGenerateReq req, MultipartFile file) throws IOException {
+    public List<Map<String, Object>> parseItems(DocGenerateReq req, Map<String, MultipartFile> files) throws IOException {
+        MultipartFile poFile = file(files, "poFile");
+        MultipartFile plFile = file(files, "plFile");
+        if (poFile == null && plFile == null) {
+            throw new ServiceException("请至少上传 PO 文件或 PL 文件");
+        }
+        try (InputStream po = poFile == null ? null : poFile.getInputStream();
+             InputStream pl = plFile == null ? null : plFile.getInputStream()) {
+            return DocItemParser.parse(po, pl);
+        }
+    }
+
+    @Override
+    public byte[] generateExcel(DocGenerateReq req, Map<String, MultipartFile> files) throws IOException {
         String type = req == null ? null : req.getDocType();
         if (StringUtils.isEmpty(type)) {
             throw new ServiceException("请选择单据类型");
@@ -61,21 +69,11 @@ public class DocGenerateServiceImpl implements IDocGenerateService {
             case DocTypeRegistry.SN:
                 return fillSn(req);
             case DocTypeRegistry.PL:
-                return fillPl(req, file);
+                return fillPl(req, file(files, "file"));
             case DocTypeRegistry.ENTRUST:
                 return fillEntrust(req);
             default:
                 throw new ServiceException("暂不支持的单据类型：" + type);
-        }
-    }
-
-    @Override
-    public byte[] generatePdf(DocGenerateReq req, MultipartFile file) throws IOException {
-        byte[] xlsx = generateExcel(req, file);
-        try {
-            return OrderPdfConverter.toPdf(xlsx, libreofficePath);
-        } catch (IOException e) {
-            throw new ServiceException("生成 PDF 失败：" + e.getMessage());
         }
     }
 
@@ -130,6 +128,14 @@ public class DocGenerateServiceImpl implements IDocGenerateService {
             return EntrustFiller.fill(in, req.getDateText(), extras.get("receiverInfo"),
                     req.getItems() == null ? new ArrayList<>() : req.getItems(), extras);
         }
+    }
+
+    private MultipartFile file(Map<String, MultipartFile> files, String key) {
+        if (files == null) {
+            return null;
+        }
+        MultipartFile f = files.get(key);
+        return (f == null || f.isEmpty()) ? null : f;
     }
 
     private List<CrmOrderItem> toItems(List<Map<String, Object>> rows) {

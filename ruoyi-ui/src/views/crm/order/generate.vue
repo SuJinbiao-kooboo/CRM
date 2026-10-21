@@ -3,7 +3,7 @@
     <el-card shadow="never">
       <div slot="header" class="clearfix">
         <span>订单单据生成</span>
-        <span class="sub-tip">选择单据类型 -&gt; 填写字段 -&gt; 生成 Excel / PDF</span>
+        <span class="sub-tip">选择单据类型 -&gt; 填写字段 -&gt; 生成 Excel</span>
       </div>
 
       <el-form ref="form" :model="form" :rules="rules" label-width="120px">
@@ -33,12 +33,22 @@
             </el-col>
           </el-row>
 
-          <el-form-item v-if="currentType.upload" label="来源文件">
-            <el-upload :auto-upload="false" :limit="1" :file-list="fileList" accept=".xlsx,.xls"
-                       :on-change="onFileChange" :on-remove="onFileRemove">
-              <el-button size="small" type="primary" icon="el-icon-upload2">选择文件</el-button>
-              <div slot="tip" class="el-upload__tip">{{ currentType.uploadHint }}</div>
-            </el-upload>
+          <el-row :gutter="16" v-if="currentType.uploads && currentType.uploads.length">
+            <el-col v-for="u in currentType.uploads" :key="u.key" :span="12">
+              <el-form-item :label="u.label">
+                <el-upload :auto-upload="false" :limit="1" :file-list="uploadList[u.key] || []" accept=".xlsx,.xls"
+                           :on-change="(file, list) => onFileChange(u.key, file, list)"
+                           :on-remove="() => onFileRemove(u.key)">
+                  <el-button size="small" type="primary" icon="el-icon-upload2">选择文件</el-button>
+                  <div slot="tip" class="el-upload__tip">{{ u.hint }}</div>
+                </el-upload>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-form-item v-if="currentType.parseItems">
+            <el-button type="warning" icon="el-icon-magic-stick" :loading="parseLoading" @click="handleParse">解析明细并回填（可编辑）</el-button>
+            <span class="tip">上传 PO / PL 后点击解析，明细会显示到下方表格，可自行修改后再生成</span>
           </el-form-item>
 
           <el-form-item v-if="currentType.items" label="物料明细">
@@ -60,8 +70,7 @@
           </el-form-item>
 
           <el-form-item>
-            <el-button type="primary" icon="el-icon-download" :loading="excelLoading" @click="handleGenerate('excel')">生成 Excel</el-button>
-            <el-button type="success" icon="el-icon-document" :loading="pdfLoading" @click="handleGenerate('pdf')">生成 PDF</el-button>
+            <el-button type="primary" icon="el-icon-download" :loading="excelLoading" @click="handleGenerate">生成 Excel</el-button>
             <el-button icon="el-icon-refresh-left" @click="resetFormAll">重置</el-button>
           </el-form-item>
         </template>
@@ -72,7 +81,7 @@
 
 <script>
 import { saveAs } from 'file-saver'
-import { docTypes, generateDoc, generateDocPdf, resolveSeller } from '@/api/crm/order'
+import { docTypes, parseDocItems, generateDoc, resolveSeller } from '@/api/crm/order'
 import { listSupplierOptions } from '@/api/crm/supplier'
 
 const TOP_KEYS = ['orderNo', 'dateText', 'sellerId', 'sellerText', 'buyerId', 'buyerText', 'snText', 'shipTo', 'customerPoNo']
@@ -85,10 +94,10 @@ export default {
       docType: undefined,
       form: { items: [] },
       supplierOptions: [],
-      fileList: [],
-      uploadFile: null,
-      excelLoading: false,
-      pdfLoading: false
+      uploadFiles: {},
+      uploadList: {},
+      parseLoading: false,
+      excelLoading: false
     }
   },
   computed: {
@@ -139,8 +148,8 @@ export default {
         }
       }
       this.form = form
-      this.fileList = []
-      this.uploadFile = null
+      this.uploadFiles = {}
+      this.uploadList = {}
       this.$nextTick(() => {
         if (this.$refs.form) {
           this.$refs.form.clearValidate()
@@ -180,11 +189,13 @@ export default {
         }
       })
     },
-    onFileChange(file) {
-      this.uploadFile = file.raw
+    onFileChange(key, file, list) {
+      this.$set(this.uploadFiles, key, file.raw)
+      this.$set(this.uploadList, key, list)
     },
-    onFileRemove() {
-      this.uploadFile = null
+    onFileRemove(key) {
+      this.$set(this.uploadFiles, key, null)
+      this.$set(this.uploadList, key, [])
     },
     buildPayload() {
       const payload = { docType: this.docType, extras: {}, items: [] }
@@ -202,6 +213,26 @@ export default {
       payload.items = (this.form.items || []).filter(row => itemKeys.some(k => row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== ''))
       return payload
     },
+    handleParse() {
+      const hasFile = Object.keys(this.uploadFiles).some(k => this.uploadFiles[k])
+      if (!hasFile) {
+        this.$modal.msgError('请先上传 PO 或 PL 文件')
+        return
+      }
+      this.parseLoading = true
+      parseDocItems({ docType: this.docType }, this.uploadFiles).then(res => {
+        const rows = (res.data || []).map(r => {
+          const row = {}
+          this.currentType.itemColumns.forEach(c => { row[c.key] = r[c.key] !== undefined ? r[c.key] : undefined })
+          return row
+        })
+        this.form.items = rows.length ? rows : [this.blankItem(this.currentType)]
+        this.$modal.msgSuccess('已解析 ' + rows.length + ' 条明细，可直接编辑')
+        this.parseLoading = false
+      }).catch(() => {
+        this.parseLoading = false
+      })
+    },
     fileName(ext) {
       const t = this.docType
       if (t === 'PL') {
@@ -215,23 +246,22 @@ export default {
       }
       return (this.form.orderNo || 'document') + '.' + ext
     },
-    handleGenerate(kind) {
+    handleGenerate() {
       this.$refs.form.validate(valid => {
         if (!valid) {
           return
         }
-        if (this.currentType.upload && !this.uploadFile) {
-          this.$modal.msgError('请上传来源文件')
+        const required = (this.currentType.uploads || []).filter(u => u.required && !this.uploadFiles[u.key])
+        if (required.length) {
+          this.$modal.msgError('请上传：' + required.map(u => u.label).join('、'))
           return
         }
-        const api = kind === 'pdf' ? generateDocPdf : generateDoc
-        const loadingKey = kind === 'pdf' ? 'pdfLoading' : 'excelLoading'
-        this[loadingKey] = true
-        api(this.buildPayload(), this.uploadFile).then(blob => {
-          saveAs(new Blob([blob]), this.fileName(kind === 'pdf' ? 'pdf' : 'xlsx'))
-          this[loadingKey] = false
+        this.excelLoading = true
+        generateDoc(this.buildPayload(), this.uploadFiles).then(blob => {
+          saveAs(new Blob([blob]), this.fileName('xlsx'))
+          this.excelLoading = false
         }).catch(() => {
-          this[loadingKey] = false
+          this.excelLoading = false
         })
       })
     },

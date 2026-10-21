@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
@@ -33,9 +34,6 @@ import com.ruoyi.crm.domain.dto.DocGenerateReq;
 import com.ruoyi.crm.service.ICrmOrderService;
 import com.ruoyi.crm.service.IDocGenerateService;
 import com.alibaba.fastjson2.JSON;
-
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.multipart.MultipartFile;
 
 /**
  * CRM 订单（PO 等单据）控制器
@@ -60,28 +58,22 @@ public class OrderController extends BaseController {
         return success(docGenerateService.listTypes());
     }
 
+    /** 解析上传的 PO / PL 文件，返回可编辑明细（不回写文件，页面确认后再生成） */
+    @PreAuthorize("@ss.hasPermi('crm:order:generate')")
+    @PostMapping("/doc/parseItems")
+    public AjaxResult docParseItems(MultipartHttpServletRequest request) throws IOException {
+        DocGenerateReq req = JSON.parseObject(request.getParameter("payload"), DocGenerateReq.class);
+        return success(docGenerateService.parseItems(req, request.getFileMap()));
+    }
+
     /** 生成单据 Excel（支持上传来源文件，如供应商装箱单） */
     @PreAuthorize("@ss.hasPermi('crm:order:generate')")
     @Log(title = "CRM单据生成", businessType = BusinessType.EXPORT)
     @PostMapping("/doc/generate")
-    public void docGenerateExcel(HttpServletResponse response,
-                                 @RequestParam("payload") String payload,
-                                 @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
-        DocGenerateReq req = JSON.parseObject(payload, DocGenerateReq.class);
-        writeFile(response, docGenerateService.generateExcel(req, file),
+    public void docGenerateExcel(HttpServletResponse response, MultipartHttpServletRequest request) throws IOException {
+        DocGenerateReq req = JSON.parseObject(request.getParameter("payload"), DocGenerateReq.class);
+        writeFile(response, docGenerateService.generateExcel(req, request.getFileMap()),
                 docGenerateService.fileName(req, "xlsx"), XLSX_CONTENT_TYPE);
-    }
-
-    /** 生成单据 PDF */
-    @PreAuthorize("@ss.hasPermi('crm:order:generate')")
-    @Log(title = "CRM单据生成", businessType = BusinessType.EXPORT)
-    @PostMapping("/doc/generatePdf")
-    public void docGeneratePdf(HttpServletResponse response,
-                               @RequestParam("payload") String payload,
-                               @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
-        DocGenerateReq req = JSON.parseObject(payload, DocGenerateReq.class);
-        writeFile(response, docGenerateService.generatePdf(req, file),
-                docGenerateService.fileName(req, "pdf"), "application/pdf");
     }
 
     @PreAuthorize("@ss.hasPermi('crm:order:list')")
@@ -142,16 +134,6 @@ public class OrderController extends BaseController {
         byte[] data = orderService.generateExcel(order);
         String base = StringUtils.isEmpty(order.getOrderNo()) ? "PO" : order.getOrderNo();
         writeFile(response, data, base + ".xlsx", XLSX_CONTENT_TYPE);
-    }
-
-    /** 生成 PO 单据 PDF */
-    @PreAuthorize("@ss.hasPermi('crm:order:generate')")
-    @Log(title = "CRM订单", businessType = BusinessType.EXPORT)
-    @PostMapping("/generatePdf")
-    public void generatePdf(HttpServletResponse response, @RequestBody CrmOrder order) throws IOException {
-        byte[] data = orderService.generatePdf(order);
-        String base = StringUtils.isEmpty(order.getOrderNo()) ? "PO" : order.getOrderNo();
-        writeFile(response, data, base + ".pdf", "application/pdf");
     }
 
     private void writeFile(HttpServletResponse response, byte[] data, String filename, String contentType)

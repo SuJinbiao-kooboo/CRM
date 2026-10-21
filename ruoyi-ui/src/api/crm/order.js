@@ -44,3 +44,41 @@ export function generateOrderExcel(data) {
 export function generateOrderPdf(data) {
   return request({ url: '/crm/order/generatePdf', method: 'post', data: data, responseType: 'blob' })
 }
+
+
+// 单据类型定义（驱动动态表单）
+export function docTypes() {
+  return request({ url: '/crm/order/doc/types', method: 'get' })
+}
+
+// 生成单据 Excel
+export function generateDoc(payload, file) {
+  const formData = new FormData()
+  formData.append('payload', JSON.stringify(payload))
+  if (file) {
+    formData.append('file', file)
+  }
+  return request({
+    url: '/crm/order/doc/generate',
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' },
+    responseType: 'blob'
+  })
+}
+
+// 生成单据 PDF
+export function generateDocPdf(payload, file) {
+  const formData = new FormData()
+  formData.append('payload', JSON.stringify(payload))
+  if (file) {
+    formData.append('file', file)
+  }
+  return request({
+    url: '/crm/order/doc/generatePdf',
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' },
+    responseType: 'blob'
+  })
+}

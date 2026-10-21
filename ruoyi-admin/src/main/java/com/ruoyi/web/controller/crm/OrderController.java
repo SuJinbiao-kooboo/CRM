@@ -29,7 +29,13 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.crm.domain.CrmOrder;
+import com.ruoyi.crm.domain.dto.DocGenerateReq;
 import com.ruoyi.crm.service.ICrmOrderService;
+import com.ruoyi.crm.service.IDocGenerateService;
+import com.alibaba.fastjson2.JSON;
+
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * CRM 订单（PO 等单据）控制器
@@ -43,6 +49,40 @@ public class OrderController extends BaseController {
 
     @Autowired
     private ICrmOrderService orderService;
+
+    @Autowired
+    private IDocGenerateService docGenerateService;
+
+    /** 单据类型定义（驱动"单据生成"页面动态表单） */
+    @PreAuthorize("@ss.hasPermi('crm:order:list')")
+    @GetMapping("/doc/types")
+    public AjaxResult docTypes() {
+        return success(docGenerateService.listTypes());
+    }
+
+    /** 生成单据 Excel（支持上传来源文件，如供应商装箱单） */
+    @PreAuthorize("@ss.hasPermi('crm:order:generate')")
+    @Log(title = "CRM单据生成", businessType = BusinessType.EXPORT)
+    @PostMapping("/doc/generate")
+    public void docGenerateExcel(HttpServletResponse response,
+                                 @RequestParam("payload") String payload,
+                                 @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+        DocGenerateReq req = JSON.parseObject(payload, DocGenerateReq.class);
+        writeFile(response, docGenerateService.generateExcel(req, file),
+                docGenerateService.fileName(req, "xlsx"), XLSX_CONTENT_TYPE);
+    }
+
+    /** 生成单据 PDF */
+    @PreAuthorize("@ss.hasPermi('crm:order:generate')")
+    @Log(title = "CRM单据生成", businessType = BusinessType.EXPORT)
+    @PostMapping("/doc/generatePdf")
+    public void docGeneratePdf(HttpServletResponse response,
+                               @RequestParam("payload") String payload,
+                               @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+        DocGenerateReq req = JSON.parseObject(payload, DocGenerateReq.class);
+        writeFile(response, docGenerateService.generatePdf(req, file),
+                docGenerateService.fileName(req, "pdf"), "application/pdf");
+    }
 
     @PreAuthorize("@ss.hasPermi('crm:order:list')")
     @GetMapping("/list")

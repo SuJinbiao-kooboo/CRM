@@ -86,3 +86,15 @@ INSERT INTO `sys_role_menu` (`role_id`,`menu_id`)
 SELECT r.role_id, m.menu_id FROM (SELECT 2 AS role_id UNION SELECT 100) r
 CROSS JOIN (SELECT 1212 AS menu_id UNION SELECT 2230 UNION SELECT 2231 UNION SELECT 2232 UNION SELECT 2233 UNION SELECT 2234) m
 WHERE NOT EXISTS (SELECT 1 FROM (SELECT role_id, menu_id FROM `sys_role_menu`) t WHERE t.role_id = r.role_id AND t.menu_id = m.menu_id);
+
+
+-- ============================================================
+-- 追加：单据生成页面菜单（类型驱动动态表单，menu_id=1213）
+-- ============================================================
+INSERT INTO `sys_menu` (`menu_id`,`menu_name`,`parent_id`,`order_num`,`path`,`component`,`is_frame`,`is_cache`,`menu_type`,`visible`,`status`,`perms`,`icon`,`create_by`,`create_time`,`remark`)
+SELECT 1213,'单据生成',1200,4,'orderGenerate','crm/order/generate',1,0,'C','0','0','crm:order:generate','documentation','admin',now(),'选择单据类型后填充字段生成Excel/PDF'
+WHERE NOT EXISTS (SELECT 1 FROM (SELECT menu_id FROM `sys_menu`) t WHERE t.menu_id = 1213);
+
+INSERT INTO `sys_role_menu` (`role_id`,`menu_id`)
+SELECT r.role_id, 1213 FROM (SELECT 2 AS role_id UNION SELECT 100) r
+WHERE NOT EXISTS (SELECT 1 FROM (SELECT role_id, menu_id FROM `sys_role_menu`) t WHERE t.role_id = r.role_id AND t.menu_id = 1213);

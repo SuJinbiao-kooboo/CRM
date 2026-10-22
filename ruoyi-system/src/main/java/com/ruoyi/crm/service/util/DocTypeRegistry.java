@@ -33,6 +33,7 @@ public class DocTypeRegistry {
 
     private static final List<String> DELIVERY = Arrays.asList("送货", "自提", "快递");
     private static final List<String> ATTACH = Arrays.asList("附装箱单", "附发票", "附发票和装箱单");
+    private static final List<String> CURRENCY = Arrays.asList("USD", "HKD", "其他");
     private static final List<String> PAY_TYPE = Arrays.asList("预付", "到付");
 
     private DocTypeRegistry() {
@@ -147,6 +148,8 @@ public class DocTypeRegistry {
                         .ph("公司名称/地址/联系人/电话等"),
                 DocField.of("deliveryMethod", "交货方式", "select").req().options(DELIVERY),
                 DocField.of("attachDoc", "附发票/装箱单", "select").req().options(ATTACH).def("附装箱单"),
+                DocField.of("payCurrency", "金额币种", "select").options(CURRENCY).def("USD"),
+                DocField.of("totalBoxes", "总箱数", "number").ph("默认等于明细行数，可修改"),
                 DocField.of("expressCompany", "快递公司名称", "text"),
                 DocField.of("freight", "运费", "select").options(PAY_TYPE),
                 DocField.of("customsDuty", "进口关税", "select").options(PAY_TYPE),

@@ -40,6 +40,15 @@ public class VmlCheckboxTuner {
         };
     }
 
+    /** 按复选框锚点起始单元格（0-based 行、列）定位并打勾 */
+    public static Predicate<String> byAnchorCell(int row0Based, int col0Based) {
+        return block -> {
+            Matcher m = Pattern.compile("<x:Anchor>(\\d+),(\\d+),(\\d+),").matcher(block);
+            return m.find() && Integer.parseInt(m.group(3)) == row0Based
+                    && Integer.parseInt(m.group(1)) == col0Based;
+        };
+    }
+
     /**
      * 对给定 xlsx 字节流应用勾选规则。
      *

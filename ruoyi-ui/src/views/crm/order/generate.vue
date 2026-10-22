@@ -60,8 +60,9 @@
                   <el-input v-else v-model="scope.row[c.key]" size="mini" />
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="70" align="center">
+              <el-table-column label="操作" width="130" align="center">
                 <template slot-scope="scope">
+                  <el-button type="text" @click="copyItem(scope.$index)">复制</el-button>
                   <el-button type="text" @click="removeItem(scope.$index)">删除</el-button>
                 </template>
               </el-table-column>
@@ -97,7 +98,8 @@ export default {
       uploadFiles: {},
       uploadList: {},
       parseLoading: false,
-      excelLoading: false
+      excelLoading: false,
+      autoBoxes: null
     }
   },
   computed: {
@@ -148,6 +150,7 @@ export default {
         }
       }
       this.form = form
+      this.autoBoxes = null
       this.uploadFiles = {}
       this.uploadList = {}
       this.$nextTick(() => {
@@ -166,9 +169,30 @@ export default {
     addItem() {
       this.form.items = this.form.items || []
       this.form.items.push(this.blankItem(this.currentType))
+      this.syncTotalBoxes()
+    },
+    copyItem(index) {
+      const src = this.form.items[index]
+      if (!src) {
+        return
+      }
+      this.form.items.splice(index + 1, 0, Object.assign({}, src))
+      this.syncTotalBoxes()
     },
     removeItem(index) {
       this.form.items.splice(index, 1)
+      this.syncTotalBoxes()
+    },
+    syncTotalBoxes(force) {
+      if (!this.form || !('totalBoxes' in this.form)) {
+        return
+      }
+      const count = (this.form.items || []).length
+      const cur = this.form.totalBoxes
+      if (force === true || cur === undefined || cur === null || cur === '' || cur === this.autoBoxes) {
+        this.$set(this.form, 'totalBoxes', String(count))
+        this.autoBoxes = String(count)
+      }
     },
     itemAmount(row) {
       const amount = (Number(row.qty) || 0) * (Number(row.unitPrice) || 0)
@@ -227,6 +251,7 @@ export default {
           return row
         })
         this.form.items = rows.length ? rows : [this.blankItem(this.currentType)]
+        this.syncTotalBoxes(true)
         this.$modal.msgSuccess('已解析 ' + rows.length + ' 条明细，可直接编辑')
         this.parseLoading = false
       }).catch(() => {

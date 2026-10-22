@@ -36,6 +36,7 @@ public class EntrustFiller {
     private static final int ATTACH_FREIGHT_ROW = 21;
     private static final int CUSTOMS_ROW = 23;
     private static final int REMARK_ROW = 25;
+    private static final int AMOUNT_CURRENCY_ROW = 19;
 
     private EntrustFiller() {
     }
@@ -89,13 +90,20 @@ public class EntrustFiller {
             int totalRowIdx = TOTAL_ROW + shift;
             Row totalRow = SheetUtils.ensureRow(sheet, totalRowIdx);
             SheetUtils.setFormula(totalRow, 8, "SUM(I" + (ITEM_FIRST + 1) + ":I" + (ITEM_FIRST + Math.max(count, 1)) + ")");
+            // 总箱数：默认等于明细行数，可通过 extras.totalBoxes 覆盖
+            Object boxes = extras.get("totalBoxes");
+            if (boxes == null || String.valueOf(boxes).trim().isEmpty()) {
+                boxes = count;
+            }
+            SheetUtils.setValue(totalRow, 10, num(boxes));
 
             // 快递公司名称 / 运费（仅当交货方式为快递时填写）
             if ("快递".equals(extras.get("deliveryMethod"))) {
                 if (notBlank(extras.get("expressCompany"))) {
                     SheetUtils.setValue(SheetUtils.ensureRow(sheet, EXPRESS_ROW + shift), 10, extras.get("expressCompany"));
                 }
-                markPayChoice(sheet, ATTACH_FREIGHT_ROW + shift, extras.get("freight"));
+                // 运费：把选中的档位文字写到选项下方，未选择则不写
+                writePayBelow(sheet, ATTACH_FREIGHT_ROW + shift, extras.get("freight"));
             }
             // 进口关税（默认留空，未选择时不勾选）
             markPayChoice(sheet, CUSTOMS_ROW + shift, extras.get("customsDuty"));
@@ -119,8 +127,22 @@ public class EntrustFiller {
         ticks.put(VmlCheckboxTuner.byLabel("送货"), "送货".equals(method));
         ticks.put(VmlCheckboxTuner.byLabel("自提"), "自提".equals(method));
         ticks.put(VmlCheckboxTuner.byLabel("快递"), "快递".equals(method));
-        ticks.put(VmlCheckboxTuner.byAnchorRow(ATTACH_FREIGHT_ROW), true);
+        ticks.put(VmlCheckboxTuner.byAnchorRow(ATTACH_FREIGHT_ROW + shift), true);
+        String currency = extras.get("payCurrency");
+        ticks.put(VmlCheckboxTuner.byAnchorCell(AMOUNT_CURRENCY_ROW + shift, 3), "USD".equals(currency));
+        ticks.put(VmlCheckboxTuner.byAnchorCell(AMOUNT_CURRENCY_ROW + shift, 4), "HKD".equals(currency));
+        ticks.put(VmlCheckboxTuner.byAnchorCell(AMOUNT_CURRENCY_ROW + shift, 5), "其他".equals(currency));
         return VmlCheckboxTuner.apply(bytes, ticks, TOTAL_ROW, shift);
+    }
+
+    /** 运费到付/预付：把选中的档位文字写到选项下方对应单元格（K 列=预付，L 列=到付），未选择则不写 */
+    private static void writePayBelow(XSSFSheet sheet, int optionRowIdx, String choice) {
+        if (!notBlank(choice)) {
+            return;
+        }
+        Row row = SheetUtils.ensureRow(sheet, optionRowIdx + 1);
+        int col = choice.contains("到付") ? 11 : 10;
+        SheetUtils.setValue(row, col, choice);
     }
 
     /** 运费/进口关税：勾选选中的档位（预付/到付），未选中的保留原文字 */

@@ -17,6 +17,9 @@ public interface WeChatMessageMapper {
     /** 更新单条消息的分类与来源(按 username+local_id)。 */
     int updateCategory(@Param("m") WeChatMessage m);
 
+    /** 将命中分类黑名单的消息统一标记为 OTHER/FILTER 且 status=3，并清空关联。 */
+    int updateFiltered(@Param("m") WeChatMessage m, @Param("reason") String reason);
+
     /** 按起始时间(+可选会话名)查询，按 sort_seq 正序。 */
     List<WeChatMessage> querySince(@Param("since") String since, @Param("chat") String chat, @Param("status") Integer status, @Param("max") int max);
 
@@ -25,6 +28,9 @@ public interface WeChatMessageMapper {
 
     /** 未分类消息统计：{cnt=未分类条数, earliest=最早未分类消息时间}。 */
     java.util.Map<String, Object> unclassifiedStats();
+
+    /** 扫描等待飞书预警的 TRACE：status=1、已关联 INQ/OFFER、且在时间窗内。 */
+    List<WeChatMessage> queryTraceAlerts(@Param("since") String since, @Param("max") int max);
 
     /**
      * 查询待录入消息(status=1 且分类在 categories 内)，按 sort_seq 正序，最多 max 条；

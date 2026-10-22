@@ -97,6 +97,18 @@ public class WeChatMessageController {
         return AjaxResult.success(gateway.classifyOnce(chat));
     }
 
+    /** 清空AI分类缓存（调整提示词/语义规则后，重跑历史消息前调用）。 */
+    @PostMapping("/classify/cache/clear")
+    public AjaxResult clearClassifyCache() {
+        return AjaxResult.success(gateway.clearClassifyCache());
+    }
+
+    /** 手动补扫 TRACE 飞书预警：只推送已关联 INQ/OFFER 且尚未成功处理的客户二次询问。 */
+    @PostMapping("/trace/alert/scan")
+    public AjaxResult traceAlertScan() {
+        return AjaxResult.success(gateway.scanTraceAlerts());
+    }
+
     /**
      * 手动触发一次 INQ/OFFER 自动录入：把已分类未处理(status=1)且分类命中 offerEntryCategories
      * 的消息按 Offer 列表 AI 录入逻辑写入 crm_offer（写入 wechat_server_id 来源关联），成功后 status=2。

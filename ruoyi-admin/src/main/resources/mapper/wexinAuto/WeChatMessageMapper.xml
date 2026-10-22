@@ -54,6 +54,13 @@
         WHERE username = #{m.username} AND local_id = #{m.localId}
     </update>
 
+    <update id="updateFiltered">
+        UPDATE wechat_message
+        SET msg_category = 'OTHER', category_source = 'FILTER', category_reason = #{reason},
+            relat_inq = '', relat_offer = '', status = 3
+        WHERE username = #{m.username} AND local_id = #{m.localId}
+    </update>
+
     <insert id="insertBlackBatch">
         INSERT INTO wechat_message_black (username, name, local_id, server_id, type, sender, content, quote, quote_kind,
             media_path, create_time, sort_seq, md5)
@@ -88,6 +95,16 @@
         SELECT COUNT(*) AS cnt, MIN(create_time) AS earliest
         FROM wechat_message
         WHERE status = 0
+    </select>
+
+    <select id="queryTraceAlerts" resultMap="WeChatMessageResult">
+        <include refid="selectWechatMessageVo" />
+        WHERE status = 1
+          AND msg_category = 'TRACE'
+          AND create_time &gt;= #{since}
+          AND ((relat_inq IS NOT NULL AND relat_inq != '') OR (relat_offer IS NOT NULL AND relat_offer != ''))
+        ORDER BY sort_seq ASC
+        LIMIT #{max}
     </select>
 
     <select id="queryProcessable" resultMap="WeChatMessageResult">

@@ -273,7 +273,7 @@ def cmd_dump(args):
         chats = [{"username": user, "name": disp}]
         log("会话已锁定: %s (%s)" % (disp, user))
     else:
-        chats = db.list_message_chats()
+        chats = _list_message_chats_with_retry(db)
         log("共发现 %d 个含消息的会话" % len(chats))
     if not chats:
         die("没有可读取的会话")
@@ -306,11 +306,12 @@ def _global_messages_after(db, since_seq, limit, only_user=None):
     want = max(1, int(limit or 1000000))
     cols = ("local_id, local_type, real_sender_id, create_time, message_content, "
             "source, packed_info_data, compress_content, server_id, sort_seq")
+    # Windows decrypt files are replaced via os.replace. Enumerate chats first and release shard handles.
+    chats = _list_message_chats_with_retry(db)
     conns = []
     try:
         for rel in db._message_dbs():
-            conns.append(db._open(rel))
-        chats = db.list_message_chats()
+            conns.append(_open_message_db_with_retry(db, rel))
         hits = []
         for c in chats:
             user = str(c.get("username") or "")
@@ -338,6 +339,32 @@ def _global_messages_after(db, since_seq, limit, only_user=None):
                 conn.close()
             except Exception:
                 pass
+
+
+def _open_message_db_with_retry(db, rel, attempts=5):
+    last = None
+    for i in range(max(1, attempts)):
+        try:
+            return db._open(rel)
+        except PermissionError as e:
+            last = e
+            if i + 1 >= attempts:
+                raise
+            time.sleep(0.3 * (i + 1))
+    raise last
+
+
+def _list_message_chats_with_retry(db, attempts=5):
+    last = None
+    for i in range(max(1, attempts)):
+        try:
+            return db.list_message_chats()
+        except PermissionError as e:
+            last = e
+            if i + 1 >= attempts:
+                raise
+            time.sleep(0.3 * (i + 1))
+    raise last
 
 
 # ---- 文本消息清洗：去掉库内多余的发送者前缀行 ----

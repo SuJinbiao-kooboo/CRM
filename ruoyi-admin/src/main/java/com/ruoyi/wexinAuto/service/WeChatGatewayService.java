@@ -1,10 +1,13 @@
 package com.ruoyi.wexinAuto.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.mapper.CrmOfferMapper;
+import com.ruoyi.crm.service.ai.AiChannelService;
 import com.ruoyi.crm.service.ai.DeepSeekAiService;
 import com.ruoyi.wexinAuto.analysis.FixedOfferMarker;
+import com.ruoyi.wexinAuto.analysis.SemanticMatcher;
 import com.ruoyi.wexinAuto.analysis.WeChatLlmClassifier;
 import com.ruoyi.wexinAuto.config.WeChatGatewayProperties;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
@@ -78,6 +81,7 @@ public class WeChatGatewayService {
     private final WeChatMessageStore store;
     private final CrmOfferMapper offerMapper;
     private final DeepSeekAiService deepSeekAiService;
+    private final AiChannelService aiChannelService;
 
     private final Object listenLock = new Object();
     private Process listenProcess;
@@ -107,6 +111,11 @@ public class WeChatGatewayService {
     private volatile long lastPollMaxSeqMs = 0L;
     /** 最近一轮 dump 拉到的原始条数(含被忽略名单过滤掉的) */
     private volatile long lastPollFetched = 0L;
+    /** 最近一次轮询失败原因；空=最近一次成功 */
+    private volatile String lastPollError = "";
+
+    /** 正在推送 TRACE 预警的消息键，防止分类回写与定时补扫并发重复推送。 */
+    private final Set<String> traceAlerting = ConcurrentHashMap.newKeySet();
 
     // ---------- INQ/OFFER 自动录入状态 ----------
     /** 录入任务互斥锁（定时扫描与手动触发共用，防止并发重入） */
@@ -137,13 +146,15 @@ public class WeChatGatewayService {
     @Autowired
     public WeChatGatewayService(WeChatGatewayProperties props, WeChatMessageHandler handler,
                                 WeChatLlmClassifier llm, WeChatMessageStore store,
-                                CrmOfferMapper offerMapper, DeepSeekAiService deepSeekAiService) {
+                                CrmOfferMapper offerMapper, DeepSeekAiService deepSeekAiService,
+                                AiChannelService aiChannelService) {
         this.props = props;
         this.handler = handler;
         this.llm = llm;
         this.store = store;
         this.offerMapper = offerMapper;
         this.deepSeekAiService = deepSeekAiService;
+        this.aiChannelService = aiChannelService;
     }
 
     // ------------------------------------------------------------------
@@ -152,9 +163,10 @@ public class WeChatGatewayService {
     public List<WeChatMessage> fetch(String since, String chat, boolean media, Integer limit, Integer status) {
         // 先增量同步最新消息(继承轮询水位；指定 chat 时只同步该会话)，随后从库里查询
         dumpIncremental(chat, null, media);
-        // 从库里读(带历史分类结果)，对未分类的做 AI 归并分类并回写
+        // 从库里读(带历史分类结果)。注意：查询接口不触发 AI 分类——
+        // 分类由独立定时任务(recoverUnclassified)或手动 POST /wechat/classify/run 完成，
+        // 未分类消息按 status=0 原样返回。
         List<WeChatMessage> rows = store.query(since, chat, status, DB_QUERY_MAX);
-        classifySequence(rows, true);
         return applyOutputFilters(rows, limit);
     }
 
@@ -196,7 +208,7 @@ public class WeChatGatewayService {
             return out;
         }
         boolean ok = dumpIncremental(chat, since, false);
-        out.put("message", ok ? "拉取完成" : "拉取被跳过(上一轮仍在执行)");
+        out.put("message", ok ? "拉取完成" : ("拉取失败: " + StringUtils.defaultIfBlank(lastPollError, "上一轮仍在执行")));
         out.put("polled", ok);
         out.put("since", StringUtils.defaultString(since));
         out.put("running", pollRunning.get());
@@ -231,6 +243,15 @@ public class WeChatGatewayService {
         return out;
     }
 
+    /** 清空AI分类缓存：提示词/语义规则调整后，重跑历史消息前使用。 */
+    public Map<String, Object> clearClassifyCache() {
+        llm.clearCache();
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("cacheCleared", true);
+        out.put("message", "分类缓存已清空");
+        return out;
+    }
+
     /** 轮询拉取/分类参数状态（便于 Postman 观察配置生效情况）。 */
     public Map<String, Object> pollStatus() {
         Map<String, Object> m = new LinkedHashMap<>();
@@ -246,6 +267,7 @@ public class WeChatGatewayService {
         m.put("running", pollRunning.get());
         m.put("lastRunAt", lastPollFinishedAt == 0 ? null : fmtTime(lastPollFinishedAt));
         m.put("lastFetched", lastPollFetched);
+        m.put("lastError", lastPollError);
         m.put("watermark", lastPollMaxSeqMs == 0 ? null : fmtTime(lastPollMaxSeqMs));
         Map<String, Object> st = store.unclassifiedStats();
         m.put("unclassifiedCnt", st == null ? 0 : st.get("cnt"));
@@ -270,6 +292,7 @@ public class WeChatGatewayService {
             }
             pollRunning.set(true);
             try {
+                lastPollError = "";
                 long nowMs = System.currentTimeMillis();
                 long initBackMs = Math.max(60, analysisInt("pollInitBackSec", 259200)) * 1000L;
                 long backMs = Math.max(0, analysisInt("pollBackSec", 120)) * 1000L;
@@ -312,15 +335,18 @@ public class WeChatGatewayService {
                         store.saveBlackAll(black);
                     }
                     if (!normal.isEmpty()) {
-                        store.saveAll(normal);
-                        kept = normal.size();
+                        kept = store.saveAll(normal);
                     }
                 }
                 lastPollFetched = raw.size();
-                lastPollFinishedAt = System.currentTimeMillis();
                 log.info("轮询拉取完成: 拉到 {} 条, 入库 {} 条, 水位 {}", raw.size(), kept, fmtTime(lastPollMaxSeqMs));
                 return true;
+            } catch (Exception e) {
+                lastPollError = e.getMessage() == null ? e.toString() : e.getMessage();
+                log.error("轮询拉取失败: {}", lastPollError, e);
+                return false;
             } finally {
+                lastPollFinishedAt = System.currentTimeMillis();
                 pollRunning.set(false);
             }
         }
@@ -331,34 +357,41 @@ public class WeChatGatewayService {
      * wechat_message_black，只落库不做任何处理)；其余 → normal(正常入库参与分类)。
      */
     private void splitIgnoreChats(List<WeChatMessage> raw, List<WeChatMessage> normal, List<WeChatMessage> black) {
-        String cfg = analysisStr("pollIgnoreChats", "");
-        List<String> keys = new ArrayList<>();
-        if (StringUtils.isNotBlank(cfg)) {
-            for (String k : cfg.split(",")) {
-                if (StringUtils.isNotBlank(k)) {
-                    keys.add(k.trim().toLowerCase());
-                }
-            }
-        }
+        List<String> keys = ignoredChatKeys();
         if (keys.isEmpty()) {
             normal.addAll(raw);
             return;
         }
         for (WeChatMessage m : raw) {
-            String name = StringUtils.trimToEmpty(m.getName()).toLowerCase();
-            boolean hit = false;
-            for (String k : keys) {
-                if (name.contains(k)) {
-                    hit = true;
-                    break;
-                }
-            }
-            if (hit) {
+            if (matchesIgnoredChat(m, keys)) {
                 black.add(m);
             } else {
                 normal.add(m);
             }
         }
+    }
+
+    private List<String> ignoredChatKeys() {
+        List<String> keys = new ArrayList<>();
+        String cfg = analysisStr("pollIgnoreChats", "");
+        if (StringUtils.isNotBlank(cfg)) {
+            for (String key : cfg.split(",")) {
+                if (StringUtils.isNotBlank(key)) {
+                    keys.add(key.trim().toLowerCase());
+                }
+            }
+        }
+        return keys;
+    }
+
+    private boolean matchesIgnoredChat(WeChatMessage m, List<String> keys) {
+        String name = StringUtils.trimToEmpty(m == null ? null : m.getName()).toLowerCase();
+        for (String key : keys) {
+            if (!key.isEmpty() && name.contains(key)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String fmtTime(long ms) {
@@ -608,9 +641,28 @@ public class WeChatGatewayService {
             int failed = 0;
             int skipped = 0;
             int already = 0;
+            boolean requireOfferRelatInq = analysisBool("offerEntryRequireRelatInq", true);
+            boolean requireOfferPrice = analysisBool("offerEntryRequireOfferPrice", true);
             for (WeChatMessage m : rows) {
                 if (m.getMsgCategory() == null || !cats.contains(m.getMsgCategory().toUpperCase())) {
                     skipped++;
+                    continue;
+                }
+                boolean isOffer = "OFFER".equalsIgnoreCase(m.getMsgCategory());
+                if (!entrySemanticsValid(m, isOffer)) {
+                    skipped++;
+                    store.updateEntryResult(m.getUsername(), m.getLocalId(), 3,
+                            m.getEntryFailCount() == null ? 0 : m.getEntryFailCount());
+                    log.warn("历史分类未通过严格语义复核，拒绝自动录入: chat={} sender={} cat={} serverId={}",
+                            m.getName(), m.getSender(), m.getMsgCategory(), m.getServerId());
+                    continue;
+                }
+                if (isOffer && requireOfferRelatInq && StringUtils.isBlank(m.getRelatInq())) {
+                    skipped++;
+                    store.updateEntryResult(m.getUsername(), m.getLocalId(), 3,
+                            m.getEntryFailCount() == null ? 0 : m.getEntryFailCount());
+                    log.warn("OFFER无客户INQ关联，拒绝自动录入: chat={} sender={} serverId={}",
+                            m.getName(), m.getSender(), m.getServerId());
                     continue;
                 }
                 String[] supplier = entrySupplierFor(m);
@@ -636,6 +688,9 @@ public class WeChatGatewayService {
                     }
                     int inserted = 0;
                     for (Map<String, Object> item : items) {
+                        if (!validEntryItem(isOffer, item, requireOfferPrice)) {
+                            continue;
+                        }
                         if (offerMapper.insertOffer(buildCrmOffer(m, item, supplier[0], ratio, createBy)) > 0) {
                             inserted++;
                         }
@@ -668,6 +723,91 @@ public class WeChatGatewayService {
             entryRunning.set(false);
             lastEntryFinishedAt = System.currentTimeMillis();
             lastEntryProcessed = processed;
+        }
+    }
+
+    /** 自动录入门禁：必须有型号/规格；OFFER 还必须有可解析的正价格，防止空壳报价污染 crm_offer。 */
+    private boolean validEntryItem(boolean isOffer, Map<String, Object> item, boolean requireOfferPrice) {
+        if (item == null) {
+            return false;
+        }
+        String product = firstNonBlank(str(item.get("partNumber")), str(item.get("model")),
+                str(item.get("productDetail")), str(item.get("spec")));
+        if (StringUtils.isBlank(product)) {
+            return false;
+        }
+        Object qty = item.get("quantity");
+        if (qty instanceof Number && ((Number) qty).doubleValue() <= 0) {
+            return false;
+        }
+        if (isOffer && requireOfferPrice) {
+            Double price = toDouble(item.get("price"));
+            return price != null && price > 0;
+        }
+        return true;
+    }
+
+    /** 自动录入前再次复核，避免旧版宽松分类把历史脏数据写进 crm_offer。 */
+    private boolean entrySemanticsValid(WeChatMessage m, boolean isOffer) {
+        Set<String> selfNames = analysisNames("selfNames");
+        boolean self = SemanticMatcher.isSelf(m.getSender(), selfNames);
+        if (!isOffer) {
+            return !self && SemanticMatcher.looksLikeInquiry(m.getContent());
+        }
+        if (!selfNames.isEmpty() && !self) {
+            return false;
+        }
+        if (StringUtils.isBlank(m.getRelatInq())) {
+            return true;
+        }
+        try {
+            JsonNode n = jackson.readTree(m.getRelatInq());
+            WeChatMessage inq = new WeChatMessage();
+            inq.setSender(n.path("sender").asText(""));
+            inq.setContent(n.path("content").asText(""));
+            inq.setCreateTime(n.path("create_time").asText(""));
+            if (SemanticMatcher.isSelf(inq.getSender(), selfNames)
+                    || !SemanticMatcher.looksLikeInquiry(inq.getContent())) {
+                return false;
+            }
+            int offerMaxAgeMin = Math.max(1, analysisInt("offerLinkMaxAgeMin", 180));
+            int offerShortWindowMin = Math.max(1, analysisInt("offerShortReplyWindowMin", 30));
+            return SemanticMatcher.isReplyTo(m, inq, true, SemanticMatcher.isGroupChat(m),
+                    offerMaxAgeMin, offerShortWindowMin);
+        } catch (Exception e) {
+            log.warn("解析 relat_inq 失败，拒绝自动录入: chat={} serverId={}",
+                    m.getName(), m.getServerId(), e);
+            return false;
+        }
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (StringUtils.isNotBlank(value)) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private Double toDouble(Object value) {
+        if (value instanceof Number) {
+            double d = ((Number) value).doubleValue();
+            return Double.isFinite(d) ? d : null;
+        }
+        if (value == null) {
+            return null;
+        }
+        String s = String.valueOf(value).replace(",", "").replace("$", "")
+                .replace("USD", "").replace("usd", "").trim();
+        if (s.isEmpty()) {
+            return null;
+        }
+        try {
+            double d = Double.parseDouble(s);
+            return Double.isFinite(d) ? d : null;
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 
@@ -743,12 +883,15 @@ public class WeChatGatewayService {
             if (msg == null || msg.getUsername() == null) {
                 return;
             }
+            if (matchesIgnoredChat(msg, ignoredChatKeys())) {
+                store.saveBlackAll(Collections.singletonList(msg));
+                filteredCount.incrementAndGet();
+                return;
+            }
             store.save(msg);
             if (!passAnalysis(msg)) {
                 filteredCount.incrementAndGet();
-                msg.setMsgCategory("OTHER");
-                msg.setCategorySource("FILTER");
-                store.updateCategory(msg);
+                store.updateFiltered(msg, "分类黑名单：会话不参与AI分类");
                 return;
             }
             String key = keyOf(msg);
@@ -793,6 +936,8 @@ public class WeChatGatewayService {
             Deque<WeChatMessage> hq = listenHistory.get(key);
             List<WeChatMessage> context = hq == null ? new ArrayList<>() : lastN(hq, ctxWin);
             classifyWithContext(key, context, pending, chatName);
+            linkRelational(chatName, pending);
+            refineAfterRelational(pending);
             for (WeChatMessage m : pending) {
                 if (m.getMsgCategory() == null || m.getMsgCategory().isEmpty()) {
                     log.warn("消息未分类(留待定时重试): [{}|{}] {}", m.getName(), m.getServerId(), m.getSender());
@@ -800,6 +945,7 @@ public class WeChatGatewayService {
                 }
                 store.updateCategory(m);
                 pushHistory(key, m);
+                maybeAlertTrace(m);
                 handler.handle(m);
                 listenCount.incrementAndGet();
             }
@@ -815,7 +961,7 @@ public class WeChatGatewayService {
      *
      * @param markFiltered 是否把黑/白名单过滤掉的会话标记为 OTHER/FILTER（避免重复扫描）
      */
-    private void classifySequence(List<WeChatMessage> rows, boolean markFiltered) {
+    private synchronized void classifySequence(List<WeChatMessage> rows, boolean markFiltered) {
         if (rows == null || rows.isEmpty()) {
             return;
         }
@@ -829,11 +975,10 @@ public class WeChatGatewayService {
             chatMsgs.sort(Comparator.comparingLong(WeChatMessage::getSortSeq));
             String chatName = chatMsgs.get(0).getName();
             if (markFiltered && !passAnalysis(chatMsgs.get(0))) {
+                log.info("会话命中黑/白名单过滤: chat={} 消息{}条 -> OTHER/FILTER", chatName, chatMsgs.size());
                 for (WeChatMessage m : chatMsgs) {
                     if (StringUtils.isBlank(m.getMsgCategory())) {
-                        m.setMsgCategory("OTHER");
-                        m.setCategorySource("FILTER");
-                        store.updateCategory(m);
+                        store.updateFiltered(m, "分类黑名单：会话不参与AI分类");
                     }
                 }
                 continue;
@@ -854,10 +999,12 @@ public class WeChatGatewayService {
             classifyWithContext(key, context, pending, chatName);
             // 业务关联：OFFER → relatInq；TRACE → relatInq + relatOffer（回写随 updateCategory 落库)
             linkRelational(chatName, pending);
+            refineAfterRelational(pending);
             for (WeChatMessage m : pending) {
                 if (m.getMsgCategory() != null && !m.getMsgCategory().isEmpty()) {
                     store.updateCategory(m);
                     pushHistory(key, m);
+                    maybeAlertTrace(m);
                 }
             }
         }
@@ -877,6 +1024,9 @@ public class WeChatGatewayService {
         if (pending == null || pending.isEmpty() || StringUtils.isBlank(chatName)) {
             return;
         }
+        if (!analysisBool("strictBusinessSemantics", true)) {
+            return;
+        }
         Map<String, WeChatMessage> targets = new HashMap<>();
         for (WeChatMessage m : pending) {
             if (StringUtils.isNotBlank(m.getMsgCategory())) {
@@ -886,12 +1036,16 @@ public class WeChatGatewayService {
         if (targets.isEmpty()) {
             return;
         }
-        // 合并两类已分类消息：
-        // 1) 已落库的历史分类(status=1，库副本)；2) 本次刚分类的结果(pending，内存对象，尚未回写)。
-        // 必须用 pending 对象参与匹配，否则同批 INQ/OFFER 互相关联不到(库副本此时分类为空)。
+        // 合并历史分类与本次 pending；历史必须包含 status=2，否则已被录入/预警的 INQ/OFFER
+        // 在下一批 OFFER/TRACE 到来时会“消失”，导致整条业务链断掉。
         Map<String, WeChatMessage> uniq = new HashMap<>();
-        for (WeChatMessage m : store.query(null, chatName, 1, DB_QUERY_MAX)) {
-            uniq.put(keyOf(m) + "|" + m.getLocalId(), m);
+        for (WeChatMessage m : store.query(null, chatName, null, DB_QUERY_MAX)) {
+            if (m.getStatus() != null && m.getStatus() == 3) {
+                continue;
+            }
+            if (StringUtils.isNotBlank(m.getMsgCategory())) {
+                uniq.put(keyOf(m) + "|" + m.getLocalId(), m);
+            }
         }
         for (WeChatMessage m : pending) {
             if (StringUtils.isNotBlank(m.getMsgCategory())) {
@@ -903,30 +1057,202 @@ public class WeChatGatewayService {
         }
         List<WeChatMessage> all = new ArrayList<>(uniq.values());
         all.sort(Comparator.comparingLong(WeChatMessage::getSortSeq));
-        WeChatMessage lastInq = null;
-        WeChatMessage lastOffer = null;
+        Set<String> selfNames = analysisNames("selfNames");
+        boolean selfKnown = !selfNames.isEmpty();
+        boolean groupChat = SemanticMatcher.isGroupChat(pending.get(0));
+        int offerMaxAgeMin = Math.max(1, analysisInt("offerLinkMaxAgeMin", 180));
+        int offerShortWindowMin = Math.max(1, analysisInt("offerShortReplyWindowMin", 30));
+        int traceMaxAgeMin = Math.max(1, analysisInt("traceLinkMaxAgeMin", 180));
+        int traceShortWindowMin = Math.max(1, analysisInt("traceShortWindowMin", 30));
+        Set<WeChatMessage> pendingSet = Collections.newSetFromMap(
+                new java.util.IdentityHashMap<WeChatMessage, Boolean>());
+        pendingSet.addAll(pending);
+
+        WeChatMessage lastCustomerInq = null;
+        WeChatMessage lastSelfOffer = null;
         for (WeChatMessage m : all) {
-            String cat = m.getMsgCategory() == null ? "" : m.getMsgCategory().trim();
-            WeChatMessage t = targets.get(keyOf(m) + "|" + m.getLocalId());
-            if ("OFFER".equals(cat)) {
-                if (t != null && lastInq != null) {
-                    t.setRelatInq(toRelJson(lastInq));
-                }
-            } else if ("TRACE".equals(cat)) {
-                if (t != null) {
-                    if (lastInq != null) {
-                        t.setRelatInq(toRelJson(lastInq));
+            String cat = m.getMsgCategory() == null ? "" : m.getMsgCategory().trim().toUpperCase();
+            boolean isPending = pendingSet.contains(m);
+            boolean target = targets.containsKey(keyOf(m) + "|" + m.getLocalId());
+            boolean self = SemanticMatcher.isSelf(m.getSender(), selfNames);
+
+            if (isPending) {
+                if ("INQ".equals(cat)) {
+                    if (selfKnown && self) {
+                        downgradeSemantic(m, "关联校验:我方发出的询价，不是客户INQ");
+                        cat = "OTHER";
+                    } else if (!SemanticMatcher.looksLikeInquiry(m.getContent())) {
+                        downgradeSemantic(m, "关联校验:无明确询价意图");
+                        cat = "OTHER";
                     }
-                    if (lastOffer != null) {
-                        t.setRelatOffer(toRelJson(lastOffer));
+                } else if ("OFFER".equals(cat)) {
+                    boolean offerSelf = !selfKnown || self;
+                    if (!offerSelf) {
+                        downgradeSemantic(m, "关联校验:非我方发言，不是客户询价的报价");
+                        cat = "OTHER";
+                    } else if (lastCustomerInq == null || !SemanticMatcher.isReplyTo(m, lastCustomerInq,
+                            true, groupChat, offerMaxAgeMin, offerShortWindowMin)) {
+                        downgradeSemantic(m, "关联校验:未找到对应客户INQ的直接回应，按广播报价排除");
+                        cat = "OTHER";
+                    } else {
+                        m.setRelatInq(toRelJson(lastCustomerInq));
+                    }
+                } else if ("TRACE".equals(cat)) {
+                    if (selfKnown && self) {
+                        downgradeSemantic(m, "关联校验:我方追问，不是客户二次询问");
+                        cat = "OTHER";
+                    } else if (!SemanticMatcher.looksLikeQuestion(m.getContent())) {
+                        downgradeSemantic(m, "关联校验:陈述句，不是二次询问");
+                        cat = "OTHER";
+                    } else {
+                        boolean related = false;
+                        if (lastCustomerInq != null && SemanticMatcher.isFollowUpTo(m, lastCustomerInq,
+                                groupChat, traceMaxAgeMin, traceShortWindowMin)) {
+                            m.setRelatInq(toRelJson(lastCustomerInq));
+                            related = true;
+                        }
+                        if (lastSelfOffer != null && SemanticMatcher.isFollowUpTo(m, lastSelfOffer,
+                                groupChat, traceMaxAgeMin, traceShortWindowMin)) {
+                            m.setRelatOffer(toRelJson(lastSelfOffer));
+                            related = true;
+                        }
+                        if (!related) {
+                            downgradeSemantic(m, "关联校验:未关联到具体INQ/OFFER");
+                            cat = "OTHER";
+                        }
                     }
                 }
             }
-            if ("INQ".equals(cat)) {
-                lastInq = m;
-            } else if ("OFFER".equals(cat)) {
-                lastOffer = m;
+
+            if ("INQ".equals(cat) && !self && SemanticMatcher.looksLikeInquiry(m.getContent())) {
+                lastCustomerInq = m;
+            } else if ("OFFER".equals(cat) && (!selfKnown || self)) {
+                // 历史 OFFER 必须已有有效 INQ 关联才可作为 TRACE 的引用，防止旧误判继续污染。
+                if (isPending || StringUtils.isNotBlank(m.getRelatInq())) {
+                    lastSelfOffer = m;
+                }
             }
+        }
+    }
+
+    /** 关联完成后做最终兜底：没有对应 INQ 的 OFFER、没有关联对象的 TRACE 一律降级 OTHER。 */
+    private void refineAfterRelational(List<WeChatMessage> pending) {
+        if (pending == null || pending.isEmpty() || !analysisBool("strictBusinessSemantics", true)) {
+            return;
+        }
+        for (WeChatMessage m : pending) {
+            String cat = m.getMsgCategory() == null ? "" : m.getMsgCategory().trim().toUpperCase();
+            if ("OFFER".equals(cat) && StringUtils.isBlank(m.getRelatInq())) {
+                downgradeSemantic(m, "关联校验:未找到对应客户INQ，按广播报价排除");
+            } else if ("TRACE".equals(cat)
+                    && StringUtils.isBlank(m.getRelatInq()) && StringUtils.isBlank(m.getRelatOffer())) {
+                downgradeSemantic(m, "关联校验:未关联到具体INQ/OFFER");
+            }
+        }
+    }
+
+    private void downgradeSemantic(WeChatMessage m, String why) {
+        String old = m.getCategoryReason();
+        m.setMsgCategory("OTHER");
+        m.setCategorySource("SEMANTIC");
+        m.setRelatInq(null);
+        m.setRelatOffer(null);
+        m.setCategoryReason(SemanticMatcher.clip(
+                (StringUtils.isBlank(old) ? "" : old + "；") + why, 300));
+    }
+
+    /**
+     * TRACE 飞书预警：只对已关联到 INQ/OFFER、且来自客户（非我方）的二次追问推送。
+     * 推送成功后 status=2（已处理），避免定时任务重复推送。
+     */
+    private boolean maybeAlertTrace(WeChatMessage m) {
+        if (m == null || !"TRACE".equalsIgnoreCase(StringUtils.trimToEmpty(m.getMsgCategory()))
+                || !analysisBool("traceAlertEnabled", true)) {
+            return false;
+        }
+        if (m.getStatus() != null && m.getStatus() >= 2) {
+            return false;
+        }
+        if (StringUtils.isBlank(m.getRelatInq()) && StringUtils.isBlank(m.getRelatOffer())) {
+            return false;
+        }
+        if (SemanticMatcher.isSelf(m.getSender(), analysisNames("selfNames"))) {
+            return false;
+        }
+        if (!SemanticMatcher.looksLikeQuestion(m.getContent())) {
+            return false;
+        }
+        int maxAgeMin = analysisInt("traceAlertMaxAgeMin", 1440);
+        if (!SemanticMatcher.isRecent(m.getCreateTime(), maxAgeMin)) {
+            log.info("历史TRACE不推送飞书(超过{}分钟): chat={} sender={} time={}",
+                    maxAgeMin, m.getName(), m.getSender(), m.getCreateTime());
+            return false;
+        }
+        String alertKey = "TRACE|" + m.getUsername() + "|" + m.getLocalId();
+        if (!traceAlerting.add(alertKey)) {
+            return false;
+        }
+        try {
+            String detail = "会话: " + StringUtils.defaultString(m.getName()) + "\n"
+                    + "发言人: " + StringUtils.defaultString(m.getSender()) + "\n"
+                    + "时间: " + StringUtils.defaultString(m.getCreateTime()) + "\n"
+                    + "内容: " + SemanticMatcher.clip(m.getContent(), 600) + "\n"
+                    + "分类理由: " + StringUtils.defaultString(m.getCategoryReason()) + "\n"
+                    + "关联INQ: " + relText(m.getRelatInq()) + "\n"
+                    + "关联OFFER: " + relText(m.getRelatOffer()) + "\n"
+                    + "建议: 立即确认库存/价格/交期并回复客户。";
+            if (!aiChannelService.alert(alertKey,
+                    "【微信TRACE预警】客户二次询价，存在订单机会", detail)) {
+                log.warn("TRACE预警推送未成功，保持status=1等待重试: chat={} sender={} localId={}",
+                        m.getName(), m.getSender(), m.getLocalId());
+                return false;
+            }
+            m.setStatus(2);
+            store.updateEntryResult(m.getUsername(), m.getLocalId(), 2, 0);
+            log.info("TRACE预警已推送: chat={} sender={} localId={}", m.getName(), m.getSender(), m.getLocalId());
+            return true;
+        } finally {
+            traceAlerting.remove(alertKey);
+        }
+    }
+
+    /** 定时补扫已关联但尚未成功预警的 TRACE；推送成功才置 status=2。 */
+    public Map<String, Object> scanTraceAlerts() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("enabled", analysisBool("traceAlertEnabled", true));
+        if (!analysisBool("traceAlertEnabled", true)) {
+            out.put("message", "TRACE预警已关闭(traceAlertEnabled=false)");
+            out.put("scanned", 0);
+            out.put("sent", 0);
+            return out;
+        }
+        int maxAgeMin = Math.max(1, analysisInt("traceAlertMaxAgeMin", 1440));
+        int batch = Math.max(1, Math.min(500, analysisInt("traceAlertScanBatchSize", 50)));
+        String since = fmtTime(System.currentTimeMillis() - maxAgeMin * 60_000L);
+        List<WeChatMessage> rows = store.queryTraceAlerts(since, batch);
+        int sent = 0;
+        for (WeChatMessage m : rows) {
+            if (maybeAlertTrace(m)) {
+                sent++;
+            }
+        }
+        out.put("scanned", rows.size());
+        out.put("sent", sent);
+        out.put("message", "TRACE预警扫描完成: 候选 " + rows.size() + " 条, 成功 " + sent + " 条");
+        return out;
+    }
+
+    private String relText(String json) {
+        if (StringUtils.isBlank(json)) {
+            return "无";
+        }
+        try {
+            JsonNode n = jackson.readTree(json);
+            String sender = n.path("sender").asText("");
+            String content = n.path("content").asText("");
+            return StringUtils.defaultString(sender) + ": " + SemanticMatcher.clip(content, 300);
+        } catch (Exception e) {
+            return SemanticMatcher.clip(json, 300);
         }
     }
 
@@ -951,7 +1277,7 @@ public class WeChatGatewayService {
     }
 
     /** 单会话分类管线：缓存命中 → 固定标记 → AI 精判。返回时 pending 内已带分类。 */
-    private void classifyWithContext(String chatKey, List<WeChatMessage> context, List<WeChatMessage> pending, String chatName) {
+    private synchronized void classifyWithContext(String chatKey, List<WeChatMessage> context, List<WeChatMessage> pending, String chatName) {
         if (pending == null || pending.isEmpty()) {
             return;
         }
@@ -1062,6 +1388,9 @@ public class WeChatGatewayService {
             }
             int code = p.waitFor();
             log.info("wx_gateway 进程退出码: {}", code);
+            if (code != 0) {
+                throw new IllegalStateException("wx_gateway 进程异常退出，exitCode=" + code);
+            }
         } catch (Exception e) {
             log.error("wx_gateway 执行失败", e);
             throw new IllegalStateException("wx_gateway 执行失败: " + e.getMessage(), e);
@@ -1356,7 +1685,7 @@ public class WeChatGatewayService {
         return v == null ? "" : String.valueOf(v).trim();
     }
 
-    /** 第一层过滤器：白名单非空=只放行白名单；否则只过滤黑名单，其余放行。 */
+    /** 第一层过滤器：blackNames 永远优先排除；whiteNames 非空时只放行白名单。 */
     private boolean passAnalysis(WeChatMessage m) {
         if (m == null) {
             return false;
@@ -1364,9 +1693,12 @@ public class WeChatGatewayService {
         Set<String> white = analysisNames("whiteNames");
         Set<String> black = analysisNames("blackNames");
         String name = StringUtils.trimToEmpty(m.getName());
+        if (black.contains(name)) {
+            return false;
+        }
         if (!white.isEmpty()) {
             return white.contains(name);
         }
-        return !black.contains(name);
+        return true;
     }
 }

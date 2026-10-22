@@ -5,6 +5,8 @@
 --   2) wechat_analysis_config 字典：黑白名单过滤 + 批量AI分类参数 + 固定OFFER名单。
 -- 用法(MySQL)：  mysql -uroot -p 数据库名 < wechat_analysis_dict.sql
 -- 导入后需刷新字典缓存：POST /system/dict/data/refreshCache（或重启 ruoyi-admin）
+-- 2026-10-22 语义收紧：已有库不要整文件重跑（会重置参数），请按顺序执行
+--   sql/wechat_semantics_v2.sql、sql/wechat_semantics_v3.sql。
 -- =====================================================================
 
 -- 1) 消息表（不存在才建；列名/类型与 Java POJO 对应）
@@ -15,7 +17,7 @@ CREATE TABLE IF NOT EXISTS wechat_message (
   username VARCHAR(64) NOT NULL COMMENT '会话标识(群id/好友wxid)', 
   name VARCHAR(128) DEFAULT '' COMMENT '会话显示名', 
   local_id BIGINT NOT NULL DEFAULT 0 COMMENT '库内消息ID', 
-  server_id VARCHAR(64) DEFAULT '' COMMENT '服务器消息ID', 
+  server_id VARCHAR(255) DEFAULT '' COMMENT '服务器消息ID',
   type VARCHAR(32) DEFAULT '' COMMENT '消息类型', 
   sender VARCHAR(128) DEFAULT '' COMMENT '发言人', 
   content MEDIUMTEXT COMMENT '正文', 
@@ -51,7 +53,7 @@ CREATE TABLE IF NOT EXISTS wechat_message_black (
   username VARCHAR(64) NOT NULL COMMENT '会话标识(群id/好友wxid)', 
   name VARCHAR(128) DEFAULT '' COMMENT '会话显示名', 
   local_id BIGINT NOT NULL DEFAULT 0 COMMENT '库内消息ID', 
-  server_id VARCHAR(64) DEFAULT '' COMMENT '服务器消息ID', 
+  server_id VARCHAR(255) DEFAULT '' COMMENT '服务器消息ID',
   type VARCHAR(32) DEFAULT '' COMMENT '消息类型', 
   sender VARCHAR(128) DEFAULT '' COMMENT '发言人', 
   content MEDIUMTEXT COMMENT '正文', 
@@ -87,7 +89,7 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_cla
 DELETE FROM sys_dict_data WHERE dict_type='wechat_analysis_config';
 INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark) VALUES
 (1,  'whiteNames', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '会话白名单（非空时只放过这些名称，多个用逗号拼接）'),
-(2,  'blackNames', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '会话黑名单（白名单为空时生效，过滤掉这些名称，多个用逗号拼接）'),
+(2,  'blackNames', '山樾湾2F业主群,前海路5号玩乐吃喝,封窗进展,兔宝宝山樾湾2F 812苏总', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '分类黑名单（精确匹配 name；永远优先于白名单，不参与AI分类，多个用逗号拼接）'),
 (14, 'llmBatchSize', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '每次AI分类调用最多消息条数(1-20)'),
 (15, 'llmConcurrency', '2', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '并行批次数量(注意DeepSeek限频,建议1-3)'),
 (16, 'llmTimeoutSec', '180', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '单次大模型请求超时时间(秒)'),
@@ -105,7 +107,7 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_defa
 (101, 'pollBackSec', '120', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '拉取冗余回看(秒)：每轮从「上次拉到的最大消息时间-该值」开始扫描，防止边界丢消息(默认120)'),
 (102, 'pollInitBackSec', '259200', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '首轮拉取历史窗口(秒)：水位未初始化时往前拉多少秒历史(默认259200=3天，与消息保留天数匹配)'),
 (103, 'pollLimit', '5000', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '每轮拉取消息条数上限(条)：dump 增量扫描单次最多返回条数(默认5000)'),
-(104, 'pollIgnoreChats', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '拉取过滤名单：群/好友名称【包含】以下任一关键词的消息不入库(不读)，多个用英文逗号分隔，如：推广群,广告'),
+(104, 'pollIgnoreChats', '业主群,玩乐吃喝,封窗进展,兔宝宝山樾湾', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '拉取过滤：名称包含任一关键词的群/好友消息转存 wechat_message_black，不进入分类；多个用英文逗号分隔'),
 (105, 'classifyTriggerCount', '5', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '分类触发条数(条)：未分类(status=0)消息数量达到该值即触发 AI 分类(默认5)'),
 (106, 'classifyMaxIdleSec', '180', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '分类触发超时(秒)：最早未分类消息等待超过该秒数即触发 AI 分类(默认180=3分钟)'),
 (107, 'classifyBatchSize', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '每轮最多分类条数(条)：定时/手动分类每次只取最早未分类的N条，分类后 status=1(默认20)'),
@@ -117,7 +119,12 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_defa
 (116, 'offerEntrySupplierMap', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '群/好友名→供应商映射：英文逗号分隔多组，格式 会话名=供应商编码，如：特斯拉并购委员会=SELL001；命中优先于默认值；会话名需与wechat_message.name完全一致'),
 (117, 'offerEntryProfitRatio', '2', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'OFFER报价利润率(%)：报价价=AI识别成本价x(1+利润率/100)，向上取整到5的倍数，与Offer列表AI录入口径一致(默认2)'),
 (118, 'offerEntryMaxFail', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI录入失败上限(次)：同一消息连续录入失败达到该次数置status=3无需处理，避免失败消息一直卡住队列(默认3)'),
-(119, 'offerEntryCreateBy', 'wechat_auto', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '录入人(create_by/update_by)：定时任务无登录用户，统一用该值标记AI自动录入来源(默认wechat_auto)');
+(119, 'offerEntryCreateBy', 'wechat_auto', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '录入人(create_by/update_by)：定时任务无登录用户，统一用该值标记AI自动录入来源(默认wechat_auto)'),
+(120, 'selfNames', 'Eke,May', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '我方微信名/别名(逗号分隔)：用于判断消息方向；后续新增业务员在此追加'),
+(121, 'strictBusinessSemantics', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '严格业务语义：广播报价/我方外发询价/内部沟通降级OTHER'),
+(122, 'strictCustomerOnly', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '只保留客户发起的INQ/TRACE；我方问供应商的消息归OTHER'),
+(123, 'traceAlertEnabled', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'TRACE飞书预警：仅对客户发起、已关联INQ/OFFER、且为疑问句的二次询问推送'),
+(124, 'traceAlertMaxAgeMin', '1440', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'TRACE预警最大时效(分钟)：超过该时长的历史消息不推送飞书，默认1440=24小时');
 
 -- 2.6) 【2026-10-22 调整】AI 渠道配置（地址/Key/模型/备用渠道/告警）已统一到系统参数 sys_config（前缀 sys.ai.），
 --       见 sql/deepseek_ai_config.sql；下列字典旧参数已作废并清理，避免两套配置不一致：

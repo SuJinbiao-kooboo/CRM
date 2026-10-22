@@ -3,6 +3,7 @@ package com.ruoyi.crm.service.ai;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -100,6 +101,9 @@ public class AiChannelService {
 
     /** 告警冷却：key=事件类型, value=上次发送时间 */
     private final Map<String, Long> alertLastAt = new ConcurrentHashMap<>();
+
+    /** 正在发送中的告警，避免定时扫描与实时分类并发重复推送。 */
+    private final Set<String> alertInFlight = ConcurrentHashMap.newKeySet();
 
     // ------------------------------------------------------------------
     // 配置读取
@@ -317,20 +321,26 @@ public class AiChannelService {
     // 告警（飞书 Webhook，可空）
     // ------------------------------------------------------------------
 
-    /** 发送故障告警：同事件在冷却期内不重复推送；未配置 webhook 时仅记日志 */
-    public void alert(String event, String title, String detail) {
+    /**
+     * 发送告警：同事件在冷却期内不重复推送；未配置 webhook 时仅记日志。
+     *
+     * @return true=飞书确认接收成功；false=未配置、冷却中、HTTP失败或飞书返回业务错误
+     */
+    public boolean alert(String event, String title, String detail) {
         log.warn("{}\n{}", title, detail);
         String webhook = config(KEY_ALERT_WEBHOOK, null);
         if (isBlank(webhook)) {
-            return;
+            return false;
         }
         long cooldownMs = Math.max(0, configInt(KEY_ALERT_COOLDOWN_SEC, DEFAULT_ALERT_COOLDOWN_SEC)) * 1000L;
         long now = System.currentTimeMillis();
         Long last = alertLastAt.get(event);
         if (last != null && now - last < cooldownMs) {
-            return;
+            return false;
         }
-        alertLastAt.put(event, now);
+        if (!alertInFlight.add(event)) {
+            return false;
+        }
         try {
             Map<String, Object> content = new HashMap<>();
             content.put("text", title + "\n" + detail);
@@ -344,9 +354,47 @@ public class AiChannelService {
                     .execute();
             if (!resp.isOk()) {
                 log.warn("AI告警推送飞书失败: HTTP {}", resp.getStatus());
+                return false;
             }
+            boolean accepted = feishuAccepted(resp.body());
+            if (!accepted) {
+                log.warn("AI告警推送飞书未确认成功: {}", resp.body());
+            } else {
+                // 只有真正发送成功才进入冷却；发送失败必须允许下一轮立即重试。
+                alertLastAt.put(event, now);
+            }
+            return accepted;
         } catch (Exception e) {
             log.warn("AI告警推送飞书异常: {}", e.toString());
+            return false;
+        } finally {
+            alertInFlight.remove(event);
+        }
+    }
+
+    /** 飞书机器人 HTTP 200 仍可能返回业务错误，必须同时校验 code/StatusCode。 */
+    private boolean feishuAccepted(String body) {
+        if (isBlank(body)) {
+            return false;
+        }
+        try {
+            JSONObject result = JSON.parseObject(body);
+            if (result == null) {
+                return false;
+            }
+            Object code = result.get("code");
+            if (code != null) {
+                return "0".equals(String.valueOf(code).trim());
+            }
+            Object statusCode = result.get("StatusCode");
+            if (statusCode != null) {
+                return "0".equals(String.valueOf(statusCode).trim());
+            }
+            String msg = result.getString("msg");
+            return "success".equalsIgnoreCase(msg == null ? "" : msg.trim());
+        } catch (Exception e) {
+            log.debug("解析飞书告警响应失败: {}", e.toString());
+            return false;
         }
     }
 

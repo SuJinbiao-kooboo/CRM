@@ -13,7 +13,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,6 +86,27 @@ public class WeChatLlmClassifier {
         }
     }
 
+    private boolean cfgBool(String label, boolean def) {
+        String v = cfg(label, null);
+        if (v == null) {
+            return def;
+        }
+        return "true".equalsIgnoreCase(v) || "1".equals(v);
+    }
+
+    private Set<String> cfgNames(String label) {
+        Set<String> out = new HashSet<>();
+        String v = cfg(label, "");
+        if (StringUtils.isNotBlank(v)) {
+            for (String n : v.split(",")) {
+                if (StringUtils.isNotBlank(n)) {
+                    out.add(n.trim());
+                }
+            }
+        }
+        return out;
+    }
+
     /** 是否启用 AI 分类：由统一通道配置决定（sys.ai.enabled + sys.ai.api.key）。 */
     public boolean enabled() {
         return aiChannelService.enabled();
@@ -108,6 +132,11 @@ public class WeChatLlmClassifier {
         if (cache.size() > CACHE_MAX) {
             cache.clear();
         }
+    }
+
+    /** 清空分类缓存：修改提示词/语义规则后重跑历史消息前调用。 */
+    public synchronized void clearCache() {
+        cache.clear();
     }
 
     // ------------------------------------------------------------------
@@ -160,6 +189,12 @@ public class WeChatLlmClassifier {
                     log.warn("AI 批分类异常: {}", e.toString());
                 }
             }
+            refineSemantics(context, pending, chatName);
+            for (WeChatMessage m : pending) {
+                if (StringUtils.isNotBlank(m.getMsgCategory())) {
+                    put(m, m.getMsgCategory());
+                }
+            }
         } finally {
             pool.shutdownNow();
         }
@@ -171,6 +206,102 @@ public class WeChatLlmClassifier {
             out.add(list.subList(i, Math.min(i + size, list.size())));
         }
         return out;
+    }
+
+    /**
+     * AI 结果后的业务语义校验：只保留“客户询价 / 对询价的回应 / 客户二次追问”，
+     * 把群内广播报价、我方外发询价、内部沟通降级为 OTHER。
+     */
+    private void refineSemantics(List<WeChatMessage> context, List<WeChatMessage> pending, String chatName) {
+        if (!cfgBool("strictBusinessSemantics", true)) {
+            return;
+        }
+        Set<String> selfNames = cfgNames("selfNames");
+        boolean strictCustomerOnly = cfgBool("strictCustomerOnly", true);
+        boolean selfKnown = !selfNames.isEmpty();
+        int offerMaxAgeMin = Math.max(1, cfgInt("offerLinkMaxAgeMin", 180));
+        int offerShortWindowMin = Math.max(1, cfgInt("offerShortReplyWindowMin", 30));
+        int traceMaxAgeMin = Math.max(1, cfgInt("traceLinkMaxAgeMin", 180));
+        int traceShortWindowMin = Math.max(1, cfgInt("traceShortWindowMin", 30));
+        List<WeChatMessage> seq = new ArrayList<>();
+        if (context != null) {
+            seq.addAll(context);
+        }
+        seq.addAll(pending);
+        seq.sort(Comparator.comparingLong(WeChatMessage::getSortSeq));
+        boolean groupChat = !seq.isEmpty() && SemanticMatcher.isGroupChat(seq.get(0));
+        Set<WeChatMessage> pendingSet = Collections.newSetFromMap(
+                new IdentityHashMap<WeChatMessage, Boolean>());
+        pendingSet.addAll(pending);
+
+        WeChatMessage lastCustomerInq = null;
+        WeChatMessage lastSelfOffer = null;
+        for (WeChatMessage m : seq) {
+            String cat = norm(m.getMsgCategory());
+            if (cat == null) {
+                continue;
+            }
+            boolean self = SemanticMatcher.isSelf(m.getSender(), selfNames);
+            if (pendingSet.contains(m)) {
+                String refined = cat;
+                if ("INQ".equals(cat)) {
+                    if (!SemanticMatcher.looksLikeInquiry(m.getContent())) {
+                        refined = downgrade(m, "语义校验:无明确询价意图");
+                    } else if (strictCustomerOnly && selfKnown && self) {
+                        refined = downgrade(m, "语义校验:我方发出的询价，不是客户询价");
+                    }
+                } else if ("OFFER".equals(cat)) {
+                    if (selfKnown && !self) {
+                        refined = downgrade(m, "语义校验:非我方发言，不是对客户询价的报价");
+                    } else if (lastCustomerInq == null
+                            || !SemanticMatcher.isReplyTo(m, lastCustomerInq, true, groupChat,
+                            offerMaxAgeMin, offerShortWindowMin)) {
+                        refined = downgrade(m, "语义校验:未找到对应客户INQ的直接回应，按广播报价排除");
+                    }
+                } else if ("TRACE".equals(cat)) {
+                    boolean related = (lastCustomerInq != null && SemanticMatcher.isFollowUpTo(m,
+                            lastCustomerInq, groupChat, traceMaxAgeMin, traceShortWindowMin))
+                            || (lastSelfOffer != null && SemanticMatcher.isFollowUpTo(m,
+                            lastSelfOffer, groupChat, traceMaxAgeMin, traceShortWindowMin));
+                    if (selfKnown && self) {
+                        refined = downgrade(m, "语义校验:我方追问，不是客户二次询问");
+                    } else if (!SemanticMatcher.looksLikeQuestion(m.getContent())) {
+                        refined = downgrade(m, "语义校验:陈述句，不是二次询问");
+                    } else if (!related) {
+                        refined = downgrade(m, "语义校验:未关联到具体INQ/OFFER");
+                    }
+                }
+                if (!refined.equals(cat)) {
+                    log.debug("分类语义修正: chat={} sender={} {} -> {} ({})", chatName, m.getSender(),
+                            cat, refined, m.getCategoryReason());
+                    cat = refined;
+                }
+            }
+            if ("INQ".equals(cat) && !self) {
+                lastCustomerInq = m;
+            } else if ("OFFER".equals(cat) && self) {
+                lastSelfOffer = m;
+            }
+        }
+    }
+
+    private static String norm(String cat) {
+        if (StringUtils.isBlank(cat)) {
+            return null;
+        }
+        String c = cat.trim().toUpperCase();
+        return CATS.contains(c) ? c : null;
+    }
+
+    private static String downgrade(WeChatMessage m, String why) {
+        String old = m.getCategoryReason();
+        m.setMsgCategory("OTHER");
+        m.setCategorySource("SEMANTIC");
+        m.setRelatInq(null);
+        m.setRelatOffer(null);
+        m.setCategoryReason(SemanticMatcher.clip(
+                (StringUtils.isBlank(old) ? "" : old + "；") + why, 300));
+        return "OTHER";
     }
 
     // ------------------------------------------------------------------
@@ -207,7 +338,6 @@ public class WeChatLlmClassifier {
             if (cat != null) {
                 m.setMsgCategory(cat);
                 m.setCategorySource("LLM");
-                put(m, cat);
             }
         }
     }
@@ -268,31 +398,36 @@ public class WeChatLlmClassifier {
     // 提示词
     // ------------------------------------------------------------------
     private static final String DEFAULT_SYSTEM_PROMPT =
-            "你是微信「询报价」业务消息分类专家。用户会把一个聊天会话最近的一批消息给你" +
+            "你是微信「客户询报价」业务消息分类专家。用户会把一个聊天会话最近的一批消息给你" +
             "（每条含序号、发言人、时间、内容，开头可能带【上下文】=该条之前已分类的消息）。" +
-            "请对【每条待判消息】输出唯一分类：\n" +
-            "INQ=询价/求购（买方要货：型号+数量、问价、有没有货、目标价TP、RFQ/pls chk）\n" +
-            "OFFER=报价/出货（卖方给价：型号+单价/表格式报价单、$USD/RMB价格、出货清单、对询价的报价回复）\n" +
-            "TRACE=对询报价的跟进/追问（更新、考虑得怎样、确认、优惠、货期、排单、数量多少、还在吗、订了吗）\n" +
-            "OTHER=闲聊/广告/收购广告/系统消息/图片XML/无业务含义\n\n" +
-            "判断要点：\n" +
-            "1. 必须结合上下文：上一条是INQ时，纯数字或短报价回复多为OFFER；上一条是OFFER时，还价/问交期多为TRACE或INQ。\n" +
-            "2. 含$、USD、RMB、元、¥等价格证据且说话人在给价(非问价) → OFFER；纯「型号+数量」无价格且是询问语气 → INQ。\n" +
-            "3. TP5400usd这类「目标价」是INQ不是OFFER；「这个950」「2900」对上一条询价的回复是OFFER。\n" +
-            "4. 收购广告(长期收/高价收/有货滴滴/实单收等)、闲聊、单字回复(好/没/收到/谢谢)、XML/图片/语音 → OTHER。\n" +
-            "5. 拿不准时按 OTHER，不要编造。\n\n" +
+            "请严格按以下业务定义对【每条待判消息】输出唯一分类：\n" +
+            "INQ=客户向我方询价：客户主动问型号/数量/价格/库存/交期，或明确 RFQ/求购。\n" +
+            "OFFER=对某条INQ的直接回应：必须能对上客户刚才的料号或数量，给出价格/交期/库存等报价信息。\n" +
+            "TRACE=客户对已有INQ/OFFER的二次询问：客户继续问价格、交期、库存、数量、MOQ、质保、能否下单等。\n" +
+            "OTHER=其他全部：群内广播报价/出货广告、收购广告、闲聊、内部沟通、我方外发询价、系统消息、图片XML。\n\n" +
+            "硬性规则：\n" +
+            "1. 只有“客户问我方”才算INQ；我方业务员在群里问供应商“这个有吗”不是INQ，归OTHER。\n" +
+            "2. 只有“对具体INQ的回应”才算OFFER；没有对应INQ的群发报价、现货清单、出货广告一律OTHER。\n" +
+            "3. TRACE必须是客户发出的疑问句，并且能关联到前面的INQ/OFFER；单纯陈述“客户要下单了”“周三到货”“价格很好”不是TRACE。\n" +
+            "4. 纯数字/短报价只有在紧接某条INQ时才是OFFER；“TP5400usd”“目标价”是INQ。\n" +
+            "5. 拿不准时按OTHER，宁缺毋滥，不要为了凑分类而编造关联。\n\n" +
             "输出格式：只输出JSON数组，不要输出任何其他文字：\n" +
             "[{\"i\":0,\"cat\":\"INQ\",\"why\":\"一句话理由\"},{\"i\":1,\"cat\":\"OFFER\",\"why\":\"...\"}]";
 
     private static final String DEFAULT_EXAMPLES =
-            "真实示例（<换人>表示消息来自不同发言人）：\n" +
-            "示例1：<A> inq: 9275F 2pcs → INQ；<B> 2900 → OFFER（对上一条询价的报价）\n" +
-            "示例2：<A> INQ\\n6444Y - 60pcs\\n6538Y+ - 12pcs（型号+数量、无价格）→ INQ；" +
-            "<B> 同样型号但每行带价格(3650/2300) → OFFER\n" +
-            "示例3：<A> 现货出 5955WX 470 / 7995wx 7800（型号+价格清单）→ OFFER\n" +
-            "示例4：<A> @朝阳 2565X 1pcs有货吗 → INQ；<B> 没 → OTHER（答复但无报价）\n" +
-            "示例5：<A> please check today's offer: 4310 USD 435 FS 7-9days → OFFER\n" +
-            "示例6：<A> 早上好 / 收到 / 谢谢 → OTHER；<A> 早上好，询一下 5317 10pcs → INQ";
+            "严格业务示例（<我方>=自己人，<客户>=外部客户/买方，<群友>=群内其他卖方）：\n" +
+            "示例1：<客户> MBD-H13SSL-N-B 24pcs 有货吗 → INQ（客户问我方型号+数量+库存）\n" +
+            "示例2：<我方> 有，24pcs 660USD，2周交期 → OFFER（回应上一条INQ）\n" +
+            "示例3：<客户> 660美金含税吗？交期能提前吗 → TRACE（客户对OFFER二次询问）\n" +
+            "示例4：<群友> 现货出 5090风扇200片 → OTHER（群发报价，没有对应INQ）\n" +
+            "示例5：<我方> 找 64G 5600 100条，有货来报 → OTHER（我方外发询价，不是客户INQ）\n" +
+            "示例6：<客户> 这个18片，560可以下单吗 → TRACE（对报价的二次确认）\n" +
+            "示例7：<客户> 收到/好的/谢谢 → OTHER（无业务含义）\n" +
+            "示例8：<客户> RFQ: 5955WX 100pcs → INQ（明确询价）\n" +
+            "示例9：<我方> 5955WX 485USD 现货 → OFFER（对上一条INQ的报价）\n" +
+            "示例10：<群友> 长期高价收64G内存 → OTHER（收购广告）\n" +
+            "示例11：<客户> 客户都要下单了，我们还没货 → OTHER（陈述/内部沟通，不是二次询问）\n" +
+            "示例12：<我方> 交期多久？ / 这个MOQ多少？ → OTHER（我方追问供应商，不是客户TRACE）";
 
     private String buildSystemPrompt(String base, String examples) {
         StringBuilder sb = new StringBuilder();

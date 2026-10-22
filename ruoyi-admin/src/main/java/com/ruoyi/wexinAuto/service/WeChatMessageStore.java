@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -28,41 +30,88 @@ public class WeChatMessageStore {
     /** 单批最大行数：避免单条 INSERT 过长(大轮拉取时 5000 行会触发慢 SQL/超包限制) */
     private static final int UPSERT_BATCH = 500;
 
-    /** 批量入库(幂等：username+local_id 重复时只更新非分类字段)，内部自动分批。 */
-    public void saveAll(List<WeChatMessage> list) {
+    /** 批量入库(幂等：username+local_id 重复时只更新非分类字段)，内部自动分批并对失败批次做二分重试。 */
+    public int saveAll(List<WeChatMessage> list) {
         if (list == null || list.isEmpty()) {
-            return;
+            return 0;
         }
+        normalizeServerIds(list);
         int total = list.size();
         int ok = 0;
         for (int i = 0; i < total; i += UPSERT_BATCH) {
             List<WeChatMessage> part = list.subList(i, Math.min(i + UPSERT_BATCH, total));
-            try {
-                ok += mapper.batchUpsert(part);
-            } catch (Exception e) {
-                log.error("微信消息入库失败(第{}-{}条)", i, i + part.size(), e);
-            }
+            ok += upsertPart(new ArrayList<>(part), i);
         }
-        if (ok > 0 || total > 0) {
-            log.info("微信消息入库 {} 条(成功 {})", total, ok);
+        log.info("微信消息入库 {} 条(写入/更新 {})", total, ok);
+        return ok;
+    }
+
+    /** 黑名单消息入库(只落库、不做分类/处理；重复按唯一键跳过)，失败批次自动拆分重试。 */
+    public int saveBlackAll(List<WeChatMessage> list) {
+        if (list == null || list.isEmpty()) {
+            return 0;
+        }
+        normalizeServerIds(list);
+        int total = list.size();
+        int ok = 0;
+        for (int i = 0; i < total; i += 500) {
+            List<WeChatMessage> part = list.subList(i, Math.min(i + 500, total));
+            ok += insertBlackPart(new ArrayList<>(part), i);
+        }
+        log.info("黑名单消息入库 {} 条(写入/更新 {})", total, ok);
+        return ok;
+    }
+
+    /** 一条异常不能拖垮整批：先二分拆分，最终定位到具体坏数据并继续写其余消息。 */
+    private int upsertPart(List<WeChatMessage> part, int offset) {
+        if (part.isEmpty()) {
+            return 0;
+        }
+        try {
+            return mapper.batchUpsert(part);
+        } catch (Exception e) {
+            if (part.size() == 1) {
+                WeChatMessage m = part.get(0);
+                log.error("微信消息单条入库失败 offset={} username={} localId={} serverIdLength={}",
+                        offset, m.getUsername(), m.getLocalId(),
+                        m.getServerId() == null ? 0 : m.getServerId().length(), e);
+                return 0;
+            }
+            int mid = part.size() / 2;
+            int ok = upsertPart(new ArrayList<>(part.subList(0, mid)), offset);
+            ok += upsertPart(new ArrayList<>(part.subList(mid, part.size())), offset + mid);
+            return ok;
         }
     }
 
-    /** 黑名单消息入库(只落库、不做分类/处理；重复按唯一键跳过)，内部自动分批。 */
-    public void saveBlackAll(List<WeChatMessage> list) {
-        if (list == null || list.isEmpty()) {
-            return;
+    private int insertBlackPart(List<WeChatMessage> part, int offset) {
+        if (part.isEmpty()) {
+            return 0;
         }
-        int total = list.size();
-        for (int i = 0; i < total; i += 500) {
-            List<WeChatMessage> part = list.subList(i, Math.min(i + 500, total));
-            try {
-                mapper.insertBlackBatch(part);
-            } catch (Exception e) {
-                log.error("黑名单消息入库失败(第{}-{}条)", i, i + part.size(), e);
+        try {
+            return mapper.insertBlackBatch(part);
+        } catch (Exception e) {
+            if (part.size() == 1) {
+                WeChatMessage m = part.get(0);
+                log.error("黑名单消息单条入库失败 offset={} username={} localId={} serverIdLength={}",
+                        offset, m.getUsername(), m.getLocalId(),
+                        m.getServerId() == null ? 0 : m.getServerId().length(), e);
+                return 0;
+            }
+            int mid = part.size() / 2;
+            int ok = insertBlackPart(new ArrayList<>(part.subList(0, mid)), offset);
+            ok += insertBlackPart(new ArrayList<>(part.subList(mid, part.size())), offset + mid);
+            return ok;
+        }
+    }
+
+    /** server_id 是来源去重键；统一限制在 255 字符，防止单条超长导致整批失败。 */
+    private void normalizeServerIds(List<WeChatMessage> list) {
+        for (WeChatMessage m : list) {
+            if (m != null && m.getServerId() != null && m.getServerId().length() > 255) {
+                m.setServerId(m.getServerId().substring(0, 255));
             }
         }
-        log.info("黑名单消息入库 {} 条", total);
     }
 
     /** 单条入库。 */
@@ -70,6 +119,7 @@ public class WeChatMessageStore {
         if (m == null) {
             return;
         }
+        normalizeServerIds(Collections.singletonList(m));
         try {
             mapper.batchUpsert(java.util.Collections.singletonList(m));
         } catch (Exception e) {
@@ -86,6 +136,24 @@ public class WeChatMessageStore {
             mapper.updateCategory(m);
         } catch (Exception e) {
             log.warn("消息分类回写失败: username={} localId={}", m.getUsername(), m.getLocalId(), e);
+        }
+    }
+
+    /** 标记分类黑名单会话：OTHER/FILTER + status=3，避免继续被扫描和自动录入。 */
+    public void updateFiltered(WeChatMessage m, String reason) {
+        if (m == null) {
+            return;
+        }
+        try {
+            mapper.updateFiltered(m, reason);
+            m.setMsgCategory("OTHER");
+            m.setCategorySource("FILTER");
+            m.setCategoryReason(reason);
+            m.setStatus(3);
+            m.setRelatInq(null);
+            m.setRelatOffer(null);
+        } catch (Exception e) {
+            log.warn("消息过滤状态回写失败: username={} localId={}", m.getUsername(), m.getLocalId(), e);
         }
     }
 
@@ -106,6 +174,16 @@ public class WeChatMessageStore {
         } catch (Exception e) {
             log.error("查询未分类消息失败", e);
             return java.util.Collections.emptyList();
+        }
+    }
+
+    /** 查询需要补发飞书预警的 TRACE。 */
+    public List<WeChatMessage> queryTraceAlerts(String since, int max) {
+        try {
+            return mapper.queryTraceAlerts(since, max);
+        } catch (Exception e) {
+            log.error("查询TRACE预警消息失败", e);
+            return Collections.emptyList();
         }
     }
 

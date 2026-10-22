@@ -47,6 +47,16 @@ public class WeChatClassifyScheduler {
         }
     }
 
+    /** TRACE 飞书预警补扫：默认每 30 秒检查一次，仅推送 status=1 且有关联的业务机会。 */
+    @Scheduled(fixedDelayString = "${wechat.trace.alert.scanMs:30000}")
+    public void scanTraceAlerts() {
+        try {
+            gateway.scanTraceAlerts();
+        } catch (Exception e) {
+            log.error("定时TRACE预警扫描失败", e);
+        }
+    }
+
     /** 缓冲超时触发：默认每 30 秒扫描一次。 */
     @Scheduled(fixedDelayString = "${wechat.classify.scanMs:30000}")
     public void flushDueBuffers() {

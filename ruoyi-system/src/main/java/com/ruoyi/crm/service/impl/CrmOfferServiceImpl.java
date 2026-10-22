@@ -2,6 +2,7 @@ package com.ruoyi.crm.service.impl;
 
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -315,6 +316,16 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         return Math.ceil(v / 5.0d) * 5.0d;
     }
 
+    /** 颗粒类产品判定：AI识别产品类型为“颗粒”（eMMC/UFS/NAND/DRAM颗粒等，利润空间小）时走精确百分比报价 */
+    private boolean isGranularProduct(String productType) {
+        return productType != null && productType.trim().contains("颗粒");
+    }
+
+    /** 按利润比例精确计算报价：严格百分比、保留2位小数，不取整到5 */
+    private Double priceWithPercent(double cost, double ratio) {
+        return new BigDecimal(String.valueOf(cost * (1d + ratio / 100d))).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+
     @Override
     @Transactional
     public int aiEntryOffers(String supplierCode, String supplierName, String inqOfferType, Double profitRatio, String content) {
@@ -400,8 +411,11 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             Double cost = price instanceof Number ? ((Number) price).doubleValue() : null;
             offer.setPriceCost(cost);
             // OFFER时按利润比例计算报价价：供应商价格×(1+利润比例/100)；INQ仅记录供应商价格
+            // 颗粒类产品（eMMC/UFS/NAND/DRAM颗粒等，利润空间小）严格执行百分比并保留2位小数，不向上取整到5结尾
             if ("Offer".equals(inqOfferType) && cost != null) {
-                offer.setPriceOffer(ceilTo5(cost * (1d + ratio / 100d)));
+                offer.setPriceOffer(isGranularProduct(str(item.get("productType")))
+                        ? priceWithPercent(cost, ratio)
+                        : ceilTo5(cost * (1d + ratio / 100d)));
             }
             offer.setPriceUnit("USD");
             offer.setStockDate(now);

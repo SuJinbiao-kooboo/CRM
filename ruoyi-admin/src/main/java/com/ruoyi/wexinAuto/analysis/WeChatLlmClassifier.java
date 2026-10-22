@@ -155,7 +155,8 @@ public class WeChatLlmClassifier {
         }
         int batchSize = Math.max(1, Math.min(20, cfgInt("llmBatchSize", 20)));
         int concurrency = Math.max(1, Math.min(4, cfgInt("llmConcurrency", 2)));
-        int ctxWindow = Math.max(0, cfgInt("aiContextWindow", 20));
+        // 业务要求：必须结合最近20条原始消息判断省略句，配置不得低于20条。
+        int ctxWindow = Math.max(20, Math.min(100, cfgInt("aiContextWindow", 20)));
         String promptBase = cfg("llmPromptBase", "");
         String examples = cfg("llmExamples", "");
         int timeoutMs = Math.max(10, cfgInt("llmTimeoutSec", 180)) * 1000;
@@ -164,7 +165,7 @@ public class WeChatLlmClassifier {
         if (context != null) {
             for (int i = Math.max(0, context.size() - ctxWindow); i < context.size(); i++) {
                 WeChatMessage m = context.get(i);
-                if (m != null && StringUtils.isNotBlank(m.getMsgCategory())) {
+                if (m != null) {
                     ctx.add(m);
                 }
             }
@@ -178,9 +179,14 @@ public class WeChatLlmClassifier {
         });
         try {
             List<Future<?>> futures = new ArrayList<>();
-            for (List<WeChatMessage> batch : batches) {
+            for (int batchIndex = 0; batchIndex < batches.size(); batchIndex++) {
+                final List<WeChatMessage> batch = batches.get(batchIndex);
+                // 每批都带独立滑动窗口：前一批及更早待判消息也要进入后一批上下文，
+                // 否则超过 llmBatchSize 时，后批 OFFER/TRACE 看不到紧邻的 INQ。
+                final List<WeChatMessage> batchContext = batchContext(ctx, pending,
+                        batchIndex * batchSize, ctxWindow);
                 futures.add(pool.submit(() ->
-                        classifyBatch(batch, ctx, chatName, promptBase, examples, timeoutMs)));
+                        classifyBatch(batch, batchContext, chatName, promptBase, examples, timeoutMs)));
             }
             for (Future<?> f : futures) {
                 try {
@@ -200,6 +206,24 @@ public class WeChatLlmClassifier {
         }
     }
 
+    /** 构造某一批待判消息之前的最近 N 条上下文（基础上下文 + 此前所有待判原文）。 */
+    private static List<WeChatMessage> batchContext(List<WeChatMessage> base,
+                                                     List<WeChatMessage> pending,
+                                                     int endExclusive, int max) {
+        if (max <= 0) {
+            return Collections.emptyList();
+        }
+        List<WeChatMessage> all = new ArrayList<>();
+        if (base != null) {
+            all.addAll(base);
+        }
+        for (int i = 0; i < endExclusive && i < pending.size(); i++) {
+            all.add(pending.get(i));
+        }
+        int from = Math.max(0, all.size() - max);
+        return new ArrayList<>(all.subList(from, all.size()));
+    }
+
     private List<List<WeChatMessage>> partition(List<WeChatMessage> list, int size) {
         List<List<WeChatMessage>> out = new ArrayList<>();
         for (int i = 0; i < list.size(); i += size) {
@@ -208,21 +232,16 @@ public class WeChatLlmClassifier {
         return out;
     }
 
-    /**
-     * AI 结果后的业务语义校验：只保留“客户询价 / 对询价的回应 / 客户二次追问”，
-     * 把群内广播报价、我方外发询价、内部沟通降级为 OTHER。
-     */
+    /** AI 结果后的业务语义校验：INQ/OFFER 与发送方无关，只校验业务意图和上下文关联。 */
     private void refineSemantics(List<WeChatMessage> context, List<WeChatMessage> pending, String chatName) {
         if (!cfgBool("strictBusinessSemantics", true)) {
             return;
         }
-        Set<String> selfNames = cfgNames("selfNames");
-        boolean strictCustomerOnly = cfgBool("strictCustomerOnly", true);
-        boolean selfKnown = !selfNames.isEmpty();
         int offerMaxAgeMin = Math.max(1, cfgInt("offerLinkMaxAgeMin", 180));
         int offerShortWindowMin = Math.max(1, cfgInt("offerShortReplyWindowMin", 30));
         int traceMaxAgeMin = Math.max(1, cfgInt("traceLinkMaxAgeMin", 180));
         int traceShortWindowMin = Math.max(1, cfgInt("traceShortWindowMin", 30));
+        int contextWindow = Math.max(20, Math.min(100, cfgInt("aiContextWindow", 20)));
         List<WeChatMessage> seq = new ArrayList<>();
         if (context != null) {
             seq.addAll(context);
@@ -234,40 +253,29 @@ public class WeChatLlmClassifier {
                 new IdentityHashMap<WeChatMessage, Boolean>());
         pendingSet.addAll(pending);
 
-        WeChatMessage lastCustomerInq = null;
-        WeChatMessage lastSelfOffer = null;
+        List<WeChatMessage> recentInqs = new ArrayList<>();
+        List<WeChatMessage> recentOffers = new ArrayList<>();
         for (WeChatMessage m : seq) {
             String cat = norm(m.getMsgCategory());
             if (cat == null) {
                 continue;
             }
-            boolean self = SemanticMatcher.isSelf(m.getSender(), selfNames);
             if (pendingSet.contains(m)) {
                 String refined = cat;
                 if ("INQ".equals(cat)) {
                     if (!SemanticMatcher.looksLikeInquiry(m.getContent())) {
                         refined = downgrade(m, "语义校验:无明确询价意图");
-                    } else if (strictCustomerOnly && selfKnown && self) {
-                        refined = downgrade(m, "语义校验:我方发出的询价，不是客户询价");
                     }
                 } else if ("OFFER".equals(cat)) {
-                    if (selfKnown && !self) {
-                        refined = downgrade(m, "语义校验:非我方发言，不是对客户询价的报价");
-                    } else if (lastCustomerInq == null
-                            || !SemanticMatcher.isReplyTo(m, lastCustomerInq, true, groupChat,
-                            offerMaxAgeMin, offerShortWindowMin)) {
-                        refined = downgrade(m, "语义校验:未找到对应客户INQ的直接回应，按广播报价排除");
+                    WeChatMessage relatedInq = findRelatedInq(m, recentInqs, groupChat,
+                            offerMaxAgeMin, offerShortWindowMin);
+                    if (relatedInq == null) {
+                        refined = downgrade(m, "语义校验:未找到对向INQ的直接回应，按广播报价排除");
                     }
                 } else if ("TRACE".equals(cat)) {
-                    boolean related = (lastCustomerInq != null && SemanticMatcher.isFollowUpTo(m,
-                            lastCustomerInq, groupChat, traceMaxAgeMin, traceShortWindowMin))
-                            || (lastSelfOffer != null && SemanticMatcher.isFollowUpTo(m,
-                            lastSelfOffer, groupChat, traceMaxAgeMin, traceShortWindowMin));
-                    if (selfKnown && self) {
-                        refined = downgrade(m, "语义校验:我方追问，不是客户二次询问");
-                    } else if (!SemanticMatcher.looksLikeQuestion(m.getContent())) {
-                        refined = downgrade(m, "语义校验:陈述句，不是二次询问");
-                    } else if (!related) {
+                    boolean related = hasRelatedRef(m, recentInqs, recentOffers, groupChat,
+                            traceMaxAgeMin, traceShortWindowMin);
+                    if (!related) {
                         refined = downgrade(m, "语义校验:未关联到具体INQ/OFFER");
                     }
                 }
@@ -277,11 +285,45 @@ public class WeChatLlmClassifier {
                     cat = refined;
                 }
             }
-            if ("INQ".equals(cat) && !self) {
-                lastCustomerInq = m;
-            } else if ("OFFER".equals(cat) && self) {
-                lastSelfOffer = m;
+            if ("INQ".equals(cat) && SemanticMatcher.looksLikeInquiry(m.getContent())) {
+                rememberRecent(recentInqs, m, contextWindow);
+            } else if ("OFFER".equals(cat)) {
+                rememberRecent(recentOffers, m, contextWindow);
             }
+        }
+    }
+
+    private static WeChatMessage findRelatedInq(WeChatMessage offer, List<WeChatMessage> inqs,
+                                                boolean groupChat, int maxAgeMin, int shortWindowMin) {
+        for (int i = inqs.size() - 1; i >= 0; i--) {
+            WeChatMessage inq = inqs.get(i);
+            if (SemanticMatcher.isReplyTo(offer, inq, groupChat, maxAgeMin, shortWindowMin)) {
+                return inq;
+            }
+        }
+        return null;
+    }
+
+    private static boolean hasRelatedRef(WeChatMessage trace, List<WeChatMessage> inqs,
+                                         List<WeChatMessage> offers, boolean groupChat,
+                                         int maxAgeMin, int shortWindowMin) {
+        for (int i = inqs.size() - 1; i >= 0; i--) {
+            if (SemanticMatcher.isFollowUpTo(trace, inqs.get(i), groupChat, maxAgeMin, shortWindowMin)) {
+                return true;
+            }
+        }
+        for (int i = offers.size() - 1; i >= 0; i--) {
+            if (SemanticMatcher.isFollowUpTo(trace, offers.get(i), groupChat, maxAgeMin, shortWindowMin)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void rememberRecent(List<WeChatMessage> list, WeChatMessage message, int max) {
+        list.add(message);
+        while (list.size() > max) {
+            list.remove(0);
         }
     }
 
@@ -398,36 +440,38 @@ public class WeChatLlmClassifier {
     // 提示词
     // ------------------------------------------------------------------
     private static final String DEFAULT_SYSTEM_PROMPT =
-            "你是微信「客户询报价」业务消息分类专家。用户会把一个聊天会话最近的一批消息给你" +
-            "（每条含序号、发言人、时间、内容，开头可能带【上下文】=该条之前已分类的消息）。" +
+            "你是微信买卖询报价业务消息分类专家。用户会把一个聊天会话最近的20条消息给你" +
+            "（每条含序号、发言人、时间、内容，开头可能带【上下文】=该条之前最近的消息）。" +
             "请严格按以下业务定义对【每条待判消息】输出唯一分类：\n" +
-            "INQ=客户向我方询价：客户主动问型号/数量/价格/库存/交期，或明确 RFQ/求购。\n" +
-            "OFFER=对某条INQ的直接回应：必须能对上客户刚才的料号或数量，给出价格/交期/库存等报价信息。\n" +
-            "TRACE=客户对已有INQ/OFFER的二次询问：客户继续问价格、交期、库存、数量、MOQ、质保、能否下单等。\n" +
-            "OTHER=其他全部：群内广播报价/出货广告、收购广告、闲聊、内部沟通、我方外发询价、系统消息、图片XML。\n\n" +
+            "INQ=任何一方提出询价：问型号/数量/价格/库存/交期，或明确 RFQ、求购、找货。我方也可以向供应商发INQ。\n" +
+            "OFFER=对某条INQ的对向回应：必须能对上前文料号或数量，并给出价格/交期/库存等报价信息。客户也可以向我方发送OFFER。\n" +
+            "TRACE=围绕已有INQ/OFFER的后续业务沟通：可以是疑问句，也可以是价格确认、数量调整、交期确认、下单/备货安排等陈述，但必须结合最近上下文能看出是同一笔业务。\n" +
+            "OTHER=无对应业务上下文的群发广告、无关闲聊、系统消息、图片XML等。\n\n" +
             "硬性规则：\n" +
-            "1. 只有“客户问我方”才算INQ；我方业务员在群里问供应商“这个有吗”不是INQ，归OTHER。\n" +
-            "2. 只有“对具体INQ的回应”才算OFFER；没有对应INQ的群发报价、现货清单、出货广告一律OTHER。\n" +
-            "3. TRACE必须是客户发出的疑问句，并且能关联到前面的INQ/OFFER；单纯陈述“客户要下单了”“周三到货”“价格很好”不是TRACE。\n" +
-            "4. 纯数字/短报价只有在紧接某条INQ时才是OFFER；“TP5400usd”“目标价”是INQ。\n" +
-            "5. 拿不准时按OTHER，宁缺毋滥，不要为了凑分类而编造关联。\n\n" +
+            "1. 买卖双向：不要因为是“我方”或“客户/供应商”就固定成INQ或OFFER，必须看这句话是在问价还是在给价。\n" +
+            "2. 群发报价/现货清单如果没有对应前文INQ，是OTHER。\n" +
+            "3. TRACE不要求问号；但要能对应前文同一料号、数量或报价，并包含明确的后续业务动作。普通寒暄、无关陈述不是TRACE。\n" +
+            "4. 纯数字/短报价只有紧接某条INQ且来自另一方才算OFFER；“目标价/预算价”仍是INQ。\n" +
+            "5. 必须结合最近20条上下文，拿不准时按OTHER，宁缺毋滥。\n\n" +
             "输出格式：只输出JSON数组，不要输出任何其他文字：\n" +
             "[{\"i\":0,\"cat\":\"INQ\",\"why\":\"一句话理由\"},{\"i\":1,\"cat\":\"OFFER\",\"why\":\"...\"}]";
 
     private static final String DEFAULT_EXAMPLES =
-            "严格业务示例（<我方>=自己人，<客户>=外部客户/买方，<群友>=群内其他卖方）：\n" +
-            "示例1：<客户> MBD-H13SSL-N-B 24pcs 有货吗 → INQ（客户问我方型号+数量+库存）\n" +
-            "示例2：<我方> 有，24pcs 660USD，2周交期 → OFFER（回应上一条INQ）\n" +
-            "示例3：<客户> 660美金含税吗？交期能提前吗 → TRACE（客户对OFFER二次询问）\n" +
-            "示例4：<群友> 现货出 5090风扇200片 → OTHER（群发报价，没有对应INQ）\n" +
-            "示例5：<我方> 找 64G 5600 100条，有货来报 → OTHER（我方外发询价，不是客户INQ）\n" +
-            "示例6：<客户> 这个18片，560可以下单吗 → TRACE（对报价的二次确认）\n" +
-            "示例7：<客户> 收到/好的/谢谢 → OTHER（无业务含义）\n" +
-            "示例8：<客户> RFQ: 5955WX 100pcs → INQ（明确询价）\n" +
-            "示例9：<我方> 5955WX 485USD 现货 → OFFER（对上一条INQ的报价）\n" +
-            "示例10：<群友> 长期高价收64G内存 → OTHER（收购广告）\n" +
-            "示例11：<客户> 客户都要下单了，我们还没货 → OTHER（陈述/内部沟通，不是二次询问）\n" +
-            "示例12：<我方> 交期多久？ / 这个MOQ多少？ → OTHER（我方追问供应商，不是客户TRACE）";
+            "双向业务示例（<我方>、<客户>、<供应商>只是角色提示，不代表固定方向）：\n" +
+            "示例1：<客户> MBD-H13SSL-N-B 24pcs 有货吗 → INQ（客户询价）\n" +
+            "示例2：<我方> 有，24pcs 660USD，2周交期 → OFFER（我方对客户INQ报价）\n" +
+            "示例3：<我方> 找 64G 5600 100条，有货来报 → INQ（我方向供应商询价）\n" +
+            "示例4：<供应商> 有货，100条 320USD，明天发 → OFFER（供应商对我方INQ报价）\n" +
+            "示例5：<客户> 660美金含税吗？交期能提前吗 → TRACE（对报价继续询问）\n" +
+            "示例6：<客户> 这个价格可以，按24pcs安排吧 → TRACE（非疑问句，但明确确认价格和数量）\n" +
+            "示例7：<我方> 这个价能做，明天确认交期 → TRACE（非疑问句，围绕已有报价继续推进）\n" +
+            "示例8：<群友> 现货出 5090风扇200片 → OTHER（无对应INQ的群发广告）\n" +
+            "示例9：<客户> 收到/好的/谢谢 → OTHER（无业务延续信息）\n" +
+            "示例10：<供应商> RFQ: 5955WX 100pcs → INQ（供应商反向询价同样成立）\n" +
+            "示例11：<我方> 5955WX 485USD 现货 → OFFER（对不同方向INQ的报价）\n" +
+            "示例12：<群友> 长期高价收64G内存 → OTHER（孤立的收购广告）\n" +
+            "示例13：<客户> 客户都要下单了，我们还没货 → OTHER（没有对应料号/报价，是无关陈述）\n" +
+            "示例14：<客户/供应商> 这批24pcs的交期多久？ → TRACE（已有报价上下文，对同一笔业务继续追问）";
 
     private String buildSystemPrompt(String base, String examples) {
         StringBuilder sb = new StringBuilder();
@@ -448,10 +492,16 @@ public class WeChatLlmClassifier {
     private String buildPrompt(List<WeChatMessage> batch, List<WeChatMessage> ctx, String chatName) {
         StringBuilder sb = new StringBuilder();
         sb.append("聊天会话【").append(chatName == null ? "" : chatName).append("】\n");
+        Set<String> selfNames = cfgNames("selfNames");
+        if (!selfNames.isEmpty()) {
+            sb.append("我方成员：").append(String.join(",", selfNames)).append("（仅用于理解角色，不代表INQ/OFFER方向）\n");
+        }
         if (ctx != null && !ctx.isEmpty()) {
             sb.append("【上下文-此前的消息，仅作参考，不需要输出分类】\n");
             for (WeChatMessage m : ctx) {
-                sb.append("- [").append(sender(m)).append("] ").append(line(m)).append("\n");
+                sb.append("- [").append(sender(m)).append("] ")
+                  .append(StringUtils.isBlank(m.getMsgCategory()) ? "[未分类]" : "[" + m.getMsgCategory() + "]")
+                  .append(" ").append(line(m)).append("\n");
             }
             sb.append("【待判消息】\n");
         }

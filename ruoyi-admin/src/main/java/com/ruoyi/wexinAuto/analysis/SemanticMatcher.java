@@ -18,9 +18,10 @@ import java.util.regex.Pattern;
 /**
  * 微信询报价语义校验工具：在 AI 判定之后做一层可解释的兜底。
  *
- * <p>业务口径：INQ 必须是客户向我方询价，OFFER 必须是我方对具体客户 INQ 的直接回应，
- * TRACE 必须是客户对已有 INQ/OFFER 的二次疑问。群发报价、我方外发询价、内部沟通
- * 以及无关联的陈述句统一降级为 OTHER。</p>
+ * <p>业务口径：INQ/OFFER 不按发送方区分。我方、客户或供应商都可以询价或报价；
+ * INQ 表示提出询价，OFFER 表示对向回复具体价格/库存/交期，TRACE 表示围绕已有
+ * INQ/OFFER 的后续业务沟通（可以是疑问句，也可以是价格确认、数量调整、下单安排等）。
+ * 无上下文的群发广告、内部闲聊统一降级为 OTHER。</p>
  */
 public final class SemanticMatcher {
 
@@ -35,14 +36,16 @@ public final class SemanticMatcher {
             "STOCK", "READY", "PRICE", "QTY", "DC", "COO", "LOT", "FAST", "SHIP",
             "CPU", "GPU", "SSD", "HDD", "DDR", "DDR4", "DDR5", "NVME", "SATA", "SAS",
             "INTEL", "AMD", "NVIDIA", "WINDOWS", "SERVER", "SERVER", "DELL", "HP", "LENOVO",
-            "GOOD", "OK", "YES", "NO", "PLEASE", "CHECK", "THANKS"
+            "GOOD", "OK", "YES", "NO", "PLEASE", "CHECK", "THANKS",
+            "2400", "2666", "2933", "3200", "4400", "4800", "5200", "5600", "6000", "6400", "7200"
     ));
 
     /** 明确的询价意图。只有这些词或“型号/数量”组合才允许进入 INQ。 */
     private static final Pattern INQ_STRONG = Pattern.compile(
             "(?i)(\\bINQ\\b|\\bRFQ\\b|询价|求购|找货|谁有|报个价|报来|来报|请报价|什么价|多少钱|" +
                     "价格多少|报价多少|目标价|有货吗|有没有货|有没有|是否有|有现货吗|现货吗|" +
-                    "问一下|问下|能给.*价|可以.*报价)"
+                    "问一下|问下|报多少|给个价|啥价|底价|能给.*价|可以.*报价|预算价|期望价|" +
+                    "\\b(?:quote|quotation|price please|best price)\\b)"
     );
 
     /** 明确的疑问表达；不把“价格很好”“客户要下单了”这种陈述当成追问。 */
@@ -58,10 +61,13 @@ public final class SemanticMatcher {
             "(?i)^(交期|货期|价格|库存|数量|MOQ|TP|质保|保修)[？?]?$"
     );
 
-    /** 卖方群发/收购广播的典型开头。 */
+    /** 卖方群发/收购广播的典型开头；只拦截明确的广告句式，避免把“现货 24pcs 660USD”这类正常回价误伤。 */
     private static final Pattern BROADCAST_START = Pattern.compile(
-            "^(出(?:[:：\\s]|货)|现货(?:出|直出)?|全新现货|今日现货|公司现货|特价(?:出)?|清仓|" +
-                    "仓库现货|长期(?:收|收购)|高价收|大量收|收购|回收)"
+            "^(?:[\\p{So}\\p{Sk}\\s]*)(?:" +
+                    "(?:今日|本周|周[一二三四五六日天])?(?:出(?:货|售|[:：\\s]|\\d)|" +
+                    "现货(?:出|出售|直出|供应|速览|清单|报价))|" +
+                    "(?:含税|不含税|税前|税后|特价|清仓|公司|仓库)出(?:货|售|[:：\\s]|\\d)|" +
+                    "长期(?:收|收购)|(?:高价|大量)收(?:购)?|收购|回收)"
     );
 
     /** 真正的价格值：必须出现金额与币种/单位/税价的组合，不能仅凭“价格/报价”二字。 */
@@ -78,6 +84,24 @@ public final class SemanticMatcher {
     private static final Pattern FOLLOW_UP_CUE = Pattern.compile(
             "(?i)(价格|报价|单价|多少钱|price|交期|货期|什么时候|多久|库存|现货|期货|有货|含税|税前|税后|" +
                     "MOQ|起订|数量|型号|料号|下单|订单|优惠|折扣|保修|质保|确认|发货|排单|接单)"
+    );
+
+    /** TRACE 不一定带问号，但必须有明确的交易延续动作，避免把普通陈述误判为跟进。 */
+    private static final Pattern TRACE_CONTINUATION_CUE = Pattern.compile(
+            "(?i)(就按|按这个|按刚才|按.*安排|这个价(?:格)?(?:可以|行|合适|能接受)?|价格(?:就)?按|可以接受|" +
+                    "能做|可以做|那就定|定了|" +
+                    "确定要|要了|安排上|安排发货|备货|留货|锁货|付款|打款|开票|" +
+                    "明天(?:确认|回复|给)|稍后(?:确认|回复)|商量一下|申请一下|" +
+                    "再让点|再优惠|再降|加单|减单|数量改成|数量改为|改成|改为|" +
+                    "确认(?:价格|数量|交期|订单)|交期(?:提前|延后|改|按)|库存(?:还有|没了|有)|" +
+                    "\\b(?:proceed|go ahead|place(?: the)? order|book(?: it)?|reserve|confirm(?:ed)?|" +
+                    "accept(?:ed)?|deal|better price|discount|reduce|increase(?: quantity)?|" +
+                    "decrease(?: quantity)?|change quantity)\\b)"
+    );
+
+    /** 单独一个“可以/行/成交”只有在引用或上下文能锁定具体交易时才可视为 TRACE。 */
+    private static final Pattern GENERIC_ACCEPTANCE = Pattern.compile(
+            "(?i)(?:^|[\\s，,。.!！])(?:可以|行|没问题|成交|ok|okay)(?:[\\s，,。.!！]|$)"
     );
 
     private static final Pattern QUANTITY = Pattern.compile(
@@ -135,7 +159,7 @@ public final class SemanticMatcher {
         return name.contains("群");
     }
 
-    /** 是否是可进入 TRACE 的明确疑问句。 */
+    /** 是否是明确的业务疑问句。 */
     public static boolean looksLikeQuestion(String content) {
         String c = clean(content);
         if (c.isEmpty()) {
@@ -146,19 +170,22 @@ public final class SemanticMatcher {
                 || SHORT_QUESTION_TERM.matcher(c).matches();
     }
 
-    /**
-     * 是否具备客户询价意图。纯数量、纯数字、广播报价、系统消息均返回 false。
-     */
+    /** 是否具备询价意图（买卖双方均适用）；纯数量、纯数字、广播报价、系统消息均返回 false。 */
     public static boolean looksLikeInquiry(String content) {
         String c = clean(content);
         if (c.isEmpty() || isSystemOrMedia(c)) {
             return false;
         }
-        if (looksLikeBroadcast(c) && !looksLikeQuestion(c)) {
+        // 明显以“出货/收购”开头的广告即使末尾带“含税/有货吗”，也不能反判为询价。
+        if (looksLikeBroadcast(c)) {
             return false;
         }
         if (INQ_STRONG.matcher(c).find()) {
             return true;
+        }
+        // 型号/数量+完整价格通常是报价陈述；没有问价或目标价语义时不能反向当成 INQ。
+        if (hasPriceEvidence(c) && !looksLikeQuestion(c)) {
+            return false;
         }
         boolean hasProduct = !tokens(c).isEmpty() || PRODUCT_NOUN.matcher(c).find();
         boolean hasQuantity = QUANTITY.matcher(c).find();
@@ -171,18 +198,19 @@ public final class SemanticMatcher {
     }
 
     /**
-     * 判断我方报价是否是对指定客户 INQ 的直接回应。
+     * 判断一条 OFFER 是否是对指定 INQ 的直接回应。询价和报价可由任意一方发出，
+     * 但必须是不同发送人对具体询价的对向回应。
      *
      * @param offer          待判断的 OFFER
-     * @param inq            客户 INQ（调用方应保证 sender 非我方）
-     * @param self           offer 是否由我方发出
-     * @param groupChat     是否群聊
+     * @param inq            对应的 INQ（可以是任一方发出）
+     * @param groupChat      是否群聊
      * @param maxAgeMin      最大关联分钟数
      * @param shortWindowMin 纯数字/短报价的允许窗口
      */
-    public static boolean isReplyTo(WeChatMessage offer, WeChatMessage inq, boolean self,
+    public static boolean isReplyTo(WeChatMessage offer, WeChatMessage inq,
                                     boolean groupChat, int maxAgeMin, int shortWindowMin) {
-        if (offer == null || inq == null || !self || StringUtils.isBlank(offer.getContent())) {
+        if (offer == null || inq == null || StringUtils.isBlank(offer.getContent())
+                || StringUtils.isBlank(inq.getContent()) || sameSender(offer, inq)) {
             return false;
         }
         int maxAge = Math.max(1, maxAgeMin);
@@ -205,31 +233,27 @@ public final class SemanticMatcher {
                         || (inqContent.length() >= 4 && (quote.contains(inqContent) || inqContent.contains(quote))))) {
             return true;
         }
-        if (sharesProduct(offerContent, inqContent) && hasPriceEvidence(offerContent)) {
+        boolean productLinked = sharesProduct(offerContent, inqContent);
+        if (productLinked && hasPriceEvidence(offerContent)) {
             return true;
         }
-        if (sharesQuantity(offerContent, inqContent) && hasPriceEvidence(offerContent)) {
-            return true;
-        }
-        if (isShortPriceReply(offerContent) && withinMinutes(inq, offer, shortWindow)) {
+        // 报价里明确写了另一个料号时，不能仅凭数量相同就挂到本条INQ上。
+        boolean offerNamesProduct = !tokens(offerContent).isEmpty();
+        // 群聊噪声大：仅数量相同不足以证明回复关系，还必须在短回复窗口内且带完整价格。
+        if (!offerNamesProduct && sharesQuantity(offerContent, inqContent) && hasPriceEvidence(offerContent)
+                && (!groupChat || withinMinutes(inq, offer, shortWindow))) {
             return true;
         }
         // 没有料号、没有引用时，只接受紧邻时间窗内的纯价格回复；其余按广播排除。
-        return isShortPriceReply(offerContent) && withinMinutes(inq, offer, shortWindow);
+        return !offerNamesProduct && isShortPriceReply(offerContent)
+                && withinMinutes(inq, offer, shortWindow);
     }
 
-    /** 兼容旧调用：默认 180 分钟关联窗口、30 分钟短回复窗口。 */
-    public static boolean isReplyTo(WeChatMessage offer, WeChatMessage inq, boolean self) {
-        return isReplyTo(offer, inq, self, isGroupChat(offer), 180, 30);
-    }
-
-    /**
-     * 判断客户追问是否针对指定 INQ/OFFER。
-     * 群聊短问句只允许短窗口，避免把很久以前的普通问题牵强关联到报价上。
-     */
+    /** 判断一条消息是否围绕指定 INQ/OFFER 延续业务沟通；不强制为疑问句。 */
     public static boolean isFollowUpTo(WeChatMessage trace, WeChatMessage ref, boolean groupChat,
                                        int maxAgeMin, int shortWindowMin) {
-        if (trace == null || ref == null || !looksLikeQuestion(trace.getContent())) {
+        if (trace == null || ref == null || StringUtils.isBlank(trace.getContent())
+                || StringUtils.isBlank(ref.getContent())) {
             return false;
         }
         int maxAge = Math.max(1, maxAgeMin);
@@ -240,18 +264,33 @@ public final class SemanticMatcher {
         String traceText = clean(trace.getContent());
         String refText = clean(ref.getContent());
         String quote = clean(trace.getQuote());
+        boolean question = looksLikeQuestion(traceText);
+        boolean businessCue = FOLLOW_UP_CUE.matcher(traceText).find();
+        boolean genericAcceptance = GENERIC_ACCEPTANCE.matcher(traceText).find();
+        boolean continuation = TRACE_CONTINUATION_CUE.matcher(traceText).find() || genericAcceptance;
+        boolean productLinked = sharesProduct(traceText, refText);
+        boolean quantityLinked = sharesQuantity(traceText, refText);
+        boolean contextLinked = productLinked || quantityLinked;
+        // 普通寒暄即使带了问号、引用了报价，也必须出现交易要素或明确的推进动作。
+        if (!contextLinked && !businessCue && !continuation) {
+            return false;
+        }
+        boolean quoteLinked = false;
         if (!quote.isEmpty()) {
-            boolean quoteLinked = sharesProduct(quote, refText)
+            quoteLinked = sharesProduct(quote, refText)
                     || (refText.length() >= 4 && (quote.contains(refText) || refText.contains(quote)));
-            if (quoteLinked && (FOLLOW_UP_CUE.matcher(traceText).find()
-                    || sharesProduct(traceText, refText))) {
+            if (quoteLinked && (contextLinked || businessCue || continuation)) {
                 return true;
             }
         }
-        if (sharesProduct(traceText, refText)) {
-            return true;
+        // “可以/行”本身不是业务信息；只有引用、料号或数量能锁定原交易时才成立。
+        if (genericAcceptance && !contextLinked && !quoteLinked) {
+            return false;
         }
-        if (!FOLLOW_UP_CUE.matcher(traceText).find()) {
+        if (contextLinked && (businessCue || continuation || question)) {
+            return withinMinutes(ref, trace, question ? maxAge : shortWindow);
+        }
+        if (!question && !continuation) {
             return false;
         }
         if (groupChat) {
@@ -263,6 +302,13 @@ public final class SemanticMatcher {
     /** 兼容旧调用。 */
     public static boolean isFollowUpTo(WeChatMessage trace, WeChatMessage ref) {
         return isFollowUpTo(trace, ref, isGroupChat(trace), 180, 30);
+    }
+
+    private static boolean sameSender(WeChatMessage first, WeChatMessage second) {
+        String a = normalizeName(first == null ? null : first.getSender());
+        String b = normalizeName(second == null ? null : second.getSender());
+        // 无法确认发送人不同则拒绝关联，避免缺 sender 的历史数据生成伪 OFFER。
+        return a.isEmpty() || b.isEmpty() || a.equals(b);
     }
 
     /** 两条消息是否共享至少一个可信型号/料号 token。 */
@@ -290,6 +336,9 @@ public final class SemanticMatcher {
         while (matcher.find()) {
             String token = matcher.group().toUpperCase(Locale.ROOT);
             if (token.length() < 3 || TOKEN_STOP.contains(token)) {
+                continue;
+            }
+            if (token.matches("(?:19|20)\\d{2}") || token.matches("\\d{1,3}")) {
                 continue;
             }
             // 64G/16T/100PCS/USD 等容量、数量、币种不是型号。

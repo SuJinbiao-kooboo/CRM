@@ -177,6 +177,16 @@ public class WeChatMessageStore {
         }
     }
 
+    /** 查询指定会话最近 max 条消息（含未分类），按时间正序，供20条上下文分类使用。 */
+    public List<WeChatMessage> queryRecent(String username, int max) {
+        try {
+            return mapper.queryRecent(username, Math.max(1, max));
+        } catch (Exception e) {
+            log.error("查询会话最近消息失败: username={}", username, e);
+            return Collections.emptyList();
+        }
+    }
+
     /** 查询需要补发飞书预警的 TRACE。 */
     public List<WeChatMessage> queryTraceAlerts(String since, int max) {
         try {
@@ -201,12 +211,13 @@ public class WeChatMessageStore {
      * 查询待录入消息(status=1 且分类在 categories 内)，供 INQ/OFFER 定时 AI 录入消费，sort_seq 正序。
      * chat 非空=只查该会话；chat 为空且 chats 非空=只查这些会话；都为空=全部会话。
      */
-    public List<WeChatMessage> queryProcessable(String chat, List<String> chats, List<String> categories, int max) {
+    public List<WeChatMessage> queryProcessable(String chat, List<String> chats, List<String> categories,
+                                                String since, int minAgeSec, int max) {
         if (categories == null || categories.isEmpty()) {
             return java.util.Collections.emptyList();
         }
         try {
-            return mapper.queryProcessable(chat, chats, categories, max);
+            return mapper.queryProcessable(chat, chats, categories, since, Math.max(0, minAgeSec), max);
         } catch (Exception e) {
             log.error("查询待录入消息失败", e);
             return java.util.Collections.emptyList();
@@ -214,12 +225,12 @@ public class WeChatMessageStore {
     }
 
     /** 待录入消息统计：{cnt=条数, earliest=最早待录入消息时间}。 */
-    public java.util.Map<String, Object> processableStats(List<String> categories) {
+    public java.util.Map<String, Object> processableStats(List<String> categories, String since) {
         if (categories == null || categories.isEmpty()) {
             return java.util.Collections.emptyMap();
         }
         try {
-            return mapper.processableStats(categories);
+            return mapper.processableStats(categories, since);
         } catch (Exception e) {
             log.error("查询待录入统计失败", e);
             return java.util.Collections.emptyMap();
@@ -232,6 +243,47 @@ public class WeChatMessageStore {
             mapper.updateEntryResult(username, localId, status, failCount);
         } catch (Exception e) {
             log.warn("消息录入结果回写失败: username={} localId={}", username, localId, e);
+        }
+    }
+
+    /** 独立录入状态分布（PENDING/PROCESSING/SUCCESS/FAILED/SKIPPED/DEAD 等）。 */
+    public List<java.util.Map<String, Object>> entryStatusStats(String since) {
+        try {
+            return mapper.entryStatusStats(since);
+        } catch (Exception e) {
+            log.error("查询录入状态分布失败", e);
+            return Collections.emptyList();
+        }
+    }
+
+    /** 原子领取一条待录入消息，防止定时任务和手动触发重复处理。 */
+    public boolean markEntryProcessing(String username, long localId) {
+        try {
+            return mapper.markEntryProcessing(username, localId) > 0;
+        } catch (Exception e) {
+            log.warn("消息录入领取失败: username={} localId={}", username, localId, e);
+            return false;
+        }
+    }
+
+    /** 回写独立录入状态、审计信息与消息处理状态。 */
+    public void updateEntryState(String username, long localId, int messageStatus, String entryStatus,
+                                 String entryMessage, int offerCount, String offerIds, int failCount) {
+        try {
+            mapper.updateEntryState(username, localId, messageStatus, entryStatus,
+                    entryMessage, offerCount, offerIds, failCount);
+        } catch (Exception e) {
+            log.warn("消息录入状态回写失败: username={} localId={}", username, localId, e);
+        }
+    }
+
+    /** 人工重排被跳过/失败/终止的消息。 */
+    public int requeueEntry(String chat) {
+        try {
+            return mapper.requeueEntry(chat);
+        } catch (Exception e) {
+            log.error("录入队列重排失败: chat={}", chat, e);
+            return 0;
         }
     }
 

@@ -328,6 +328,30 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
     @Override
     @Transactional
     public List<CrmOffer> aiEntryOffersReturning(String supplierCode, String supplierName, String inqOfferType, Double profitRatio, String content) {
+        return aiEntryOffersReturningInternal(supplierCode, supplierName, inqOfferType, profitRatio, content,
+                SecurityUtils.getUsername(), true, null, null, 0L, null);
+    }
+
+    @Override
+    @Transactional
+    public List<CrmOffer> aiEntryOffersReturningAsSystem(String supplierCode, String supplierName,
+                                                          String inqOfferType, Double profitRatio, String content,
+                                                          String operator, String wechatServerId,
+                                                          String wechatUsername, long wechatLocalId, String remark) {
+        String userName = operator == null || operator.trim().isEmpty() ? "wechat_auto" : operator.trim();
+        return aiEntryOffersReturningInternal(supplierCode, supplierName, inqOfferType, profitRatio, content,
+                userName, false, wechatServerId, wechatUsername, wechatLocalId, remark);
+    }
+
+    /**
+     * AI录入按钮与微信自动录入共用核心逻辑。自动任务只改变操作人来源和供应商权限校验方式，
+     * 不复制一套解析/计算/入库代码。
+     */
+    private List<CrmOffer> aiEntryOffersReturningInternal(String supplierCode, String supplierName,
+                                                           String inqOfferType, Double profitRatio, String content,
+                                                           String userName, boolean authorizeSupplier,
+                                                           String wechatServerId, String wechatUsername,
+                                                           long wechatLocalId, String sourceRemark) {
         if (content == null || content.trim().isEmpty()) {
             throw new ServiceException("粘贴的物料内容不能为空");
         }
@@ -337,9 +361,13 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         if (!"Offer".equals(inqOfferType) && !"Inq".equals(inqOfferType)) {
             throw new ServiceException("类型必须为Inq或Offer");
         }
-        // 数据权限：非管理员/超级管理员仅能录入跟进人包含自己的供应商（防止绕过前端直接提交）
         supplierCode = supplierCode.trim();
-        CrmSupplier authorizedSupplier = supplierService.selectAuthorizedSupplierByCode(supplierCode);
+        CrmSupplier authorizedSupplier = authorizeSupplier
+                ? supplierService.selectAuthorizedSupplierByCode(supplierCode)
+                : supplierMapper.selectSupplierByCode(supplierCode);
+        if (authorizedSupplier == null) {
+            throw new ServiceException("供应商不存在：" + supplierCode);
+        }
         // 供应商名称以数据库为准，防止前端传入的名称被篡改
         if (authorizedSupplier.getSupplierName() != null && !authorizedSupplier.getSupplierName().trim().isEmpty()) {
             supplierName = authorizedSupplier.getSupplierName();
@@ -348,7 +376,6 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         // 调用AI把无规则文本整理为结构化物料列表（品牌/料号/型号/规格型号/数量/报价）
         List<Map<String, Object>> items = deepSeekAiService.parseMaterialContent(content);
 
-        String userName = SecurityUtils.getUsername();
         Date now = new Date();
         // 来源表名：AI+时间+供应商名+操作人，便于追溯录入批次
         String sheetName = "AI_" + new SimpleDateFormat("yyyyMMddHHmm").format(now) + "_" + supplierCode + "_" + userName;
@@ -367,8 +394,10 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             offer.setCoo(str(item.get("coo")));
             offer.setDeliveryTime(str(item.get("deliveryTime")));
             offer.setProductType(str(item.get("productType")));
-            offer.setQuantity((Integer) item.get("quantity"));
-            Double cost = (Double) item.get("price");
+            Object qty = item.get("quantity");
+            offer.setQuantity(qty instanceof Number ? ((Number) qty).intValue() : null);
+            Object price = item.get("price");
+            Double cost = price instanceof Number ? ((Number) price).doubleValue() : null;
             offer.setPriceCost(cost);
             // OFFER时按利润比例计算报价价：供应商价格×(1+利润比例/100)；INQ仅记录供应商价格
             if ("Offer".equals(inqOfferType) && cost != null) {
@@ -383,6 +412,14 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             offer.setStatus(1);
             offer.setCreateBy(userName);
             offer.setUpdateBy(userName);
+            if (wechatServerId != null) {
+                offer.setWechatServerId(wechatServerId);
+                offer.setWechatUsername(wechatUsername);
+                offer.setWechatLocalId(wechatLocalId);
+            }
+            if (sourceRemark != null && !sourceRemark.trim().isEmpty()) {
+                offer.setRemark(sourceRemark.length() > 500 ? sourceRemark.substring(0, 500) : sourceRemark);
+            }
             if (offerMapper.insertOffer(offer) > 0) {
                 saved.add(offer);
             }

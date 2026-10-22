@@ -30,6 +30,15 @@ public interface ICrmOfferService {
     List<CrmOffer> aiEntryOffersReturning(String supplierCode, String supplierName, String inqOfferType, Double profitRatio, String content);
 
     /**
+     * 系统任务专用 AI 录入：复用 AI录入按钮的完整解析与入库逻辑，但使用显式操作人，
+     * 不依赖线程登录上下文；同时写入微信来源字段，供幂等与审计回查。
+     */
+    List<CrmOffer> aiEntryOffersReturningAsSystem(String supplierCode, String supplierName,
+                                                   String inqOfferType, Double profitRatio, String content,
+                                                   String operator, String wechatServerId,
+                                                   String wechatUsername, long wechatLocalId, String remark);
+
+    /**
      * AI录入后比价：查询料号集合最近1个月内（Offer日期口径：库存日期优先、为空回退创建时间）的INQ/OFFER记录，
      * 按Offer日期倒序返回；每条含 物料编号/供应商编号/成本价格/Offer价格/Offer日期/详情/数量/交期/DC/类型；
      * 料号为空时返回空列表（不抛异常，避免影响录入成功提示）

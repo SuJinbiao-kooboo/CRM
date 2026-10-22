@@ -39,12 +39,32 @@ public class WeChatMessage {
     @JsonProperty("category_reason")
     private String categoryReason;
 
-    /** 打标状态：0=未打标(分类后待处理) 1=已打标(分类已写回、下一环节可消费)；未分类为 0 */
+    /** 消息处理状态：0=未分类 1=已分类待处理 2=已处理(录入/预警) 3=无需处理或转人工 4=已发送 */
     @JsonProperty("status")
     private Integer status;
     /** AI录入失败次数：连续失败达 offerEntryMaxFail 次时置 status=3(无需处理)；0=未失败 */
     @JsonProperty("entry_fail_count")
     private Integer entryFailCount;
+
+    /** 自动录入状态：PENDING/PROCESSING/SUCCESS/SUCCESS_WARN/FAILED/DEAD/SKIPPED/NOT_APPLICABLE */
+    @JsonProperty("entry_status")
+    private String entryStatus;
+
+    /** 自动录入状态说明：成功条数、AI查询结果或跳过/失败原因 */
+    @JsonProperty("entry_message")
+    private String entryMessage;
+
+    /** 本条微信消息本次/最近一次成功写入 crm_offer 的行数 */
+    @JsonProperty("entry_offer_count")
+    private Integer entryOfferCount;
+
+    /** 本条微信消息生成的 crm_offer 主键列表(逗号分隔，便于审计) */
+    @JsonProperty("entry_offer_ids")
+    private String entryOfferIds;
+
+    /** 最近一次录入状态更新时间 */
+    @JsonProperty("entry_at")
+    private String entryAt;
 
     /** 关联INQ(JSON: id/server_id/sender/content/create_time)：OFFER=回应的INQ；TRACE=对应的INQ */
     @JsonProperty("relat_inq")

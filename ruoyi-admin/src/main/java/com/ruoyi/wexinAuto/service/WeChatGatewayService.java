@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.mapper.CrmOfferMapper;
 import com.ruoyi.crm.service.ai.AiChannelService;
-import com.ruoyi.crm.service.ai.DeepSeekAiService;
+import com.ruoyi.crm.service.ICrmOfferService;
 import com.ruoyi.wexinAuto.analysis.FixedOfferMarker;
 import com.ruoyi.wexinAuto.analysis.SemanticMatcher;
 import com.ruoyi.wexinAuto.analysis.WeChatLlmClassifier;
@@ -80,7 +80,7 @@ public class WeChatGatewayService {
     private final WeChatLlmClassifier llm;
     private final WeChatMessageStore store;
     private final CrmOfferMapper offerMapper;
-    private final DeepSeekAiService deepSeekAiService;
+    private final ICrmOfferService offerService;
     private final AiChannelService aiChannelService;
 
     private final Object listenLock = new Object();
@@ -146,14 +146,14 @@ public class WeChatGatewayService {
     @Autowired
     public WeChatGatewayService(WeChatGatewayProperties props, WeChatMessageHandler handler,
                                 WeChatLlmClassifier llm, WeChatMessageStore store,
-                                CrmOfferMapper offerMapper, DeepSeekAiService deepSeekAiService,
+                                CrmOfferMapper offerMapper, ICrmOfferService offerService,
                                 AiChannelService aiChannelService) {
         this.props = props;
         this.handler = handler;
         this.llm = llm;
         this.store = store;
         this.offerMapper = offerMapper;
-        this.deepSeekAiService = deepSeekAiService;
+        this.offerService = offerService;
         this.aiChannelService = aiChannelService;
     }
 
@@ -261,6 +261,9 @@ public class WeChatGatewayService {
         m.put("initBackSec", analysisInt("pollInitBackSec", 259200));
         m.put("limit", analysisInt("pollLimit", 5000));
         m.put("ignoreChats", analysisStr("pollIgnoreChats", ""));
+        m.put("blackNames", analysisStr("blackNames", ""));
+        m.put("whiteNames", analysisStr("whiteNames", ""));
+        m.put("blackTable", "wechat_message_black");
         m.put("classifyTriggerCount", analysisInt("classifyTriggerCount", 5));
         m.put("classifyMaxIdleSec", analysisInt("classifyMaxIdleSec", 180));
         m.put("classifyBatchSize", analysisInt("classifyBatchSize", 20));
@@ -565,18 +568,22 @@ public class WeChatGatewayService {
     // ------------------------------------------------------------------
 
     /**
-     * 定时/手动录入入口：把已分类未处理(status=1)且分类命中 offerEntryCategories(默认INQ,OFFER)
-     * 的消息，按 Offer 列表 AI 录入的相同逻辑解析并写入 crm_offer，同时写入来源消息关联字段
-     * wechat_server_id/wechat_username/wechat_local_id。
-     * 录入成功 → status=2(已分类处理未发送)；AI 解析/入库失败累计 entry_fail_count，
-     * 达到 offerEntryMaxFail 次置 status=3(无需处理)，未达上限保持 status=1 下轮重试。
-     * chat 非空时只处理指定会话(手动测试用)；空=全部会话，且按 offerEntryScanSec 限频。
+     * 定时/手动录入入口。每条 INQ/OFFER 先原子领取，再复核双向语义，随后复用 CRM
+     * 「AI查询」和「AI录入」按钮的后端逻辑写入 crm_offer，最后执行同料号近1个月比价。
+     * 自动任务不依赖登录上下文，录入状态与消息处理状态分开记录，失败可重试、可人工重排。
      */
     public Map<String, Object> offerEntryOnce(String chat) {
         Map<String, Object> out = new LinkedHashMap<>();
         boolean enabled = analysisBool("offerEntryEnabled", true);
+        boolean manual = StringUtils.isNotBlank(chat);
         out.put("enabled", enabled);
         out.put("chat", StringUtils.defaultString(chat));
+        // 总开关必须真正约束定时任务；只有显式指定会话的手动触发才允许穿透，便于排障。
+        if (!enabled && !manual) {
+            out.put("running", false);
+            out.put("message", "自动录入已关闭(offerEntryEnabled=false)；如需排障请指定 chat 手动触发");
+            return out;
+        }
         // 防并发重入：定时任务与手动触发共用同一执行槽
         if (!entryRunning.compareAndSet(false, true)) {
             out.put("running", true);
@@ -584,6 +591,7 @@ public class WeChatGatewayService {
             return out;
         }
         int processed = 0;
+        boolean actualScan = false;
         try {
             // 定时自动扫描按字典 offerEntryScanSec 限频(手动指定 chat 不受限，便于测试)
             if (StringUtils.isBlank(chat)) {
@@ -596,7 +604,10 @@ public class WeChatGatewayService {
             if (!enabled) {
                 out.put("message", "录入开关已关闭(offerEntryEnabled=false)，本次为手动触发仍执行");
             }
+            actualScan = true;
             int batch = Math.max(1, Math.min(100, analysisInt("offerEntryBatchSize", 5)));
+            int minAgeSec = Math.max(0, analysisInt("offerEntryMinAgeSec", 60));
+            int maxAgeHours = Math.max(1, analysisInt("offerEntryMaxAgeHours", 24));
             List<String> cats = entryCategories();
             if (cats.isEmpty()) {
                 out.put("message", "offerEntryCategories 未配置任何有效分类，请检查字典");
@@ -619,8 +630,12 @@ public class WeChatGatewayService {
                     return out;
                 }
             }
-            List<WeChatMessage> rows = store.queryProcessable(StringUtils.trimToNull(chat), chats, cats, batch);
+            String since = fmtTime(System.currentTimeMillis() - maxAgeHours * 3600_000L);
+            List<WeChatMessage> rows = store.queryProcessable(StringUtils.trimToNull(chat), chats, cats,
+                    since, minAgeSec, batch);
             out.put("candidateChats", chats == null ? "全部会话" : String.join(",", chats));
+            out.put("maxAgeHours", maxAgeHours);
+            out.put("minAgeSec", minAgeSec);
             processed = rows.size();
             out.put("categories", cats);
             out.put("scanned", processed);
@@ -642,74 +657,130 @@ public class WeChatGatewayService {
             int skipped = 0;
             int already = 0;
             boolean requireOfferRelatInq = analysisBool("offerEntryRequireRelatInq", true);
-            boolean requireOfferPrice = analysisBool("offerEntryRequireOfferPrice", true);
             for (WeChatMessage m : rows) {
+                if (!store.markEntryProcessing(m.getUsername(), m.getLocalId())) {
+                    continue; // 已被其它线程领取或状态已变化
+                }
                 if (m.getMsgCategory() == null || !cats.contains(m.getMsgCategory().toUpperCase())) {
                     skipped++;
+                    store.updateEntryState(m.getUsername(), m.getLocalId(), 3, "SKIPPED",
+                            "分类不是当前自动录入范围", 0, "", 0);
                     continue;
                 }
                 boolean isOffer = "OFFER".equalsIgnoreCase(m.getMsgCategory());
                 if (!entrySemanticsValid(m, isOffer)) {
                     skipped++;
-                    store.updateEntryResult(m.getUsername(), m.getLocalId(), 3,
-                            m.getEntryFailCount() == null ? 0 : m.getEntryFailCount());
+                    store.updateEntryState(m.getUsername(), m.getLocalId(), 3, "SKIPPED",
+                            isOffer ? "复核未通过：缺少对向INQ或价格证据" : "复核未通过：无明确询价意图",
+                            0, "", 0);
                     log.warn("历史分类未通过严格语义复核，拒绝自动录入: chat={} sender={} cat={} serverId={}",
                             m.getName(), m.getSender(), m.getMsgCategory(), m.getServerId());
                     continue;
                 }
                 if (isOffer && requireOfferRelatInq && StringUtils.isBlank(m.getRelatInq())) {
                     skipped++;
-                    store.updateEntryResult(m.getUsername(), m.getLocalId(), 3,
-                            m.getEntryFailCount() == null ? 0 : m.getEntryFailCount());
-                    log.warn("OFFER无客户INQ关联，拒绝自动录入: chat={} sender={} serverId={}",
+                    store.updateEntryState(m.getUsername(), m.getLocalId(), 3, "SKIPPED",
+                            "OFFER未关联到对向INQ，等待人工确认", 0, "", 0);
+                    log.warn("OFFER无对向INQ关联，拒绝自动录入: chat={} sender={} serverId={}",
                             m.getName(), m.getSender(), m.getServerId());
                     continue;
                 }
                 String[] supplier = entrySupplierFor(m);
                 if (supplier == null) {
                     skipped++;
+                    store.updateEntryState(m.getUsername(), m.getLocalId(), 3, "SKIPPED",
+                            "未配置供应商，配置后需人工重新入队", 0, "", 0);
                     log.warn("未配置供应商，跳过录入: chat={} sender={} serverId={}; 请在字典 offerEntrySupplierCode/offerEntrySupplierMap 配置",
                             m.getName(), m.getSender(), m.getServerId());
                     continue;
                 }
-                // 幂等保护：该消息已录入过(重复触发/历史脏数据) → 不重复解析插入，直接回写 status=2 并自愈为已处理
-                if (offerMapper.countByWechat(StringUtils.defaultString(m.getServerId()),
-                        StringUtils.defaultString(m.getUsername()), m.getLocalId()) > 0) {
+                int existing = offerMapper.countByWechat(StringUtils.defaultString(m.getServerId()),
+                        StringUtils.defaultString(m.getUsername()), m.getLocalId());
+                if (existing > 0) {
                     already++;
-                    store.updateEntryResult(m.getUsername(), m.getLocalId(), 2, 0);
-                    log.info("消息已录入过，跳过重复录入并回写status=2: chat={} sender={} serverId={}",
-                            m.getName(), m.getSender(), m.getServerId());
+                    store.updateEntryState(m.getUsername(), m.getLocalId(), 2, "SUCCESS",
+                            "已存在微信来源的crm_offer记录，幂等跳过", existing, "", 0);
+                    log.info("消息已录入过，幂等跳过: chat={} sender={} serverId={} 已存在{}行",
+                            m.getName(), m.getSender(), m.getServerId(), existing);
                     continue;
                 }
                 try {
-                    List<Map<String, Object>> items = deepSeekAiService.parseMaterialContent(StringUtils.defaultString(m.getContent()));
-                    if (items == null || items.isEmpty()) {
-                        throw new IllegalStateException("AI未识别出物料信息");
+                    // 1) 复用 CRM「AI查询」按钮逻辑：先识别料号并查询近1个月历史，作为安全预检。
+                    List<Map<String, Object>> queryGroups = offerService.aiQueryHistory(
+                            StringUtils.defaultString(m.getContent()));
+                    int historyRows = 0;
+                    if (queryGroups != null) {
+                        for (Map<String, Object> group : queryGroups) {
+                            Object offers = group == null ? null : group.get("offers");
+                            if (offers instanceof List) {
+                                historyRows += ((List<?>) offers).size();
+                            }
+                        }
                     }
-                    int inserted = 0;
-                    for (Map<String, Object> item : items) {
-                        if (!validEntryItem(isOffer, item, requireOfferPrice)) {
+                    // 2) 复用 CRM「AI录入」按钮逻辑。OFFER 只有我方外发时才按销售Offer加利润；
+                    //    外部供应商发给我们的报价按采购 Inq 记录，避免反向加价。
+                    String inqOfferType = entryInqOfferType(m);
+                    List<CrmOffer> saved = offerService.aiEntryOffersReturningAsSystem(
+                            supplier[0], supplier[0], inqOfferType, ratio,
+                            StringUtils.defaultString(m.getContent()), createBy,
+                            StringUtils.defaultString(m.getServerId()), StringUtils.defaultString(m.getUsername()),
+                            m.getLocalId(), buildEntryRemark(m));
+                    if (saved == null || saved.isEmpty()) {
+                        throw new IllegalStateException("AI录入未生成任何crm_offer记录");
+                    }
+                    // 3) 与 AI录入按钮一致：对本次成功料号做近1个月比价。比价失败不回滚已成功录入。
+                    List<String> partNumbers = new ArrayList<>();
+                    List<String> offerIds = new ArrayList<>();
+                    for (CrmOffer offer : saved) {
+                        if (offer == null) {
                             continue;
                         }
-                        if (offerMapper.insertOffer(buildCrmOffer(m, item, supplier[0], ratio, createBy)) > 0) {
-                            inserted++;
+                        if (offer.getId() != null) {
+                            offerIds.add(String.valueOf(offer.getId()));
+                        }
+                        String pn = StringUtils.trimToEmpty(offer.getProductCode());
+                        if (!pn.isEmpty() && !partNumbers.contains(pn)) {
+                            partNumbers.add(pn);
                         }
                     }
-                    if (inserted <= 0) {
-                        throw new IllegalStateException("物料行全部入库失败");
+                    int compareRows = 0;
+                    String compareError = "";
+                    try {
+                        List<Map<String, Object>> compare = offerService.compareRecentOffers(partNumbers);
+                        compareRows = compare == null ? 0 : compare.size();
+                    } catch (Exception ce) {
+                        compareError = "；比价失败: " + safeMessage(ce);
+                        log.warn("微信AI录入后比价失败(不影响已入库记录): chat={} serverId={}",
+                                m.getName(), m.getServerId(), ce);
                     }
+                    String entryStatus = compareError.isEmpty() ? "SUCCESS" : "SUCCESS_WARN";
+                    String entryMessage = "AI查询: " + (queryGroups == null ? 0 : queryGroups.size())
+                            + "组/" + historyRows + "条历史; AI录入: " + saved.size()
+                            + "行; 比价: " + compareRows + "条" + compareError;
                     enteredMessages++;
-                    enteredOffers += inserted;
-                    store.updateEntryResult(m.getUsername(), m.getLocalId(), 2, 0);
-                    log.info("微信消息已录入crm_offer: chat={} sender={} serverId={} 物料{}行",
-                            m.getName(), m.getSender(), m.getServerId(), inserted);
+                    enteredOffers += saved.size();
+                    store.updateEntryState(m.getUsername(), m.getLocalId(), 2, entryStatus,
+                            clipEntryMessage(entryMessage), saved.size(), String.join(",", offerIds), 0);
+                    log.info("微信消息已录入crm_offer: chat={} sender={} serverId={} type={} 物料{}行 状态={}",
+                            m.getName(), m.getSender(), m.getServerId(), inqOfferType, saved.size(), entryStatus);
                 } catch (Exception e) {
-                    failed++;
-                    int failCnt = (m.getEntryFailCount() == null ? 0 : m.getEntryFailCount()) + 1;
-                    int nextStatus = failCnt >= maxFail ? 3 : 1;
-                    store.updateEntryResult(m.getUsername(), m.getLocalId(), nextStatus, failCnt);
-                    log.warn("微信消息AI录入失败({}/{}): chat={} sender={} serverId={} 原因={}",
-                            failCnt, maxFail, m.getName(), m.getSender(), m.getServerId(), e.getMessage());
+                    String reason = safeMessage(e);
+                    if (isPermanentEntrySkip(e)) {
+                        skipped++;
+                        store.updateEntryState(m.getUsername(), m.getLocalId(), 3, "SKIPPED",
+                                clipEntryMessage("未写入: " + reason), 0, "", 0);
+                        log.warn("微信消息AI录入前置校验未通过，转人工确认: chat={} sender={} serverId={} 原因={}",
+                                m.getName(), m.getSender(), m.getServerId(), reason);
+                    } else {
+                        failed++;
+                        int failCnt = (m.getEntryFailCount() == null ? 0 : m.getEntryFailCount()) + 1;
+                        boolean dead = failCnt >= maxFail;
+                        store.updateEntryState(m.getUsername(), m.getLocalId(), dead ? 3 : 1,
+                                dead ? "DEAD" : "FAILED", clipEntryMessage("AI录入失败(" + failCnt + "/"
+                                        + maxFail + "): " + reason), 0, "", failCnt);
+                        log.warn("微信消息AI录入失败({}/{}): chat={} sender={} serverId={} 原因={}",
+                                failCnt, maxFail, m.getName(), m.getSender(), m.getServerId(), reason);
+                    }
                 }
             }
             out.put("enteredMessages", enteredMessages);
@@ -721,44 +792,21 @@ public class WeChatGatewayService {
             return out;
         } finally {
             entryRunning.set(false);
-            lastEntryFinishedAt = System.currentTimeMillis();
-            lastEntryProcessed = processed;
+            // 限频跳过不能刷新完成时间，否则每 10 秒调用一次会把 30 秒限频永久推迟。
+            if (actualScan) {
+                lastEntryFinishedAt = System.currentTimeMillis();
+                lastEntryProcessed = processed;
+            }
         }
     }
 
-    /** 自动录入门禁：必须有型号/规格；OFFER 还必须有可解析的正价格，防止空壳报价污染 crm_offer。 */
-    private boolean validEntryItem(boolean isOffer, Map<String, Object> item, boolean requireOfferPrice) {
-        if (item == null) {
-            return false;
-        }
-        String product = firstNonBlank(str(item.get("partNumber")), str(item.get("model")),
-                str(item.get("productDetail")), str(item.get("spec")));
-        if (StringUtils.isBlank(product)) {
-            return false;
-        }
-        Object qty = item.get("quantity");
-        if (qty instanceof Number && ((Number) qty).doubleValue() <= 0) {
-            return false;
-        }
-        if (isOffer && requireOfferPrice) {
-            Double price = toDouble(item.get("price"));
-            return price != null && price > 0;
-        }
-        return true;
-    }
-
-    /** 自动录入前再次复核，避免旧版宽松分类把历史脏数据写进 crm_offer。 */
+    /** 自动录入前再次复核：INQ 只要求询价意图；OFFER 必须有不同发送人的对向 INQ 和价格证据。 */
     private boolean entrySemanticsValid(WeChatMessage m, boolean isOffer) {
-        Set<String> selfNames = analysisNames("selfNames");
-        boolean self = SemanticMatcher.isSelf(m.getSender(), selfNames);
         if (!isOffer) {
-            return !self && SemanticMatcher.looksLikeInquiry(m.getContent());
-        }
-        if (!selfNames.isEmpty() && !self) {
-            return false;
+            return SemanticMatcher.looksLikeInquiry(m.getContent());
         }
         if (StringUtils.isBlank(m.getRelatInq())) {
-            return true;
+            return false;
         }
         try {
             JsonNode n = jackson.readTree(m.getRelatInq());
@@ -766,13 +814,12 @@ public class WeChatGatewayService {
             inq.setSender(n.path("sender").asText(""));
             inq.setContent(n.path("content").asText(""));
             inq.setCreateTime(n.path("create_time").asText(""));
-            if (SemanticMatcher.isSelf(inq.getSender(), selfNames)
-                    || !SemanticMatcher.looksLikeInquiry(inq.getContent())) {
+            if (!SemanticMatcher.looksLikeInquiry(inq.getContent())) {
                 return false;
             }
             int offerMaxAgeMin = Math.max(1, analysisInt("offerLinkMaxAgeMin", 180));
             int offerShortWindowMin = Math.max(1, analysisInt("offerShortReplyWindowMin", 30));
-            return SemanticMatcher.isReplyTo(m, inq, true, SemanticMatcher.isGroupChat(m),
+            return SemanticMatcher.isReplyTo(m, inq, SemanticMatcher.isGroupChat(m),
                     offerMaxAgeMin, offerShortWindowMin);
         } catch (Exception e) {
             log.warn("解析 relat_inq 失败，拒绝自动录入: chat={} serverId={}",
@@ -781,34 +828,44 @@ public class WeChatGatewayService {
         }
     }
 
-    private String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (StringUtils.isNotBlank(value)) {
-                return value;
-            }
+    /** 我方外发 OFFER 按销售 Offer 加利润；外部报价给我方、以及所有 INQ 均按 Inq 记录。 */
+    private String entryInqOfferType(WeChatMessage m) {
+        if ("OFFER".equalsIgnoreCase(m.getMsgCategory())
+                && SemanticMatcher.isSelf(m.getSender(), analysisNames("selfNames"))) {
+            return "Offer";
         }
-        return "";
+        return "Inq";
     }
 
-    private Double toDouble(Object value) {
-        if (value instanceof Number) {
-            double d = ((Number) value).doubleValue();
-            return Double.isFinite(d) ? d : null;
+    /** crm_offer 的来源备注，便于从报价记录反查微信原消息。 */
+    private String buildEntryRemark(WeChatMessage m) {
+        String remark = "微信自动录入|群:" + StringUtils.trimToEmpty(m.getName())
+                + "|发言人:" + StringUtils.trimToEmpty(m.getSender())
+                + "|消息时间:" + StringUtils.trimToEmpty(m.getCreateTime())
+                + "|server_id:" + StringUtils.defaultString(m.getServerId());
+        return remark.length() > 500 ? remark.substring(0, 500) : remark;
+    }
+
+    /** 业务前置条件不满足时转人工，不消耗自动重试次数。 */
+    private boolean isPermanentEntrySkip(Exception e) {
+        String msg = safeMessage(e);
+        return msg.contains("未能从内容中识别出料号")
+                || msg.contains("物料内容不能为空")
+                || msg.contains("供应商不存在")
+                || msg.contains("供应商信息不能为空");
+    }
+
+    private String safeMessage(Exception e) {
+        if (e == null) {
+            return "未知错误";
         }
-        if (value == null) {
-            return null;
-        }
-        String s = String.valueOf(value).replace(",", "").replace("$", "")
-                .replace("USD", "").replace("usd", "").trim();
-        if (s.isEmpty()) {
-            return null;
-        }
-        try {
-            double d = Double.parseDouble(s);
-            return Double.isFinite(d) ? d : null;
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        String msg = StringUtils.trimToEmpty(e.getMessage());
+        return msg.isEmpty() ? e.getClass().getSimpleName() : clipEntryMessage(msg);
+    }
+
+    private String clipEntryMessage(String message) {
+        String value = StringUtils.defaultString(message);
+        return value.length() > 1000 ? value.substring(0, 1000) : value;
     }
 
     /** INQ/OFFER 自动录入参数与运行状态（便于 Postman 观察）。 */
@@ -825,14 +882,37 @@ public class WeChatGatewayService {
         m.put("candidateChats", allChats ? java.util.Collections.emptyList() : entrySupplierChats());
         m.put("profitRatio", analysisDouble("offerEntryProfitRatio", 2d));
         m.put("maxFail", analysisInt("offerEntryMaxFail", 3));
+        m.put("requireRelatInq", analysisBool("offerEntryRequireRelatInq", true));
+        m.put("selfNames", analysisStr("selfNames", ""));
         m.put("createBy", analysisStr("offerEntryCreateBy", "wechat_auto"));
+        int minAgeSec = Math.max(0, analysisInt("offerEntryMinAgeSec", 60));
+        int maxAgeHours = Math.max(1, analysisInt("offerEntryMaxAgeHours", 24));
+        m.put("minAgeSec", minAgeSec);
+        m.put("maxAgeHours", maxAgeHours);
+        m.put("aiFlow", "AI查询 -> AI录入 -> 近1个月比价");
+        m.put("entryStatusLegend",
+                "PENDING=待录入/可重试, PROCESSING=处理中, SUCCESS=成功, SUCCESS_WARN=已录入但比价告警, "
+                        + "FAILED=可重试失败, DEAD=达到失败上限, SKIPPED=需人工确认, NOT_APPLICABLE=不参与录入");
         m.put("running", entryRunning.get());
         m.put("lastRunAt", lastEntryFinishedAt == 0 ? null : fmtTime(lastEntryFinishedAt));
         m.put("lastProcessed", lastEntryProcessed);
-        java.util.Map<String, Object> st = store.processableStats(entryCategories());
+        String since = fmtTime(System.currentTimeMillis() - maxAgeHours * 3600_000L);
+        java.util.Map<String, Object> st = store.processableStats(entryCategories(), since);
         m.put("pendingCnt", st == null ? 0 : st.get("cnt"));
         m.put("earliestPending", st == null ? null : st.get("earliest"));
+        m.put("entryStatusStats", store.entryStatusStats(since));
         return m;
+    }
+
+    /** 人工确认后，把指定会话或全部 SKIPPED/FAILED/DEAD 的 INQ/OFFER 重新放入录入队列。 */
+    public Map<String, Object> requeueOfferEntry(String chat) {
+        String target = StringUtils.trimToNull(chat);
+        int count = store.requeueEntry(target);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("chat", StringUtils.defaultString(target));
+        out.put("requeued", count);
+        out.put("message", "已重新入队 " + count + " 条；下一轮自动录入会重新执行AI查询与AI录入");
+        return out;
     }
 
     // ------------------------------------------------------------------
@@ -932,9 +1012,10 @@ public class WeChatGatewayService {
         }
         try {
             String chatName = pending.get(0).getName();
-            int ctxWin = Math.max(0, analysisInt("aiContextWindow", 20));
-            Deque<WeChatMessage> hq = listenHistory.get(key);
-            List<WeChatMessage> context = hq == null ? new ArrayList<>() : lastN(hq, ctxWin);
+            int ctxWin = Math.max(20, Math.min(100, analysisInt("aiContextWindow", 20)));
+            // 监听进程只运行了很短时间时，内存历史可能不足20条；必须以数据库最近消息补齐，
+            // 否则“这个价格可以”“按24pcs安排”等省略句无法结合前文判断。
+            List<WeChatMessage> context = recentContext(key, pending, ctxWin);
             classifyWithContext(key, context, pending, chatName);
             linkRelational(chatName, pending);
             refineAfterRelational(pending);
@@ -983,19 +1064,10 @@ public class WeChatGatewayService {
                 }
                 continue;
             }
-            // 拆分：已分类=上下文；未分类=待判
-            List<WeChatMessage> context = new ArrayList<>();
-            List<WeChatMessage> pending = new ArrayList<>();
-            for (WeChatMessage m : chatMsgs) {
-                if (StringUtils.isNotBlank(m.getMsgCategory())) {
-                    context.add(m);
-                } else {
-                    pending.add(m);
-                }
-            }
-            if (pending.isEmpty()) {
-                continue;
-            }
+            // 最近N条原始消息作为上下文(允许未分类)；本批 rows 才是待判消息。
+            int ctxWin = Math.max(20, Math.min(100, analysisInt("aiContextWindow", 20)));
+            List<WeChatMessage> pending = new ArrayList<>(chatMsgs);
+            List<WeChatMessage> context = recentContext(key, pending, ctxWin);
             classifyWithContext(key, context, pending, chatName);
             // 业务关联：OFFER → relatInq；TRACE → relatInq + relatOffer（回写随 updateCategory 落库)
             linkRelational(chatName, pending);
@@ -1018,7 +1090,8 @@ public class WeChatGatewayService {
      *   <li>TRACE：relat_inq = 对应的最近 INQ，relat_offer = 对应的最近 OFFER；</li>
      *   <li>INQ：只更新「最近 INQ」指针，自身无关联字段。</li>
      * </ul>
-     * 关联基于会话内的全部已入库消息(含历史已分类)，不受本次分类批次限制。
+     * 关联基于同一 username 下最近一段已入库消息(含历史已分类)，避免同名会话串线；
+     * 引用列表仍只保留最近 aiContextWindow 条作为语义锚点。
      */
     private void linkRelational(String chatName, List<WeChatMessage> pending) {
         if (pending == null || pending.isEmpty() || StringUtils.isBlank(chatName)) {
@@ -1027,19 +1100,13 @@ public class WeChatGatewayService {
         if (!analysisBool("strictBusinessSemantics", true)) {
             return;
         }
-        Map<String, WeChatMessage> targets = new HashMap<>();
-        for (WeChatMessage m : pending) {
-            if (StringUtils.isNotBlank(m.getMsgCategory())) {
-                targets.put(keyOf(m) + "|" + m.getLocalId(), m);
-            }
-        }
-        if (targets.isEmpty()) {
-            return;
-        }
-        // 合并历史分类与本次 pending；历史必须包含 status=2，否则已被录入/预警的 INQ/OFFER
+        int contextWindow = Math.max(20, Math.min(100, analysisInt("aiContextWindow", 20)));
+        String username = pending.get(0).getUsername();
+        // 合并最近历史与本次 pending；历史必须包含 status=2，否则已被录入/预警的 INQ/OFFER
         // 在下一批 OFFER/TRACE 到来时会“消失”，导致整条业务链断掉。
         Map<String, WeChatMessage> uniq = new HashMap<>();
-        for (WeChatMessage m : store.query(null, chatName, null, DB_QUERY_MAX)) {
+        int loadLimit = Math.min(DB_QUERY_MAX, Math.max(200, contextWindow * 10 + pending.size()));
+        for (WeChatMessage m : store.queryRecent(username, loadLimit)) {
             if (m.getStatus() != null && m.getStatus() == 3) {
                 continue;
             }
@@ -1057,8 +1124,6 @@ public class WeChatGatewayService {
         }
         List<WeChatMessage> all = new ArrayList<>(uniq.values());
         all.sort(Comparator.comparingLong(WeChatMessage::getSortSeq));
-        Set<String> selfNames = analysisNames("selfNames");
-        boolean selfKnown = !selfNames.isEmpty();
         boolean groupChat = SemanticMatcher.isGroupChat(pending.get(0));
         int offerMaxAgeMin = Math.max(1, analysisInt("offerLinkMaxAgeMin", 180));
         int offerShortWindowMin = Math.max(1, analysisInt("offerShortReplyWindowMin", 30));
@@ -1068,70 +1133,82 @@ public class WeChatGatewayService {
                 new java.util.IdentityHashMap<WeChatMessage, Boolean>());
         pendingSet.addAll(pending);
 
-        WeChatMessage lastCustomerInq = null;
-        WeChatMessage lastSelfOffer = null;
+        List<WeChatMessage> recentInqs = new ArrayList<>();
+        List<WeChatMessage> recentOffers = new ArrayList<>();
         for (WeChatMessage m : all) {
             String cat = m.getMsgCategory() == null ? "" : m.getMsgCategory().trim().toUpperCase();
             boolean isPending = pendingSet.contains(m);
-            boolean target = targets.containsKey(keyOf(m) + "|" + m.getLocalId());
-            boolean self = SemanticMatcher.isSelf(m.getSender(), selfNames);
 
             if (isPending) {
                 if ("INQ".equals(cat)) {
-                    if (selfKnown && self) {
-                        downgradeSemantic(m, "关联校验:我方发出的询价，不是客户INQ");
-                        cat = "OTHER";
-                    } else if (!SemanticMatcher.looksLikeInquiry(m.getContent())) {
+                    if (!SemanticMatcher.looksLikeInquiry(m.getContent())) {
                         downgradeSemantic(m, "关联校验:无明确询价意图");
                         cat = "OTHER";
                     }
                 } else if ("OFFER".equals(cat)) {
-                    boolean offerSelf = !selfKnown || self;
-                    if (!offerSelf) {
-                        downgradeSemantic(m, "关联校验:非我方发言，不是客户询价的报价");
-                        cat = "OTHER";
-                    } else if (lastCustomerInq == null || !SemanticMatcher.isReplyTo(m, lastCustomerInq,
-                            true, groupChat, offerMaxAgeMin, offerShortWindowMin)) {
-                        downgradeSemantic(m, "关联校验:未找到对应客户INQ的直接回应，按广播报价排除");
+                    WeChatMessage relatedInq = findRelatedInq(m, recentInqs, groupChat,
+                            offerMaxAgeMin, offerShortWindowMin);
+                    if (relatedInq == null) {
+                        downgradeSemantic(m, "关联校验:未找到对向INQ的直接回应，按广播报价排除");
                         cat = "OTHER";
                     } else {
-                        m.setRelatInq(toRelJson(lastCustomerInq));
+                        m.setRelatInq(toRelJson(relatedInq));
                     }
                 } else if ("TRACE".equals(cat)) {
-                    if (selfKnown && self) {
-                        downgradeSemantic(m, "关联校验:我方追问，不是客户二次询问");
+                    WeChatMessage relatedInq = findRelatedFollowUp(m, recentInqs, groupChat,
+                            traceMaxAgeMin, traceShortWindowMin);
+                    WeChatMessage relatedOffer = findRelatedFollowUp(m, recentOffers, groupChat,
+                            traceMaxAgeMin, traceShortWindowMin);
+                    if (relatedInq != null) {
+                        m.setRelatInq(toRelJson(relatedInq));
+                    }
+                    if (relatedOffer != null) {
+                        m.setRelatOffer(toRelJson(relatedOffer));
+                    }
+                    if (relatedInq == null && relatedOffer == null) {
+                        downgradeSemantic(m, "关联校验:未关联到近期具体INQ/OFFER");
                         cat = "OTHER";
-                    } else if (!SemanticMatcher.looksLikeQuestion(m.getContent())) {
-                        downgradeSemantic(m, "关联校验:陈述句，不是二次询问");
-                        cat = "OTHER";
-                    } else {
-                        boolean related = false;
-                        if (lastCustomerInq != null && SemanticMatcher.isFollowUpTo(m, lastCustomerInq,
-                                groupChat, traceMaxAgeMin, traceShortWindowMin)) {
-                            m.setRelatInq(toRelJson(lastCustomerInq));
-                            related = true;
-                        }
-                        if (lastSelfOffer != null && SemanticMatcher.isFollowUpTo(m, lastSelfOffer,
-                                groupChat, traceMaxAgeMin, traceShortWindowMin)) {
-                            m.setRelatOffer(toRelJson(lastSelfOffer));
-                            related = true;
-                        }
-                        if (!related) {
-                            downgradeSemantic(m, "关联校验:未关联到具体INQ/OFFER");
-                            cat = "OTHER";
-                        }
                     }
                 }
             }
 
-            if ("INQ".equals(cat) && !self && SemanticMatcher.looksLikeInquiry(m.getContent())) {
-                lastCustomerInq = m;
-            } else if ("OFFER".equals(cat) && (!selfKnown || self)) {
+            if ("INQ".equals(cat) && SemanticMatcher.looksLikeInquiry(m.getContent())) {
+                rememberRecent(recentInqs, m, contextWindow);
+            } else if ("OFFER".equals(cat)) {
                 // 历史 OFFER 必须已有有效 INQ 关联才可作为 TRACE 的引用，防止旧误判继续污染。
                 if (isPending || StringUtils.isNotBlank(m.getRelatInq())) {
-                    lastSelfOffer = m;
+                    rememberRecent(recentOffers, m, contextWindow);
                 }
             }
+        }
+    }
+
+    private static WeChatMessage findRelatedInq(WeChatMessage offer, List<WeChatMessage> inqs,
+                                                boolean groupChat, int maxAgeMin, int shortWindowMin) {
+        for (int i = inqs.size() - 1; i >= 0; i--) {
+            WeChatMessage inq = inqs.get(i);
+            if (SemanticMatcher.isReplyTo(offer, inq, groupChat, maxAgeMin, shortWindowMin)) {
+                return inq;
+            }
+        }
+        return null;
+    }
+
+    private static WeChatMessage findRelatedFollowUp(WeChatMessage trace, List<WeChatMessage> refs,
+                                                      boolean groupChat, int maxAgeMin, int shortWindowMin) {
+        for (int i = refs.size() - 1; i >= 0; i--) {
+            WeChatMessage ref = refs.get(i);
+            if (SemanticMatcher.isFollowUpTo(trace, ref, groupChat, maxAgeMin, shortWindowMin)) {
+                return ref;
+            }
+        }
+        return null;
+    }
+
+    private static void rememberRecent(List<WeChatMessage> list, WeChatMessage message, int max) {
+        list.add(message);
+        while (list.size() > max) {
+            list.remove(0);
         }
     }
 
@@ -1143,7 +1220,7 @@ public class WeChatGatewayService {
         for (WeChatMessage m : pending) {
             String cat = m.getMsgCategory() == null ? "" : m.getMsgCategory().trim().toUpperCase();
             if ("OFFER".equals(cat) && StringUtils.isBlank(m.getRelatInq())) {
-                downgradeSemantic(m, "关联校验:未找到对应客户INQ，按广播报价排除");
+                downgradeSemantic(m, "关联校验:未找到对向INQ，按广播报价排除");
             } else if ("TRACE".equals(cat)
                     && StringUtils.isBlank(m.getRelatInq()) && StringUtils.isBlank(m.getRelatOffer())) {
                 downgradeSemantic(m, "关联校验:未关联到具体INQ/OFFER");
@@ -1162,7 +1239,7 @@ public class WeChatGatewayService {
     }
 
     /**
-     * TRACE 飞书预警：只对已关联到 INQ/OFFER、且来自客户（非我方）的二次追问推送。
+     * TRACE 飞书预警：围绕已关联 INQ/OFFER 的二次业务跟进（疑问或陈述均可）推送。
      * 推送成功后 status=2（已处理），避免定时任务重复推送。
      */
     private boolean maybeAlertTrace(WeChatMessage m) {
@@ -1174,12 +1251,6 @@ public class WeChatGatewayService {
             return false;
         }
         if (StringUtils.isBlank(m.getRelatInq()) && StringUtils.isBlank(m.getRelatOffer())) {
-            return false;
-        }
-        if (SemanticMatcher.isSelf(m.getSender(), analysisNames("selfNames"))) {
-            return false;
-        }
-        if (!SemanticMatcher.looksLikeQuestion(m.getContent())) {
             return false;
         }
         int maxAgeMin = analysisInt("traceAlertMaxAgeMin", 1440);
@@ -1200,9 +1271,9 @@ public class WeChatGatewayService {
                     + "分类理由: " + StringUtils.defaultString(m.getCategoryReason()) + "\n"
                     + "关联INQ: " + relText(m.getRelatInq()) + "\n"
                     + "关联OFFER: " + relText(m.getRelatOffer()) + "\n"
-                    + "建议: 立即确认库存/价格/交期并回复客户。";
+                    + "建议: 立即确认库存/价格/交期及订单推进动作。";
             if (!aiChannelService.alert(alertKey,
-                    "【微信TRACE预警】客户二次询价，存在订单机会", detail)) {
+                    "【微信TRACE预警】询报价二次跟进，存在订单机会", detail)) {
                 log.warn("TRACE预警推送未成功，保持status=1等待重试: chat={} sender={} localId={}",
                         m.getName(), m.getSender(), m.getLocalId());
                 return false;
@@ -1348,10 +1419,52 @@ public class WeChatGatewayService {
         return out;
     }
 
+    /**
+     * 构造待判消息之前的最近 max 条上下文：优先合并内存历史和数据库最近消息，再由 pending
+     * 覆盖同键对象。这样监听刚启动、内存历史不足时也能保证拿到数据库里的最近20条。
+     */
+    private List<WeChatMessage> recentContext(String username, List<WeChatMessage> pending, int max) {
+        int window = Math.max(0, max);
+        if (window == 0) {
+            return Collections.emptyList();
+        }
+        Map<String, WeChatMessage> merged = new LinkedHashMap<>();
+        Deque<WeChatMessage> hq = listenHistory.get(username);
+        if (hq != null) {
+            for (WeChatMessage m : lastN(hq, window + (pending == null ? 0 : pending.size()))) {
+                merged.put(keyOf(m) + "|" + m.getLocalId(), m);
+            }
+        }
+        int load = window + (pending == null ? 0 : pending.size());
+        for (WeChatMessage m : store.queryRecent(username, Math.max(window, load))) {
+            merged.put(keyOf(m) + "|" + m.getLocalId(), m);
+        }
+        Set<String> pendingKeys = new HashSet<>();
+        if (pending != null) {
+            for (WeChatMessage m : pending) {
+                String pendingKey = keyOf(m) + "|" + m.getLocalId();
+                pendingKeys.add(pendingKey);
+                merged.put(pendingKey, m);
+            }
+        }
+        List<WeChatMessage> ordered = new ArrayList<>(merged.values());
+        ordered.sort(Comparator.comparingLong(WeChatMessage::getSortSeq));
+        List<WeChatMessage> context = new ArrayList<>();
+        for (WeChatMessage m : ordered) {
+            if (!pendingKeys.contains(keyOf(m) + "|" + m.getLocalId())) {
+                context.add(m);
+            }
+        }
+        if (context.size() > window) {
+            context = new ArrayList<>(context.subList(context.size() - window, context.size()));
+        }
+        return context;
+    }
+
     private void pushHistory(String key, WeChatMessage m) {
         Deque<WeChatMessage> dq = listenHistory.computeIfAbsent(key, k -> new ArrayDeque<>());
         dq.addLast(m);
-        while (dq.size() > Math.max(1, analysisInt("aiContextWindow", 20))) {
+        while (dq.size() > Math.max(20, Math.min(100, analysisInt("aiContextWindow", 20)))) {
             dq.removeFirst();
         }
     }
@@ -1619,73 +1732,10 @@ public class WeChatGatewayService {
     }
 
     /**
-     * 按 Offer 列表 AI 录入相同口径构造 crm_offer：
-     * OFFER 报价价=成本价×(1+利润率/100)向上取整到5的倍数；supplier_name 统一存供应商编码(与现有约定一致)；
-     * 来源字段写 wechat_server_id/wechat_username/wechat_local_id 回查聊天记录。
+     * 第一层过滤器：blackNames 按会话名精确匹配并优先排除；
+     * whiteNames 非空时只放行精确匹配的白名单会话。
+     * 关键词包含匹配由入库前的 pollIgnoreChats 负责，避免“交流”等短词误伤业务群。
      */
-    private CrmOffer buildCrmOffer(WeChatMessage m, Map<String, Object> item, String supplierCode,
-                                   double ratio, String createBy) {
-        CrmOffer offer = new CrmOffer();
-        offer.setProductCode(str(item.get("partNumber")));
-        offer.setProductBrand(str(item.get("brand")));
-        offer.setProductDetailCode(str(item.get("model")));
-        String aiDetail = str(item.get("productDetail"));
-        offer.setProductDetail(aiDetail.isEmpty() ? str(item.get("spec")) : aiDetail);
-        offer.setSpec(str(item.get("spec")));
-        offer.setDc(str(item.get("dc")));
-        offer.setCoo(str(item.get("coo")));
-        offer.setDeliveryTime(str(item.get("deliveryTime")));
-        offer.setProductType(str(item.get("productType")));
-        Object qty = item.get("quantity");
-        offer.setQuantity(qty instanceof Number ? ((Number) qty).intValue() : null);
-        Object price = item.get("price");
-        Double cost = price instanceof Number ? ((Number) price).doubleValue() : null;
-        offer.setPriceCost(cost);
-        boolean isOffer = "OFFER".equalsIgnoreCase(m.getMsgCategory());
-        if (isOffer && cost != null) {
-            offer.setPriceOffer(ceilTo5(cost * (1d + ratio / 100d)));
-        }
-        offer.setPriceUnit("USD");
-        offer.setStockDate(new Date());
-        offer.setSheetName(buildSheetName(m));
-        offer.setSupplierCode(supplierCode);
-        offer.setSupplierName(supplierCode);
-        offer.setInqOfferType(isOffer ? "Offer" : "Inq");
-        offer.setStatus(1);
-        offer.setCreateBy(createBy);
-        offer.setUpdateBy(createBy);
-        offer.setWechatServerId(StringUtils.defaultString(m.getServerId()));
-        offer.setWechatUsername(StringUtils.defaultString(m.getUsername()));
-        offer.setWechatLocalId(m.getLocalId());
-        String remark = "微信自动录入|群:" + StringUtils.trimToEmpty(m.getName())
-                + "|发言人:" + StringUtils.trimToEmpty(m.getSender())
-                + "|消息时间:" + StringUtils.trimToEmpty(m.getCreateTime())
-                + "|server_id:" + StringUtils.defaultString(m.getServerId());
-        offer.setRemark(remark.length() > 500 ? remark.substring(0, 500) : remark);
-        return offer;
-    }
-
-    /** 来源表名：WX_时间戳_会话名（会话名非法字符替换为下划线，超长截断）。 */
-    private String buildSheetName(WeChatMessage m) {
-        String ts = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-        String chat = StringUtils.trimToEmpty(m.getName()).replaceAll("[\\\\/:*?\"<>|\\s]+", "_");
-        if (chat.length() > 60) {
-            chat = chat.substring(0, 60);
-        }
-        String sn = "WX_" + ts + "_" + chat;
-        return sn.length() > 500 ? sn.substring(0, 500) : sn;
-    }
-
-    /** 报价向上取整到5的倍数（与 Offer 列表 AI 录入一致：以0或5结尾，保留整数）。 */
-    private Double ceilTo5(double v) {
-        return Math.ceil(v / 5.0d) * 5.0d;
-    }
-
-    private String str(Object v) {
-        return v == null ? "" : String.valueOf(v).trim();
-    }
-
-    /** 第一层过滤器：blackNames 永远优先排除；whiteNames 非空时只放行白名单。 */
     private boolean passAnalysis(WeChatMessage m) {
         if (m == null) {
             return false;
@@ -1693,8 +1743,10 @@ public class WeChatGatewayService {
         Set<String> white = analysisNames("whiteNames");
         Set<String> black = analysisNames("blackNames");
         String name = StringUtils.trimToEmpty(m.getName());
-        if (black.contains(name)) {
-            return false;
+        for (String key : black) {
+            if (name.equals(StringUtils.trimToEmpty(key))) {
+                return false;
+            }
         }
         if (!white.isEmpty()) {
             return white.contains(name);

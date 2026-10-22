@@ -222,8 +222,9 @@ wechat:
 | POST | `/wechat/poll/run` | `chat`(可选)、`since`(可选,`2026-10-17 00:00:00`) | 手动触发一次拉取（忽略间隔强制拉；`chat`=只拉该会话；`since`=从该时刻起重新拉取，已入库的按唯一键跳过；都不填=按水位拉增量） |
 | GET | `/wechat/poll/status` | 无 | 拉取/分类参数+运行状态：`{enabled,intervalSec,ignoreChats,classifyTriggerCount,lastRunAt,unclassifiedCnt,...}` |
 | POST | `/wechat/classify/run` | `chat`(可选) | 手动触发一次分类（先拉最新，再处理最早未分类的 `classifyBatchSize` 条；chat=只处理该会话） |
-| POST | `/wechat/offer/entry/run` | `chat`(可选) | 手动触发一次 INQ/OFFER 自动录入（status=1 → AI 解析 → 写入 `crm_offer`，成功后 status=2；chat=只录入该会话，不填=全部会话并受 `offerEntryScanSec` 限频） |
-| GET | `/wechat/offer/entry/status` | 无 | 录入参数+运行状态：`{enabled,batchSize,categories,supplierCode,supplierMap,profitRatio,maxFail,pendingCnt,lastRunAt,...}` |
+| POST | `/wechat/offer/entry/run` | `chat`(可选) | 手动触发一次 INQ/OFFER 自动录入（AI查询 → AI录入 → 同料号比价；chat=只录入该会话，不填=全部会话并受 `offerEntryScanSec` 限频） |
+| GET | `/wechat/offer/entry/status` | 无 | 录入参数、运行状态和各 `entry_status` 数量：`{enabled,...,minAgeSec,maxAgeHours,pendingCnt,entryStatusStats,...}` |
+| POST | `/wechat/offer/entry/requeue` | `chat`(可选) | 人工确认后把 `SKIPPED/FAILED/DEAD` 的 INQ/OFFER 重新入队；不绕过语义校验 |
 | POST | `/wechat/listen/start` | `media`(可选)、`fresh`(可选) | 启动实时监听；`fresh=true`=从现在开始(不回放历史) |
 | GET | `/wechat/listen/status` | 无 | `{message,running,processed,filtered,pendingChats,pendingMsgs}` |
 | POST | `/wechat/listen/stop` | 无 | 停止监听，返回已处理条数 |
@@ -339,19 +340,25 @@ POST /system/dict/data/refreshCache   （带管理员 token）
    - 未分类（`status=0`）消息数量 ≥ **`classifyTriggerCount`** 条（默认 5），
      或最早未分类消息等待 ≥ **`classifyMaxIdleSec`** 秒（默认 180）→ 触发 AI 分类；
    - 每轮只处理最早未分类的 **`classifyBatchSize`** 条（默认 20），分类后 `status=1`；
-   - 分类时带上该会话最近 **`aiContextWindow`** 条已分类消息作为上下文，
-     让模型能按「上一条是询价 → 本条纯数字是报价」这类前后文判断；
+   - 分类时带上该会话最近 **`aiContextWindow`**（默认20）条原始消息作为上下文（允许未分类），
+     分批时每批都带独立滑动窗口；让模型能按「上一条是询价 → 本条纯数字是报价」判断；
    - 分类结果回写数据库：`msg_category` / `category_source` / `category_reason` / `status=1`；
-   - **严格业务关联**（同会话按时间回溯最近一条）：`OFFER` 必须是我方对客户 INQ 的带价回应，
-     并写入 `relat_inq`；`TRACE` 必须是客户疑问句，写入 `relat_inq`（对应 INQ）+
-     `relat_offer`（对应 OFFER）；`INQ` 必须是非我方客户发起。关联失败统一降级 `OTHER`。
+   - **严格业务关联**（同会话按时间回溯最近一条）：`OFFER` 必须是对向 INQ 的带价回应（买卖任一方均可发），
+     并写入 `relat_inq`；`TRACE` 可以是疑问或陈述式业务推进，写入 `relat_inq`（对应 INQ）+
+     `relat_offer`（对应 OFFER）；`INQ` 只要求有询价意图，不限制发送方。关联失败统一降级 `OTHER`。
      关联内容是 JSON：`{id, server_id, sender, content(截前800字), create_time}`。
-   - **TRACE 飞书预警**：分类关联成功后立即推送；失败保持 `status=1`，定时补扫接口
+   - **TRACE 飞书预警**：分类关联成功后立即推送（疑问/陈述均可）；失败保持 `status=1`，定时补扫接口
      `POST /wechat/trace/alert/scan` 默认每 30 秒重试。只有飞书明确返回成功才置 `status=2`。
 3. 另保留**监听**（`/wechat/listen/start`，可选）：收到的新消息同样先入库，
    攒够 `aiTriggerCount` 条或超过 `aiFlushMinutes` 分钟触发分类，并逐条回调 `WeChatMessageHandler`。
    不启动监听也不影响消息落库（靠 1、2 两条定时任务）。
 4. 定时清理：每 6 小时删除超过 **`msgRetentionDays`** 天（默认 3）的历史消息。
+
+> 自动录入安全边界：`offerEntryEnabled=false` 对定时任务硬生效，只有显式传 `chat` 的
+> `POST /wechat/offer/entry/run` 才允许人工排障执行；分类后默认等待 `offerEntryMinAgeSec`
+> 秒再入队，只回溯 `offerEntryMaxAgeHours` 小时。每条消息独立记录
+> `entry_status/entry_message/entry_offer_count/entry_offer_ids/entry_at`，失败可重试，
+> `SKIPPED/FAILED/DEAD` 需人工确认后调用 `POST /wechat/offer/entry/requeue` 重排。
 
 ### 7.2 分类管线（单条消息）
 
@@ -366,22 +373,27 @@ POST /system/dict/data/refreshCache   （带管理员 token）
   + few-shot 示例 = `llmExamples`（留空用内置默认），两个都可在字典里改，无需改代码。
 - 黑白名单：`blackNames` 永远优先；`whiteNames` 非空时只放行白名单。被过滤的会话不参与 AI 分类，
   库内标 `OTHER/FILTER/status=3`，查询接口不返回。
-- `selfNames` 必须精确匹配（例如 `May` 不会误匹配 `May 星禾 SSD GPU`）；所有方向判断
-  （客户 INQ、我方 OFFER、客户 TRACE）都以该配置为准，新增业务员必须及时追加。
+- 买卖双向：**INQ/OFFER 都不按发送方区分**。客户或我方都可询价，客户/供应商或我方都可报价；
+  判断依据是“在问价还是在给价”，并结合该会话最近 `aiContextWindow`（默认20）条原始消息。
+- `selfNames` 必须精确匹配（例如 `May` 不会误匹配 `May 星禾 SSD GPU`），当前为
+  `Eke,May,Jin,Jasmine`；它只用于识别角色与交易方向，不能用来固定 INQ/OFFER。
+- OFFER 必须来自与 INQ 不同的发送人，并带价格证据；`TRACE` 可以是疑问句，也可以是
+  “就按这个价/这个价格可以，按24pcs安排/数量改成/明天确认交期”等陈述式推进，必须有业务要素和时间关联。
 
 ### 7.3 字典/建表安装与生效
 
 ```powershell
-# 新库：先执行基础建表/字典，再执行两个增量脚本
+# 新库：先执行基础建表/字典，再按顺序执行增量脚本
 mysql -uroot -p 你的库名 < C:\Project\RuoYi-Vue\sql\wechat_analysis_dict.sql
 mysql -uroot -p 你的库名 < C:\Project\RuoYi-Vue\sql\wechat_semantics_v2.sql
 mysql -uroot -p 你的库名 < C:\Project\RuoYi-Vue\sql\wechat_semantics_v3.sql
+mysql -uroot -p 你的库名 < C:\Project\RuoYi-Vue\sql\wechat_semantics_v4.sql
 ```
 - **已有库不要整文件重跑 `wechat_analysis_dict.sql`**：该文件是初始化并重置字典的脚本，
-  会覆盖人工维护的 `offerEntrySupplierMap`。已有库只执行 `wechat_semantics_v3.sql` 即可。
-- `wechat_semantics_v3.sql` 会：① 把三处 `server_id` 扩到 `VARCHAR(255)`；② 补齐语义时间窗、
-  TRACE 补扫和自动录入门禁参数；③ 把非业务群历史消息纠正为 `OTHER/FILTER/status=3`。
-  脚本不会删除字典、不会覆盖已有供应商映射。
+  会覆盖人工维护的 `offerEntrySupplierMap`。已执行过 v3 的库只执行 `wechat_semantics_v4.sql`。
+- `wechat_semantics_v4.sql` 会：① 增加独立录入状态列和索引；② 更新 `selfNames` 为四人；
+  ③ 清空旧单向提示词/示例；④ 增加“至少等待60秒、最多回溯24小时”门禁；
+  ⑤ 把升级前历史 INQ/OFFER 标为 `SUCCESS` 或 `SKIPPED`，**不会自动批量补录**。
 - 导入后刷新字典缓存（`POST /system/dict/data/refreshCache`，带管理员 token）
   或直接**重启 ruoyi-admin**（直接改 MySQL 字典不重启不会热生效，走管理端页面改会自动刷新）。
 
@@ -401,13 +413,13 @@ mysql -uroot -p 你的库名 < C:\Project\RuoYi-Vue\sql\wechat_semantics_v3.sql
 | dict_label | 默认值 | 含义 |
 | ---- | ---- | ---- |
 | whiteNames / blackNames | 空 / 四个非业务群 | 会话白/黑名单（按消息 name 精确匹配，逗号分隔）；blackNames 永远优先 |
-| selfNames | Eke,May | 我方微信名/别名（精确匹配，逗号分隔），用于判断消息方向 |
-| strictBusinessSemantics | true | 严格业务语义开关：广播、我方外发询价、内部沟通降级 OTHER |
-| strictCustomerOnly | true | 只保留客户发起的 INQ/TRACE |
-| traceAlertEnabled | true | TRACE 飞书预警开关 |
+| selfNames | Eke,May,Jin,Jasmine | 我方成员（精确匹配）；只识别角色，不固定 INQ/OFFER 方向 |
+| strictBusinessSemantics | true | 严格业务语义：无对向关联的广播报价/无关闲聊降级 OTHER |
+| strictCustomerOnly | false | 已废弃兼容项；买卖双向，不再限制只保留客户发起 |
+| traceAlertEnabled | true | 已关联 INQ/OFFER 的二次业务跟进推送飞书（疑问/陈述均可） |
 | traceAlertMaxAgeMin | 1440 | TRACE 预警最大时效(分钟) |
 | traceAlertScanBatchSize | 50 | TRACE 预警补扫每批条数 |
-| offerLinkMaxAgeMin | 180 | OFFER 关联客户 INQ 的最大时间窗(分钟) |
+| offerLinkMaxAgeMin | 180 | OFFER 关联对向 INQ 的最大时间窗(分钟) |
 | offerShortReplyWindowMin | 30 | 无料号/无引用短报价的关联窗口(分钟) |
 | traceLinkMaxAgeMin | 180 | TRACE 关联 INQ/OFFER 的最大时间窗(分钟) |
 | traceShortWindowMin | 30 | 群聊短追问关联窗口(分钟) |
@@ -417,10 +429,10 @@ mysql -uroot -p 你的库名 < C:\Project\RuoYi-Vue\sql\wechat_semantics_v3.sql
 | llmTimeoutSec | 180 | 单次请求超时(秒) |
 | aiTriggerCount | 5 | 攒够该条数立即分类 |
 | aiFlushMinutes | 3 | 超时窗口(分钟) |
-| aiContextWindow | 20 | 上下文条数 |
+| aiContextWindow | 20 | 上下文原始消息条数（代码下限20） |
 | msgRetentionDays | 3 | 消息保留天数（过期自动删） |
 | llmPromptBase | 空(内置) | 系统提示词覆盖 |
-| llmExamples | 12条严格案例 | 严格 INQ/OFFER/TRACE 口径示例；改后调用 `POST /wechat/classify/cache/clear` |
+| llmExamples | 空(内置双向) | 买卖双向 INQ/OFFER/TRACE 示例；改后调用 `POST /wechat/classify/cache/clear` |
 | offerFixedSenders / offerFixedGroups | 空 | 固定 OFFER 名单(逗号分隔) |
 | offerFollowWindowMin | 5 | 固定 OFFER 回复跟随窗口(分钟)，0=关闭 |
 | pollEnabled | true | 轮询拉取总开关（false=仅手动 poll/run） |
@@ -436,41 +448,44 @@ mysql -uroot -p 你的库名 < C:\Project\RuoYi-Vue\sql\wechat_semantics_v3.sql
 | offerEntryScanSec | 30 | 录入扫描间隔(秒)，定时自动录入的限频；手动指定 chat 不受限 |
 | offerEntryBatchSize | 5 | 每轮最多录入条数(取最早 status=1 且分类命中) |
 | offerEntryCategories | INQ,OFFER | 参与录入的分类(逗号分隔)；TRACE/OTHER 不录入 |
-| offerEntrySupplierCode | 空 | 默认供应商编码；`offerEntrySupplierMap` 未命中时使用；为空则该会话消息跳过(保持 status=1 等待配置) |
+| offerEntrySupplierCode | 空 | 默认供应商编码；`offerEntrySupplierMap` 未命中时使用；为空则该消息标 `SKIPPED`，配置后人工重排 |
 | offerEntrySupplierMap | 空 | 会话→供应商映射，如 `比特群=VC0820361,硬盘群=VC0820345`；命中优先；会话名需与 `wechat_message.name` 完全一致 |
-| offerEntryProfitRatio | 2 | OFFER 报价利润率(%)：报价价=成本价×(1+利润率/100)，向上取整到 5 的倍数(与 Offer 列表 AI 录入一致) |
-| offerEntryMaxFail | 3 | 同一消息连续录入失败上限(次)，达到后置 status=3(无需处理)，避免卡队列 |
+| offerEntryProfitRatio | 2 | 仅“我方外发 OFFER”按销售报价加利润；外部供应商报价按采购 Inq 记录，不加价 |
+| offerEntryMaxFail | 3 | 连续失败上限，达到后置 `entry_status=DEAD`；人工确认后可重新入队 |
 | offerEntryCreateBy | wechat_auto | 自动录入的录入人(create_by/update_by) |
-| offerEntryRequireRelatInq | true | OFFER 自动录入前必须关联客户 INQ |
+| offerEntryRequireRelatInq | true | OFFER 自动录入前必须关联对向 INQ（买卖任一方均可为 INQ） |
 | offerEntryRequireOfferPrice | true | OFFER 自动录入前必须有可解析正价格 |
+| offerEntryMinAgeSec | 60 | 分类后至少等待秒数，让后续上下文完整后再录入 |
+| offerEntryMaxAgeHours | 24 | 自动录入最大回溯小时数，超期历史需人工重新入队 |
 
 ---
 
-### 7.6 INQ/OFFER 自动录入 CRM（status=1 → crm_offer，成功后 status=2）
+### 7.6 INQ/OFFER 自动录入 CRM（复用“AI查询”和“AI录入”按钮逻辑）
 
-分类完成后（`status=1`），系统先做严格语义复核，再把 **INQ / OFFER** 消息按「Offer 列表 AI 录入」的**完全一致逻辑**
-（同一个 `DeepSeekAiService.parseMaterialContent` 提示词：品牌/料号/型号/规格/数量/报价/DC/COO/交期/产品类型/详情）
-解析并写入 `crm_offer`，供业务直接消费，无需人工复制粘贴。
+自动录入不复制一套解析代码，而是调用 CRM 页面两个按钮对应的服务：
+`aiQueryHistory`（AI查询：识别料号并查近1个月历史）→
+`aiEntryOffersReturningAsSystem`（AI录入：同一解析/价格/入库逻辑，系统任务显式操作人）→
+`compareRecentOffers`（录入后同料号比价）。
 
 数据流：
 ```
-wechat_message(status=1, msg_category∈INQ,OFFER)
-   → 定时任务(offerEntryScanSec 秒一轮, 每轮最多 offerEntryBatchSize 条, 最早的优先)
-   → AI 解析物料列表 → 逐行 INSERT crm_offer
-       ├─ 写入来源关联字段：wechat_server_id / wechat_username / wechat_local_id（可反查聊天记录）
-       ├─ supplier_code：字典 offerEntrySupplierMap(会话名=供应商编码) 优先，回退 offerEntrySupplierCode
-       ├─ inq_offer_type：INQ→Inq（只记成本价）/ OFFER→Offer（报价=成本×(1+利润率/100) 取整到5）
-       └─ remark：群/发言人/消息时间/server_id 溯源；sheet_name：WX_时间戳_会话名
-   → 成功：status=2(已分类处理未发送)；AI 解析失败：entry_fail_count+1，
-     达到 offerEntryMaxFail 次 → status=3(无需处理)，未达上限保持 status=1 下轮重试
+wechat_message(status=1, msg_category∈INQ,OFFER, 最近24小时, 分类后≥60秒)
+  → 原子领取 entry_status=PENDING/FAILED → PROCESSING（防并发重复）
+  → 双向语义复核（INQ 看询价意图；OFFER 必须有关联对向 INQ、不同发送人、价格证据）
+  → supplier_code：offerEntrySupplierMap 优先，回退 offerEntrySupplierCode
+  → AI查询：识别料号 + 查近1个月历史
+  → AI录入：调用同一 AI录入按钮核心逻辑写 crm_offer（带 wechat_server_id/username/local_id 来源）
+  → 同料号比价
+  → entry_status：SUCCESS / SUCCESS_WARN / SKIPPED / FAILED / DEAD
 ```
 
 - 供应商编码必须先在字典配好（`offerEntrySupplierCode` 默认值，或 `offerEntrySupplierMap`
-  逐会话映射 `会话名=供应商编码`，多个用英文逗号分隔）；未命中供应商的消息**跳过不录入**（保持 status=1），日志提示。
-- 自动录入门禁：INQ 必须非我方且具备明确询价意图；OFFER 必须是我方发言、已关联客户 INQ、
-  能通过关联时间窗和带价回应校验。旧版宽松分类留下的脏数据会在录入前被再次拦截并置 `status=3`。
-- 另有两条字典开关：`offerEntryRequireRelatInq=true`（OFFER 必须有 INQ 关联）与
-  `offerEntryRequireOfferPrice=true`（OFFER 必须有正价格）。
+  逐会话映射 `会话名=供应商编码`，多个用英文逗号分隔）；未命中供应商的消息标 `SKIPPED`，不写库。
+- 自动录入门禁不再看发送方：INQ 可由任一方发出；OFFER 必须不同发送人、有关联对向 INQ、能通过时间窗且带价格证据。
+- 方向映射：我方外发 OFFER → `Offer` 并加利润；外部供应商向我方 OFFER → `Inq`（采购报价，不加价）；
+  我方给供应商 INQ、客户向我方 INQ → `Inq`。
+- `SKIPPED` 表示需人工确认（无料号、无供应商、语义不足等）；`FAILED` 自动重试，`DEAD` 达上限；
+  人工确认后调用 `POST /wechat/offer/entry/requeue?chat=比特群` 重排。
 - 手动测试：`POST /wechat/offer/entry/run?chat=比特群`（指定会话立即执行，不受限频）；状态：`GET /wechat/offer/entry/status`。
 - 与「Offer 列表 AI 录入」的区别：无人为指定供应商/利润率时的默认值来自字典；录入人统一 `wechat_auto`；其余字段映射与计算完全一致。
 - 改了字典参数后需 `POST /system/dict/data/refreshCache`（带登录态）或重启后端生效。
@@ -493,8 +508,13 @@ wechat_message(status=1, msg_category∈INQ,OFFER)
 | `id` | 库表自增主键（入库/查询后才有值） |
 | `category_source` | 分类来源：`LLM`/`FIXED`/`GROUP-FIXED`/`FIXED-FOLLOW`/`CACHE`/`FILTER` |
 | `category_reason` | AI 判定的简短理由（便于人工复核） |
-| `status` | 处理状态枚举：`0`=未分类 `1`=已分类未处理 `2`=已分类处理未发送(已录入crm_offer) `3`=无需处理(录入连续失败达上限等) `4`=已分类处理发送(后续发送环节)；`/wechat/messages` 可用 `status=` 过滤，字典 `wechat_message_status` |
-| `entry_fail_count` | AI 录入失败次数：连续失败达 `offerEntryMaxFail` 次自动置 `status=3`；0=未失败 |
+| `status` | 消息处理状态：`0`=未分类 `1`=已分类未处理 `2`=已处理/已录入 `3`=无需处理或已转人工 `4`=已处理发送；自动录入细节看独立 `entry_status` |
+| `entry_fail_count` | AI 录入连续失败次数；达到 `offerEntryMaxFail` 后置 `entry_status=DEAD` |
+| `entry_status` | 独立录入状态：`PENDING/PROCESSING/SUCCESS/SUCCESS_WARN/FAILED/DEAD/SKIPPED/NOT_APPLICABLE` |
+| `entry_message` | 最近一次录入结果摘要；包含 AI查询组数/历史条数、AI录入行数、比价条数或跳过/失败原因 |
+| `entry_offer_count` | 本条微信消息本次/最近一次写入 `crm_offer` 的行数 |
+| `entry_offer_ids` | 写入的 `crm_offer.id` 列表（逗号分隔），用于精确审计 |
+| `entry_at` | 最近一次录入状态更新时间 |
 | `relat_inq` | 业务关联 INQ（JSON：id/server_id/sender/content/create_time）；OFFER=回应的INQ，TRACE=对应的INQ；无关联为空 |
 | `relat_offer` | 业务关联 OFFER（同上格式）；仅 TRACE 有值（对应的OFFER）；其余为空 |
 
@@ -539,23 +559,22 @@ wechat_message(status=1, msg_category∈INQ,OFFER)
 想改定义/加例子，把 `llmPromptBase`（系统提示词）和 `llmExamples`（few-shot 示例）
 填进 `wechat_analysis_config` 字典即可，无需动代码。
 
-- **INQ 客户询价**：非我方客户发起的询价/求购，例如“MBD-H13SSL-N-B 24pcs 有货吗”、
-  “RFQ: 5955WX 100pcs”、型号+数量求购。我方外发询价、纯数量、群发广告都不算。
-- **OFFER 我方报价**：必须由 `selfNames` 中的我方人员发出，并且是对同一会话中某条客户 INQ 的
-  直接回应；必须有料号/数量等关联证据和价格证据。广播报价、无 INQ 的报价清单、仅回复“好的/有”
-  都不算。
-- **TRACE 客户二次追问**：必须是客户发出的疑问句，且关联到已有 INQ 或我方有效 OFFER；
-  内容需涉及价格、交期、库存、税、MOQ、数量、下单等交易要素。
-- **OTHER 其他**：闲聊、单字回复、陈述句（“价格很好”“客户都要下单了”）、收购广告、
+- **INQ 询价**：任何一方提出询价/求购，例如客户问“MBD-H13SSL-N-B 24pcs 有货吗”，
+  或我方发给供应商“找64G 5600 100条，有货来报”。纯数量、无业务上下文的群发广告不算。
+- **OFFER 报价**：客户/供应商/我方均可发送，但必须是另一发送人对同一会话某条 INQ 的直接回应；
+  必须有料号/数量等关联证据和价格证据。同人自问自答、广播报价、无 INQ 的报价清单不算。
+- **TRACE 二次跟进**：围绕已有 INQ/OFFER 的后续沟通，可以是疑问句，也可以是价格确认、
+  数量调整、交期确认、下单/备货安排等陈述；必须结合最近20条上下文看出是同一笔业务。
+- **OTHER 其他**：闲聊、单字回复、普通陈述（“价格很好”“客户都要下单了”）、收购广告、
   系统消息、XML/图片/语音、我方内部沟通，以及无法建立业务关联的内容。
 
 内置提示词关键规则：
-1. 先判断方向：INQ/TRACE 必须由客户发起，OFFER 必须由我方发起；
-2. OFFER 必须能关联到客户 INQ 并有真实价格；`TP5400usd`、目标价是 INQ 不是 OFFER；
-3. TRACE 必须是疑问句且关联具体 INQ/OFFER，普通陈述和无关联寒暄一律 OTHER；
+1. 买卖双向：INQ/OFFER 都看“问价/给价”，不看发送方；
+2. OFFER 必须能关联到对向 INQ、来自不同发送人并有真实价格；目标价仍是 INQ；
+3. TRACE 可以不是疑问句，但必须有交易延续动作并关联具体 INQ/OFFER；无关联寒暄一律 OTHER；
 4. 拿不准按 OTHER，宁缺毋滥，不编造关联。
 
 > 调整提示词/语义规则后，先调用 `POST /wechat/classify/cache/clear`，再将历史消息的
-> `status/msg_category/category_source/category_reason/relat_inq/relat_offer/entry_fail_count`
+> `status/msg_category/category_source/category_reason/relat_inq/relat_offer/entry_fail_count/entry_status/entry_message/entry_offer_count/entry_offer_ids/entry_at`
 > 全部清空后重跑；只把 `status` 改回 0 会导致非空分类字段被当成上下文缓存。
 

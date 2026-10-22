@@ -5,8 +5,8 @@
 --   2) wechat_analysis_config 字典：黑白名单过滤 + 批量AI分类参数 + 固定OFFER名单。
 -- 用法(MySQL)：  mysql -uroot -p 数据库名 < wechat_analysis_dict.sql
 -- 导入后需刷新字典缓存：POST /system/dict/data/refreshCache（或重启 ruoyi-admin）
--- 2026-10-22 语义收紧：已有库不要整文件重跑（会重置参数），请按顺序执行
---   sql/wechat_semantics_v2.sql、sql/wechat_semantics_v3.sql。
+-- 2026-10-22 双向语义：已有库不要整文件重跑（会重置参数），请按顺序执行
+--   sql/wechat_semantics_v2.sql、sql/wechat_semantics_v3.sql、sql/wechat_semantics_v4.sql。
 -- =====================================================================
 
 -- 1) 消息表（不存在才建；列名/类型与 Java POJO 对应）
@@ -32,6 +32,11 @@ CREATE TABLE IF NOT EXISTS wechat_message (
   category_reason VARCHAR(512) DEFAULT '' COMMENT '分类理由', 
   status TINYINT NOT NULL DEFAULT 0 COMMENT '状态: 0=未分类 1=已分类未处理 2=已分类处理未发送 3=无需处理 4=已分类处理发送', 
   entry_fail_count INT NOT NULL DEFAULT 0 COMMENT 'AI录入失败次数(连续失败达offerEntryMaxFail次则置status=3无需处理)', 
+  entry_status VARCHAR(24) NOT NULL DEFAULT 'NOT_APPLICABLE' COMMENT '自动录入状态：PENDING/PROCESSING/SUCCESS/SUCCESS_WARN/FAILED/DEAD/SKIPPED/NOT_APPLICABLE',
+  entry_message VARCHAR(1000) NOT NULL DEFAULT '' COMMENT '自动录入结果或跳过/失败原因',
+  entry_offer_count INT NOT NULL DEFAULT 0 COMMENT '本次成功写入crm_offer行数',
+  entry_offer_ids VARCHAR(1000) NOT NULL DEFAULT '' COMMENT '本次写入的crm_offer主键列表',
+  entry_at DATETIME NULL COMMENT '最近一次录入状态更新时间',
   relat_inq TEXT COMMENT '关联INQ(JSON: id/server_id/sender/content/create_time)', 
   relat_offer TEXT COMMENT '关联OFFER(JSON: id/server_id/sender/content/create_time)', 
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '入库时间', 
@@ -43,7 +48,8 @@ CREATE TABLE IF NOT EXISTS wechat_message (
   KEY idx_status_sort (status, sort_seq), 
   KEY idx_status_cat_sort (status, msg_category, sort_seq), 
   KEY idx_name_sort (name, sort_seq), 
-  KEY idx_status_createtime (status, create_time)
+  KEY idx_status_createtime (status, create_time),
+  KEY idx_entry_status_since (entry_status, create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微信消息表(仅保留最近N天,定时清理)';
 
 -- 1.5) 黑名单消息表：pollIgnoreChats(名称包含关键词) 命中的群消息只入库、不做分类/处理；
@@ -95,7 +101,7 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_defa
 (16, 'llmTimeoutSec', '180', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '单次大模型请求超时时间(秒)'),
 (90, 'aiTriggerCount', '5', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类触发条数：同一会话积累未分类消息达到该数量立即调起AI分类'),
 (91, 'aiFlushMinutes', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类超时窗口(分钟)：超时仍未凑够触发条数也调起AI分类'),
-(92, 'aiContextWindow', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类上下文条数：判定时带上该会话最近N条已分类消息'),
+(92, 'aiContextWindow', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类上下文条数：判定时带上该会话最近N条原始消息，业务要求最低20条'),
 (93, 'msgRetentionDays', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '消息保留天数：定时任务删除超过该天数的聊天记录'),
 (94, 'llmPromptBase', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类系统提示词(留空用内置默认)：分类定义+判断规则'),
 (95, 'llmExamples', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类few-shot示例(留空用内置默认)：真实消息+正确分类'),
@@ -120,54 +126,22 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_defa
 (117, 'offerEntryProfitRatio', '2', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'OFFER报价利润率(%)：报价价=AI识别成本价x(1+利润率/100)，向上取整到5的倍数，与Offer列表AI录入口径一致(默认2)'),
 (118, 'offerEntryMaxFail', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI录入失败上限(次)：同一消息连续录入失败达到该次数置status=3无需处理，避免失败消息一直卡住队列(默认3)'),
 (119, 'offerEntryCreateBy', 'wechat_auto', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '录入人(create_by/update_by)：定时任务无登录用户，统一用该值标记AI自动录入来源(默认wechat_auto)'),
-(120, 'selfNames', 'Eke,May', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '我方微信名/别名(逗号分隔)：用于判断消息方向；后续新增业务员在此追加'),
-(121, 'strictBusinessSemantics', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '严格业务语义：广播报价/我方外发询价/内部沟通降级OTHER'),
-(122, 'strictCustomerOnly', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '只保留客户发起的INQ/TRACE；我方问供应商的消息归OTHER'),
-(123, 'traceAlertEnabled', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'TRACE飞书预警：仅对客户发起、已关联INQ/OFFER、且为疑问句的二次询问推送'),
-(124, 'traceAlertMaxAgeMin', '1440', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'TRACE预警最大时效(分钟)：超过该时长的历史消息不推送飞书，默认1440=24小时');
+(120, 'selfNames', 'Eke,May,Jin,Jasmine', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '我方微信名/别名(逗号分隔)：仅用于判断角色，INQ/OFFER均可由任一方发出'),
+(121, 'strictBusinessSemantics', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '严格业务语义：方向看问价/给价，不看发送方；无关联广播降级OTHER'),
+(122, 'strictCustomerOnly', 'false', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '已废弃：买卖双向，不再限制只保留客户发起'),
+(123, 'traceAlertEnabled', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'TRACE飞书预警：已关联INQ/OFFER的二次业务跟进，疑问或陈述均可'),
+(124, 'traceAlertMaxAgeMin', '1440', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'TRACE预警最大时效(分钟)：超过该时长的历史消息不推送飞书，默认1440=24小时'),
+(137, 'offerEntryMinAgeSec', '60', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '分类后等待秒数：让后续消息进入上下文后再自动录入，默认60'),
+(138, 'offerEntryMaxAgeHours', '24', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '自动录入最大回溯小时数：超期历史消息需人工重新入队，默认24');
 
 -- 2.6) 【2026-10-22 调整】AI 渠道配置（地址/Key/模型/备用渠道/告警）已统一到系统参数 sys_config（前缀 sys.ai.），
 --       见 sql/deepseek_ai_config.sql；下列字典旧参数已作废并清理，避免两套配置不一致：
 DELETE FROM sys_dict_data WHERE dict_type='wechat_analysis_config'
   AND dict_label IN ('llmEnabled','llmApiKey','llmApiBase','llmModel','llmBackupEnabled','llmBackupApiBase','llmBackupApiKey','llmBackupModel','llmFailThreshold','llmBackupCheckSec','alertFeishuWebhook','alertCooldownSec');
 
--- 4) 【2026-10-20 新增】AI分类few-shot示例：源自 Reference/INQ_OFFER_TRACE_分类示例.xlsx 真实案例（24条）
---    dict_value 原为 varchar(100)，放不下提示词/示例长文本，扩容到 8192（兼容 llmPromptBase 长提示词）
+-- 4) AI分类提示词/示例：留空使用代码内置双向语义规则，避免旧版“客户INQ/我方OFFER”固定方向继续生效
+--    dict_value 需要容纳长提示词，统一扩容到 8192。
 ALTER TABLE sys_dict_data MODIFY COLUMN dict_value VARCHAR(8192) NOT NULL DEFAULT '';
-UPDATE sys_dict_data SET dict_value = '真实示例（<换人>表示消息来自不同发言人，示例内按顺序为连续对话）：
-示例1：<雅克尼> INQ
-AMD 9555P : 153pcs
-AMD 9355P : 154pcs
-AMD 9115 : 276pcs
-AMD 8324P : 76pcs → INQ（买方列型号+数量，无价格）
-示例2：<雅克尼> Gold 6430 14pcs 这个找拆新的 → INQ（含型号+数量即询价）
-示例3：<雅克尼> MBD-H13SSL-N-B 24pcs → INQ（纯型号数量求购）
-示例4：<雅克尼> 9654 $2,145 这个是全新的吗，问32片 → INQ（对报价单单个料号的购买问询，含明确数量）
-示例5：<Eke> AMD 9555P : 18pcs 3300 USD 3-5d
-AMD 9355P : 110pcs 2320 USD 1-3d
-AMD 9115 : 276pcs 24pulled 690USD → OFFER（料号对上一条INQ且带价格=对询价的报价）
-示例6：<Eke> M&E 2026-10-19 Offer：
-Part No. Qty Price
-5955WX 485USD
-5965WX 755USD
-7975WX 2785USD → OFFER（自家库存报价表整段）
-示例7：<Eke> MBD-H13SSL-N-B 20pcs 2w到港 695USD → OFFER（价格+交期）
-示例8：<Eke> @雅克尼 一片 MBD-X13SAZ-F-B 660 USD 这个你不是还差1片吗，看下你如果要的话我再去和供应商争取下 → OFFER（给价且含料号）
-示例9：<Eke> CPU offer / this offer → OTHER（对Offer的补充说明，不是新报价）
-示例10：<Eke> check / no stock / 稍等，我check下哈 → OTHER（礼貌应答，无报价无询价）
-示例11：<小辉> <?xml...sysmsg type=revokemsg...> → OTHER（撤回/系统/群公告等系统消息）
-示例12：<Eke> <msg><img ...></msg>、<msg><location ...></msg>、xxx.pdf → OTHER（图片/位置/文件/卡片）
-示例13：<雅克尼> 是你们库存？ → TRACE（针对上一条OFFER追问）
-示例14：<雅克尼> 这个18片，560可以下单吗 → TRACE（针对OFFER砍价/下单确认）
-示例15：<May> @雅克尼 我们到港运费正常要+20USD，你客户只要19片吗？ → TRACE（交期/运费等跟进）
-示例16：<朱妍> 就是660美金吗 / 2周交期也要全款吗 / 质保多久 / 最晚交货日，我写11.3可以吗 → TRACE（价格/交期/质保确认）
-示例17：<May> 你那18片有人接单了吗？ / 原本数量不是19吗？ → TRACE（进度跟进）
-示例18：<May> 新的，你先报，有反馈下单前确认 → TRACE（对上次询价的跟进回复）
-示例19：<雅克尼> 这个有吗 → OTHER（紧接自己上一条INQ的补充说明，不算新INQ）
-示例20：<朱妍> 发点主板的offer给我呗 @May → OTHER（内部向同事要资料，非客户询价）
-示例21：<双方> 下单吧 / 给我一下你的邮箱 / PO条款讨论 / 银行信息 / 送货地址 → OTHER（成交后执行细节）
-示例22：<A> @Eke / 好 / 收到 / 谢谢 / 哦 → OTHER（@提及、单字应答）
-示例23：<嘎嘎呼> 早上好，询一下 5317 10pcs → INQ；<Eke> 早 → OTHER；<Eke> 1145USD @嘎嘎呼 → OFFER（前一条INQ的报价）
-示例24：<May> EPYC 9255 10pcs INQ → INQ；<嘎嘎呼> checking → OTHER（核实中）；<嘎嘎呼> EPYC 9255 10pcs 拆新，2368USD → OFFER'
-WHERE dict_type = 'wechat_analysis_config' AND dict_label = 'llmExamples';
+UPDATE sys_dict_data SET dict_value = '', remark = '留空使用代码内置双向语义提示词/示例'
+WHERE dict_type = 'wechat_analysis_config' AND dict_label IN ('llmPromptBase','llmExamples');
 

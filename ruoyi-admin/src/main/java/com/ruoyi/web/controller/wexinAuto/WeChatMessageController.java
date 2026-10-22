@@ -29,6 +29,7 @@ import java.util.Map;
  *   <li>POST /wechat/classify/run   手动触发一次分类(可选 chat=群/好友名只处理该会话)</li>
  *   <li>POST /wechat/offer/entry/run 手动触发一次INQ/OFFER自动录入(可选 chat=群/好友名只录入该会话)</li>
  *   <li>GET  /wechat/offer/entry/status INQ/OFFER录入参数与状态</li>
+ *   <li>POST /wechat/offer/entry/requeue 人工确认后重排 SKIPPED/FAILED/DEAD 消息</li>
  *   <li>POST /wechat/listen/start   启动实时监听（之后逐条回调 WeChatMessageHandler）</li>
  *   <li>GET  /wechat/listen/status  查询监听状态</li>
  *   <li>POST /wechat/listen/stop    停止监听</li>
@@ -126,6 +127,17 @@ public class WeChatMessageController {
     @GetMapping("/offer/entry/status")
     public AjaxResult offerEntryStatus() {
         return AjaxResult.success(gateway.offerEntryStatus());
+    }
+
+    /**
+     * 人工确认后重新入队：只处理 SKIPPED/FAILED/DEAD 的 INQ/OFFER，
+     * 下一轮会重新执行 AI查询、AI录入和比价，不会绕过语义门禁。
+     *
+     * @param chat 群名/好友名，可选；不填=全部会话
+     */
+    @PostMapping("/offer/entry/requeue")
+    public AjaxResult offerEntryRequeue(@RequestParam(required = false) String chat) {
+        return AjaxResult.success(gateway.requeueOfferEntry(chat));
     }
 
     /**

@@ -24,12 +24,18 @@
         <result property="relatInq"        column="relat_inq" />
         <result property="relatOffer"      column="relat_offer" />
         <result property="entryFailCount"  column="entry_fail_count" />
+        <result property="entryStatus"     column="entry_status" />
+        <result property="entryMessage"    column="entry_message" />
+        <result property="entryOfferCount" column="entry_offer_count" />
+        <result property="entryOfferIds"   column="entry_offer_ids" />
+        <result property="entryAt"         column="entry_at" />
     </resultMap>
 
     <sql id="selectWechatMessageVo">
         SELECT id, username, name, local_id, server_id, type, sender, content, quote, quote_kind,
                media_path, create_time, sort_seq, md5, msg_category, category_source, category_reason, status,
-               relat_inq, relat_offer, entry_fail_count
+               relat_inq, relat_offer, entry_fail_count, entry_status, entry_message,
+               entry_offer_count, entry_offer_ids, entry_at
         FROM wechat_message
     </sql>
 
@@ -50,14 +56,26 @@
     <update id="updateCategory">
         UPDATE wechat_message
         SET msg_category = #{m.msgCategory}, category_source = #{m.categorySource}, category_reason = #{m.categoryReason},
-            relat_inq = #{m.relatInq}, relat_offer = #{m.relatOffer}, status = 1
+            relat_inq = #{m.relatInq}, relat_offer = #{m.relatOffer}, status = 1,
+            entry_status = CASE
+                WHEN #{m.msgCategory} IN ('INQ','OFFER')
+                     AND (entry_status IS NULL OR entry_status = 'NOT_APPLICABLE') THEN 'PENDING'
+                WHEN #{m.msgCategory} NOT IN ('INQ','OFFER')
+                     AND entry_status IN ('PENDING','FAILED') THEN 'NOT_APPLICABLE'
+                ELSE entry_status END,
+            entry_at = CASE
+                WHEN #{m.msgCategory} IN ('INQ','OFFER')
+                     AND (entry_status IS NULL OR entry_status = 'NOT_APPLICABLE') THEN NOW()
+                WHEN #{m.msgCategory} IN ('INQ','OFFER')
+                     AND entry_at IS NULL THEN NOW()
+                ELSE entry_at END
         WHERE username = #{m.username} AND local_id = #{m.localId}
     </update>
 
     <update id="updateFiltered">
         UPDATE wechat_message
         SET msg_category = 'OTHER', category_source = 'FILTER', category_reason = #{reason},
-            relat_inq = '', relat_offer = '', status = 3
+            relat_inq = '', relat_offer = '', status = 3, entry_status = 'NOT_APPLICABLE'
         WHERE username = #{m.username} AND local_id = #{m.localId}
     </update>
 
@@ -91,6 +109,16 @@
         LIMIT #{max}
     </select>
 
+    <select id="queryRecent" resultMap="WeChatMessageResult">
+        SELECT * FROM (
+            <include refid="selectWechatMessageVo" />
+            WHERE username = #{username}
+            ORDER BY sort_seq DESC
+            LIMIT #{max}
+        ) recent
+        ORDER BY sort_seq ASC
+    </select>
+
     <select id="unclassifiedStats" resultType="java.util.Map">
         SELECT COUNT(*) AS cnt, MIN(create_time) AS earliest
         FROM wechat_message
@@ -114,6 +142,10 @@
         <foreach collection="categories" item="cat" open="(" separator="," close=")">
             #{cat}
         </foreach>
+        AND create_time &gt;= #{since}
+        AND (entry_status IN ('PENDING','FAILED')
+             OR (entry_status = 'PROCESSING' AND entry_at &lt; DATE_SUB(NOW(), INTERVAL 10 MINUTE)))
+        AND (entry_at IS NULL OR entry_at &lt;= DATE_SUB(NOW(), INTERVAL #{minAgeSec} SECOND))
         <if test="chat != null and chat != ''">
             AND name = #{chat}
         </if>
@@ -135,7 +167,46 @@
         <foreach collection="categories" item="cat" open="(" separator="," close=")">
             #{cat}
         </foreach>
+        AND create_time &gt;= #{since}
+        AND (entry_status IN ('PENDING','FAILED')
+             OR (entry_status = 'PROCESSING' AND entry_at &lt; DATE_SUB(NOW(), INTERVAL 10 MINUTE)))
     </select>
+
+    <select id="entryStatusStats" resultType="java.util.Map">
+        SELECT entry_status AS entryStatus, COUNT(*) AS cnt, MIN(create_time) AS earliest
+        FROM wechat_message
+        WHERE msg_category IN ('INQ','OFFER')
+          AND create_time &gt;= #{since}
+        GROUP BY entry_status
+        ORDER BY entry_status
+    </select>
+
+    <update id="markEntryProcessing">
+        UPDATE wechat_message
+        SET entry_status = 'PROCESSING', entry_message = 'AI录入处理中', entry_at = NOW()
+        WHERE username = #{username} AND local_id = #{localId}
+          AND status = 1
+          AND (entry_status IN ('PENDING','FAILED')
+               OR (entry_status = 'PROCESSING' AND entry_at &lt; DATE_SUB(NOW(), INTERVAL 10 MINUTE)))
+    </update>
+
+    <update id="updateEntryState">
+        UPDATE wechat_message
+        SET status = #{messageStatus}, entry_status = #{entryStatus}, entry_message = #{entryMessage},
+            entry_offer_count = #{offerCount}, entry_offer_ids = #{offerIds},
+            entry_fail_count = #{failCount}, entry_at = NOW()
+        WHERE username = #{username} AND local_id = #{localId}
+    </update>
+
+    <update id="requeueEntry">
+        UPDATE wechat_message
+        SET entry_status = 'PENDING', entry_message = '人工重新入队', entry_fail_count = 0,
+            status = 1, entry_at = NOW()
+        WHERE status IN (1,3)
+          AND msg_category IN ('INQ','OFFER')
+          AND entry_status IN ('SKIPPED','FAILED','DEAD')
+          <if test="chat != null and chat != ''">AND name = #{chat}</if>
+    </update>
 
     <update id="updateEntryResult">
         UPDATE wechat_message

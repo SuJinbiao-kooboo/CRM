@@ -26,6 +26,9 @@ public interface WeChatMessageMapper {
     /** 查询未分类消息(status=0)，按 sort_seq 正序，最多 max 条。 */
     List<WeChatMessage> queryUnclassified(@Param("max") int max);
 
+    /** 查询指定会话最近 max 条消息（含未分类），返回时按 sort_seq 正序，供最近N条上下文判断。 */
+    List<WeChatMessage> queryRecent(@Param("username") String username, @Param("max") int max);
+
     /** 未分类消息统计：{cnt=未分类条数, earliest=最早未分类消息时间}。 */
     java.util.Map<String, Object> unclassifiedStats();
 
@@ -36,10 +39,29 @@ public interface WeChatMessageMapper {
      * 查询待录入消息(status=1 且分类在 categories 内)，按 sort_seq 正序，最多 max 条；
      * chat 非空=只查该会话；chat 为空且 chats 非空=只查这些会话(chats)；都为空=全部会话。
      */
-    List<WeChatMessage> queryProcessable(@Param("chat") String chat, @Param("chats") List<String> chats, @Param("categories") List<String> categories, @Param("max") int max);
+    List<WeChatMessage> queryProcessable(@Param("chat") String chat, @Param("chats") List<String> chats,
+                                         @Param("categories") List<String> categories,
+                                         @Param("since") String since, @Param("minAgeSec") int minAgeSec,
+                                         @Param("max") int max);
 
     /** 待录入消息统计：{cnt=待录入条数, earliest=最早待录入消息时间}。 */
-    java.util.Map<String, Object> processableStats(@Param("categories") List<String> categories);
+    java.util.Map<String, Object> processableStats(@Param("categories") List<String> categories,
+                                                    @Param("since") String since);
+
+    /** 录入状态分布与数量统计，供 /offer/entry/status 展示。 */
+    List<java.util.Map<String, Object>> entryStatusStats(@Param("since") String since);
+
+    /** 将待录入消息置为 PROCESSING；只允许 PENDING/FAILED 或超时的 PROCESSING 被领取。 */
+    int markEntryProcessing(@Param("username") String username, @Param("localId") long localId);
+
+    /** 回写独立录入状态、说明、Offer 主键和消息处理状态。 */
+    int updateEntryState(@Param("username") String username, @Param("localId") long localId,
+                         @Param("messageStatus") int messageStatus, @Param("entryStatus") String entryStatus,
+                         @Param("entryMessage") String entryMessage, @Param("offerCount") int offerCount,
+                         @Param("offerIds") String offerIds, @Param("failCount") int failCount);
+
+    /** 将人工确认可重试的 SKIPPED/FAILED/DEAD 消息重新放回录入队列。 */
+    int requeueEntry(@Param("chat") String chat);
 
     /** 更新单条消息录入结果：成功 status=2 / 失败达上限 status=3，按 username+local_id 定位并记录失败次数。 */
     int updateEntryResult(@Param("username") String username, @Param("localId") long localId, @Param("status") int status, @Param("failCount") int failCount);

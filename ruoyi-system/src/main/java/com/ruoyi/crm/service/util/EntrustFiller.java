@@ -90,11 +90,14 @@ public class EntrustFiller {
             Row totalRow = SheetUtils.ensureRow(sheet, totalRowIdx);
             SheetUtils.setFormula(totalRow, 8, "SUM(I" + (ITEM_FIRST + 1) + ":I" + (ITEM_FIRST + Math.max(count, 1)) + ")");
 
-            // 快递公司名称 / 运费 / 进口关税 / 附发票 / 备注
-            if (notBlank(extras.get("expressCompany"))) {
-                SheetUtils.setValue(SheetUtils.ensureRow(sheet, EXPRESS_ROW + shift), 10, extras.get("expressCompany"));
+            // 快递公司名称 / 运费（仅当交货方式为快递时填写）
+            if ("快递".equals(extras.get("deliveryMethod"))) {
+                if (notBlank(extras.get("expressCompany"))) {
+                    SheetUtils.setValue(SheetUtils.ensureRow(sheet, EXPRESS_ROW + shift), 10, extras.get("expressCompany"));
+                }
+                markPayChoice(sheet, ATTACH_FREIGHT_ROW + shift, extras.get("freight"));
             }
-            markPayChoice(sheet, ATTACH_FREIGHT_ROW + shift, extras.get("freight"));
+            // 进口关税（默认留空，未选择时不勾选）
             markPayChoice(sheet, CUSTOMS_ROW + shift, extras.get("customsDuty"));
             if (notBlank(extras.get("attachDoc"))) {
                 Row attachRow = SheetUtils.ensureRow(sheet, ATTACH_FREIGHT_ROW + shift);

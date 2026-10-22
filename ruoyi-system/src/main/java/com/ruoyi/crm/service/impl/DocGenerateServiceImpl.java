@@ -87,7 +87,7 @@ public class DocGenerateServiceImpl implements IDocGenerateService {
             case DocTypeRegistry.SN:
                 return "SN List" + suffix;
             case DocTypeRegistry.ENTRUST:
-                return "交货委托单" + suffix;
+                return "Copy of QR-KF-005-A2香港仓库交货委托单" + nvl(extra(req, "warehouseNo")) + suffix;
             default:
                 return nvl(req == null ? null : req.getOrderNo()) + suffix;
         }
@@ -189,5 +189,12 @@ public class DocGenerateServiceImpl implements IDocGenerateService {
 
     private String nvl(String s) {
         return s == null ? "" : s;
+    }
+
+    private String extra(DocGenerateReq req, String key) {
+        if (req == null || req.getExtras() == null) {
+            return null;
+        }
+        return req.getExtras().get(key);
     }
 }

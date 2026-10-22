@@ -139,16 +139,17 @@ public class DocTypeRegistry {
         entrust.setUploads(Arrays.asList(
                 DocUpload.of("poFile", "PO 文件").hint("上传 PO 文件可自动带出 品名/型号/数量/单价/金额"),
                 DocUpload.of("plFile", "PL 文件").hint("上传 PL 文件可自动带出 品名/数量/毛重")));
-        entrust.setFileNameHint("交货委托单.xlsx");
+        entrust.setFileNameHint("Copy of QR-KF-005-A2香港仓库交货委托单+入仓号.xlsx");
         entrust.setFields(Arrays.asList(
                 DocField.of("dateText", "日期", "date").req().def(today()),
+                DocField.of("warehouseNo", "入仓号", "text").req(),
                 DocField.of("receiverInfo", "收货公司信息", "textarea").req()
                         .ph("公司名称/地址/联系人/电话等"),
                 DocField.of("deliveryMethod", "交货方式", "select").req().options(DELIVERY),
                 DocField.of("attachDoc", "附发票/装箱单", "select").req().options(ATTACH).def("附发票"),
                 DocField.of("expressCompany", "快递公司名称", "text"),
-                DocField.of("freight", "运费", "select").options(PAY_TYPE).def("预付"),
-                DocField.of("customsDuty", "进口关税", "select").options(PAY_TYPE).def("预付"),
+                DocField.of("freight", "运费", "select").options(PAY_TYPE),
+                DocField.of("customsDuty", "进口关税", "select").options(PAY_TYPE),
                 DocField.of("remark", "备注/其他", "textarea")
                         .def("1.此票供应商送货到我司仓库，收到供应商的货之后请帮检查箱子是否完好，是否有多余标签（体现供应商信息）。若有供应商信息，请帮忙去掉。此外，需拆箱拍产品是否料号一致。\n"
                                 + "2.检查完好，需拍照留底，以防问题出现扯皮。若有发现破损，需及时反馈给亦钟人。\n"

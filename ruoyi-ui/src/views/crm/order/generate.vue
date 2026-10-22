@@ -242,7 +242,7 @@ export default {
         return 'SN List.' + ext
       }
       if (t === 'ENTRUST') {
-        return '交货委托单.' + ext
+        return 'Copy of QR-KF-005-A2香港仓库交货委托单' + (this.form.warehouseNo || '') + '.' + ext
       }
       return (this.form.orderNo || 'document') + '.' + ext
     },

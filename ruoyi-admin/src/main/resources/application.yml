@@ -152,14 +152,8 @@ eke:
       # 发件人邮箱过滤规则字典类型（第一优先级：字典value=类型编码与主题字典一致、label=类型中文名、remark=逗号拼接的邮箱地址，发件人命中直接归类）
       filter-email-dict-type: eke_email_filter_email_special
 
-# DeepSeek AI 接口配置（Offer AI智能录入使用；生产环境建议通过环境变量注入 api-key，避免明文落盘）
-deepseek:
-  # API Key（可用环境变量 DEEPSEEK_API_KEY 覆盖；为空时AI录入功能不可用）
-  api-key: ${DEEPSEEK_API_KEY:}
-  # 接口地址（OpenAI兼容格式，可用环境变量 DEEPSEEK_BASE_URL 覆盖）
-  base-url: ${DEEPSEEK_BASE_URL:https://token-factory.hon-maas.com/v1}
-  # 模型名称（可用环境变量 DEEPSEEK_MODEL 覆盖）
-  model: ${DEEPSEEK_MODEL:deepseek-v4-flash-0731}
+# AI 接口（DeepSeek 及备用渠道）统一配置在系统参数 sys_config（前缀 sys.ai.）中维护，见 sql/deepseek_ai_config.sql
+# 由 AiChannelService 统一读取并发起调用，支持主/备渠道自动切换；此处不再保留配置项
 
 # 飞书机器人（ruoyi-feishu 模块）
 feishu:

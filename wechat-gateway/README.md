@@ -367,28 +367,40 @@ POST /system/dict/data/refreshCache   （带管理员 token）
 mysql -uroot -p 你的库名 < C:\Project\RuoYi-Vue\sql\wechat_analysis_dict.sql
 ```
 - 该 SQL 会：① 建 `wechat_message` 表（不存在才建）；② 重置 `wechat_analysis_config` 字典为完整清单
-  （黑白名单 + llm 参数 + 轮询拉取参数 + 分类触发参数 + 固定 OFFER 名单）；
+  （黑白名单 + llm 参数 + 轮询拉取参数 + 分类触发参数 + 固定 OFFER 名单）；③ 把 `sys_dict_data.dict_value`
+  扩容到 `VARCHAR(8192)` 并写入 `llmExamples`（24 条真实 few-shot 示例，源自
+  `Reference/INQ_OFFER_TRACE_分类示例.xlsx`，覆盖 INQ/OFFER/TRACE/OTHER 各类典型场景）；
 - 导入后刷新字典缓存（`POST /system/dict/data/refreshCache`，带管理员 token）
   或直接**重启 ruoyi-admin**（直接改 MySQL 字典不重启不会热生效，走管理端页面改会自动刷新）。
 
 ### 7.4 完整字典清单（`wechat_analysis_config`）
 
+### 7.5 性能优化（2026-10-20）
+
+- `wechat_message` 已补 5 个索引（线上库已执行，建表脚本已同步）：
+  `idx_sort_seq(sort_seq)`、`idx_status_sort(status, sort_seq)`、
+  `idx_status_cat_sort(status, msg_category, sort_seq)`、`idx_name_sort(name, sort_seq)`、
+  `idx_status_createtime(status, create_time)`；老库补索引：
+  `ALTER TABLE wechat_message ADD KEY idx_sort_seq (sort_seq), ADD KEY idx_status_sort (status, sort_seq), ADD KEY idx_status_cat_sort (status, msg_category, sort_seq), ADD KEY idx_name_sort (name, sort_seq), ADD KEY idx_status_createtime (status, create_time);`
+- 数据库连接已开启协议压缩（`application-druid.yml`：`useCompression=true`），
+  公网传输大文本消息时显著降耗时。
+- 注意：`GET /wechat/messages` 每次调用都会先做一次微信增量同步（跑 `wx_gateway.py`）
+  并对新拉取消息做 AI 分类，属于"重接口"；不带 `since/chat` 等于全量导出（8722 条全字段
+  经公网传输），耗时数十秒是物理瓶颈，建议日常按 `since`（时间窗口）或 `chat`（指定会话）查询。
+
 | dict_label | 默认值 | 含义 |
 | ---- | ---- | ---- |
 | whiteNames / blackNames | 空 | 会话白/黑名单（按消息 name 精确匹配，逗号分隔） |
-| llmEnabled | true | 是否启用大模型分类 |
-| llmApiKey | 空 | DeepSeek API Key（留空读环境变量 `DEEPSEEK_API_KEY`） |
-| llmApiBase | https://api.deepseek.com | OpenAI 兼容接口根地址 |
-| llmModel | deepseek-chat | 模型名 |
+| （AI 渠道配置）| 见 sys_config | 大模型地址/Key/模型/备用渠道/故障切换/告警已统一到系统参数 sys.ai.*（sql/deepseek_ai_config.sql），字典中旧参数 llmEnabled/llmApiKey/llmApiBase/llmModel/llmBackup*/llmFailThreshold/llmBackupCheckSec/alertFeishuWebhook/alertCooldownSec 已废弃并清理 |
 | llmBatchSize | 20 | 每次调用最多消息条数(1-20) |
 | llmConcurrency | 2 | 并行批次(建议1-3) |
 | llmTimeoutSec | 180 | 单次请求超时(秒) |
 | aiTriggerCount | 5 | 攒够该条数立即分类 |
 | aiFlushMinutes | 3 | 超时窗口(分钟) |
-| aiContextWindow | 10 | 上下文条数 |
+| aiContextWindow | 20 | 上下文条数 |
 | msgRetentionDays | 3 | 消息保留天数（过期自动删） |
 | llmPromptBase | 空(内置) | 系统提示词覆盖 |
-| llmExamples | 空(内置) | few-shot 示例覆盖 |
+| llmExamples | 24条真实案例 | few-shot 示例覆盖（SQL 已预置，取自 INQ_OFFER_TRACE_分类示例.xlsx，可自行增删） |
 | offerFixedSenders / offerFixedGroups | 空 | 固定 OFFER 名单(逗号分隔) |
 | offerFollowWindowMin | 5 | 固定 OFFER 回复跟随窗口(分钟)，0=关闭 |
 | pollEnabled | true | 轮询拉取总开关（false=仅手动 poll/run） |

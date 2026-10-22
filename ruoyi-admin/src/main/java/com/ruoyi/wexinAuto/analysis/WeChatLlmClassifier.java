@@ -4,14 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.utils.DictUtils;
+import com.ruoyi.crm.service.ai.AiChannelService;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -33,9 +30,10 @@ import java.util.concurrent.TimeUnit;
  * json_object 输出；同一会话的待判消息按批调用，并把该会话最近
  * {@code aiContextWindow} 条已分类消息作为上下文一起给模型。
  *
- * <p>配置来自数据字典 {@code wechat_analysis_config}：llmEnabled / llmApiKey /
- * llmApiBase / llmModel / llmBatchSize / llmConcurrency / llmTimeoutSec /
- * llmPromptBase(留空用内置默认) / llmExamples(留空用内置默认)。</p>
+ * <p>分类专属参数来自数据字典 {@code wechat_analysis_config}：llmBatchSize / llmConcurrency /
+ * llmTimeoutSec / aiContextWindow / llmPromptBase(留空用内置默认) / llmExamples(留空用内置默认)。</p>
+ * <p>大模型渠道配置（地址/Key/模型/备用渠道与故障切换）统一由 {@link AiChannelService}
+ * 从系统参数 {@code sys.ai.*} 读取，本类不再单独维护连接信息。</p>
  */
 @Slf4j
 @Component
@@ -53,11 +51,10 @@ public class WeChatLlmClassifier {
     private static final int CACHE_MAX = 50000;
 
     private final ObjectMapper jackson = new ObjectMapper();
-    private final OkHttpClient http = new OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(180, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
-            .build();
+
+    /** AI 通道统一服务：渠道配置(sys.ai.*) + 主/备渠道故障切换，与 Offer AI 录入共用 */
+    @Autowired
+    private AiChannelService aiChannelService;
 
     /** 分类结果缓存：key=username|localId，value=INQ/OFFER/TRACE/OTHER */
     private final Map<String, String> cache = new ConcurrentHashMap<>();
@@ -78,11 +75,6 @@ public class WeChatLlmClassifier {
         return def;
     }
 
-    private boolean cfgBool(String label, boolean def) {
-        return "true".equalsIgnoreCase(cfg(label, def ? "true" : "false"))
-                || "1".equals(cfg(label, def ? "1" : "0"));
-    }
-
     private int cfgInt(String label, int def) {
         try {
             return Integer.parseInt(cfg(label, String.valueOf(def)));
@@ -91,20 +83,9 @@ public class WeChatLlmClassifier {
         }
     }
 
-    /** 是否启用 AI 分类（llmEnabled=true 且已配置 Key）。 */
+    /** 是否启用 AI 分类：由统一通道配置决定（sys.ai.enabled + sys.ai.api.key）。 */
     public boolean enabled() {
-        if (!cfgBool("llmEnabled", true)) {
-            return false;
-        }
-        return StringUtils.isNotBlank(apiKey());
-    }
-
-    private String apiKey() {
-        String k = cfg("llmApiKey", "");
-        if (StringUtils.isNotBlank(k)) {
-            return k;
-        }
-        return System.getenv("DEEPSEEK_API_KEY");
+        return aiChannelService.enabled();
     }
 
     // ------------------------------------------------------------------
@@ -148,9 +129,7 @@ public class WeChatLlmClassifier {
         int ctxWindow = Math.max(0, cfgInt("aiContextWindow", 20));
         String promptBase = cfg("llmPromptBase", "");
         String examples = cfg("llmExamples", "");
-        final String api = apiKey();
-        final String base = cfg("llmApiBase", "https://api.deepseek.com");
-        final String model = cfg("llmModel", "deepseek-chat");
+        int timeoutMs = Math.max(10, cfgInt("llmTimeoutSec", 180)) * 1000;
 
         List<WeChatMessage> ctx = new ArrayList<>();
         if (context != null) {
@@ -172,7 +151,7 @@ public class WeChatLlmClassifier {
             List<Future<?>> futures = new ArrayList<>();
             for (List<WeChatMessage> batch : batches) {
                 futures.add(pool.submit(() ->
-                        classifyBatch(batch, ctx, chatName, promptBase, examples, api, base, model)));
+                        classifyBatch(batch, ctx, chatName, promptBase, examples, timeoutMs)));
             }
             for (Future<?> f : futures) {
                 try {
@@ -198,33 +177,28 @@ public class WeChatLlmClassifier {
     // 单批调用与解析
     // ------------------------------------------------------------------
     private void classifyBatch(List<WeChatMessage> batch, List<WeChatMessage> ctx, String chatName,
-                               String promptBase, String examples, String api, String base, String model) {
+                               String promptBase, String examples, int timeoutMs) {
         String prompt = buildPrompt(batch, ctx, chatName);
         String sysPrompt = buildSystemPrompt(promptBase, examples);
-        String body;
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("temperature", 0);
+        payload.put("max_tokens", 4000);
+        List<Map<String, String>> messages = new ArrayList<>();
+        Map<String, String> sys = new LinkedHashMap<>();
+        sys.put("role", "system");
+        sys.put("content", sysPrompt);
+        messages.add(sys);
+        Map<String, String> user = new LinkedHashMap<>();
+        user.put("role", "user");
+        user.put("content", prompt);
+        messages.add(user);
+        payload.put("messages", messages);
+        String respText;
         try {
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("model", model);
-            payload.put("temperature", 0);
-            payload.put("max_tokens", 4000);
-            List<Map<String, String>> messages = new ArrayList<>();
-            Map<String, String> sys = new LinkedHashMap<>();
-            sys.put("role", "system");
-            sys.put("content", sysPrompt);
-            messages.add(sys);
-            Map<String, String> user = new LinkedHashMap<>();
-            user.put("role", "user");
-            user.put("content", prompt);
-            messages.add(user);
-            payload.put("messages", messages);
-            body = jackson.writeValueAsString(payload);
+            // 统一通道调用：第三方平台故障时自动切换 DeepSeek 官方备用渠道
+            respText = aiChannelService.chatCompletions(payload, timeoutMs);
         } catch (Exception e) {
-            log.warn("AI 请求构造失败: {}", e.getMessage());
-            return;
-        }
-        String respText = post(base, body, api);
-        if (respText == null) {
-            log.warn("AI 无结果：{} 条待判消息保留待重试 | chat={}", batch.size(), chatName);
+            log.warn("AI 无结果：{} 条待判消息保留待重试 | chat={} | {}", batch.size(), chatName, e.getMessage());
             return;
         }
         Map<Long, String> parsed = parse(respText, batch);
@@ -236,42 +210,6 @@ public class WeChatLlmClassifier {
                 put(m, cat);
             }
         }
-    }
-
-    private String post(String base, String jsonBody, String apiKey) {
-        Exception last = null;
-        for (int attempt = 0; attempt < 3; attempt++) {
-            if (attempt > 0) {
-                try {
-                    Thread.sleep(3000L * attempt);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return null;
-                }
-            }
-            try {
-                Request req = new Request.Builder()
-                        .url(base + "/chat/completions")
-                        .header("Authorization", "Bearer " + apiKey)
-                        .header("Content-Type", "application/json")
-                        .post(RequestBody.create(jsonBody, MediaType.parse("application/json; charset=utf-8")))
-                        .build();
-                try (Response resp = http.newCall(req).execute()) {
-                    String text = resp.body() == null ? "" : resp.body().string();
-                    if (!resp.isSuccessful()) {
-                        log.warn("AI HTTP {}: {}", resp.code(), snippet(text));
-                        last = new IllegalStateException("HTTP " + resp.code());
-                        continue;
-                    }
-                    return text;
-                }
-            } catch (Exception e) {
-                last = e;
-                log.warn("AI 调用异常(第{}次): {}", attempt + 1, e.toString());
-            }
-        }
-        log.error("AI 调用最终失败: {}", last == null ? "unknown" : last.toString());
-        return null;
     }
 
     private Map<Long, String> parse(String respText, List<WeChatMessage> batch) {

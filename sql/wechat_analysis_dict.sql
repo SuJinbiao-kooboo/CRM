@@ -8,6 +8,8 @@
 -- =====================================================================
 
 -- 1) 消息表（不存在才建；列名/类型与 Java POJO 对应）
+-- 注：老库（表已存在）需手工补一次索引（2026-10-20 新增，线上库已执行）：
+--   ALTER TABLE wechat_message ADD KEY idx_sort_seq (sort_seq), ADD KEY idx_status_sort (status, sort_seq), ADD KEY idx_status_cat_sort (status, msg_category, sort_seq), ADD KEY idx_name_sort (name, sort_seq), ADD KEY idx_status_createtime (status, create_time);
 CREATE TABLE IF NOT EXISTS wechat_message (
   id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '自增主键', 
   username VARCHAR(64) NOT NULL COMMENT '会话标识(群id/好友wxid)', 
@@ -34,7 +36,12 @@ CREATE TABLE IF NOT EXISTS wechat_message (
   UNIQUE KEY uk_username_localid (username, local_id), 
   KEY idx_create_time (create_time), 
   KEY idx_category (msg_category), 
-  KEY idx_status (status)
+  KEY idx_status (status), 
+  KEY idx_sort_seq (sort_seq), 
+  KEY idx_status_sort (status, sort_seq), 
+  KEY idx_status_cat_sort (status, msg_category, sort_seq), 
+  KEY idx_name_sort (name, sort_seq), 
+  KEY idx_status_createtime (status, create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微信消息表(仅保留最近N天,定时清理)';
 
 -- 1.5) 黑名单消息表：pollIgnoreChats(名称包含关键词) 命中的群消息只入库、不做分类/处理；
@@ -81,16 +88,12 @@ DELETE FROM sys_dict_data WHERE dict_type='wechat_analysis_config';
 INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark) VALUES
 (1,  'whiteNames', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '会话白名单（非空时只放过这些名称，多个用逗号拼接）'),
 (2,  'blackNames', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '会话黑名单（白名单为空时生效，过滤掉这些名称，多个用逗号拼接）'),
-(10, 'llmEnabled', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '是否启用大模型分类(true=DeepSeek精判,false=不分类)'),
-(11, 'llmApiKey', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'DeepSeek API Key(敏感)；留空则读环境变量 DEEPSEEK_API_KEY'),
-(12, 'llmApiBase', 'https://api.deepseek.com', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'OpenAI兼容接口根地址(不要以/结尾)'),
-(13, 'llmModel', 'deepseek-chat', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '大模型名称(deepseek-chat=V3)'),
 (14, 'llmBatchSize', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '每次AI分类调用最多消息条数(1-20)'),
 (15, 'llmConcurrency', '2', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '并行批次数量(注意DeepSeek限频,建议1-3)'),
 (16, 'llmTimeoutSec', '180', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '单次大模型请求超时时间(秒)'),
 (90, 'aiTriggerCount', '5', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类触发条数：同一会话积累未分类消息达到该数量立即调起AI分类'),
 (91, 'aiFlushMinutes', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类超时窗口(分钟)：超时仍未凑够触发条数也调起AI分类'),
-(92, 'aiContextWindow', '10', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类上下文条数：判定时带上该会话最近N条已分类消息'),
+(92, 'aiContextWindow', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类上下文条数：判定时带上该会话最近N条已分类消息'),
 (93, 'msgRetentionDays', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '消息保留天数：定时任务删除超过该天数的聊天记录'),
 (94, 'llmPromptBase', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类系统提示词(留空用内置默认)：分类定义+判断规则'),
 (95, 'llmExamples', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类few-shot示例(留空用内置默认)：真实消息+正确分类'),
@@ -115,4 +118,49 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_defa
 (117, 'offerEntryProfitRatio', '2', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'OFFER报价利润率(%)：报价价=AI识别成本价x(1+利润率/100)，向上取整到5的倍数，与Offer列表AI录入口径一致(默认2)'),
 (118, 'offerEntryMaxFail', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI录入失败上限(次)：同一消息连续录入失败达到该次数置status=3无需处理，避免失败消息一直卡住队列(默认3)'),
 (119, 'offerEntryCreateBy', 'wechat_auto', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '录入人(create_by/update_by)：定时任务无登录用户，统一用该值标记AI自动录入来源(默认wechat_auto)');
+
+-- 2.6) 【2026-10-22 调整】AI 渠道配置（地址/Key/模型/备用渠道/告警）已统一到系统参数 sys_config（前缀 sys.ai.），
+--       见 sql/deepseek_ai_config.sql；下列字典旧参数已作废并清理，避免两套配置不一致：
+DELETE FROM sys_dict_data WHERE dict_type='wechat_analysis_config'
+  AND dict_label IN ('llmEnabled','llmApiKey','llmApiBase','llmModel','llmBackupEnabled','llmBackupApiBase','llmBackupApiKey','llmBackupModel','llmFailThreshold','llmBackupCheckSec','alertFeishuWebhook','alertCooldownSec');
+
+-- 4) 【2026-10-20 新增】AI分类few-shot示例：源自 Reference/INQ_OFFER_TRACE_分类示例.xlsx 真实案例（24条）
+--    dict_value 原为 varchar(100)，放不下提示词/示例长文本，扩容到 8192（兼容 llmPromptBase 长提示词）
+ALTER TABLE sys_dict_data MODIFY COLUMN dict_value VARCHAR(8192) NOT NULL DEFAULT '';
+UPDATE sys_dict_data SET dict_value = '真实示例（<换人>表示消息来自不同发言人，示例内按顺序为连续对话）：
+示例1：<雅克尼> INQ
+AMD 9555P : 153pcs
+AMD 9355P : 154pcs
+AMD 9115 : 276pcs
+AMD 8324P : 76pcs → INQ（买方列型号+数量，无价格）
+示例2：<雅克尼> Gold 6430 14pcs 这个找拆新的 → INQ（含型号+数量即询价）
+示例3：<雅克尼> MBD-H13SSL-N-B 24pcs → INQ（纯型号数量求购）
+示例4：<雅克尼> 9654 $2,145 这个是全新的吗，问32片 → INQ（对报价单单个料号的购买问询，含明确数量）
+示例5：<Eke> AMD 9555P : 18pcs 3300 USD 3-5d
+AMD 9355P : 110pcs 2320 USD 1-3d
+AMD 9115 : 276pcs 24pulled 690USD → OFFER（料号对上一条INQ且带价格=对询价的报价）
+示例6：<Eke> M&E 2026-10-19 Offer：
+Part No. Qty Price
+5955WX 485USD
+5965WX 755USD
+7975WX 2785USD → OFFER（自家库存报价表整段）
+示例7：<Eke> MBD-H13SSL-N-B 20pcs 2w到港 695USD → OFFER（价格+交期）
+示例8：<Eke> @雅克尼 一片 MBD-X13SAZ-F-B 660 USD 这个你不是还差1片吗，看下你如果要的话我再去和供应商争取下 → OFFER（给价且含料号）
+示例9：<Eke> CPU offer / this offer → OTHER（对Offer的补充说明，不是新报价）
+示例10：<Eke> check / no stock / 稍等，我check下哈 → OTHER（礼貌应答，无报价无询价）
+示例11：<小辉> <?xml...sysmsg type=revokemsg...> → OTHER（撤回/系统/群公告等系统消息）
+示例12：<Eke> <msg><img ...></msg>、<msg><location ...></msg>、xxx.pdf → OTHER（图片/位置/文件/卡片）
+示例13：<雅克尼> 是你们库存？ → TRACE（针对上一条OFFER追问）
+示例14：<雅克尼> 这个18片，560可以下单吗 → TRACE（针对OFFER砍价/下单确认）
+示例15：<May> @雅克尼 我们到港运费正常要+20USD，你客户只要19片吗？ → TRACE（交期/运费等跟进）
+示例16：<朱妍> 就是660美金吗 / 2周交期也要全款吗 / 质保多久 / 最晚交货日，我写11.3可以吗 → TRACE（价格/交期/质保确认）
+示例17：<May> 你那18片有人接单了吗？ / 原本数量不是19吗？ → TRACE（进度跟进）
+示例18：<May> 新的，你先报，有反馈下单前确认 → TRACE（对上次询价的跟进回复）
+示例19：<雅克尼> 这个有吗 → OTHER（紧接自己上一条INQ的补充说明，不算新INQ）
+示例20：<朱妍> 发点主板的offer给我呗 @May → OTHER（内部向同事要资料，非客户询价）
+示例21：<双方> 下单吧 / 给我一下你的邮箱 / PO条款讨论 / 银行信息 / 送货地址 → OTHER（成交后执行细节）
+示例22：<A> @Eke / 好 / 收到 / 谢谢 / 哦 → OTHER（@提及、单字应答）
+示例23：<嘎嘎呼> 早上好，询一下 5317 10pcs → INQ；<Eke> 早 → OTHER；<Eke> 1145USD @嘎嘎呼 → OFFER（前一条INQ的报价）
+示例24：<May> EPYC 9255 10pcs INQ → INQ；<嘎嘎呼> checking → OTHER（核实中）；<嘎嘎呼> EPYC 9255 10pcs 拆新，2368USD → OFFER'
+WHERE dict_type = 'wechat_analysis_config' AND dict_label = 'llmExamples';
 

@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import cn.hutool.http.HttpRequest;
-import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -29,29 +27,13 @@ public class DeepSeekAiService {
 
     private static final Logger log = LoggerFactory.getLogger(DeepSeekAiService.class);
 
-    /** DeepSeek API Key 参数键：密钥在系统参数配置（sys_config）中维护，不入代码与配置文件，避免明文泄露 */
-    private static final String API_KEY_CONFIG_KEY = "sys.ai.api.key";
-
-    /** DeepSeek 接口地址参数键：未配置时使用默认地址 */
-    private static final String BASE_URL_CONFIG_KEY = "sys.ai.base.url";
-
-    /** DeepSeek 模型名称参数键：未配置时使用默认模型 */
-    private static final String MODEL_CONFIG_KEY = "sys.ai.model";
-
-    /** 默认接口地址（OpenAI 兼容格式） */
-    private static final String DEFAULT_BASE_URL = "https://token-factory.hon-maas.com/v1";
-
-    /** 默认模型名称（与历史 application.yml 默认值保持一致） */
-    private static final String DEFAULT_MODEL = "deepseek-v4-flash-0731";
-
-    /** 接口调用超时参数键（毫秒）：AI录入与AI查询共用；未配置时使用默认8分钟，可在系统参数配置中调整 */
-    private static final String TIMEOUT_CONFIG_KEY = "sys.ai.timeout.ms";
-
-    /** 默认接口调用超时（毫秒）：8分钟；需与前端axios超时(480000)保持一致，并小于nginx proxy_read_timeout，避免任一层先断开 */
-    private static final int DEFAULT_TIMEOUT_MS = 8 * 60 * 1000;
 
     @Autowired
     private ISysConfigService sysConfigService;
+
+    /** AI 通道统一服务：负责渠道配置（sys.ai.*）、请求发起与主/备渠道故障切换 */
+    @Autowired
+    private AiChannelService aiChannelService;
 
     /** 解析示例参数键：用户在系统参数配置中维护，内容为整理规范与输入输出对照示例 */
     private static final String TIPS_CONFIG_KEY = "sys.offer.resolve.tips";
@@ -102,9 +84,8 @@ public class DeepSeekAiService {
      * 上一轮内容继续解析/修正，无需重复描述；开关为0或读取失败时退回每次全新会话
      */
     public List<Map<String, Object>> parseMaterialContent(String content) {
-        String apiKey = readConfig(API_KEY_CONFIG_KEY, null);
-        if (apiKey == null || apiKey.trim().isEmpty()) {
-            throw new ServiceException("未配置DeepSeek API Key，请在系统参数配置(sys.ai.api.key)中配置后重试");
+        if (!aiChannelService.enabled()) {
+            throw new ServiceException("未配置AI接口参数，请在系统参数配置(sys.ai.api.key)中配置后重试");
         }
         // 会话复用：开启时读取历史上下文（最近maxTurns轮）；关闭或非登录场景（如定时任务）则每次全新会话
         String sessionKey = null;
@@ -117,7 +98,6 @@ public class DeepSeekAiService {
         }
         // 组装请求体（OpenAI 兼容格式）
         Map<String, Object> payload = new HashMap<>();
-        payload.put("model", readConfig(MODEL_CONFIG_KEY, DEFAULT_MODEL));
         payload.put("temperature", 0);
         List<Map<String, String>> messages = new ArrayList<>();
         Map<String, String> sys = new HashMap<>();
@@ -136,26 +116,8 @@ public class DeepSeekAiService {
         respFormat.put("type", "json_object");
         payload.put("response_format", respFormat);
 
-        String body;
-        try {
-            HttpResponse resp = HttpRequest.post(readConfig(BASE_URL_CONFIG_KEY, DEFAULT_BASE_URL) + "/chat/completions")
-                    .header("Authorization", "Bearer " + apiKey.trim())
-                    .header("Content-Type", "application/json")
-                    .body(JSON.toJSONString(payload))
-                    // 超时时间参数化：默认8分钟（sys.ai.timeout.ms），避免调整耗时上限需重新发版
-                    .timeout(configInt(TIMEOUT_CONFIG_KEY, DEFAULT_TIMEOUT_MS))
-                    .execute();
-            body = resp.body();
-            if (!resp.isOk()) {
-                log.error("DeepSeek接口调用失败, status={}, body={}", resp.getStatus(), body);
-                throw new ServiceException("DeepSeek接口调用失败，请检查API Key配置：" + extractErrorMsg(body));
-            }
-        } catch (ServiceException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("DeepSeek接口调用异常", e);
-            throw new ServiceException("DeepSeek接口调用异常：" + e.getMessage());
-        }
+        // 统一走 AI 通道服务：自动按当前渠道填充 model，主渠道（第三方平台）故障时自动切换备用渠道
+        String body = aiChannelService.chatCompletions(payload);
         // 解析返回的JSON并提取物料列表（调用失败不写回会话，避免污染上下文）
         String aiContent = extractContent(body);
         JSONArray items = extractItems(aiContent);
@@ -219,18 +181,6 @@ public class DeepSeekAiService {
         return def;
     }
 
-    /** 读取字符串型参数：sys_config 未配置、为空或读取失败时回退默认值（def为null表示必须配置） */
-    private String readConfig(String key, String def) {
-        try {
-            String v = sysConfigService.selectConfigByKey(key);
-            if (v != null && !v.trim().isEmpty()) {
-                return v.trim();
-            }
-        } catch (Exception e) {
-            log.warn("读取参数{}失败，使用默认值{}", key, def, e);
-        }
-        return def;
-    }
 
     /**
      * 构建会话缓存key：按登录用户隔离；非登录场景（定时任务、匿名调用）返回null表示本次不启用会话复用
@@ -351,16 +301,6 @@ public class DeepSeekAiService {
         throw new ServiceException("DeepSeek接口响应格式异常");
     }
 
-    /** 从响应body提取接口错误信息 */
-    private String extractErrorMsg(String body) {
-        try {
-            JSONObject root = JSON.parseObject(body);
-            JSONObject error = root.getJSONObject("error");
-            if (error != null && error.getString("message") != null) return error.getString("message");
-        } catch (Exception ignored) {
-        }
-        return body;
-    }
 
     /** 提取AI返回的items数组：兼容json_object与纯数组两种返回格式，去除可能的代码块包裹 */
     private JSONArray extractItems(String aiContent) {

@@ -334,7 +334,9 @@
           <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
         </span>
         <span style="color:#909399; font-size:12px">最近天数:</span>
-        <el-input-number v-model="copyRecentDays" :min="1" :max="365" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onCopyRecentDaysChange" />
+        <el-button size="mini" icon="el-icon-minus" circle :disabled="Number(copyRecentDays) <= 1" @click="changeCopyRecentDays(-1)" />
+        <el-input-number v-model="copyRecentDays" :min="1" :max="365" :precision="0" :controls="false" size="mini" style="width:70px; margin:0 2px" @change="onCopyRecentDaysChange" />
+        <el-button size="mini" icon="el-icon-plus" circle :disabled="Number(copyRecentDays) >= 365" @click="changeCopyRecentDays(1)" />
         <el-checkbox-group v-model="copyExtraFields" size="mini" class="copy-extra-fields">
           <el-checkbox label="supplierCode">供应商编号</el-checkbox>
           <el-checkbox label="productDetail">详情</el-checkbox>
@@ -390,7 +392,9 @@
           <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
         </span>
         <span style="color:#909399; font-size:12px">最近天数:</span>
-        <el-input-number v-model="copyRecentDays" :min="1" :max="365" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onCopyRecentDaysChange" />
+        <el-button size="mini" icon="el-icon-minus" circle :disabled="Number(copyRecentDays) <= 1" @click="changeCopyRecentDays(-1)" />
+        <el-input-number v-model="copyRecentDays" :min="1" :max="365" :precision="0" :controls="false" size="mini" style="width:70px; margin:0 2px" @change="onCopyRecentDaysChange" />
+        <el-button size="mini" icon="el-icon-plus" circle :disabled="Number(copyRecentDays) >= 365" @click="changeCopyRecentDays(1)" />
         <el-checkbox-group v-model="copyExtraFields" size="mini" class="copy-extra-fields">
           <el-checkbox label="supplierCode">供应商编号</el-checkbox>
           <el-checkbox label="productDetail">详情</el-checkbox>
@@ -439,7 +443,9 @@
           <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
         </span>
         <span style="color:#909399; font-size:12px">最近天数:</span>
-        <el-input-number v-model="copyRecentDays" :min="1" :max="365" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onCopyRecentDaysChange" />
+        <el-button size="mini" icon="el-icon-minus" circle :disabled="Number(copyRecentDays) <= 1" @click="changeCopyRecentDays(-1)" />
+        <el-input-number v-model="copyRecentDays" :min="1" :max="365" :precision="0" :controls="false" size="mini" style="width:70px; margin:0 2px" @change="onCopyRecentDaysChange" />
+        <el-button size="mini" icon="el-icon-plus" circle :disabled="Number(copyRecentDays) >= 365" @click="changeCopyRecentDays(1)" />
         <el-checkbox-group v-model="copyExtraFields" size="mini" class="copy-extra-fields">
           <el-checkbox label="supplierCode">供应商编号</el-checkbox>
           <el-checkbox label="productDetail">详情</el-checkbox>
@@ -449,6 +455,7 @@
         </el-checkbox-group>
         <el-button size="mini" icon="el-icon-check" :disabled="todayCopyGroups.length === 0" @click="selectAllAdvantage">全选</el-button>
         <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="todayCopyGroups.length === 0" @click="submitCopyOffersOfToday">一键复制Offer</el-button>
+        <el-button size="mini" type="success" icon="el-icon-download" :disabled="todayCopyGroups.length === 0" @click="downloadTodayCopyExcel">下载</el-button>
         <el-button size="mini" icon="el-icon-document-copy" v-clipboard="todayCopyCopyText" v-clipboard:success="onCopyOk" :disabled="todayCopyGroups.length === 0">一键复制全部信息</el-button>
       </div>
       <div style="color:#909399; font-size:12px; margin-bottom:8px">最近{{ copyRecentDays }}天去重后共 {{ todayCopyGroups.length }} 个料号，满足价格优势（区间最好价 ≤ 上两次报价最低价 - 阈值）的料号已自动勾选</div>
@@ -651,6 +658,7 @@ import { getDicts } from '@/api/system/dict/data'
 import { getConfigKey } from '@/api/system/config'
 import { parseTime } from "@/utils/ruoyi"
 import { mapGetters } from 'vuex'
+import XLSX from 'xlsx'
 
 export default {
   name: 'CrmOffer',
@@ -685,7 +693,7 @@ export default {
       aiCompareGroups: [],
       aiCompareFallbackText: '',
       // 复制工具栏状态（AI录入比价/AI查询共用）：最近天数（1=当天/2=最近两天/3=最近三天，默认1天）、勾选的额外字段（默认都不勾选）、加载中
-      copyRecentDays: 1,
+      copyRecentDays: 2,
       copyExtraFields: [],
       // 价格优势阈值（单位USD）：默认15，优先读取系统参数 offer.price.advantage.threshold
       priceAdvThreshold: 15,
@@ -1121,6 +1129,46 @@ export default {
     },
     /** 一键复制Offer（复制Offer当日料号比价弹窗按钮）：按当前分组的料号复制最近N天最低报价 */
     submitCopyOffersOfToday() { this.doCopyOffers(this.todayCopyGroups, 'todayCopyFallbackText') },
+    /** 最近天数加减（复制Offer/AI查询/AI录入比价共用） */
+    changeCopyRecentDays(delta) {
+      let d = Math.floor(Number(this.copyRecentDays)) || 1;
+      d = Math.min(365, Math.max(1, d + delta));
+      this.copyRecentDays = d;
+      this.onCopyRecentDaysChange();
+    },
+    /** 下载：把“一键复制Offer”的内容导出为Excel（第1行标题与复制第一行一致） */
+    downloadTodayCopyExcel() {
+      const groups = this.todayCopyGroups || [];
+      const partNumbers = groups.filter(g => g.checked === true).map(g => g.partNumber).filter(Boolean);
+      if (partNumbers.length === 0) { this.$modal.msgWarning('未勾选任何料号，请先勾选需要复制的料号'); return }
+      const days = this.copyRecentDays || 2;
+      this.aiCopyLoading = true;
+      copyAiQueryOffers({ days: days, partNumbers: partNumbers, extraFields: this.copyExtraFields }).then(res => {
+        const raw = res.data || (res.msg && res.msg !== '操作成功' ? res.msg : '') || '';
+        if (!raw) { this.$modal.msgWarning('最近' + days + '天内这些物料没有Offer记录'); return }
+        this.exportCopyTextToExcel(this.withOfferHeader(raw), 'Offer-' + days + '天-' + this.todayStr());
+      }).catch(err => {
+        const e = err || {};
+        this.$modal.msgError(e.msg || e.message || '下载失败');
+      }).finally(() => { this.aiCopyLoading = false })
+    },
+    /** 制表符文本导出Excel：第1行为标题，其后按制表符拆列，组标题行单格显示 */
+    exportCopyTextToExcel(text, fileName) {
+      const rows = text.split('\n').filter(l => l.trim() !== '');
+      const aoa = [];
+      rows.forEach((line, idx) => {
+        if (idx === 0 || line.indexOf('\t') < 0) {
+          aoa.push([line]);
+        } else {
+          aoa.push(line.split('\t'));
+        }
+      });
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Offer');
+      XLSX.writeFile(wb, fileName + '.xlsx');
+      this.$modal.msgSuccess('已下载Excel');
+    },
     /** 点击供应商名称：实时查询后端（后端判权限：有权限返回真实名称，无权限返回"您无权查看"，查不到返回"未找到名称"），一闪即逝 */
     showSupplierNameTip(row) {
       const code = row.supplierCode || row.supplierName || '';

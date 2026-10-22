@@ -31,11 +31,11 @@ public class WeChatMessage {
     @JsonProperty("msg_category")
     private String msgCategory;
 
-    /** 分类来源：HARD=硬规则 / LLM=大模型精判 / RULE=规则链兜底 / CACHE=缓存命中；便于排查分类是否正确 */
+    /** 分类来源：LLM=大模型分类 / CACHE=缓存命中 / FILTER=会话过滤 */
     @JsonProperty("category_source")
     private String categorySource;
 
-    /** 分类理由（大模型 why 简短一句，便于人工复核） */
+    /** 分类理由（代码根据 AI 分类与关联编号生成，便于人工复核） */
     @JsonProperty("category_reason")
     private String categoryReason;
 

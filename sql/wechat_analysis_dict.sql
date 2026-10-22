@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS wechat_message (
   sort_seq BIGINT NOT NULL DEFAULT 0 COMMENT '排序键', 
   md5 VARCHAR(64) DEFAULT '' COMMENT '媒体md5', 
   msg_category VARCHAR(16) DEFAULT '' COMMENT '分类(INQ/OFFER/TRACE/OTHER)', 
-  category_source VARCHAR(16) DEFAULT '' COMMENT '分类来源(FIXED/LLM/CACHE/FILTER/FAIL)', 
+  category_source VARCHAR(16) DEFAULT '' COMMENT '分类来源(LLM/CACHE/FILTER)',
   category_reason VARCHAR(512) DEFAULT '' COMMENT '分类理由', 
   status TINYINT NOT NULL DEFAULT 0 COMMENT '状态: 0=未分类 1=已分类未处理 2=已分类处理未发送 3=无需处理 4=已分类处理发送', 
   entry_fail_count INT NOT NULL DEFAULT 0 COMMENT 'AI录入失败次数(连续失败达offerEntryMaxFail次则置status=3无需处理)', 
@@ -96,18 +96,14 @@ DELETE FROM sys_dict_data WHERE dict_type='wechat_analysis_config';
 INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark) VALUES
 (1,  'whiteNames', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '会话白名单（非空时只放过这些名称，多个用逗号拼接）'),
 (2,  'blackNames', '山樾湾2F业主群,前海路5号玩乐吃喝,封窗进展,兔宝宝山樾湾2F 812苏总', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '分类黑名单（精确匹配 name；永远优先于白名单，不参与AI分类，多个用逗号拼接）'),
-(14, 'llmBatchSize', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '每次AI分类调用最多消息条数(1-20)'),
-(15, 'llmConcurrency', '2', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '并行批次数量(注意DeepSeek限频,建议1-3)'),
+(14, 'llmBatchSize', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '每次AI分类调用最多待判消息条数(1-20)，按条数顺序处理'),
 (16, 'llmTimeoutSec', '180', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '单次大模型请求超时时间(秒)'),
 (90, 'aiTriggerCount', '5', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类触发条数：同一会话积累未分类消息达到该数量立即调起AI分类'),
 (91, 'aiFlushMinutes', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类超时窗口(分钟)：超时仍未凑够触发条数也调起AI分类'),
 (92, 'aiContextWindow', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类上下文条数：判定时带上该会话最近N条原始消息，业务要求最低20条'),
 (93, 'msgRetentionDays', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '消息保留天数：定时任务删除超过该天数的聊天记录'),
 (94, 'llmPromptBase', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类系统提示词(留空用内置默认)：分类定义+判断规则'),
-(95, 'llmExamples', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类few-shot示例(留空用内置默认)：真实消息+正确分类'),
-(96, 'offerFixedSenders', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '固定发OFFER的发送人(逗号分隔)，命中直接标OFFER，可留空'),
-(97, 'offerFixedGroups', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '固定发OFFER的群(逗号分隔)，群内文本直接标OFFER，可留空'),
-(98, 'offerFollowWindowMin', '5', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '固定OFFER的回复跟随窗口(分钟)：上一条固定OFFER且本条无明显询价词则标OFFER，0=关闭'),
+(95, 'llmExamples', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类few-shot示例(留空用内置默认，最多800字)：真实消息+分类+关联编号'),
 (99, 'pollEnabled', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '轮询拉取总开关：true=服务启动后自动定时拉取微信消息入库；false=关闭(仅手动 POST /wechat/poll/run)'),
 (100, 'pollIntervalSec', '10', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '轮询拉取间隔(秒)：上一轮拉取完成后等待该秒数再启动下一轮(默认10秒)'),
 (101, 'pollBackSec', '120', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '拉取冗余回看(秒)：每轮从「上次拉到的最大消息时间-该值」开始扫描，防止边界丢消息(默认120)'),
@@ -127,8 +123,6 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_defa
 (118, 'offerEntryMaxFail', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI录入失败上限(次)：同一消息连续录入失败达到该次数置status=3无需处理，避免失败消息一直卡住队列(默认3)'),
 (119, 'offerEntryCreateBy', 'wechat_auto', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '录入人(create_by/update_by)：定时任务无登录用户，统一用该值标记AI自动录入来源(默认wechat_auto)'),
 (120, 'selfNames', 'Eke,May,Jin,Jasmine', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '我方微信名/别名(逗号分隔)：仅用于判断角色，INQ/OFFER均可由任一方发出'),
-(121, 'strictBusinessSemantics', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '严格业务语义：方向看问价/给价，不看发送方；无关联广播降级OTHER'),
-(122, 'strictCustomerOnly', 'false', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '已废弃：买卖双向，不再限制只保留客户发起'),
 (123, 'traceAlertEnabled', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'TRACE飞书预警：已关联INQ/OFFER的二次业务跟进，疑问或陈述均可'),
 (124, 'traceAlertMaxAgeMin', '1440', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'TRACE预警最大时效(分钟)：超过该时长的历史消息不推送飞书，默认1440=24小时'),
 (137, 'offerEntryMinAgeSec', '60', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '分类后等待秒数：让后续消息进入上下文后再自动录入，默认60'),
@@ -139,9 +133,9 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_defa
 DELETE FROM sys_dict_data WHERE dict_type='wechat_analysis_config'
   AND dict_label IN ('llmEnabled','llmApiKey','llmApiBase','llmModel','llmBackupEnabled','llmBackupApiBase','llmBackupApiKey','llmBackupModel','llmFailThreshold','llmBackupCheckSec','alertFeishuWebhook','alertCooldownSec');
 
--- 4) AI分类提示词/示例：留空使用代码内置双向语义规则，避免旧版“客户INQ/我方OFFER”固定方向继续生效
+-- 4) AI分类提示词/示例：留空使用代码内置精简提示词，避免旧版固定方向和长示例继续生效
 --    dict_value 需要容纳长提示词，统一扩容到 8192。
 ALTER TABLE sys_dict_data MODIFY COLUMN dict_value VARCHAR(8192) NOT NULL DEFAULT '';
-UPDATE sys_dict_data SET dict_value = '', remark = '留空使用代码内置双向语义提示词/示例'
+UPDATE sys_dict_data SET dict_value = '', remark = '留空使用代码内置精简提示词/示例'
 WHERE dict_type = 'wechat_analysis_config' AND dict_label IN ('llmPromptBase','llmExamples');
 

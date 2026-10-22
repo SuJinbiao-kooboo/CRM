@@ -6,9 +6,8 @@ import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.mapper.CrmOfferMapper;
 import com.ruoyi.crm.service.ai.AiChannelService;
 import com.ruoyi.crm.service.ICrmOfferService;
-import com.ruoyi.wexinAuto.analysis.FixedOfferMarker;
-import com.ruoyi.wexinAuto.analysis.SemanticMatcher;
 import com.ruoyi.wexinAuto.analysis.WeChatLlmClassifier;
+import com.ruoyi.wexinAuto.analysis.WeChatTextUtils;
 import com.ruoyi.wexinAuto.config.WeChatGatewayProperties;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
 import com.ruoyi.wexinAuto.model.WeChatSendResult;
@@ -34,7 +33,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.LinkedHashMap;
@@ -90,7 +88,7 @@ public class WeChatGatewayService {
     private final AtomicLong listenCount = new AtomicLong(0);
     private final AtomicLong filteredCount = new AtomicLong(0);
 
-    /** 监听路径：每个会话最近 N 条已分类消息（供 AI 上下文与固定标记使用） */
+    /** 监听路径：每个会话最近 N 条已分类消息（供 AI 上下文使用） */
     private final Map<String, Deque<WeChatMessage>> listenHistory = new ConcurrentHashMap<>();
 
     /** 待分类缓冲：每个会话积累未分类消息，满足数量/时间窗口触发 AI 分类 */
@@ -568,7 +566,7 @@ public class WeChatGatewayService {
     // ------------------------------------------------------------------
 
     /**
-     * 定时/手动录入入口。每条 INQ/OFFER 先原子领取，再复核双向语义，随后复用 CRM
+     * 定时/手动录入入口。每条 INQ/OFFER 先原子领取，再校验 AI 关联结构，随后复用 CRM
      * 「AI查询」和「AI录入」按钮的后端逻辑写入 crm_offer，最后执行同料号近1个月比价。
      * 自动任务不依赖登录上下文，录入状态与消息处理状态分开记录，失败可重试、可人工重排。
      */
@@ -668,12 +666,12 @@ public class WeChatGatewayService {
                     continue;
                 }
                 boolean isOffer = "OFFER".equalsIgnoreCase(m.getMsgCategory());
-                if (!entrySemanticsValid(m, isOffer)) {
+                if (!entryRelationValid(m, isOffer)) {
                     skipped++;
                     store.updateEntryState(m.getUsername(), m.getLocalId(), 3, "SKIPPED",
-                            isOffer ? "复核未通过：缺少对向INQ或价格证据" : "复核未通过：无明确询价意图",
+                            "复核未通过：OFFER缺少AI关联的对向INQ",
                             0, "", 0);
-                    log.warn("历史分类未通过严格语义复核，拒绝自动录入: chat={} sender={} cat={} serverId={}",
+                    log.warn("历史分类未通过AI关联校验，拒绝自动录入: chat={} sender={} cat={} serverId={}",
                             m.getName(), m.getSender(), m.getMsgCategory(), m.getServerId());
                     continue;
                 }
@@ -800,27 +798,20 @@ public class WeChatGatewayService {
         }
     }
 
-    /** 自动录入前再次复核：INQ 只要求询价意图；OFFER 必须有不同发送人的对向 INQ 和价格证据。 */
-    private boolean entrySemanticsValid(WeChatMessage m, boolean isOffer) {
+    /** 自动录入前只做结构校验：INQ 直接放行；OFFER 必须有 AI 返回且发送人不同的对向 INQ。 */
+    private boolean entryRelationValid(WeChatMessage m, boolean isOffer) {
         if (!isOffer) {
-            return SemanticMatcher.looksLikeInquiry(m.getContent());
+            return true;
         }
         if (StringUtils.isBlank(m.getRelatInq())) {
             return false;
         }
         try {
             JsonNode n = jackson.readTree(m.getRelatInq());
-            WeChatMessage inq = new WeChatMessage();
-            inq.setSender(n.path("sender").asText(""));
-            inq.setContent(n.path("content").asText(""));
-            inq.setCreateTime(n.path("create_time").asText(""));
-            if (!SemanticMatcher.looksLikeInquiry(inq.getContent())) {
+            if (!"INQ".equalsIgnoreCase(n.path("category").asText(""))) {
                 return false;
             }
-            int offerMaxAgeMin = Math.max(1, analysisInt("offerLinkMaxAgeMin", 180));
-            int offerShortWindowMin = Math.max(1, analysisInt("offerShortReplyWindowMin", 30));
-            return SemanticMatcher.isReplyTo(m, inq, SemanticMatcher.isGroupChat(m),
-                    offerMaxAgeMin, offerShortWindowMin);
+            return !WeChatTextUtils.sameName(m.getSender(), n.path("sender").asText(""));
         } catch (Exception e) {
             log.warn("解析 relat_inq 失败，拒绝自动录入: chat={} serverId={}",
                     m.getName(), m.getServerId(), e);
@@ -831,7 +822,7 @@ public class WeChatGatewayService {
     /** 我方外发 OFFER 按销售 Offer 加利润；外部报价给我方、以及所有 INQ 均按 Inq 记录。 */
     private String entryInqOfferType(WeChatMessage m) {
         if ("OFFER".equalsIgnoreCase(m.getMsgCategory())
-                && SemanticMatcher.isSelf(m.getSender(), analysisNames("selfNames"))) {
+                && WeChatTextUtils.isSelf(m.getSender(), selfNames())) {
             return "Offer";
         }
         return "Inq";
@@ -992,7 +983,7 @@ public class WeChatGatewayService {
         }
     }
 
-    /** 触发某个会话的缓冲分类：固定标记 → AI 精判 → 回写DB → 回调Handler。 */
+    /** 触发某个会话的缓冲分类：AI 分类 → 回写DB → 回调Handler。 */
     private void flushChat(String key) {
         ChatBuffer cb = buffers.get(key);
         if (cb == null) {
@@ -1017,8 +1008,6 @@ public class WeChatGatewayService {
             // 否则“这个价格可以”“按24pcs安排”等省略句无法结合前文判断。
             List<WeChatMessage> context = recentContext(key, pending, ctxWin);
             classifyWithContext(key, context, pending, chatName);
-            linkRelational(chatName, pending);
-            refineAfterRelational(pending);
             for (WeChatMessage m : pending) {
                 if (m.getMsgCategory() == null || m.getMsgCategory().isEmpty()) {
                     log.warn("消息未分类(留待定时重试): [{}|{}] {}", m.getName(), m.getServerId(), m.getSender());
@@ -1038,7 +1027,7 @@ public class WeChatGatewayService {
 
     /**
      * 对一批消息按会话归并分类（用于 fetch/恢复任务）：
-     * 过滤掉的会话标记 OTHER/FILTER；其余 = 缓存命中 + 固定标记 + AI 精判，结果回写库。
+     * 过滤掉的会话标记 OTHER/FILTER；其余 = 缓存命中 + AI 分类，结果回写库。
      *
      * @param markFiltered 是否把黑/白名单过滤掉的会话标记为 OTHER/FILTER（避免重复扫描）
      */
@@ -1069,9 +1058,6 @@ public class WeChatGatewayService {
             List<WeChatMessage> pending = new ArrayList<>(chatMsgs);
             List<WeChatMessage> context = recentContext(key, pending, ctxWin);
             classifyWithContext(key, context, pending, chatName);
-            // 业务关联：OFFER → relatInq；TRACE → relatInq + relatOffer（回写随 updateCategory 落库)
-            linkRelational(chatName, pending);
-            refineAfterRelational(pending);
             for (WeChatMessage m : pending) {
                 if (m.getMsgCategory() != null && !m.getMsgCategory().isEmpty()) {
                     store.updateCategory(m);
@@ -1080,162 +1066,6 @@ public class WeChatGatewayService {
                 }
             }
         }
-    }
-
-    /**
-     * 业务关联标记（核心链路 INQ → OFFER → TRACE）：
-     * 同一会话内按时间顺序维护「最近一条 INQ / 最近一条 OFFER」：
-     * <ul>
-     *   <li>OFFER：relat_inq = 它回应的最近一条 INQ（id/server_id/sender/content/create_time 的 JSON）；</li>
-     *   <li>TRACE：relat_inq = 对应的最近 INQ，relat_offer = 对应的最近 OFFER；</li>
-     *   <li>INQ：只更新「最近 INQ」指针，自身无关联字段。</li>
-     * </ul>
-     * 关联基于同一 username 下最近一段已入库消息(含历史已分类)，避免同名会话串线；
-     * 引用列表仍只保留最近 aiContextWindow 条作为语义锚点。
-     */
-    private void linkRelational(String chatName, List<WeChatMessage> pending) {
-        if (pending == null || pending.isEmpty() || StringUtils.isBlank(chatName)) {
-            return;
-        }
-        if (!analysisBool("strictBusinessSemantics", true)) {
-            return;
-        }
-        int contextWindow = Math.max(20, Math.min(100, analysisInt("aiContextWindow", 20)));
-        String username = pending.get(0).getUsername();
-        // 合并最近历史与本次 pending；历史必须包含 status=2，否则已被录入/预警的 INQ/OFFER
-        // 在下一批 OFFER/TRACE 到来时会“消失”，导致整条业务链断掉。
-        Map<String, WeChatMessage> uniq = new HashMap<>();
-        int loadLimit = Math.min(DB_QUERY_MAX, Math.max(200, contextWindow * 10 + pending.size()));
-        for (WeChatMessage m : store.queryRecent(username, loadLimit)) {
-            if (m.getStatus() != null && m.getStatus() == 3) {
-                continue;
-            }
-            if (StringUtils.isNotBlank(m.getMsgCategory())) {
-                uniq.put(keyOf(m) + "|" + m.getLocalId(), m);
-            }
-        }
-        for (WeChatMessage m : pending) {
-            if (StringUtils.isNotBlank(m.getMsgCategory())) {
-                uniq.put(keyOf(m) + "|" + m.getLocalId(), m);
-            }
-        }
-        if (uniq.isEmpty()) {
-            return;
-        }
-        List<WeChatMessage> all = new ArrayList<>(uniq.values());
-        all.sort(Comparator.comparingLong(WeChatMessage::getSortSeq));
-        boolean groupChat = SemanticMatcher.isGroupChat(pending.get(0));
-        int offerMaxAgeMin = Math.max(1, analysisInt("offerLinkMaxAgeMin", 180));
-        int offerShortWindowMin = Math.max(1, analysisInt("offerShortReplyWindowMin", 30));
-        int traceMaxAgeMin = Math.max(1, analysisInt("traceLinkMaxAgeMin", 180));
-        int traceShortWindowMin = Math.max(1, analysisInt("traceShortWindowMin", 30));
-        Set<WeChatMessage> pendingSet = Collections.newSetFromMap(
-                new java.util.IdentityHashMap<WeChatMessage, Boolean>());
-        pendingSet.addAll(pending);
-
-        List<WeChatMessage> recentInqs = new ArrayList<>();
-        List<WeChatMessage> recentOffers = new ArrayList<>();
-        for (WeChatMessage m : all) {
-            String cat = m.getMsgCategory() == null ? "" : m.getMsgCategory().trim().toUpperCase();
-            boolean isPending = pendingSet.contains(m);
-
-            if (isPending) {
-                if ("INQ".equals(cat)) {
-                    if (!SemanticMatcher.looksLikeInquiry(m.getContent())) {
-                        downgradeSemantic(m, "关联校验:无明确询价意图");
-                        cat = "OTHER";
-                    }
-                } else if ("OFFER".equals(cat)) {
-                    WeChatMessage relatedInq = findRelatedInq(m, recentInqs, groupChat,
-                            offerMaxAgeMin, offerShortWindowMin);
-                    if (relatedInq == null) {
-                        downgradeSemantic(m, "关联校验:未找到对向INQ的直接回应，按广播报价排除");
-                        cat = "OTHER";
-                    } else {
-                        m.setRelatInq(toRelJson(relatedInq));
-                    }
-                } else if ("TRACE".equals(cat)) {
-                    WeChatMessage relatedInq = findRelatedFollowUp(m, recentInqs, groupChat,
-                            traceMaxAgeMin, traceShortWindowMin);
-                    WeChatMessage relatedOffer = findRelatedFollowUp(m, recentOffers, groupChat,
-                            traceMaxAgeMin, traceShortWindowMin);
-                    if (relatedInq != null) {
-                        m.setRelatInq(toRelJson(relatedInq));
-                    }
-                    if (relatedOffer != null) {
-                        m.setRelatOffer(toRelJson(relatedOffer));
-                    }
-                    if (relatedInq == null && relatedOffer == null) {
-                        downgradeSemantic(m, "关联校验:未关联到近期具体INQ/OFFER");
-                        cat = "OTHER";
-                    }
-                }
-            }
-
-            if ("INQ".equals(cat) && SemanticMatcher.looksLikeInquiry(m.getContent())) {
-                rememberRecent(recentInqs, m, contextWindow);
-            } else if ("OFFER".equals(cat)) {
-                // 历史 OFFER 必须已有有效 INQ 关联才可作为 TRACE 的引用，防止旧误判继续污染。
-                if (isPending || StringUtils.isNotBlank(m.getRelatInq())) {
-                    rememberRecent(recentOffers, m, contextWindow);
-                }
-            }
-        }
-    }
-
-    private static WeChatMessage findRelatedInq(WeChatMessage offer, List<WeChatMessage> inqs,
-                                                boolean groupChat, int maxAgeMin, int shortWindowMin) {
-        for (int i = inqs.size() - 1; i >= 0; i--) {
-            WeChatMessage inq = inqs.get(i);
-            if (SemanticMatcher.isReplyTo(offer, inq, groupChat, maxAgeMin, shortWindowMin)) {
-                return inq;
-            }
-        }
-        return null;
-    }
-
-    private static WeChatMessage findRelatedFollowUp(WeChatMessage trace, List<WeChatMessage> refs,
-                                                      boolean groupChat, int maxAgeMin, int shortWindowMin) {
-        for (int i = refs.size() - 1; i >= 0; i--) {
-            WeChatMessage ref = refs.get(i);
-            if (SemanticMatcher.isFollowUpTo(trace, ref, groupChat, maxAgeMin, shortWindowMin)) {
-                return ref;
-            }
-        }
-        return null;
-    }
-
-    private static void rememberRecent(List<WeChatMessage> list, WeChatMessage message, int max) {
-        list.add(message);
-        while (list.size() > max) {
-            list.remove(0);
-        }
-    }
-
-    /** 关联完成后做最终兜底：没有对应 INQ 的 OFFER、没有关联对象的 TRACE 一律降级 OTHER。 */
-    private void refineAfterRelational(List<WeChatMessage> pending) {
-        if (pending == null || pending.isEmpty() || !analysisBool("strictBusinessSemantics", true)) {
-            return;
-        }
-        for (WeChatMessage m : pending) {
-            String cat = m.getMsgCategory() == null ? "" : m.getMsgCategory().trim().toUpperCase();
-            if ("OFFER".equals(cat) && StringUtils.isBlank(m.getRelatInq())) {
-                downgradeSemantic(m, "关联校验:未找到对向INQ，按广播报价排除");
-            } else if ("TRACE".equals(cat)
-                    && StringUtils.isBlank(m.getRelatInq()) && StringUtils.isBlank(m.getRelatOffer())) {
-                downgradeSemantic(m, "关联校验:未关联到具体INQ/OFFER");
-            }
-        }
-    }
-
-    private void downgradeSemantic(WeChatMessage m, String why) {
-        String old = m.getCategoryReason();
-        m.setMsgCategory("OTHER");
-        m.setCategorySource("SEMANTIC");
-        m.setRelatInq(null);
-        m.setRelatOffer(null);
-        m.setCategoryReason(SemanticMatcher.clip(
-                (StringUtils.isBlank(old) ? "" : old + "；") + why, 300));
     }
 
     /**
@@ -1254,7 +1084,7 @@ public class WeChatGatewayService {
             return false;
         }
         int maxAgeMin = analysisInt("traceAlertMaxAgeMin", 1440);
-        if (!SemanticMatcher.isRecent(m.getCreateTime(), maxAgeMin)) {
+        if (!WeChatTextUtils.isRecent(m.getCreateTime(), maxAgeMin)) {
             log.info("历史TRACE不推送飞书(超过{}分钟): chat={} sender={} time={}",
                     maxAgeMin, m.getName(), m.getSender(), m.getCreateTime());
             return false;
@@ -1267,7 +1097,7 @@ public class WeChatGatewayService {
             String detail = "会话: " + StringUtils.defaultString(m.getName()) + "\n"
                     + "发言人: " + StringUtils.defaultString(m.getSender()) + "\n"
                     + "时间: " + StringUtils.defaultString(m.getCreateTime()) + "\n"
-                    + "内容: " + SemanticMatcher.clip(m.getContent(), 600) + "\n"
+                    + "内容: " + WeChatTextUtils.clip(m.getContent(), 600) + "\n"
                     + "分类理由: " + StringUtils.defaultString(m.getCategoryReason()) + "\n"
                     + "关联INQ: " + relText(m.getRelatInq()) + "\n"
                     + "关联OFFER: " + relText(m.getRelatOffer()) + "\n"
@@ -1321,9 +1151,9 @@ public class WeChatGatewayService {
             JsonNode n = jackson.readTree(json);
             String sender = n.path("sender").asText("");
             String content = n.path("content").asText("");
-            return StringUtils.defaultString(sender) + ": " + SemanticMatcher.clip(content, 300);
+            return StringUtils.defaultString(sender) + ": " + WeChatTextUtils.clip(content, 300);
         } catch (Exception e) {
-            return SemanticMatcher.clip(json, 300);
+            return WeChatTextUtils.clip(json, 300);
         }
     }
 
@@ -1347,44 +1177,22 @@ public class WeChatGatewayService {
         }
     }
 
-    /** 单会话分类管线：缓存命中 → 固定标记 → AI 精判。返回时 pending 内已带分类。 */
+    /** 单会话分类管线：缓存命中 → AI 分类。返回时 pending 内已带分类和关联字段。 */
     private synchronized void classifyWithContext(String chatKey, List<WeChatMessage> context, List<WeChatMessage> pending, String chatName) {
         if (pending == null || pending.isEmpty()) {
             return;
         }
-        // 1) 缓存命中
+        // 1) 缓存命中；未命中的全部交给提示词驱动的 AI 分类
         List<WeChatMessage> blank = new ArrayList<>();
         for (WeChatMessage m : pending) {
-            String cached = llm.cached(m);
-            if (cached != null) {
-                m.setMsgCategory(cached);
-                m.setCategorySource("CACHE");
-            } else {
+            if (!llm.applyCached(m)) {
                 blank.add(m);
             }
         }
-        // 2) 固定标记（配置了 offerFixedSenders/Groups 才生效；未配置则为纯 AI）
-        List<WeChatMessage> seq = new ArrayList<>(context);
-        for (WeChatMessage m : blank) {
-            if (m.getMsgCategory() == null || m.getMsgCategory().isEmpty()) {
-                seq.add(m);
-            }
-        }
-        FixedOfferMarker.markFixed(seq);
-        // 3) AI 精判（剩余未分类）
-        List<WeChatMessage> aiPending = new ArrayList<>();
-        List<WeChatMessage> ctxForAi = new ArrayList<>();
-        for (WeChatMessage m : seq) {
-            if (m.getMsgCategory() != null && !m.getMsgCategory().isEmpty()) {
-                ctxForAi.add(m);
-            } else {
-                aiPending.add(m);
-            }
-        }
-        if (!aiPending.isEmpty()) {
-            llm.classify(ctxForAi, aiPending, chatName);
+        if (!blank.isEmpty()) {
+            llm.classify(context, blank, chatName);
             boolean anyFail = false;
-            for (WeChatMessage m : aiPending) {
+            for (WeChatMessage m : blank) {
                 if (m.getMsgCategory() == null || m.getMsgCategory().isEmpty()) {
                     anyFail = true;
                     break;
@@ -1625,6 +1433,13 @@ public class WeChatGatewayService {
                 }
             }
         }
+        return names;
+    }
+
+    /** 我方成员固定包含四人，字典只做补充别名；用于判断外发 OFFER 的录入类型。 */
+    private Set<String> selfNames() {
+        Set<String> names = analysisNames("selfNames");
+        Collections.addAll(names, "Eke", "May", "Jin", "Jasmine");
         return names;
     }
 

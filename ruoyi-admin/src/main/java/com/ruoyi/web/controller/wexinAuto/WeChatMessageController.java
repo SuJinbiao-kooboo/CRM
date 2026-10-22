@@ -131,7 +131,7 @@ public class WeChatMessageController {
 
     /**
      * 人工确认后重新入队：只处理 SKIPPED/FAILED/DEAD 的 INQ/OFFER，
-     * 下一轮会重新执行 AI查询、AI录入和比价，不会绕过语义门禁。
+     * 下一轮会重新执行 AI查询、AI录入和比价，不会绕过关联校验。
      *
      * @param chat 群名/好友名，可选；不填=全部会话
      */

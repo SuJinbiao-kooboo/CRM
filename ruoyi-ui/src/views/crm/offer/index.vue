@@ -659,6 +659,7 @@ import { listSupplierOptions, listSupplier, listSupplierSimple } from '@/api/crm
 import { getDicts } from '@/api/system/dict/data'
 import { getConfigKey } from '@/api/system/config'
 import { parseTime } from "@/utils/ruoyi"
+import { saveAs } from 'file-saver'
 import { mapGetters } from 'vuex'
 
 export default {
@@ -1146,14 +1147,21 @@ export default {
       this.aiCopyLoading = true;
       downloadOfferTemplate({ days: days, partNumbers: partNumbers, extraFields: this.copyExtraFields }).then(blob => {
         if (!(blob instanceof Blob)) { throw new Error('操作失败，请重试'); }
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'M&E ' + this.todayStr() + ' Offer.xlsx';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        // 后端出错时返回JSON（全局异常处理器），这里识别并提示，避免误下载错误文件
+        if (blob.type && blob.type.indexOf('application/json') >= 0) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const obj = JSON.parse(reader.result);
+              this.$modal.msgError(obj.msg || '导出失败');
+            } catch (e) {
+              this.$modal.msgError('导出失败，请重试');
+            }
+          };
+          reader.readAsText(blob);
+          return;
+        }
+        saveAs(blob, 'M&E ' + this.todayStr() + ' Offer.xlsx');
         this.$modal.msgSuccess('已下载Excel');
       }).catch(err => {
         const e = err || {};

@@ -64,6 +64,7 @@
                 )
             </if>
             <if test="inqOfferType != null and inqOfferType != ''">and inq_offer_type = #{inqOfferType}</if>
+            <if test="status != null">and status = #{status}</if>
             <if test="params != null and params.productBrandList != null and params.productBrandList.length() > 0">
                 and (
                 <foreach collection="params.productBrandList.split(',')" item="pb" separator=" or ">
@@ -125,6 +126,7 @@
         where stock_date &gt;= date_sub(curdate(), interval (#{days} - 1) day)
         and stock_date &lt;= now()
         and inq_offer_type = 'Offer'
+        and status = 1
         order by product_brand asc, product_code asc, price_cost asc, create_time desc
     </select>
 
@@ -134,6 +136,7 @@
         where coalesce(stock_date, create_time) &gt;= date_sub(curdate(), interval (#{days} - 1) day)
         and coalesce(stock_date, create_time) &lt;= now()
         and inq_offer_type = 'Offer'
+        and status = 1
         and (
         <foreach collection="list" item="code" separator=" or ">
             upper(product_code) = #{code}
@@ -180,6 +183,15 @@
         SELECT COUNT(*) FROM crm_offer
         WHERE wechat_server_id = #{serverId} AND wechat_username = #{username} AND wechat_local_id = #{localId}
     </select>
+
+    <!-- 批量失效：将勾选的Offer置为无效状态（status=0） -->
+    <update id="invalidateOfferByIds">
+        update crm_offer set status = 0, update_time = now()
+        where id in
+        <foreach collection="list" item="id" separator="," open="(" close=")">
+            #{id}
+        </foreach>
+    </update>
 
     <update id="updateOffer" parameterType="com.ruoyi.crm.domain.CrmOffer">
         update crm_offer

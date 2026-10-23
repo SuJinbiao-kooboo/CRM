@@ -78,4 +78,6 @@ public interface ICrmOfferService {
      * 组装为制表符分隔文本返回，首行为英文表头（随勾选字段变化）
      */
     String buildAiQueryCopyText(List<String> partNumbers, int days, List<String> extraFields);
+    /** 批量失效：把指定id的Offer置为无效（status=0） */
+    int invalidateOffers(List<Long> ids);
 }

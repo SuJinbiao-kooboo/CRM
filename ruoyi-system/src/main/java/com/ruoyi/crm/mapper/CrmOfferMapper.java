@@ -41,6 +41,7 @@ public interface CrmOfferMapper {
      */
     int countByWechat(@Param("serverId") String serverId, @Param("username") String username, @Param("localId") long localId);
     int updateOffer(CrmOffer offer);
+    int invalidateOfferByIds(@Param("list") List<Long> ids);
     int deleteOfferByIds(Long[] ids);
     int deleteOfferById(Long id);
     int batchUpdate(@Param("ids") List<Long> ids, @Param("offer") CrmOffer offer);

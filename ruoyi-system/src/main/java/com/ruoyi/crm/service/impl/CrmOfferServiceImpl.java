@@ -499,6 +499,8 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             List<Map<String, Object>> offerList = new ArrayList<>();
             for (CrmOffer o : entry.getValue()) {
                 Map<String, Object> m = new HashMap<>();
+                m.put("id", o.getId());
+                m.put("status", o.getStatus());
                 m.put("supplierName", o.getSupplierName());
                 m.put("supplierCode", o.getSupplierCode());
                 m.put("productType", o.getProductType());
@@ -592,6 +594,8 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         applySupplierNameAccess(list);
         for (CrmOffer o : list) {
             Map<String, Object> m = new HashMap<>();
+            m.put("id", o.getId());
+            m.put("status", o.getStatus());
             m.put("partNumber", o.getProductCode());
             m.put("supplierCode", o.getSupplierCode());
             m.put("supplierName", o.getSupplierName());
@@ -687,6 +691,17 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
      * 默认输出 料号/数量(带pcs)/Offer价格(带USD)，extraFields 勾选后按固定顺序追加对应列，
      * 组装为制表符分隔文本，首行为英文表头（随勾选字段变化）：Part No.\tQty\tPrice[\tSupplier][\tDetail][\tDelivery][\tDC]
      */
+    /**
+     * 批量失效：把指定id的Offer置为无效（status=0），返回影响行数
+     */
+    @Override
+    public int invalidateOffers(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+        return offerMapper.invalidateOfferByIds(ids);
+    }
+
     @Override
     public String buildAiQueryCopyText(List<String> partNumbers, int days, List<String> extraFields) {
         if (days < 1 || days > 999) {

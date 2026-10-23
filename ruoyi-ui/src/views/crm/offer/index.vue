@@ -34,6 +34,12 @@
       <el-form-item label="规格">
         <el-input v-model="queryParams.spec" placeholder="请输入规格（容量/转速等）" clearable size="mini" style="width: 180px" @keyup.enter.native="handleQuery" />
       </el-form-item>
+      <el-form-item label="状态">
+        <el-select v-model="queryParams.status" clearable placeholder="请选择状态" size="mini" style="width: 120px">
+          <el-option label="有效" :value="1" />
+          <el-option label="无效" :value="0" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="标签1">
         <el-select v-model="queryParams.tagsFirst" clearable filterable placeholder="标签1">
           <el-option v-for="d in dictTagsFirst" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
@@ -85,6 +91,7 @@
         <el-button type="success" plain icon="el-icon-edit" size="mini" :disabled="single" @click="handleUpdate" v-hasPermi="['crm:offer:edit']">修改</el-button>
       </el-col>
       <el-col :span="1.5">
+        <el-button type="warning" plain icon="el-icon-circle-close" size="mini" :disabled="multiple" @click="handleInvalidate" v-hasPermi="['crm:offer:edit']">失效</el-button>
         <el-button type="danger" plain icon="el-icon-delete" size="mini" :disabled="multiple" @click="handleDelete" v-hasPermi="['crm:offer:remove']">删除</el-button>
       </el-col>
       <el-col :span="1.5">
@@ -131,6 +138,12 @@
       <el-table-column label="产品类型" align="center" prop="productType" show-overflow-tooltip />
       <el-table-column label="DC" align="center" prop="dc" show-overflow-tooltip />
       <el-table-column label="类型" align="center" prop="inqOfferType" show-overflow-tooltip />
+      <el-table-column label="状态" align="center" width="80">
+        <template slot-scope="scope">
+          <el-tag v-if="scope.row.status === 0" type="info">无效</el-tag>
+          <el-tag v-else type="success">有效</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="标签1" align="center" prop="tagsFirst" show-overflow-tooltip />
       <el-table-column label="标签2" align="center" prop="tagsSecond" show-overflow-tooltip />
       <el-table-column label="标签3" align="center" prop="tagsThird" show-overflow-tooltip />
@@ -374,6 +387,17 @@
           <el-table-column label="DC" prop="dc" align="center" width="100" />
           <el-table-column label="详情" prop="productDetail" min-width="200" show-overflow-tooltip />
           <el-table-column label="规格" prop="spec" min-width="120" show-overflow-tooltip />
+          <el-table-column label="状态" align="center" width="70">
+            <template slot-scope="scope">
+              <el-tag v-if="scope.row.status === 0" type="info">无效</el-tag>
+              <el-tag v-else type="success">有效</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" align="center" width="70">
+            <template slot-scope="scope">
+              <el-button v-if="scope.row.status !== 0" size="mini" type="danger" plain icon="el-icon-circle-close" @click="invalidateRowOffer(scope.row)">失效</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
       <!-- 自动复制失败时的兜底内容：完整文本展示在此，供手动全选复制，保证数据不丢失 -->
@@ -427,6 +451,17 @@
           <el-table-column label="DC" prop="dc" align="center" width="100" />
           <el-table-column label="详情" prop="productDetail" min-width="200" show-overflow-tooltip />
           <el-table-column label="规格" prop="spec" min-width="120" show-overflow-tooltip />
+          <el-table-column label="状态" align="center" width="70">
+            <template slot-scope="scope">
+              <el-tag v-if="scope.row.status === 0" type="info">无效</el-tag>
+              <el-tag v-else type="success">有效</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" align="center" width="70">
+            <template slot-scope="scope">
+              <el-button v-if="scope.row.status !== 0" size="mini" type="danger" plain icon="el-icon-circle-close" @click="invalidateRowOffer(scope.row)">失效</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
       <!-- 自动复制失败时的兜底内容：完整文本展示在此，供手动全选复制，保证数据不丢失 -->
@@ -482,6 +517,17 @@
           <el-table-column label="DC" prop="dc" align="center" width="100" />
           <el-table-column label="详情" prop="productDetail" min-width="200" show-overflow-tooltip />
           <el-table-column label="规格" prop="spec" min-width="120" show-overflow-tooltip />
+          <el-table-column label="状态" align="center" width="70">
+            <template slot-scope="scope">
+              <el-tag v-if="scope.row.status === 0" type="info">无效</el-tag>
+              <el-tag v-else type="success">有效</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" align="center" width="70">
+            <template slot-scope="scope">
+              <el-button v-if="scope.row.status !== 0" size="mini" type="danger" plain icon="el-icon-circle-close" @click="invalidateRowOffer(scope.row)">失效</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
       <div v-if="todayCopyFallbackText" style="margin-top: 10px">
@@ -654,7 +700,7 @@
 </template>
 
 <script>
-import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, fetchTodayCopyGroups, getSupplierNameDetail, copyAiQueryOffers, downloadOfferTemplate } from '@/api/crm/offer'
+import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, invalidateOffers, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, fetchTodayCopyGroups, getSupplierNameDetail, copyAiQueryOffers, downloadOfferTemplate } from '@/api/crm/offer'
 import { listSupplierOptions, listSupplier, listSupplierSimple } from '@/api/crm/supplier'
 import { getDicts } from '@/api/system/dict/data'
 import { getConfigKey } from '@/api/system/config'
@@ -715,7 +761,7 @@ export default {
       importSupplier: null,
       letters: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),
       colMap: { productCode: 'A', productDetail: '', productDetailArr: [], priceCost: '', priceOffer: '', quantity: '', deliveryTime: '', remark: '', moqQuantity: '', warrantyDetail: '', dc: '' },
-      queryParams: { pageNum: 1, pageSize: 10, productCode: undefined, supplierCodes: [], productBrandArr: [], productTypeArr: [], inqOfferType: undefined, tagsFirst: undefined, tagsSecond: undefined, tagsThird: undefined, tagsSi: undefined, params: {} },
+      queryParams: { pageNum: 1, pageSize: 10, productCode: undefined, supplierCodes: [], productBrandArr: [], productTypeArr: [], inqOfferType: undefined, status: undefined, tagsFirst: undefined, tagsSecond: undefined, tagsThird: undefined, tagsSi: undefined, params: {} },
       moreTags: false,
       stockDateRange: [],
       form: { id: undefined, supplierCode: '', supplierName: '', productCode: '', productDetailCode: '', productBrand: '', productBrandArr: [], stockDate: undefined, priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, productDetail: '', spec: '', coo: '', deliveryTime: '', remark: '', sheetName: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer', status: 1 },
@@ -849,6 +895,28 @@ export default {
         this.open = true;
         this.title = '修改Offer';
       });
+    },
+    /** 列表勾选失效 */
+    handleInvalidate() {
+      if (!this.ids || this.ids.length === 0) { this.$modal.msgError('请先勾选要失效的Offer'); return }
+      this.$modal.confirm('确认将选中的 ' + this.ids.length + ' 条Offer置为无效吗？无效后复制与下载时不会再包含这些记录。').then(() => {
+        invalidateOffers(this.ids).then(() => {
+          this.$modal.msgSuccess('已失效 ' + this.ids.length + ' 条Offer');
+          this.getList();
+        }).catch(() => {})
+      }).catch(() => {})
+    },
+    /** 弹窗行失效：AI查询/AI录入比价/复制Offer 共用 */
+    invalidateRowOffer(row) {
+      if (!row || !row.id) { this.$modal.msgError('该记录缺少ID，无法操作'); return }
+      this.$modal.confirm('确认将该Offer置为无效吗？无效后复制与下载时不会再包含该记录。').then(() => {
+        invalidateOffers([row.id]).then(() => {
+          row.status = 0;
+          this.$modal.msgSuccess('已失效');
+          this.aiQueryCopyText = this.buildGroupCopyText(this.aiQueryGroups || []);
+          this.todayCopyCopyText = this.buildGroupCopyText(this.todayCopyGroups || []);
+        }).catch(() => {})
+      }).catch(() => {})
     },
     handleDelete(row) { const ids = row.id ? [row.id] : this.ids; this.$modal.confirm('是否确认删除选中数据项？').then(() => { return delOffer(ids) }).then(() => { this.getList(); this.$modal.msgSuccess('删除成功') }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '删除失败') }) },
     handleExport() {
@@ -1002,7 +1070,7 @@ export default {
       const winStartKey = winStart.getFullYear() + '-' + String(winStart.getMonth() + 1).padStart(2, '0') + '-' + String(winStart.getDate()).padStart(2, '0');
       const keyOf = o => String(o.offerDate || '').slice(0, 10);
       // 只统计 Offer 类型记录，INQ 价格不得参与优势计算（列表同时展示 INQ/OFFER 两种记录）
-      const offers = (g.offers || []).filter(o => o.offerDate && String(o.inqOfferType || '').toUpperCase() === 'OFFER' && !isNaN(Number(o.priceOffer)));
+      const offers = (g.offers || []).filter(o => o.offerDate && o.status !== 0 && String(o.inqOfferType || '').toUpperCase() === 'OFFER' && !isNaN(Number(o.priceOffer)));
       if (offers.length === 0) return false;
       // 区间内（最近N天）报价
       const windowPrices = offers.filter(o => { const k = keyOf(o); return k >= winStartKey && k <= todayKey }).map(o => Number(o.priceOffer));
@@ -1232,6 +1300,7 @@ export default {
         } else {
           lines.push('\tSupplier\tType\tQty\tPrice\tCreated\tDelivery\tSpec\tDetail');
           offers.forEach(o => {
+            if (o.status === 0) return; // 无效的Offer不复制
             lines.push(['', o.supplierName || '', o.inqOfferType || '', o.quantity == null ? '' : o.quantity + 'pcs', o.priceOffer == null ? '' : o.priceOffer + 'USD', o.createTime || '', o.deliveryTime || '', o.spec || '', o.productDetail || ''].join('\t'));
           });
         }

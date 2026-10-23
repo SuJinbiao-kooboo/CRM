@@ -195,6 +195,24 @@ public class OfferController extends BaseController {
         }
     }
 
+    /**
+     * 批量失效：把勾选的Offer置为无效（status=0），AI查询/复制Offer复制与下载时自动过滤无效的Offer
+     */
+    @PreAuthorize("@ss.hasPermi('crm:offer:edit')")
+    @PostMapping("/invalidate")
+    public AjaxResult invalidate(@RequestBody Map<String, Object> body) {
+        Object idsObj = body.get("ids");
+        List<Long> ids = new ArrayList<>();
+        if (idsObj instanceof List) {
+            for (Object o : (List<?>) idsObj) {
+                ids.add(NumberUtil.parseLong(String.valueOf(o), -1L));
+            }
+        }
+        ids.removeIf(id -> id == null || id <= 0);
+        int n = offerService.invalidateOffers(ids);
+        return AjaxResult.success("操作成功", n);
+    }
+
     @PreAuthorize("@ss.hasPermi('crm:offer:export')")
     @Log(title = "Offer管理", businessType = BusinessType.EXPORT)
     @PostMapping("/export")

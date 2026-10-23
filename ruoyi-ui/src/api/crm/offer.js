@@ -16,6 +16,10 @@ export function updateOffer(data) {
   return request({ url: '/crm/offer', method: 'put', data: data })
 }
 
+export function invalidateOffers(ids) {
+  return request({ url: '/crm/offer/invalidate', method: 'post', data: { ids: ids } })
+}
+
 export function delOffer(id) {
   return request({ url: '/crm/offer/' + id, method: 'delete' })
 }

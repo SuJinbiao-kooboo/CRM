@@ -346,6 +346,7 @@
         </el-checkbox-group>
         <el-button size="mini" icon="el-icon-check" :disabled="aiQueryGroups.length === 0" @click="selectAllAdvantage">全选</el-button>
         <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="aiQueryGroups.length === 0" @click="submitCopyOffersOfQuery">一键复制Offer</el-button>
+        <el-button size="mini" type="success" icon="el-icon-download" :disabled="aiQueryGroups.length === 0" @click="downloadOfferExcel(aiQueryGroups)">下载</el-button>
         <el-button size="mini" icon="el-icon-document-copy" v-clipboard="aiQueryCopyText" v-clipboard:success="onCopyOk" :disabled="aiQueryGroups.length === 0">一键复制全部信息</el-button>
       </div>
       <el-input type="textarea" v-model="aiQueryContent" :rows="5" placeholder="粘贴物料信息，AI将提取完整料号并查询最近1个月的INQ/OFFER历史" style="margin-bottom: 10px" />
@@ -404,6 +405,7 @@
         </el-checkbox-group>
         <el-button size="mini" icon="el-icon-check" :disabled="aiCompareGroups.length === 0" @click="selectAllAdvantage">全选</el-button>
         <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="aiCompareGroups.length === 0" @click="submitCopyOffersOfCompare">一键复制Offer</el-button>
+        <el-button size="mini" type="success" icon="el-icon-download" :disabled="aiCompareGroups.length === 0" @click="downloadOfferExcel(aiCompareGroups)">下载</el-button>
       </div>
       <div v-if="aiCompareGroups.length === 0" style="color:#909399; text-align:center; padding: 30px 0">近1个月内没有相同物料的报价记录</div>
       <div v-for="(group, gi) in aiCompareGroups" :key="gi" class="ai-query-group">
@@ -455,7 +457,7 @@
         </el-checkbox-group>
         <el-button size="mini" icon="el-icon-check" :disabled="todayCopyGroups.length === 0" @click="selectAllAdvantage">全选</el-button>
         <el-button size="mini" type="primary" icon="el-icon-document-copy" :loading="aiCopyLoading" :disabled="todayCopyGroups.length === 0" @click="submitCopyOffersOfToday">一键复制Offer</el-button>
-        <el-button size="mini" type="success" icon="el-icon-download" :disabled="todayCopyGroups.length === 0" @click="downloadTodayCopyExcel">下载</el-button>
+        <el-button size="mini" type="success" icon="el-icon-download" :disabled="todayCopyGroups.length === 0" @click="downloadOfferExcel(todayCopyGroups)">下载</el-button>
         <el-button size="mini" icon="el-icon-document-copy" v-clipboard="todayCopyCopyText" v-clipboard:success="onCopyOk" :disabled="todayCopyGroups.length === 0">一键复制全部信息</el-button>
       </div>
       <div style="color:#909399; font-size:12px; margin-bottom:8px">最近{{ copyRecentDays }}天去重后共 {{ todayCopyGroups.length }} 个料号，满足价格优势（区间最好价 ≤ 上两次报价最低价 - 阈值）的料号已自动勾选</div>
@@ -652,13 +654,12 @@
 </template>
 
 <script>
-import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, fetchTodayCopyGroups, getSupplierNameDetail, copyAiQueryOffers } from '@/api/crm/offer'
+import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, fetchTodayCopyGroups, getSupplierNameDetail, copyAiQueryOffers, downloadOfferTemplate } from '@/api/crm/offer'
 import { listSupplierOptions, listSupplier, listSupplierSimple } from '@/api/crm/supplier'
 import { getDicts } from '@/api/system/dict/data'
 import { getConfigKey } from '@/api/system/config'
 import { parseTime } from "@/utils/ruoyi"
 import { mapGetters } from 'vuex'
-import XLSX from 'xlsx'
 
 export default {
   name: 'CrmOffer',
@@ -1136,38 +1137,28 @@ export default {
       this.copyRecentDays = d;
       this.onCopyRecentDaysChange();
     },
-    /** 下载：把“一键复制Offer”的内容导出为Excel（第1行标题与复制第一行一致） */
-    downloadTodayCopyExcel() {
-      const groups = this.todayCopyGroups || [];
-      const partNumbers = groups.filter(g => g.checked === true).map(g => g.partNumber).filter(Boolean);
+    /** 下载：调用后端按模板导出Excel（保留公司logo/表头/格式，内容追加在模板下方，文件名含日期） */
+    downloadOfferExcel(groups) {
+      const list = groups || [];
+      const partNumbers = list.filter(g => g.checked === true).map(g => g.partNumber).filter(Boolean);
       if (partNumbers.length === 0) { this.$modal.msgWarning('未勾选任何料号，请先勾选需要复制的料号'); return }
       const days = this.copyRecentDays || 2;
       this.aiCopyLoading = true;
-      copyAiQueryOffers({ days: days, partNumbers: partNumbers, extraFields: this.copyExtraFields }).then(res => {
-        const raw = res.data || (res.msg && res.msg !== '操作成功' ? res.msg : '') || '';
-        if (!raw) { this.$modal.msgWarning('最近' + days + '天内这些物料没有Offer记录'); return }
-        this.exportCopyTextToExcel(this.withOfferHeader(raw), 'Offer-' + days + '天-' + this.todayStr());
+      downloadOfferTemplate({ days: days, partNumbers: partNumbers, extraFields: this.copyExtraFields }).then(blob => {
+        if (!(blob instanceof Blob)) { throw new Error('操作失败，请重试'); }
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'M&E ' + this.todayStr() + ' Offer.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.$modal.msgSuccess('已下载Excel');
       }).catch(err => {
         const e = err || {};
         this.$modal.msgError(e.msg || e.message || '下载失败');
       }).finally(() => { this.aiCopyLoading = false })
-    },
-    /** 制表符文本导出Excel：第1行为标题，其后按制表符拆列，组标题行单格显示 */
-    exportCopyTextToExcel(text, fileName) {
-      const rows = text.split('\n').filter(l => l.trim() !== '');
-      const aoa = [];
-      rows.forEach((line, idx) => {
-        if (idx === 0 || line.indexOf('\t') < 0) {
-          aoa.push([line]);
-        } else {
-          aoa.push(line.split('\t'));
-        }
-      });
-      const ws = XLSX.utils.aoa_to_sheet(aoa);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Offer');
-      XLSX.writeFile(wb, fileName + '.xlsx');
-      this.$modal.msgSuccess('已下载Excel');
     },
     /** 点击供应商名称：实时查询后端（后端判权限：有权限返回真实名称，无权限返回"您无权查看"，查不到返回"未找到名称"），一闪即逝 */
     showSupplierNameTip(row) {

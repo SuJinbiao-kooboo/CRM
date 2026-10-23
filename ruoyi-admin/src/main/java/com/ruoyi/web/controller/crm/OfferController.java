@@ -27,6 +27,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.core.io.ClassPathResource;
+import com.ruoyi.common.exception.ServiceException;
 import com.alibaba.fastjson2.JSON;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
@@ -126,6 +137,62 @@ public class OfferController extends BaseController {
         }
         // 注意：返回String必须用双参重载，单参success(String)会把文本塞进msg导致前端取不到data
         return AjaxResult.success("操作成功", offerService.buildAiQueryCopyText(partNumbers, days, extraFields));
+    }
+
+    /**
+     * 下载模板Excel：读取内置模板（保留公司logo/表头/格式），把"一键复制Offer"的内容（英文表头+数据行）追加到模板下方，
+     * 文件名自动带上日期：M&E yyyy-MM-dd Offer.xlsx
+     */
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @PostMapping("/exportOfferTemplate")
+    public void exportOfferTemplate(@RequestBody Map<String, Object> body, HttpServletResponse response) {
+        int days = NumberUtil.parseInt(strOf(body.get("days")), 1);
+        List<String> partNumbers = new ArrayList<>();
+        Object pns = body.get("partNumbers");
+        if (pns instanceof List) {
+            for (Object o : (List<?>) pns) {
+                partNumbers.add(String.valueOf(o));
+            }
+        }
+        List<String> extraFields = new ArrayList<>();
+        Object efs = body.get("extraFields");
+        if (efs instanceof List) {
+            for (Object o : (List<?>) efs) {
+                extraFields.add(String.valueOf(o));
+            }
+        }
+        String text = offerService.buildAiQueryCopyText(partNumbers, days, extraFields);
+        if (text == null || text.trim().isEmpty()) {
+            throw new ServiceException("没有可导出的Offer内容");
+        }
+        try (InputStream in = new ClassPathResource("templates/M&E yyyy-MM-dd Offer.xlsx").getInputStream();
+             Workbook wb = new XSSFWorkbook(in);
+             OutputStream out = response.getOutputStream()) {
+            Sheet sheet = wb.getSheetAt(0);
+            int startRow = Math.max(sheet.getLastRowNum() + 1, 0);
+            String[] lines = text.split("\n");
+            for (String line : lines) {
+                if (line == null || line.trim().isEmpty()) {
+                    continue;
+                }
+                Row row = sheet.createRow(startRow++);
+                String[] cells = line.contains("\t") ? line.split("\t", -1) : new String[]{line};
+                for (int c = 0; c < cells.length; c++) {
+                    row.createCell(c).setCellValue(cells[c] == null ? "" : cells[c]);
+                }
+            }
+            String fileName = "M&E " + new SimpleDateFormat("yyyy-MM-dd").format(new Date()) + " Offer.xlsx";
+            String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8.name()).replace("+", "%20");
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setCharacterEncoding("utf-8");
+            response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encoded);
+            wb.write(out);
+            out.flush();
+        } catch (ServiceException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceException("导出模板Excel失败：" + e.getMessage());
+        }
     }
 
     @PreAuthorize("@ss.hasPermi('crm:offer:export')")

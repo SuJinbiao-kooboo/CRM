@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.crm.domain.CrmOffer;
+import com.ruoyi.crm.domain.CrmOfferPriceMode;
 
 public interface ICrmOfferService {
     List<CrmOffer> selectOfferList(CrmOffer offer);
@@ -37,6 +38,13 @@ public interface ICrmOfferService {
                                                    String inqOfferType, Double profitRatio, String content,
                                                    String operator, String wechatServerId,
                                                    String wechatUsername, long wechatLocalId, String remark);
+
+    /** 系统任务专用 AI 录入：显式指定价格模式，供微信自动录入按消息方向处理。 */
+    List<CrmOffer> aiEntryOffersReturningAsSystem(String supplierCode, String supplierName,
+                                                   String inqOfferType, Double profitRatio, String content,
+                                                   CrmOfferPriceMode priceMode, String operator,
+                                                   String wechatServerId, String wechatUsername,
+                                                   long wechatLocalId, String remark);
 
     /**
      * AI录入后比价：查询料号集合最近1个月内（Offer日期口径：库存日期优先、为空回退创建时间）的INQ/OFFER记录，
@@ -78,6 +86,9 @@ public interface ICrmOfferService {
      * 组装为制表符分隔文本返回，首行为英文表头（随勾选字段变化）
      */
     String buildAiQueryCopyText(List<String> partNumbers, int days, List<String> extraFields);
+
+    /** 批量判断料号在最近 days 个自然日内是否具备价格优势（同一后端算法）。 */
+    Map<String, Boolean> priceAdvantageBatch(List<String> partNumbers, int days);
     /** 批量失效：把指定id的Offer置为无效（status=0） */
     int invalidateOffers(List<Long> ids);
 }

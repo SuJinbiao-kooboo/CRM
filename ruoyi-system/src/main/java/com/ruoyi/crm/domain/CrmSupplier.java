@@ -49,6 +49,9 @@ public class CrmSupplier extends BaseEntity {
     private String purchaseGroup;
     @Excel(name = "合作状态")
     private String cooperationStatus;
+    /** 报价利润率(%)：为空使用全局默认值 */
+    @Excel(name = "利润比例")
+    private Double profitRatio;
     @Excel(name = "营业执照号")
     private String businessLicense;
     @Excel(name = "税号")

@@ -5,6 +5,7 @@
     <resultMap id="CrmOfferMap" type="com.ruoyi.crm.domain.CrmOffer">
         <id column="id" property="id" />
         <result column="product_code" property="productCode" />
+        <result column="pn_normalized" property="pnNormalized" />
         <result column="product_brand" property="productBrand" />
         <result column="stock_date" property="stockDate" />
         <result column="product_detail" property="productDetail" />
@@ -40,7 +41,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, product_code, product_brand, stock_date, product_detail, spec, price_cost, price_offer, price_unit,
+        id, product_code, pn_normalized, product_brand, stock_date, product_detail, spec, price_cost, price_offer, price_unit,
         quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, dc, coo, supplier_code, supplier_name, tags_first, tags_second, tags_third, tags_si,
         status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type, wechat_server_id, wechat_username, wechat_local_id
     </sql>
@@ -107,6 +108,36 @@
         select <include refid="Base_Column_List"/> from crm_offer where id = #{id}
     </select>
 
+    <select id="selectByIds" resultMap="CrmOfferMap">
+        select <include refid="Base_Column_List"/> from crm_offer where id in
+        <foreach collection="list" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
+    <select id="selectByWechat" resultMap="CrmOfferMap">
+        select <include refid="Base_Column_List"/> from crm_offer
+        where wechat_username = #{username} and wechat_local_id = #{localId}
+        order by id asc
+    </select>
+
+    <select id="selectMatchingInq" resultMap="CrmOfferMap">
+        select o.* from crm_offer o
+        join wechat_message m on m.username=o.wechat_username and m.local_id=o.wechat_local_id
+        where o.status=1 and o.inq_offer_type='Inq'
+          and o.pn_normalized is not null and o.pn_normalized &lt;&gt; ''
+          and m.classify_status='SUCCESS' and m.category_source in ('LLM','CACHE')
+          and m.msg_category='INQ' and m.create_time &gt;= #{since}
+          and (o.pn_normalized like #{pattern} escape '!'
+               or #{pn} like concat(replace(replace(replace(o.pn_normalized,'!','!!'),'%','!%'),'_','!_'), '%') escape '!')
+        order by m.create_time asc, o.id asc
+    </select>
+
+    <select id="selectPriceHistoryByPn" resultMap="CrmOfferMap">
+        select <include refid="Base_Column_List"/> from crm_offer
+        where status=1 and price_offer is not null and price_offer &gt; 0
+          and pn_normalized=#{pn}
+        order by coalesce(stock_date,create_time) desc, id desc
+    </select>
+
     <!-- AI料号查询：料号左前缀模糊匹配（upper不区分大小写），近1个月内（Offer日期口径：库存日期优先、为空回退创建时间）的INQ/OFFER记录，组内按Offer日期倒排 -->
     <select id="selectHistoryByPartNumbers" resultMap="CrmOfferMap">
         select <include refid="Base_Column_List"/> from crm_offer
@@ -169,11 +200,11 @@
 
     <insert id="insertOffer" parameterType="com.ruoyi.crm.domain.CrmOffer" useGeneratedKeys="true" keyProperty="id">
         insert into crm_offer(
-            product_code, product_brand, stock_date, product_detail, spec, price_cost, price_offer, price_unit,
+            product_code, pn_normalized, product_brand, stock_date, product_detail, spec, price_cost, price_offer, price_unit,
             quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, dc, coo, supplier_code, supplier_name,
             tags_first, tags_second, tags_third, tags_si, status, create_time, update_time, create_by, update_by, product_type, product_detail_code, inq_offer_type, wechat_server_id, wechat_username, wechat_local_id
         ) values (
-            upper(#{productCode}), #{productBrand}, #{stockDate}, #{productDetail}, #{spec}, #{priceCost}, #{priceOffer}, #{priceUnit},
+            upper(#{productCode}), #{pnNormalized}, #{productBrand}, #{stockDate}, #{productDetail}, #{spec}, #{priceCost}, #{priceOffer}, #{priceUnit},
             #{quantity}, #{deliveryTime}, #{remark}, #{sheetName}, #{moqQuantity}, #{warrantyDetail}, #{dc}, #{coo}, #{supplierCode}, #{supplierCode},
             #{tagsFirst}, #{tagsSecond}, #{tagsThird}, #{tagsSi}, #{status}, now(), now(), #{createBy}, #{updateBy}, #{productType}, upper(#{productDetailCode}), #{inqOfferType}, #{wechatServerId}, #{wechatUsername}, #{wechatLocalId}
         )
@@ -181,7 +212,7 @@
 
     <select id="countByWechat" resultType="int">
         SELECT COUNT(*) FROM crm_offer
-        WHERE wechat_server_id = #{serverId} AND wechat_username = #{username} AND wechat_local_id = #{localId}
+        WHERE wechat_username = #{username} AND wechat_local_id = #{localId}
     </select>
 
     <!-- 批量失效：将勾选的Offer置为无效状态（status=0） -->
@@ -197,6 +228,7 @@
         update crm_offer
         <set>
             <if test="productCode != null">product_code = upper(#{productCode}),</if>
+            <if test="pnNormalized != null">pn_normalized = #{pnNormalized},</if>
             <if test="productBrand != null">product_brand = #{productBrand},</if>
             <if test="stockDate != null">stock_date = #{stockDate},</if>
             <if test="productDetail != null">product_detail = #{productDetail},</if>
@@ -262,6 +294,7 @@
             <if test="offer.tagsThird != null and offer.tagsThird != ''">tags_third = #{offer.tagsThird},</if>
             <if test="offer.tagsSi != null and offer.tagsSi != ''">tags_si = #{offer.tagsSi},</if>
             <if test="offer.productType != null and offer.productType != ''">product_type = #{offer.productType},</if>
+            <if test="offer.productCode != null and offer.productCode != ''">pn_normalized = #{offer.pnNormalized},</if>
             <if test="offer.productDetailCode != null and offer.productDetailCode != ''">product_detail_code = upper(#{offer.productDetailCode}),</if>
             <if test="offer.inqOfferType != null and offer.inqOfferType != ''">inq_offer_type = #{offer.inqOfferType},</if>
             update_time = now()

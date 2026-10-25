@@ -7,6 +7,13 @@ import com.ruoyi.crm.domain.CrmOffer;
 public interface CrmOfferMapper {
     List<CrmOffer> selectOfferList(CrmOffer offer);
     CrmOffer selectOfferById(Long id);
+    /** 按主键批量查询微信自动录入生成的报价行。 */
+    List<CrmOffer> selectByIds(@Param("list") List<Long> ids);
+    /** 双向前缀匹配外部客户 INQ（时间窗口按消息发送时间）。 */
+    List<CrmOffer> selectMatchingInq(@Param("pn") String pn, @Param("since") String since,
+                                     @Param("pattern") String pattern);
+    /** 同料号全部有效报价历史，供统一好价格算法使用。 */
+    List<CrmOffer> selectPriceHistoryByPn(@Param("pn") String pn);
     /**
      * AI料号查询：按用户提供的料号左前缀模糊匹配（不区分大小写），查询最近1个月内（Offer日期口径）的INQ/OFFER历史记录
      * @param partNumbers 料号前缀集合（已转大写）
@@ -40,6 +47,9 @@ public interface CrmOfferMapper {
      * 统计某条微信消息已录入的 Offer 行数（按来源关联字段精确匹配，供自动录入幂等判断）。
      */
     int countByWechat(@Param("serverId") String serverId, @Param("username") String username, @Param("localId") long localId);
+    /** 按微信来源查询已录入行，供任务生成复用。 */
+    List<CrmOffer> selectByWechat(@Param("serverId") String serverId, @Param("username") String username,
+                                  @Param("localId") long localId);
     int updateOffer(CrmOffer offer);
     int invalidateOfferByIds(@Param("list") List<Long> ids);
     int deleteOfferByIds(Long[] ids);

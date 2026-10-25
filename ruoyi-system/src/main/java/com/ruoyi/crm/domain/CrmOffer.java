@@ -15,6 +15,8 @@ public class CrmOffer extends BaseEntity {
     private Long id;
     @Excel(name = "产品编码")
     private String productCode;
+    /** 标准化料号：去首尾空格、折叠连续空白、统一大写，保留连字符/斜杠/点号 */
+    private String pnNormalized;
     @Excel(name = "产品品牌")
     private String productBrand;
     @Excel(name = "库存日期")
@@ -81,6 +83,7 @@ public class CrmOffer extends BaseEntity {
         return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
                 .append("id", getId())
                 .append("productCode", getProductCode())
+                .append("pnNormalized", getPnNormalized())
                 .append("productBrand", getProductBrand())
                 .append("stockDate", getStockDate())
                 .append("productDetail", getProductDetail())

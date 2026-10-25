@@ -1,7 +1,7 @@
 package com.ruoyi.web.controller.wexinAuto;
 
-import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.core.domain.AjaxResult;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
 import com.ruoyi.wexinAuto.model.WeChatSendResult;
 import com.ruoyi.wexinAuto.service.WeChatGatewayService;
@@ -34,10 +34,9 @@ import java.util.Map;
  *   <li>GET  /wechat/listen/status  查询监听状态</li>
  *   <li>POST /wechat/listen/stop    停止监听</li>
  * </ul>
- * <p>鉴权：本控制器已用 {@code @Anonymous} 加入白名单，可匿名访问（/wechat/**）。</p>
+ * <p>鉴权：本控制器保留给本机排障调用，已改为登录+按钮权限校验；管理页面使用 /crm/wechat-* 接口。</p>
  */
 @RestController
-@Anonymous
 @RequestMapping("/wechat")
 @Slf4j
 public class WeChatMessageController {
@@ -56,6 +55,7 @@ public class WeChatMessageController {
      * @param chat  群名/好友名，可选；不填=所有会话
      * @param media 是否同时下载媒体(图片/语音/视频/文件)
      */
+    @PreAuthorize("@ss.hasPermi('wechat:message:query')")
     @GetMapping("/messages")
     public AjaxResult messages(@RequestParam(required = false) String since,
                                @RequestParam(required = false) String chat,
@@ -74,6 +74,7 @@ public class WeChatMessageController {
      *              不填=按轮询水位只拉新增；填了=重新拉该时刻之后的所有消息，
      *              已入库的按唯一键 username+local_id 自动跳过，不会重复处理
      */
+    @PreAuthorize("@ss.hasPermi('wechat:message:poll')")
     @PostMapping("/poll/run")
     public AjaxResult pollRun(@RequestParam(required = false) String chat,
                               @RequestParam(required = false) String since) {
@@ -83,6 +84,7 @@ public class WeChatMessageController {
     /**
      * 轮询拉取/分类配置与运行状态（含未分类消息数、水位时间），便于 Postman 观察。
      */
+    @PreAuthorize("@ss.hasPermi('wechat:message:query')")
     @GetMapping("/poll/status")
     public AjaxResult pollStatus() {
         return AjaxResult.success(gateway.pollStatus());
@@ -93,18 +95,21 @@ public class WeChatMessageController {
      *
      * @param chat 群名/好友名，可选；不填=全部会话；填了=只处理该会话最早未分类的消息
      */
+    @PreAuthorize("@ss.hasPermi('wechat:message:classify')")
     @PostMapping("/classify/run")
     public AjaxResult classifyRun(@RequestParam(required = false) String chat) {
         return AjaxResult.success(gateway.classifyOnce(chat));
     }
 
     /** 清空AI分类缓存（调整提示词/语义规则后，重跑历史消息前调用）。 */
+    @PreAuthorize("@ss.hasPermi('wechat:message:classify')")
     @PostMapping("/classify/cache/clear")
     public AjaxResult clearClassifyCache() {
         return AjaxResult.success(gateway.clearClassifyCache());
     }
 
     /** 手动补扫 TRACE 飞书预警：只推送已关联 INQ/OFFER 且尚未成功处理的客户二次询问。 */
+    @PreAuthorize("@ss.hasPermi('wechat:message:classify')")
     @PostMapping("/trace/alert/scan")
     public AjaxResult traceAlertScan() {
         return AjaxResult.success(gateway.scanTraceAlerts());
@@ -116,6 +121,7 @@ public class WeChatMessageController {
      *
      * @param chat 群名/好友名，可选；不填=全部会话(注意按 offerEntryScanSec 限频)；填了=立即只处理该会话
      */
+    @PreAuthorize("@ss.hasPermi('wechat:message:entry')")
     @PostMapping("/offer/entry/run")
     public AjaxResult offerEntryRun(@RequestParam(required = false) String chat) {
         return AjaxResult.success(gateway.offerEntryOnce(chat));
@@ -124,6 +130,7 @@ public class WeChatMessageController {
     /**
      * INQ/OFFER 自动录入参数与运行状态（含待录入消息数），便于 Postman 观察。
      */
+    @PreAuthorize("@ss.hasPermi('wechat:message:entry')")
     @GetMapping("/offer/entry/status")
     public AjaxResult offerEntryStatus() {
         return AjaxResult.success(gateway.offerEntryStatus());
@@ -135,6 +142,7 @@ public class WeChatMessageController {
      *
      * @param chat 群名/好友名，可选；不填=全部会话
      */
+    @PreAuthorize("@ss.hasPermi('wechat:message:entry')")
     @PostMapping("/offer/entry/requeue")
     public AjaxResult offerEntryRequeue(@RequestParam(required = false) String chat) {
         return AjaxResult.success(gateway.requeueOfferEntry(chat));
@@ -143,6 +151,7 @@ public class WeChatMessageController {
     /**
      * 启动实时监听（所有会话新消息）。每收到一条消息会调用一次你的 Handler。
      */
+    @PreAuthorize("@ss.hasPermi('wechat:message:poll')")
     @PostMapping("/listen/start")
     public AjaxResult listenStart(@RequestParam(required = false, defaultValue = "false") boolean media,
                                @RequestParam(required = false, defaultValue = "false") boolean fresh) {
@@ -153,6 +162,7 @@ public class WeChatMessageController {
     /**
      * 查询监听状态：{running:bool, processed:int}
      */
+    @PreAuthorize("@ss.hasPermi('wechat:message:poll')")
     @GetMapping("/listen/status")
     public AjaxResult listenStatus() {
         return AjaxResult.success(gateway.listenStatus());
@@ -161,6 +171,7 @@ public class WeChatMessageController {
     /**
      * 停止实时监听，返回已处理条数。
      */
+    @PreAuthorize("@ss.hasPermi('wechat:message:poll')")
     @PostMapping("/listen/stop")
     public AjaxResult listenStop() {
         Map<String, Object> r = gateway.stopListen();
@@ -171,6 +182,7 @@ public class WeChatMessageController {
      * 发送消息（单条，底层即批量发送(targets=[1])）。
      * body: { "name": "文件传输助手", "text": "hello" }
      */
+    @PreAuthorize("@ss.hasPermi('wechat:task:send')")
     @PostMapping("/send")
     public AjaxResult send(@RequestBody Map<String, Object> body) {
         String name = body.get("name") == null ? null : String.valueOf(body.get("name"));
@@ -187,6 +199,7 @@ public class WeChatMessageController {
      * text 含 {name} 会自动替换成目标名；拟人节奏/间隔/上限等由配置字典控制。
      * 想发给单人，names 传一个元素即可。
      */
+    @PreAuthorize("@ss.hasPermi('wechat:task:send')")
     @PostMapping("/batch_send")
     public AjaxResult batchSend(@RequestBody Map<String, Object> body) {
         Object namesObj = body.get("names");

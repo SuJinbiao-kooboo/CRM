@@ -606,6 +606,19 @@ def cmd_batch_send(args):
             time.sleep(random.uniform(iv_min, iv_max))
     log("批量发送结束: 成功 %d/%d" % (ok_total, len(targets)))
 
+
+def cmd_whoami(args):
+    """输出当前登录微信账号，供自动发送前校验固定账号。"""
+    db, _ = build_db(None, args.account)
+    info = db.get_self_info() or {}
+    out = {
+        "username": info.get("username") or info.get("user_name") or "",
+        "nick_name": info.get("nick_name") or info.get("nickname") or "",
+    }
+    print(json.dumps(out, ensure_ascii=False))
+    sys.stdout.flush()
+
+
 def main():
     ap = argparse.ArgumentParser(description="wechatauto 消息网关（主动拉取/实时监听）")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -630,6 +643,10 @@ def main():
     p = sub.add_parser("batch_send",
                        help="批量发送(从 stdin 读 JSON 配置)，逐条结果 NDJSON 到 stdout")
     p.set_defaults(func=cmd_batch_send)
+
+    p = sub.add_parser("whoami", help="输出当前登录微信账号(JSON)")
+    p.add_argument("--account", default=None)
+    p.set_defaults(func=cmd_whoami)
     args = ap.parse_args()
     cleanup_stale_proc_dirs()
     try:

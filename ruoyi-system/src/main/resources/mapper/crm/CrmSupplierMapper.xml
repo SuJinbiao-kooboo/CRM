@@ -21,6 +21,7 @@
         <result column="sales_group" property="salesGroup" />
         <result column="purchase_group" property="purchaseGroup" />
         <result column="cooperation_status" property="cooperationStatus" />
+        <result column="profit_ratio" property="profitRatio" />
         <result column="business_license" property="businessLicense" />
         <result column="tax_number" property="taxNumber" />
         <result column="bank_info" property="bankInfo" />
@@ -79,6 +80,7 @@
         <result column="sales_group" property="salesGroup" />
         <result column="purchase_group" property="purchaseGroup" />
         <result column="cooperation_status" property="cooperationStatus" />
+        <result column="profit_ratio" property="profitRatio" />
         <result column="business_license" property="businessLicense" />
         <result column="tax_number" property="taxNumber" />
         <result column="bank_info" property="bankInfo" />
@@ -107,7 +109,7 @@
     <sql id="Base_Column_List">
         s.id, s.supplier_code, s.supplier_name, s.supplier_short_name, s.supplier_alias, s.supplier_type, s.brands,
         s.country, s.address, s.website, s.main_products, s.cooperation_level, s.risk_level,
-        s.payment_terms, s.cooperation_direction, s.sales_group, s.purchase_group, s.cooperation_status, s.business_license, s.tax_number, s.bank_info, s.bank_account, s.bill_to, s.ship_to,
+        s.payment_terms, s.cooperation_direction, s.sales_group, s.purchase_group, s.cooperation_status, s.profit_ratio, s.business_license, s.tax_number, s.bank_info, s.bank_account, s.bill_to, s.ship_to,
         s.introduction, s.remark, s.remark_second, s.status, s.follow_up_by, s.create_by, s.create_time,
         s.update_by, s.update_time, s.tags_first, s.tags_second, s.tags_third, s.tags_si,
         s.last_follow_up_time, s.last_follow_up_result, s.next_follow_up_time, s.next_follow_up_goal
@@ -215,13 +217,13 @@
         insert into crm_supplier(
             supplier_code, supplier_name, supplier_short_name, supplier_alias, supplier_type, brands,
             country, address, website, main_products, cooperation_level, risk_level,
-            payment_terms, cooperation_direction, sales_group, purchase_group, cooperation_status, business_license, tax_number, bank_info, bank_account, bill_to, ship_to,
+            payment_terms, cooperation_direction, sales_group, purchase_group, cooperation_status, profit_ratio, business_license, tax_number, bank_info, bank_account, bill_to, ship_to,
             introduction, remark, remark_second, status, follow_up_by, create_by, create_time,
             update_by, update_time, tags_first, tags_second, tags_third, tags_si
         ) values(
             #{supplierCode}, #{supplierName}, #{supplierShortName}, #{supplierAlias}, #{supplierType}, #{brands},
             #{country}, #{address}, #{website}, #{mainProducts}, #{cooperationLevel}, #{riskLevel},
-            #{paymentTerms}, #{cooperationDirection}, #{salesGroup}, #{purchaseGroup}, #{cooperationStatus}, #{businessLicense}, #{taxNumber}, #{bankInfo}, #{bankAccount}, #{billTo}, #{shipTo},
+            #{paymentTerms}, #{cooperationDirection}, #{salesGroup}, #{purchaseGroup}, #{cooperationStatus}, #{profitRatio}, #{businessLicense}, #{taxNumber}, #{bankInfo}, #{bankAccount}, #{billTo}, #{shipTo},
             #{introduction}, #{remark}, #{remarkSecond}, #{status}, #{followUpBy}, #{createBy}, now(),
             #{updateBy}, now(), #{tagsFirst}, #{tagsSecond}, #{tagsThird}, #{tagsSi}
         )
@@ -247,6 +249,7 @@
             <if test="salesGroup != null">sales_group = #{salesGroup},</if>
             <if test="purchaseGroup != null">purchase_group = #{purchaseGroup},</if>
             <if test="cooperationStatus != null">cooperation_status = #{cooperationStatus},</if>
+            <if test="profitRatio != null">profit_ratio = #{profitRatio},</if>
             <if test="businessLicense != null">business_license = #{businessLicense},</if>
             <if test="taxNumber != null">tax_number = #{taxNumber},</if>
             <if test="bankInfo != null">bank_info = #{bankInfo},</if>
@@ -321,6 +324,20 @@
         </where>
         order by supplier_code asc
     </select>
+
+    <select id="selectAllForWeChat" resultMap="CrmSupplierBaseMap">
+        select id, supplier_code, supplier_name, supplier_short_name, supplier_alias, brands,
+               cooperation_direction, sales_group, purchase_group, status, profit_ratio
+        from crm_supplier
+        order by id asc
+    </select>
+
+    <update id="updateWechatFollowUpByCodes">
+        update crm_supplier
+        set last_follow_up_time = #{followTime}, last_follow_up_result = #{result}, update_time = now()
+        where supplier_code in
+        <foreach collection="codes" item="code" open="(" separator="," close=")">#{code}</foreach>
+    </update>
 
     <!-- 跟进人昵称解析：登录名转昵称（存储为登录名保证唯一，展示用昵称，保持存储顺序） -->
     <select id="selectNickNamesByUserNames" resultType="java.lang.String">

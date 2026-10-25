@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -16,6 +17,7 @@ import java.util.Map;
 
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.NumberUtil;
+import lombok.extern.slf4j.Slf4j;
 import com.ruoyi.common.utils.PatternUtil;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.crm.service.ai.DeepSeekAiService;
@@ -29,14 +31,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.crm.domain.CrmOffer;
+import com.ruoyi.crm.domain.CrmOfferPriceMode;
+import com.ruoyi.crm.domain.OfferTextLine;
 import com.ruoyi.crm.domain.CrmSupplier;
 import com.ruoyi.crm.mapper.CrmOfferMapper;
 import com.ruoyi.crm.mapper.CrmSupplierMapper;
 import com.ruoyi.crm.service.ICrmOfferService;
 import com.ruoyi.crm.service.ICrmSupplierService;
 import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.crm.util.PnUtils;
+import com.ruoyi.crm.util.OfferTextFormatter;
+import com.ruoyi.system.service.ISysConfigService;
 
 @Service
+@Slf4j
 public class CrmOfferServiceImpl implements ICrmOfferService {
 
     @Autowired
@@ -50,6 +58,9 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
 
     @Autowired
     private ICrmSupplierService supplierService;
+
+    @Autowired
+    private ISysConfigService sysConfigService;
 
     @Override
     public List<CrmOffer> selectOfferList(CrmOffer offer) {
@@ -109,6 +120,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         offer.setStatus(1);
         offer.setCreateBy(userName);
         offer.setUpdateBy(userName);
+        offer.setPnNormalized(PnUtils.normalize(offer.getProductCode()));
         if (offer.getPriceOffer() == null && offer.getPriceCost() != null) {
             offer.setPriceOffer(round2(offer.getPriceCost() * 1.03d));
         }
@@ -117,6 +129,9 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
 
     @Override
     public int updateOffer(CrmOffer offer) {
+        if (offer.getProductCode() != null) {
+            offer.setPnNormalized(PnUtils.normalize(offer.getProductCode()));
+        }
         return offerMapper.updateOffer(offer);
     }
 
@@ -127,6 +142,9 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
 
     @Override
     public int batchUpdate(List<Long> ids, CrmOffer offer) {
+        if (offer.getProductCode() != null) {
+            offer.setPnNormalized(PnUtils.normalize(offer.getProductCode()));
+        }
         return offerMapper.batchUpdate(ids, offer);
     }
 
@@ -172,6 +190,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 if (productCode == null || productCode.trim().isEmpty()) { fails.add(fail(r+1, "产品编码为空")); continue; }
                 CrmOffer offer = new CrmOffer();
                 offer.setProductCode(productCode.trim());
+                offer.setPnNormalized(PnUtils.normalize(productCode));
                 offer.setSupplierCode(supplierCode);
                 offer.setSupplierName(supplierName);
                 offer.setInqOfferType(inqOfferType);
@@ -326,6 +345,15 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         return new BigDecimal(String.valueOf(cost * (1d + ratio / 100d))).setScale(2, RoundingMode.HALF_UP).doubleValue();
     }
 
+    /** 原文无币种按 USD；无法归属的币种保留原值但不参与报价和好价格。 */
+    private String normalizeCurrency(String value) {
+        String c = value == null ? "" : value.trim().toUpperCase();
+        if (c.isEmpty() || "USD".equals(c) || "$".equals(c) || "US$".equals(c) || "美元".equals(c)) {
+            return "USD";
+        }
+        return c.length() > 32 ? c.substring(0, 32) : c;
+    }
+
     @Override
     @Transactional
     public int aiEntryOffers(String supplierCode, String supplierName, String inqOfferType, Double profitRatio, String content) {
@@ -340,7 +368,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
     @Transactional
     public List<CrmOffer> aiEntryOffersReturning(String supplierCode, String supplierName, String inqOfferType, Double profitRatio, String content) {
         return aiEntryOffersReturningInternal(supplierCode, supplierName, inqOfferType, profitRatio, content,
-                SecurityUtils.getUsername(), true, null, null, 0L, null);
+                CrmOfferPriceMode.COST_PLUS_PROFIT, SecurityUtils.getUsername(), true, null, null, 0L, null);
     }
 
     @Override
@@ -349,8 +377,20 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                                                           String inqOfferType, Double profitRatio, String content,
                                                           String operator, String wechatServerId,
                                                           String wechatUsername, long wechatLocalId, String remark) {
+        return aiEntryOffersReturningAsSystem(supplierCode, supplierName, inqOfferType, profitRatio, content,
+                CrmOfferPriceMode.COST_PLUS_PROFIT, operator, wechatServerId, wechatUsername, wechatLocalId, remark);
+    }
+
+    @Override
+    @Transactional
+    public List<CrmOffer> aiEntryOffersReturningAsSystem(String supplierCode, String supplierName,
+                                                          String inqOfferType, Double profitRatio, String content,
+                                                          CrmOfferPriceMode priceMode, String operator,
+                                                          String wechatServerId, String wechatUsername,
+                                                          long wechatLocalId, String remark) {
         String userName = operator == null || operator.trim().isEmpty() ? "wechat_auto" : operator.trim();
         return aiEntryOffersReturningInternal(supplierCode, supplierName, inqOfferType, profitRatio, content,
+                priceMode == null ? CrmOfferPriceMode.COST_PLUS_PROFIT : priceMode,
                 userName, false, wechatServerId, wechatUsername, wechatLocalId, remark);
     }
 
@@ -360,6 +400,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
      */
     private List<CrmOffer> aiEntryOffersReturningInternal(String supplierCode, String supplierName,
                                                            String inqOfferType, Double profitRatio, String content,
+                                                           CrmOfferPriceMode priceMode,
                                                            String userName, boolean authorizeSupplier,
                                                            String wechatServerId, String wechatUsername,
                                                            long wechatLocalId, String sourceRemark) {
@@ -384,6 +425,9 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             supplierName = authorizedSupplier.getSupplierName();
         }
         double ratio = profitRatio == null ? 2d : profitRatio.doubleValue();
+        if (authorizedSupplier.getProfitRatio() != null) {
+            ratio = authorizedSupplier.getProfitRatio();
+        }
         // 调用AI把无规则文本整理为结构化物料列表（品牌/料号/型号/规格型号/数量/报价）
         List<Map<String, Object>> items = deepSeekAiService.parseMaterialContent(content);
 
@@ -409,20 +453,29 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             offer.setQuantity(qty instanceof Number ? ((Number) qty).intValue() : null);
             Object price = item.get("price");
             Double cost = price instanceof Number ? ((Number) price).doubleValue() : null;
-            offer.setPriceCost(cost);
-            // OFFER时按利润比例计算报价价：供应商价格×(1+利润比例/100)；INQ仅记录供应商价格
-            // 颗粒类产品（eMMC/UFS/NAND/DRAM颗粒等，利润空间小）严格执行百分比并保留2位小数，不向上取整到5结尾
-            if ("Offer".equals(inqOfferType) && cost != null) {
-                offer.setPriceOffer(isGranularProduct(str(item.get("productType")))
-                        ? priceWithPercent(cost, ratio)
-                        : ceilTo5(cost * (1d + ratio / 100d)));
+            String currency = normalizeCurrency(str(item.get("currency")));
+            boolean usd = "USD".equals(currency);
+            if (priceMode == CrmOfferPriceMode.AS_IS) {
+                offer.setPriceCost(null);
+                offer.setPriceOffer(usd && cost != null ? cost : null);
+            } else if (priceMode == CrmOfferPriceMode.NONE) {
+                offer.setPriceCost(cost);
+                offer.setPriceOffer(null);
+            } else {
+                offer.setPriceCost(cost);
+                if (usd && cost != null && cost > 0) {
+                    offer.setPriceOffer(isGranularProduct(str(item.get("productType")))
+                            ? priceWithPercent(cost, ratio)
+                            : ceilTo5(cost * (1d + ratio / 100d)));
+                }
             }
-            offer.setPriceUnit("USD");
+            offer.setPriceUnit(currency);
             offer.setStockDate(now);
             offer.setSheetName(sheetName);
             offer.setSupplierCode(supplierCode);
             offer.setSupplierName(supplierName);
             offer.setInqOfferType(inqOfferType);
+            offer.setPnNormalized(PnUtils.normalize(offer.getProductCode()));
             offer.setStatus(1);
             offer.setCreateBy(userName);
             offer.setUpdateBy(userName);
@@ -659,6 +712,71 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         return sb.toString();
     }
 
+    /**
+     * 批量判断料号价格优势，Offer 页面与微信任务共用。
+     * 窗口为最近 N 个自然日；窗口内最低 price_offer 比窗口开始前最近两条有效报价的最低价低至少阈值时命中。
+     */
+    @Override
+    public Map<String, Boolean> priceAdvantageBatch(List<String> partNumbers, int days) {
+        Map<String, Boolean> result = new LinkedHashMap<>();
+        if (partNumbers == null || partNumbers.isEmpty()) {
+            return result;
+        }
+        int windowDays = Math.max(1, Math.min(999, days));
+        double threshold = 15d;
+        try {
+            String configured = sysConfigService.selectConfigByKey("offer.price.advantage.threshold");
+            if (configured != null && !configured.trim().isEmpty()) {
+                threshold = Double.parseDouble(configured.trim());
+            }
+        } catch (Exception e) {
+            log.warn("读取价格优势阈值失败，使用默认值15: {}", e.getMessage());
+        }
+        String todayKey = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        calendar.add(Calendar.DAY_OF_MONTH, -(windowDays - 1));
+        Date windowStart = calendar.getTime();
+        SimpleDateFormat dayOf = new SimpleDateFormat("yyyy-MM-dd");
+        for (String rawPn : partNumbers) {
+            String pn = PnUtils.normalize(rawPn);
+            if (pn.isEmpty()) {
+                continue;
+            }
+            List<CrmOffer> history = offerMapper.selectPriceHistoryByPn(pn);
+            List<Double> windowPrices = new ArrayList<>();
+            List<CrmOffer> beforeWindow = new ArrayList<>();
+            if (history != null) {
+                for (CrmOffer offer : history) {
+                    if (offer.getPriceOffer() == null || offer.getPriceOffer() <= 0) {
+                        continue;
+                    }
+                    Date offerDate = offer.getStockDate() == null ? offer.getCreateTime() : offer.getStockDate();
+                    if (offerDate == null) {
+                        continue;
+                    }
+                    String dateKey = dayOf.format(offerDate);
+                    if (dateKey.compareTo(dayOf.format(windowStart)) >= 0 && dateKey.compareTo(todayKey) <= 0) {
+                        windowPrices.add(offer.getPriceOffer());
+                    } else if (offerDate.before(windowStart)) {
+                        beforeWindow.add(offer);
+                    }
+                }
+            }
+            boolean advantage = false;
+            if (!windowPrices.isEmpty() && beforeWindow.size() >= 2) {
+                double windowBest = Collections.min(windowPrices);
+                double baseline = Math.min(beforeWindow.get(0).getPriceOffer(), beforeWindow.get(1).getPriceOffer());
+                advantage = baseline - windowBest >= threshold;
+            }
+            result.put(pn, advantage);
+        }
+        return result;
+    }
+
     /** 复制去重key：品牌+料号（同品牌下相同料号视为同一物料） */
     private String copyKey(CrmOffer o) {
         return (o.getProductBrand() == null ? "" : o.getProductBrand()) + "\u0001" + (o.getProductCode() == null ? "" : o.getProductCode());
@@ -740,43 +858,22 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         for (CrmOffer o : list) {
             dedup.putIfAbsent(str(o.getProductCode()).toUpperCase(), o);
         }
-        // 首行英文表头（随勾选字段变化），其后按 品牌 分组输出（组标题为品牌名；无品牌归为一组且不输出标题；品牌切换时空一行）
-        StringBuilder sb = new StringBuilder("Part No.\tQty\tPrice");
-        if (extras.contains("supplierCode")) sb.append("\tSupplier");
-        if (extras.contains("productDetail")) sb.append("\tDetail");
-        if (extras.contains("deliveryTime")) sb.append("\tDelivery");
-        if (extras.contains("dc")) sb.append("\tDC");
-        if (extras.contains("spec")) sb.append("\tSpec");
         List<CrmOffer> rows = new ArrayList<>(dedup.values());
-        // 无品牌的排在最后，避免空分组混在开头
-        rows.sort(Comparator.comparing((CrmOffer o) -> brandOf(o).isEmpty())
-                .thenComparing(this::brandOf)
-                .thenComparing(o -> str(o.getProductCode()).toUpperCase()));
-        String prevBrand = null;
+        List<OfferTextLine> textRows = new ArrayList<>();
         for (CrmOffer o : rows) {
-            String brand = brandOf(o);
-            if (!brand.equals(prevBrand)) {
-                if (prevBrand == null) {
-                    sb.append('\n');
-                } else {
-                    sb.append("\n\n");
-                }
-                prevBrand = brand;
-                if (!brand.isEmpty()) {
-                    sb.append(brand);
-                }
-            }
-            sb.append('\n')
-                    .append(nvl(o.getProductCode())).append('\t')
-                    .append(o.getQuantity() == null ? "" : o.getQuantity() + "pcs").append('\t')
-                    .append(o.getPriceOffer() == null ? "" : fmtPrice(o.getPriceOffer()) + "USD");
-            if (extras.contains("supplierCode")) sb.append('\t').append(nvl(o.getSupplierCode()));
-            if (extras.contains("productDetail")) sb.append('\t').append(nvl(o.getProductDetail()));
-            if (extras.contains("deliveryTime")) sb.append('\t').append(nvl(o.getDeliveryTime()));
-            if (extras.contains("dc")) sb.append('\t').append(nvl(o.getDc()));
-            if (extras.contains("spec")) sb.append('\t').append(nvl(o.getSpec()));
+            OfferTextLine line = new OfferTextLine();
+            line.setPartNumber(o.getProductCode());
+            line.setQuantity(o.getQuantity());
+            line.setBrand(o.getProductBrand());
+            line.setPrice(o.getPriceOffer());
+            line.setSupplierCode(o.getSupplierCode());
+            line.setProductDetail(o.getProductDetail());
+            line.setDeliveryTime(o.getDeliveryTime());
+            line.setDc(o.getDc());
+            line.setSpec(o.getSpec());
+            textRows.add(line);
         }
-        return sb.toString();
+        return OfferTextFormatter.formatSendText(textRows, true, new ArrayList<>(extras));
     }
 
     /**

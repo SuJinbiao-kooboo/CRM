@@ -48,6 +48,8 @@ public class CrmSupplierVO extends BaseEntity {
     private String purchaseGroup;
     @Excel(name = "合作状态")
     private String cooperationStatus;
+    @Excel(name = "利润比例")
+    private Double profitRatio;
     @Excel(name = "营业执照号")
     private String businessLicense;
     @Excel(name = "税号")

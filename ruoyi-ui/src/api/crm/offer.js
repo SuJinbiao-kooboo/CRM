@@ -71,6 +71,11 @@ export function fetchTodayCopyGroups(days) {
   return request({ url: '/crm/offer/todayCopyGroups', params: { days: days || 1 }, method: 'get', timeout: 30000, silent: true })
 }
 
+// 批量判断价格优势：由后端共享 service 使用 offer.price.advantage.threshold 统一计算
+export function priceAdvantageBatch(partNumbers, days) {
+  return request({ url: '/crm/offer/priceAdvantage', method: 'post', data: { partNumbers: partNumbers, days: days || 2 }, timeout: 30000, silent: true })
+}
+
 // 一键复制Offer（AI录入比价/AI查询共用）：按料号集合+最近days天（1=当天、2=今天+昨天、3=今天+昨天+前天）查询各料号报价最低的Offer，
 // 默认输出 料号/数量/Offer价格，extraFields 勾选后按固定顺序追加 供应商编号/详情/交期/DC，返回制表符分隔文本
 // silent: 错误提示由页面自行处理；timeout: 30秒（纯数据库查询，无AI调用）

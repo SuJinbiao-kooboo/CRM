@@ -60,14 +60,14 @@ public class DeepSeekAiService {
     private static final String DEFAULT_SYSTEM_PROMPT_BASE = "你是IT硬件物料信息整理助手。用户会粘贴包含IT配件（SSD、HDD、CPU、GPU、RAM内存、主板、交换机等）的物料信息文本，"
             + "其中可能包含品牌、料号、型号、规格、数量、报价、DC编码、产地COO、交期等信息。"
             + "请把文本中的每一条物料整理成结构化数据，并严格按如下JSON格式输出："
-            + "{\"items\":[{\"brand\":\"品牌\",\"partNumber\":\"料号\",\"model\":\"型号\",\"spec\":\"规格\",\"quantity\":数量,\"price\":报价,\"dc\":\"DC编码\",\"coo\":\"产地\",\"deliveryTime\":\"交期\",\"productType\":\"产品类型\",\"productDetail\":\"详情\"}]}"
+            + "{\"items\":[{\"brand\":\"品牌\",\"partNumber\":\"料号\",\"model\":\"型号\",\"spec\":\"规格\",\"quantity\":数量,\"price\":报价,\"currency\":\"币种\",\"dc\":\"DC编码\",\"coo\":\"产地\",\"deliveryTime\":\"交期\",\"productType\":\"产品类型\",\"productDetail\":\"详情\"}]}"
             + "字段规则：1. brand为品牌名称，按常见品牌对照表统一名称；"
             + "2. partNumber为料号/型号（唯一标识符），不要修改或截断；注意CPU的料号"
             + "3. deliveryTime为交期：L/T、LT、Lead Time、3d、2w、4-6周、货期之类的字眼就是交期信息，提取为简洁交期描述，没有的时候置空字符串"
             + "4. spec为规格（型号的规范细节，说明容量大小和速度/转速）：SSD、RAM内存、HDD必须填写容量大小（如4TB、64GB、16TB），HDD还要写转速（如7200rpm、5400rpm），SSD/RAM可补充接口与速率（如M.2 NVMe、DDR5 6400）；颗粒必须填容量（如4GB eMMC、8Gb NAND、16GB UFS）；CPU、GPU等类别若无明确规格只写型号参数即可；原文确实没有规格信息时该字段置空字符串，不要编造也不要漏掉原文中已有的规格；"
             + "5. 品牌字段是必须的"
             + "6. quantity为整数（1k换算为1000、500+取500、40pcs取40），无法识别时输出null；"
-            + "7. price为纯数字（去掉货币符号和单位），无法识别或原文为No price/Not specified时输出null；"
+            + "7. price为纯数字（去掉货币符号和单位），无法识别或原文为No price/Not specified时输出null；currency只在原文明确出现非USD币种时填写币种代码（如EUR、CNY），原文无币种或USD时填写USD，无法归属时置空字符串；"
             + "8. dc为DC编码（如DCA-0305、D/C 23、N2024等年份/批次码，或原文中的DC列值），没有的时候置空字符串"
             + "9. coo为产地/原产国：原文出现国家或地区字样（如NON CN、No CN、非中国、China、CN、MY、Malaysia、Taiwan、TW、Japan、JP、Korea、KR、Made in xxx、台产、国产、马来西亚产等）时，把对应的国家/地区写入coo（如CN、MY、TW、JP、KR等）；多个产地用逗号分隔；原文完全没有产地信息时才置空字符串，绝不能漏掉"
             + "10. productType为产品类型，必须从以下分类中选择一个：SSD、HDD、RAM、CPU、GPU、Motherboard、颗粒、其他；根据料号前缀、描述并结合产品知识联网推断（如带SSD/SD/BW/WDS料号的是SSD，DDR/RD/CT/MTA开头的是RAM，ST/WD/Seagate大容量3.5寸是HDD，Intel/AMD 6338/EPYC等是CPU，eMMC/UFS或NAND/DRAM颗粒及KLM/K4/K3/H9/MT41K/SDIN/THGBM开头的是颗粒），无法确定时置空字符串不要乱猜"
@@ -135,6 +135,7 @@ public class DeepSeekAiService {
             row.put("spec", strVal(item, "spec"));
             row.put("quantity", intVal(item, "quantity"));
             row.put("price", doubleVal(item, "price"));
+            row.put("currency", strVal(item, "currency"));
             row.put("dc", strVal(item, "dc"));
             row.put("coo", strVal(item, "coo"));
             row.put("deliveryTime", strVal(item, "deliveryTime"));
@@ -280,7 +281,7 @@ public class DeepSeekAiService {
             return prompt;
         }
         return prompt + "\n请严格按照json格式输出结果，输出结构示例："
-                + "{\"items\":[{\"brand\":\"品牌\",\"partNumber\":\"料号\",\"model\":\"型号\",\"spec\":\"规格\",\"quantity\":数量,\"price\":价格}]}";
+                + "{\"items\":[{\"brand\":\"品牌\",\"partNumber\":\"料号\",\"model\":\"型号\",\"spec\":\"规格\",\"quantity\":数量,\"price\":价格,\"currency\":\"币种\"}]}";
     }
 
     /** 从响应体提取 choices[0].message.content */

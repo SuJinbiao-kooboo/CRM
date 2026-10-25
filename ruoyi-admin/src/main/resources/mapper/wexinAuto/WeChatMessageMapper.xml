@@ -3,81 +3,65 @@
 <mapper namespace="com.ruoyi.wexinAuto.mapper.WeChatMessageMapper">
 
     <resultMap id="WeChatMessageResult" type="com.ruoyi.wexinAuto.model.WeChatMessage">
-        <id     property="id"              column="id" />
-        <result property="username"        column="username" />
-        <result property="name"            column="name" />
-        <result property="localId"         column="local_id" />
-        <result property="serverId"        column="server_id" />
-        <result property="type"            column="type" />
-        <result property="sender"          column="sender" />
-        <result property="content"         column="content" />
-        <result property="quote"           column="quote" />
-        <result property="quoteKind"       column="quote_kind" />
-        <result property="mediaPath"       column="media_path" />
-        <result property="createTime"      column="create_time" />
-        <result property="sortSeq"         column="sort_seq" />
-        <result property="md5"             column="md5" />
-        <result property="msgCategory"     column="msg_category" />
-        <result property="categorySource"  column="category_source" />
-        <result property="categoryReason"  column="category_reason" />
-        <result property="status"          column="status" />
-        <result property="relatInq"        column="relat_inq" />
-        <result property="relatOffer"      column="relat_offer" />
-        <result property="entryFailCount"  column="entry_fail_count" />
-        <result property="entryStatus"     column="entry_status" />
-        <result property="entryMessage"    column="entry_message" />
-        <result property="entryOfferCount" column="entry_offer_count" />
-        <result property="entryOfferIds"   column="entry_offer_ids" />
-        <result property="entryAt"         column="entry_at" />
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="name" column="name"/>
+        <result property="localId" column="local_id"/>
+        <result property="serverId" column="server_id"/>
+        <result property="type" column="type"/>
+        <result property="sender" column="sender"/>
+        <result property="content" column="content"/>
+        <result property="quote" column="quote"/>
+        <result property="quoteKind" column="quote_kind"/>
+        <result property="mediaPath" column="media_path"/>
+        <result property="createTime" column="create_time"/>
+        <result property="sortSeq" column="sort_seq"/>
+        <result property="md5" column="md5"/>
+        <result property="msgCategory" column="msg_category"/>
+        <result property="categorySource" column="category_source"/>
+        <result property="categoryReason" column="category_reason"/>
+        <result property="status" column="status"/>
+        <result property="relatInq" column="relat_inq"/>
+        <result property="relatOffer" column="relat_offer"/>
+        <result property="entryFailCount" column="entry_fail_count"/>
+        <result property="classifyStatus" column="classify_status"/>
+        <result property="classifyAt" column="classify_at"/>
+        <result property="classifyFailCount" column="classify_fail_count"/>
+        <result property="entryStatus" column="entry_status"/>
+        <result property="entryMessage" column="entry_message"/>
+        <result property="entryOfferCount" column="entry_offer_count"/>
+        <result property="entryOfferIds" column="entry_offer_ids"/>
+        <result property="entryAt" column="entry_at"/>
+        <result property="taskStatus" column="task_status"/>
+        <result property="taskAt" column="task_at"/>
+        <result property="taskMessage" column="task_message"/>
+        <result property="traceAlertedAt" column="trace_alerted_at"/>
+        <result property="traceAlertError" column="trace_alert_error"/>
     </resultMap>
 
-    <sql id="selectWechatMessageVo">
-        SELECT id, username, name, local_id, server_id, type, sender, content, quote, quote_kind,
-               media_path, create_time, sort_seq, md5, msg_category, category_source, category_reason, status,
-               relat_inq, relat_offer, entry_fail_count, entry_status, entry_message,
-               entry_offer_count, entry_offer_ids, entry_at
-        FROM wechat_message
+    <sql id="WeChatMessageColumns">
+        id, username, name, local_id, server_id, type, sender, content, quote, quote_kind,
+        media_path, create_time, sort_seq, md5, msg_category, category_source, category_reason, status,
+        relat_inq, relat_offer, entry_fail_count, classify_status, classify_at, classify_fail_count,
+        entry_status, entry_message, entry_offer_count, entry_offer_ids, entry_at,
+        task_status, task_at, task_message, trace_alerted_at, trace_alert_error
     </sql>
 
     <insert id="batchUpsert">
         INSERT INTO wechat_message (username, name, local_id, server_id, type, sender, content, quote, quote_kind,
             media_path, create_time, sort_seq, md5, msg_category, category_source, category_reason, status,
-            relat_inq, relat_offer, entry_fail_count)
+            relat_inq, relat_offer, entry_fail_count, classify_status, classify_fail_count,
+            entry_status, entry_offer_count, task_status)
         VALUES
         <foreach collection="list" item="m" separator=",">
             (#{m.username}, #{m.name}, #{m.localId}, #{m.serverId}, #{m.type}, #{m.sender}, #{m.content}, #{m.quote}, #{m.quoteKind},
              #{m.mediaPath}, #{m.createTime}, #{m.sortSeq}, #{m.md5}, #{m.msgCategory}, #{m.categorySource}, #{m.categoryReason}, COALESCE(#{m.status}, 0),
-             #{m.relatInq}, #{m.relatOffer}, COALESCE(#{m.entryFailCount}, 0))
+             #{m.relatInq}, #{m.relatOffer}, COALESCE(#{m.entryFailCount}, 0),
+             COALESCE(#{m.classifyStatus}, 'PENDING'), COALESCE(#{m.classifyFailCount}, 0),
+             COALESCE(#{m.entryStatus}, 'NOT_APPLICABLE'), COALESCE(#{m.entryOfferCount}, 0), COALESCE(#{m.taskStatus}, 'PENDING'))
         </foreach>
-        ON DUPLICATE KEY UPDATE
-            username = VALUES(username)
+        ON DUPLICATE KEY UPDATE username = VALUES(username)
     </insert>
-
-    <update id="updateCategory">
-        UPDATE wechat_message
-        SET msg_category = #{m.msgCategory}, category_source = #{m.categorySource}, category_reason = #{m.categoryReason},
-            relat_inq = #{m.relatInq}, relat_offer = #{m.relatOffer}, status = 1,
-            entry_status = CASE
-                WHEN #{m.msgCategory} IN ('INQ','OFFER')
-                     AND (entry_status IS NULL OR entry_status = 'NOT_APPLICABLE') THEN 'PENDING'
-                WHEN #{m.msgCategory} NOT IN ('INQ','OFFER')
-                     AND entry_status IN ('PENDING','FAILED') THEN 'NOT_APPLICABLE'
-                ELSE entry_status END,
-            entry_at = CASE
-                WHEN #{m.msgCategory} IN ('INQ','OFFER')
-                     AND (entry_status IS NULL OR entry_status = 'NOT_APPLICABLE') THEN NOW()
-                WHEN #{m.msgCategory} IN ('INQ','OFFER')
-                     AND entry_at IS NULL THEN NOW()
-                ELSE entry_at END
-        WHERE username = #{m.username} AND local_id = #{m.localId}
-    </update>
-
-    <update id="updateFiltered">
-        UPDATE wechat_message
-        SET msg_category = 'OTHER', category_source = 'FILTER', category_reason = #{reason},
-            relat_inq = '', relat_offer = '', status = 3, entry_status = 'NOT_APPLICABLE'
-        WHERE username = #{m.username} AND local_id = #{m.localId}
-    </update>
 
     <insert id="insertBlackBatch">
         INSERT INTO wechat_message_black (username, name, local_id, server_id, type, sender, content, quote, quote_kind,
@@ -87,107 +71,188 @@
             (#{m.username}, #{m.name}, #{m.localId}, #{m.serverId}, #{m.type}, #{m.sender}, #{m.content}, #{m.quote}, #{m.quoteKind},
              #{m.mediaPath}, #{m.createTime}, #{m.sortSeq}, #{m.md5})
         </foreach>
-        ON DUPLICATE KEY UPDATE
-            username = VALUES(username)
+        ON DUPLICATE KEY UPDATE username = VALUES(username)
     </insert>
 
+    <update id="updateCategory">
+        UPDATE wechat_message
+        SET msg_category = #{m.msgCategory},
+            category_source = #{m.categorySource},
+            category_reason = #{m.categoryReason},
+            relat_inq = #{m.relatInq},
+            relat_offer = #{m.relatOffer},
+            classify_status = 'SUCCESS',
+            classify_at = NOW(),
+            classify_fail_count = 0,
+            status = CASE WHEN #{m.msgCategory} IN ('INQ','OFFER') THEN 1 ELSE 3 END,
+            entry_status = CASE WHEN #{m.msgCategory} IN ('INQ','OFFER') THEN 'PENDING' ELSE 'NOT_APPLICABLE' END,
+            entry_message = '',
+            entry_at = NOW(),
+            task_status = CASE WHEN #{m.msgCategory} IN ('INQ','OFFER') THEN 'PENDING' ELSE 'SKIPPED' END,
+            task_at = NOW(),
+            task_message = CASE WHEN #{m.msgCategory} IN ('INQ','OFFER') THEN '' ELSE 'NOT_ROUTABLE' END
+        WHERE username = #{m.username} AND local_id = #{m.localId}
+          AND classify_status IN ('PENDING','PROCESSING','FAILED')
+    </update>
+
+    <update id="updateFiltered">
+        UPDATE wechat_message
+        SET msg_category = 'OTHER',
+            category_source = 'FILTER',
+            category_reason = #{reason},
+            relat_inq = '',
+            relat_offer = '',
+            classify_status = 'SKIPPED',
+            classify_at = NOW(),
+            status = 3,
+            entry_status = 'NOT_APPLICABLE',
+            entry_message = #{reason},
+            task_status = 'SKIPPED',
+            task_at = NOW(),
+            task_message = 'FILTER'
+        WHERE username = #{m.username} AND local_id = #{m.localId}
+    </update>
+
+    <update id="markClassifyProcessing">
+        UPDATE wechat_message
+        SET classify_status = 'PROCESSING', classify_at = NOW()
+        WHERE username = #{username} AND local_id = #{localId}
+          AND (
+              (classify_status IN ('PENDING','FAILED') AND (classify_at IS NULL OR classify_at &lt;= DATE_SUB(NOW(), INTERVAL #{cooldownSec} SECOND)))
+              OR (classify_status = 'PROCESSING' AND classify_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND))
+          )
+    </update>
+
+    <update id="markClassifyFailed">
+        UPDATE wechat_message
+        SET classify_status = 'FAILED',
+            classify_fail_count = classify_fail_count + 1,
+            classify_at = NOW(),
+            category_reason = #{reason},
+            status = 0
+        WHERE username = #{username} AND local_id = #{localId}
+          AND classify_status = 'PROCESSING'
+    </update>
+
+    <update id="markClassifySkipped">
+        UPDATE wechat_message
+        SET msg_category = 'OTHER',
+            category_source = 'NON_TEXT',
+            category_reason = #{reason},
+            relat_inq = '',
+            relat_offer = '',
+            classify_status = 'SKIPPED',
+            classify_at = NOW(),
+            status = 3,
+            entry_status = 'NOT_APPLICABLE',
+            entry_message = #{reason},
+            task_status = 'SKIPPED',
+            task_at = NOW(),
+            task_message = 'NOT_ROUTABLE'
+        WHERE username = #{username} AND local_id = #{localId}
+          AND classify_status IN ('PENDING','PROCESSING','FAILED')
+    </update>
+
     <select id="querySince" resultMap="WeChatMessageResult">
-        <include refid="selectWechatMessageVo" />
+        SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
         <where>
-            <if test="since != null and since != ''"> AND create_time &gt;= #{since} </if>
-            <if test="chat != null and chat != ''"> AND name = #{chat} </if>
-            <if test="status != null"> AND status = #{status} </if>
+            <if test="since != null and since != ''">AND create_time &gt;= #{since}</if>
+            <if test="chat != null and chat != ''">AND name = #{chat}</if>
+            <if test="status != null">AND status = #{status}</if>
         </where>
-        ORDER BY sort_seq ASC
-        LIMIT #{max}
+        ORDER BY sort_seq ASC LIMIT #{max}
+    </select>
+
+    <select id="queryClassifyCandidates" resultMap="WeChatMessageResult">
+        SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
+        WHERE (
+                (classify_status IN ('PENDING','FAILED')
+                 AND (classify_at IS NULL OR classify_at &lt;= DATE_SUB(NOW(), INTERVAL #{cooldownSec} SECOND)))
+                OR (classify_status = 'PROCESSING'
+                    AND classify_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND))
+              )
+          AND COALESCE(category_source,'') &lt;&gt; 'AI_AUTO'
+        ORDER BY sort_seq ASC LIMIT #{max}
     </select>
 
     <select id="queryUnclassified" resultMap="WeChatMessageResult">
-        <include refid="selectWechatMessageVo" />
-        WHERE status = 0
+        SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
+        WHERE classify_status IN ('PENDING','FAILED')
+        ORDER BY sort_seq ASC LIMIT #{max}
+    </select>
+
+    <select id="queryByKeys" resultMap="WeChatMessageResult">
+        SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
+        WHERE CONCAT(username, ':', local_id) IN
+        <foreach collection="keys" item="key" open="(" separator="," close=")">#{key}</foreach>
         ORDER BY sort_seq ASC
-        LIMIT #{max}
     </select>
 
     <select id="queryRecent" resultMap="WeChatMessageResult">
         SELECT * FROM (
-            <include refid="selectWechatMessageVo" />
+            SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
             WHERE username = #{username}
-            ORDER BY sort_seq DESC
-            LIMIT #{max}
-        ) recent
-        ORDER BY sort_seq ASC
+            ORDER BY sort_seq DESC LIMIT #{max}
+        ) recent ORDER BY sort_seq ASC
     </select>
 
     <select id="unclassifiedStats" resultType="java.util.Map">
         SELECT COUNT(*) AS cnt, MIN(create_time) AS earliest
-        FROM wechat_message
-        WHERE status = 0
+        FROM wechat_message WHERE classify_status IN ('PENDING','FAILED')
     </select>
 
     <select id="queryTraceAlerts" resultMap="WeChatMessageResult">
-        <include refid="selectWechatMessageVo" />
-        WHERE status = 1
+        SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
+        WHERE classify_status = 'SUCCESS'
           AND msg_category = 'TRACE'
+          AND category_source IN ('LLM','CACHE')
+          AND trace_alerted_at IS NULL
           AND create_time &gt;= #{since}
           AND ((relat_inq IS NOT NULL AND relat_inq != '') OR (relat_offer IS NOT NULL AND relat_offer != ''))
-        ORDER BY sort_seq ASC
-        LIMIT #{max}
+        ORDER BY sort_seq ASC LIMIT #{max}
     </select>
 
     <select id="queryProcessable" resultMap="WeChatMessageResult">
-        <include refid="selectWechatMessageVo" />
-        WHERE status = 1
-        AND msg_category IN
-        <foreach collection="categories" item="cat" open="(" separator="," close=")">
-            #{cat}
-        </foreach>
-        AND create_time &gt;= #{since}
-        AND (entry_status IN ('PENDING','FAILED')
-             OR (entry_status = 'PROCESSING' AND entry_at &lt; DATE_SUB(NOW(), INTERVAL 10 MINUTE)))
-        AND (entry_at IS NULL OR entry_at &lt;= DATE_SUB(NOW(), INTERVAL #{minAgeSec} SECOND))
-        <if test="chat != null and chat != ''">
-            AND name = #{chat}
-        </if>
-        <if test="chats != null and chats.size() > 0">
-            AND name IN
-            <foreach collection="chats" item="nm" open="(" separator="," close=")">
-                #{nm}
-            </foreach>
-        </if>
-        ORDER BY sort_seq ASC
-        LIMIT #{max}
+        SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
+        WHERE classify_status = 'SUCCESS'
+          AND category_source IN ('LLM','CACHE')
+          AND msg_category IN
+          <foreach collection="categories" item="cat" open="(" separator="," close=")">#{cat}</foreach>
+          AND create_time &gt;= #{since}
+          AND (entry_status IN ('PENDING','FAILED')
+               OR (entry_status = 'PROCESSING' AND entry_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND)))
+          AND create_time &lt;= DATE_SUB(NOW(), INTERVAL #{minAgeSec} SECOND)
+          <if test="chat != null and chat != ''">AND name = #{chat}</if>
+          <if test="chats != null and chats.size() > 0">
+              AND name IN <foreach collection="chats" item="nm" open="(" separator="," close=")">#{nm}</foreach>
+          </if>
+        ORDER BY sort_seq ASC LIMIT #{max}
     </select>
 
     <select id="processableStats" resultType="java.util.Map">
-        SELECT COUNT(*) AS cnt, MIN(create_time) AS earliest
-        FROM wechat_message
-        WHERE status = 1
-        AND msg_category IN
-        <foreach collection="categories" item="cat" open="(" separator="," close=")">
-            #{cat}
-        </foreach>
-        AND create_time &gt;= #{since}
-        AND (entry_status IN ('PENDING','FAILED')
-             OR (entry_status = 'PROCESSING' AND entry_at &lt; DATE_SUB(NOW(), INTERVAL 10 MINUTE)))
+        SELECT COUNT(*) AS cnt, MIN(create_time) AS earliest FROM wechat_message
+        WHERE classify_status = 'SUCCESS'
+          AND category_source IN ('LLM','CACHE')
+          AND msg_category IN
+          <foreach collection="categories" item="cat" open="(" separator="," close=")">#{cat}</foreach>
+          AND create_time &gt;= #{since}
+          AND entry_status IN ('PENDING','FAILED')
     </select>
 
     <select id="entryStatusStats" resultType="java.util.Map">
         SELECT entry_status AS entryStatus, COUNT(*) AS cnt, MIN(create_time) AS earliest
         FROM wechat_message
-        WHERE msg_category IN ('INQ','OFFER')
-          AND create_time &gt;= #{since}
-        GROUP BY entry_status
-        ORDER BY entry_status
+        WHERE msg_category IN ('INQ','OFFER') AND create_time &gt;= #{since}
+        GROUP BY entry_status ORDER BY entry_status
     </select>
 
     <update id="markEntryProcessing">
         UPDATE wechat_message
         SET entry_status = 'PROCESSING', entry_message = 'AI录入处理中', entry_at = NOW()
         WHERE username = #{username} AND local_id = #{localId}
-          AND status = 1
+          AND classify_status = 'SUCCESS'
           AND (entry_status IN ('PENDING','FAILED')
-               OR (entry_status = 'PROCESSING' AND entry_at &lt; DATE_SUB(NOW(), INTERVAL 10 MINUTE)))
+               OR (entry_status = 'PROCESSING' AND entry_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND)))
     </update>
 
     <update id="updateEntryState">
@@ -198,24 +263,108 @@
         WHERE username = #{username} AND local_id = #{localId}
     </update>
 
+    <update id="updateEntryOnly">
+        UPDATE wechat_message
+        SET entry_status = #{entryStatus}, entry_message = #{entryMessage},
+            entry_offer_count = #{offerCount}, entry_offer_ids = #{offerIds},
+            entry_fail_count = #{failCount}, entry_at = NOW()
+        WHERE username = #{username} AND local_id = #{localId}
+    </update>
+
     <update id="requeueEntry">
         UPDATE wechat_message
         SET entry_status = 'PENDING', entry_message = '人工重新入队', entry_fail_count = 0,
-            status = 1, entry_at = NOW()
-        WHERE status IN (1,3)
+            status = 1, entry_at = NOW(), task_status = 'PENDING', task_message = '', task_at = NOW()
+        WHERE classify_status = 'SUCCESS'
+          AND category_source IN ('LLM','CACHE')
           AND msg_category IN ('INQ','OFFER')
           AND entry_status IN ('SKIPPED','FAILED','DEAD')
           <if test="chat != null and chat != ''">AND name = #{chat}</if>
     </update>
 
-    <update id="updateEntryResult">
+    <update id="requeueEntryKeys">
         UPDATE wechat_message
-        SET status = #{status}, entry_fail_count = #{failCount}
+        SET entry_status = 'PENDING', entry_message = '人工重新入队', entry_fail_count = 0,
+            status = 1, entry_at = NOW(), task_status = 'PENDING', task_message = '', task_at = NOW()
+        WHERE classify_status = 'SUCCESS'
+          AND category_source IN ('LLM','CACHE')
+          AND msg_category IN ('INQ','OFFER')
+          AND entry_status IN ('SKIPPED','FAILED','DEAD')
+          AND CONCAT(username, ':', local_id) IN
+          <foreach collection="keys" item="key" open="(" separator="," close=")">#{key}</foreach>
+    </update>
+
+    <update id="updateEntryResult">
+        UPDATE wechat_message SET status = #{status}, entry_fail_count = #{failCount}
         WHERE username = #{username} AND local_id = #{localId}
     </update>
+
+    <select id="queryTaskCandidates" resultMap="WeChatMessageResult">
+        SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
+        WHERE classify_status = 'SUCCESS'
+          AND category_source IN ('LLM','CACHE')
+          AND msg_category IN ('INQ','OFFER')
+          AND (
+                (entry_status IN ('SUCCESS','SUCCESS_WARN') AND task_status IN ('PENDING','FAILED'))
+                OR (entry_status = 'SKIPPED' AND task_status IN ('PENDING','FAILED')
+                    AND (entry_message LIKE '群未映射%' OR entry_message LIKE '群映射冲突%'))
+                OR (task_status = 'PROCESSING' AND task_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND))
+              )
+          AND create_time &gt;= #{since}
+          <if test="chat != null and chat != ''">AND name = #{chat}</if>
+        ORDER BY sort_seq ASC LIMIT #{max}
+    </select>
+
+    <update id="markTaskProcessing">
+        UPDATE wechat_message SET task_status = 'PROCESSING', task_message = '任务生成处理中', task_at = NOW()
+        WHERE username = #{username} AND local_id = #{localId}
+          AND (
+              (entry_status IN ('SUCCESS','SUCCESS_WARN') AND task_status IN ('PENDING','FAILED'))
+              OR (entry_status = 'SKIPPED'
+                  AND (entry_message LIKE '群未映射%' OR entry_message LIKE '群映射冲突%')
+                  AND task_status IN ('PENDING','FAILED'))
+              OR (task_status = 'PROCESSING'
+                  AND task_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND))
+          )
+    </update>
+
+    <update id="updateTaskState">
+        UPDATE wechat_message SET task_status = #{taskStatus}, task_message = #{taskMessage}, task_at = NOW()
+        WHERE username = #{username} AND local_id = #{localId}
+    </update>
+
+    <update id="markTraceAlerted">
+        UPDATE wechat_message SET trace_alerted_at = NOW(), trace_alert_error = NULL
+        WHERE username = #{username} AND local_id = #{localId} AND trace_alerted_at IS NULL
+    </update>
+
+    <update id="markTraceAlertError">
+        UPDATE wechat_message SET trace_alert_error = #{error}
+        WHERE username = #{username} AND local_id = #{localId} AND trace_alerted_at IS NULL
+    </update>
+
+    <select id="selectMessageList" parameterType="com.ruoyi.wexinAuto.model.WeChatMessage" resultMap="WeChatMessageResult">
+        SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
+        <where>
+            <if test="beginTime != null and beginTime != ''">AND create_time &gt;= #{beginTime}</if>
+            <if test="endTime != null and endTime != ''">AND create_time &lt;= #{endTime}</if>
+            <if test="name != null and name != ''">AND name LIKE CONCAT('%', #{name}, '%')</if>
+            <if test="msgCategory != null and msgCategory != ''">AND msg_category = #{msgCategory}</if>
+            <if test="classifyStatus != null and classifyStatus != ''">AND classify_status = #{classifyStatus}</if>
+            <if test="entryStatus != null and entryStatus != ''">AND entry_status = #{entryStatus}</if>
+            <if test="taskStatus != null and taskStatus != ''">AND task_status = #{taskStatus}</if>
+            <if test="keyword != null and keyword != ''">
+                AND (content LIKE CONCAT('%', #{keyword}, '%')
+                  OR name LIKE CONCAT('%', #{keyword}, '%')
+                  OR sender LIKE CONCAT('%', #{keyword}, '%')
+                  OR entry_message LIKE CONCAT('%', #{keyword}, '%')
+                  OR task_message LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY create_time DESC, id DESC
+    </select>
 
     <delete id="purgeBefore">
         DELETE FROM wechat_message WHERE create_time &lt; #{before}
     </delete>
-
 </mapper>

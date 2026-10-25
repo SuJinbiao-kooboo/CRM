@@ -92,6 +92,31 @@ public class OfferController extends BaseController {
         return AjaxResult.success(offerService.todayCopyGroups(days));
     }
 
+    /** 批量判断价格优势：前端与微信任务共用后端算法。 */
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @PostMapping("/priceAdvantage")
+    public AjaxResult priceAdvantage(@RequestBody Map<String, Object> body) {
+        List<String> partNumbers = new ArrayList<>();
+        Object values = body == null ? null : body.get("partNumbers");
+        if (values instanceof Collection) {
+            for (Object value : (Collection<?>) values) {
+                if (value != null) {
+                    partNumbers.add(String.valueOf(value));
+                }
+            }
+        }
+        int days = 2;
+        Object dayValue = body == null ? null : body.get("days");
+        if (dayValue != null) {
+            try {
+                days = Integer.parseInt(String.valueOf(dayValue));
+            } catch (NumberFormatException ignored) {
+                days = 2;
+            }
+        }
+        return AjaxResult.success(offerService.priceAdvantageBatch(partNumbers, days));
+    }
+
         /**
      * 供应商名称详情：点击供应商名称列时实时查询（先判数据权限）：
      * 有权限（admin/manager）返回供应商表真实名称（查不到返回"未找到名称"），

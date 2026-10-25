@@ -344,7 +344,7 @@
       <div class="copy-toolbar">
         <span class="adv-threshold-wrap">
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
-          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
+          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" disabled />
         </span>
         <span style="color:#909399; font-size:12px">最近天数:</span>
         <el-button size="mini" icon="el-icon-minus" circle :disabled="Number(copyRecentDays) <= 1" @click="changeCopyRecentDays(-1)" />
@@ -414,7 +414,7 @@
       <div class="copy-toolbar">
         <span class="adv-threshold-wrap">
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
-          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
+          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" disabled />
         </span>
         <span style="color:#909399; font-size:12px">最近天数:</span>
         <el-button size="mini" icon="el-icon-minus" circle :disabled="Number(copyRecentDays) <= 1" @click="changeCopyRecentDays(-1)" />
@@ -477,7 +477,7 @@
       <div class="copy-toolbar">
         <span class="adv-threshold-wrap">
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
-          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" @change="onPriceAdvThresholdChange" />
+          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" disabled />
         </span>
         <span style="color:#909399; font-size:12px">最近天数:</span>
         <el-button size="mini" icon="el-icon-minus" circle :disabled="Number(copyRecentDays) <= 1" @click="changeCopyRecentDays(-1)" />
@@ -700,7 +700,7 @@
 </template>
 
 <script>
-import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, invalidateOffers, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, fetchTodayCopyGroups, getSupplierNameDetail, copyAiQueryOffers, downloadOfferTemplate } from '@/api/crm/offer'
+import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, invalidateOffers, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, fetchTodayCopyGroups, getSupplierNameDetail, copyAiQueryOffers, downloadOfferTemplate, priceAdvantageBatch } from '@/api/crm/offer'
 import { listSupplierOptions, listSupplier, listSupplierSimple } from '@/api/crm/supplier'
 import { getDicts } from '@/api/system/dict/data'
 import { getConfigKey } from '@/api/system/config'
@@ -1026,11 +1026,6 @@ export default {
         }
       }).catch(() => {})
     },
-    /** 价格优势阈值变化：重新计算全部料号勾选状态 */
-    onPriceAdvThresholdChange() {
-      this.autoSelectAdvantage();
-    },
-
     /** 全选：勾选全部料号复制框（AI查询/AI录入比价/复制Offer共用），便于一键复制全部 */
     selectAllAdvantage() {
       const groups = this.allCompareGroups();
@@ -1053,40 +1048,16 @@ export default {
     },
     /** 依据价格优势阈值自动勾选AI查询/AI录入比价/复制Offer中的料号 */
     autoSelectAdvantage() {
-      const t = Number(this.priceAdvThreshold);
-      const threshold = (t == null || isNaN(t)) ? 15 : t;
       const groups = this.allCompareGroups();
-      // 用 $set 写入 checked，避免Vue2对后新增属性不做响应式导致v-model勾选无法刷新
-      groups.forEach(g => { this.$set(g, 'checked', this.evaluateAdvantage(g, threshold)) });
-    },
-    /** 判定单个料号是否存在价格优势（仅用Offer价 priceOffer）：
-     *  最近N天（copyRecentDays，默认1=当天）区间内最好价 <= 区间之前上两次有报价的最低价 - 阈值 则视为有优势；
-     *  区间内无报价或区间前报价不足两次时无优势 */
-    evaluateAdvantage(g, threshold) {
-      const days = Math.max(1, Math.floor(Number(this.copyRecentDays)) || 1);
-      const todayKey = this.todayDateKey();
-      // 窗口起点：今天往前 (days-1) 天，yyyy-MM-dd（字符串比较即时间顺序）
-      const winStart = new Date(Date.now() - (days - 1) * 86400000);
-      const winStartKey = winStart.getFullYear() + '-' + String(winStart.getMonth() + 1).padStart(2, '0') + '-' + String(winStart.getDate()).padStart(2, '0');
-      const keyOf = o => String(o.offerDate || '').slice(0, 10);
-      // 只统计 Offer 类型记录，INQ 价格不得参与优势计算（列表同时展示 INQ/OFFER 两种记录）
-      const offers = (g.offers || []).filter(o => o.offerDate && o.status !== 0 && String(o.inqOfferType || '').toUpperCase() === 'OFFER' && !isNaN(Number(o.priceOffer)));
-      if (offers.length === 0) return false;
-      // 区间内（最近N天）报价
-      const windowPrices = offers.filter(o => { const k = keyOf(o); return k >= winStartKey && k <= todayKey }).map(o => Number(o.priceOffer));
-      // 区间之前（早于窗口起点）的报价，按Offer日期从新到旧排列
-      const prevOffers = offers.filter(o => keyOf(o) !== '' && keyOf(o) < winStartKey)
-        .sort((a, b) => String(b.offerDate || '').localeCompare(String(a.offerDate || '')));
-      if (windowPrices.length === 0) return false;   // 区间内无报价
-      if (prevOffers.length < 2) return false;       // 区间前上两次报价不足
-      const windowBest = Math.min(...windowPrices);
-      const baseline = Math.min(Number(prevOffers[0].priceOffer), Number(prevOffers[1].priceOffer));
-      return (baseline - windowBest) >= threshold;
-    },
-    /** 今天的日期键 yyyy-MM-dd */
-    todayDateKey() {
-      const d = new Date();
-      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      if (groups.length === 0) return;
+      const partNumbers = [...new Set(groups.map(g => g.partNumber).filter(Boolean))];
+      const days = Math.max(1, Math.floor(Number(this.copyRecentDays)) || 2);
+      priceAdvantageBatch(partNumbers, days).then(res => {
+        const result = res.data || {};
+        groups.forEach(g => this.$set(g, 'checked', result[String(g.partNumber || '').trim().toUpperCase()] === true));
+      }).catch(() => {
+        groups.forEach(g => this.$set(g, 'checked', false));
+      });
     },
     /** 提交AI料号查询：AI提取完整料号后查询最近1个月INQ/OFFER历史记录（组内按Offer日期倒排） */
     submitAiQuery() {
@@ -1328,7 +1299,7 @@ export default {
         // 兜底兼容：data为空时尝试从msg取（后端双参重载返回，data恒有值，此分支仅防御性保留）
         const raw = res.data || (res.msg && res.msg !== '操作成功' ? res.msg : '') || '';
         if (!raw) { this.$modal.msgWarning('最近' + days + '天内这些物料没有Offer记录'); return }
-        const text = this.withOfferHeader(raw);
+        const text = raw;
         this.copyToClipboard(text).then(ok => {
           if (ok) {
             this[fallbackField] = '';

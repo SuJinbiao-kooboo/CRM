@@ -6,70 +6,88 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * 微信消息表(wechat_message) Mapper。
- * 消息全部入库(含监听与主动拉取)，只保留最近 msgRetentionDays 天，由定时任务清理。
+ * 微信消息表 Mapper。分类、录入、任务生成使用各自独立状态，旧 status 仅保留兼容。
  */
 public interface WeChatMessageMapper {
 
-    /** 批量插入或更新(唯一键 username+local_id)；已分类的消息不会被重置分类。 */
     int batchUpsert(@Param("list") List<WeChatMessage> list);
 
-    /** 更新单条消息的分类与来源(按 username+local_id)。 */
     int updateCategory(@Param("m") WeChatMessage m);
 
-    /** 将命中分类黑名单的消息统一标记为 OTHER/FILTER 且 status=3，并清空关联。 */
     int updateFiltered(@Param("m") WeChatMessage m, @Param("reason") String reason);
 
-    /** 按起始时间(+可选会话名)查询，按 sort_seq 正序。 */
-    List<WeChatMessage> querySince(@Param("since") String since, @Param("chat") String chat, @Param("status") Integer status, @Param("max") int max);
+    int markClassifyProcessing(@Param("username") String username, @Param("localId") long localId,
+                               @Param("timeoutSec") int timeoutSec, @Param("cooldownSec") int cooldownSec);
 
-    /** 查询未分类消息(status=0)，按 sort_seq 正序，最多 max 条。 */
+    int markClassifyFailed(@Param("username") String username, @Param("localId") long localId,
+                           @Param("reason") String reason);
+
+    int markClassifySkipped(@Param("username") String username, @Param("localId") long localId,
+                            @Param("reason") String reason);
+
+    List<WeChatMessage> querySince(@Param("since") String since, @Param("chat") String chat,
+                                   @Param("status") Integer status, @Param("max") int max);
+
+    List<WeChatMessage> queryClassifyCandidates(@Param("max") int max, @Param("cooldownSec") int cooldownSec,
+                                                @Param("timeoutSec") int timeoutSec);
+
     List<WeChatMessage> queryUnclassified(@Param("max") int max);
 
-    /** 查询指定会话最近 max 条消息（含未分类），返回时按 sort_seq 正序，供最近N条上下文判断。 */
+    List<WeChatMessage> queryByKeys(@Param("keys") List<String> keys);
+
     List<WeChatMessage> queryRecent(@Param("username") String username, @Param("max") int max);
 
-    /** 未分类消息统计：{cnt=未分类条数, earliest=最早未分类消息时间}。 */
     java.util.Map<String, Object> unclassifiedStats();
 
-    /** 扫描等待飞书预警的 TRACE：status=1、已关联 INQ/OFFER、且在时间窗内。 */
     List<WeChatMessage> queryTraceAlerts(@Param("since") String since, @Param("max") int max);
 
-    /**
-     * 查询待录入消息(status=1 且分类在 categories 内)，按 sort_seq 正序，最多 max 条；
-     * chat 非空=只查该会话；chat 为空且 chats 非空=只查这些会话(chats)；都为空=全部会话。
-     */
     List<WeChatMessage> queryProcessable(@Param("chat") String chat, @Param("chats") List<String> chats,
                                          @Param("categories") List<String> categories,
                                          @Param("since") String since, @Param("minAgeSec") int minAgeSec,
-                                         @Param("max") int max);
+                                         @Param("max") int max, @Param("timeoutSec") int timeoutSec);
 
-    /** 待录入消息统计：{cnt=待录入条数, earliest=最早待录入消息时间}。 */
     java.util.Map<String, Object> processableStats(@Param("categories") List<String> categories,
                                                     @Param("since") String since);
 
-    /** 录入状态分布与数量统计，供 /offer/entry/status 展示。 */
     List<java.util.Map<String, Object>> entryStatusStats(@Param("since") String since);
 
-    /** 将待录入消息置为 PROCESSING；只允许 PENDING/FAILED 或超时的 PROCESSING 被领取。 */
-    int markEntryProcessing(@Param("username") String username, @Param("localId") long localId);
+    int markEntryProcessing(@Param("username") String username, @Param("localId") long localId,
+                            @Param("timeoutSec") int timeoutSec);
 
-    /** 回写独立录入状态、说明、Offer 主键和消息处理状态。 */
     int updateEntryState(@Param("username") String username, @Param("localId") long localId,
                          @Param("messageStatus") int messageStatus, @Param("entryStatus") String entryStatus,
                          @Param("entryMessage") String entryMessage, @Param("offerCount") int offerCount,
                          @Param("offerIds") String offerIds, @Param("failCount") int failCount);
 
-    /** 将人工确认可重试的 SKIPPED/FAILED/DEAD 消息重新放回录入队列。 */
+    int updateEntryOnly(@Param("username") String username, @Param("localId") long localId,
+                        @Param("entryStatus") String entryStatus, @Param("entryMessage") String entryMessage,
+                        @Param("offerCount") int offerCount, @Param("offerIds") String offerIds,
+                        @Param("failCount") int failCount);
+
     int requeueEntry(@Param("chat") String chat);
 
-    /** 更新单条消息录入结果：成功 status=2 / 失败达上限 status=3，按 username+local_id 定位并记录失败次数。 */
-    int updateEntryResult(@Param("username") String username, @Param("localId") long localId, @Param("status") int status, @Param("failCount") int failCount);
+    int requeueEntryKeys(@Param("keys") List<String> keys);
 
-    /** 批量插入黑名单消息表(pollIgnoreChats命中的消息；唯一键冲突跳过)。 */
+    int updateEntryResult(@Param("username") String username, @Param("localId") long localId,
+                          @Param("status") int status, @Param("failCount") int failCount);
+
+    List<WeChatMessage> queryTaskCandidates(@Param("since") String since, @Param("max") int max,
+                                            @Param("chat") String chat, @Param("timeoutSec") int timeoutSec);
+
+    int markTaskProcessing(@Param("username") String username, @Param("localId") long localId,
+                           @Param("timeoutSec") int timeoutSec);
+
+    int updateTaskState(@Param("username") String username, @Param("localId") long localId,
+                        @Param("taskStatus") String taskStatus, @Param("taskMessage") String taskMessage);
+
+    int markTraceAlerted(@Param("username") String username, @Param("localId") long localId);
+
+    int markTraceAlertError(@Param("username") String username, @Param("localId") long localId,
+                            @Param("error") String error);
+
+    List<WeChatMessage> selectMessageList(WeChatMessage query);
+
     int insertBlackBatch(@Param("list") List<WeChatMessage> list);
 
-    /** 删除 create_time 早于 before 的消息，返回删除条数。 */
     int purgeBefore(@Param("before") String before);
 }
-

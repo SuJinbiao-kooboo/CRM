@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.wexinAuto.mapper.WeChatOfferTaskMapper">
+
+    <resultMap id="WeChatOfferTaskResult" type="com.ruoyi.wexinAuto.model.WeChatOfferTask">
+        <id property="id" column="id"/>
+        <result property="sourceUsername" column="source_username"/>
+        <result property="sourceLocalId" column="source_local_id"/>
+        <result property="sourceServerId" column="source_server_id"/>
+        <result property="sourceMessageTime" column="source_message_time"/>
+        <result property="sourceCategory" column="source_category"/>
+        <result property="taskType" column="task_type"/>
+        <result property="sendType" column="send_type"/>
+        <result property="oriTarget" column="ori_target"/>
+        <result property="oriMsg" column="ori_msg"/>
+        <result property="pnOriginal" column="pn_original"/>
+        <result property="pnNormalized" column="pn_normalized"/>
+        <result property="brand" column="brand"/>
+        <result property="productType" column="product_type"/>
+        <result property="spec" column="spec"/>
+        <result property="qty" column="qty"/>
+        <result property="oriPrice" column="ori_price"/>
+        <result property="offerPrice" column="offer_price"/>
+        <result property="sendTarget" column="send_target"/>
+        <result property="sendTargetSuccess" column="send_target_success"/>
+        <result property="sendContent" column="send_content"/>
+        <result property="handleStatus" column="handle_status"/>
+        <result property="sendAttempts" column="send_attempts"/>
+        <result property="lastAttemptAt" column="last_attempt_at"/>
+        <result property="lastError" column="last_error"/>
+        <result property="matchedInqJson" column="matched_inq_json"/>
+        <result property="offerJson" column="offer_json"/>
+        <result property="approvedBy" column="approved_by"/>
+        <result property="approvedAt" column="approved_at"/>
+        <result property="approvalReason" column="approval_reason"/>
+        <result property="sentAt" column="sent_at"/>
+        <result property="remark" column="remark"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="TaskColumns">
+        id, source_username, source_local_id, source_server_id, source_message_time,
+        source_category, task_type, send_type, ori_target, ori_msg, pn_original, pn_normalized,
+        brand, product_type, spec, qty, ori_price, offer_price, send_target, send_target_success,
+        send_content, handle_status, send_attempts, last_attempt_at, last_error, matched_inq_json,
+        offer_json, approved_by, approved_at, approval_reason, sent_at, remark,
+        create_by, create_time, update_by, update_time
+    </sql>
+
+    <select id="selectTaskList" resultMap="WeChatOfferTaskResult">
+        SELECT <include refid="TaskColumns"/> FROM wechat_offer_task
+        <where>
+            <if test="beginTime != null and beginTime != ''">AND create_time &gt;= #{beginTime}</if>
+            <if test="endTime != null and endTime != ''">AND create_time &lt;= #{endTime}</if>
+            <if test="handleStatus != null and handleStatus != ''">AND handle_status = #{handleStatus}</if>
+            <if test="taskType != null and taskType != ''">AND task_type = #{taskType}</if>
+            <if test="pnKeyword != null and pnKeyword != ''">AND pn_original LIKE CONCAT('%', #{pnKeyword}, '%')</if>
+            <if test="oriTarget != null and oriTarget != ''">AND ori_target LIKE CONCAT('%', #{oriTarget}, '%')</if>
+            <if test="queryKeyword != null and queryKeyword != ''">
+                AND (pn_original LIKE CONCAT('%', #{queryKeyword}, '%')
+                  OR ori_msg LIKE CONCAT('%', #{queryKeyword}, '%')
+                  OR send_content LIKE CONCAT('%', #{queryKeyword}, '%'))
+            </if>
+            <if test="exceptionOnly != null and exceptionOnly">
+                AND (send_target IS NULL OR JSON_LENGTH(send_target) = 0
+                     OR last_error = 'UNMAPPED_CHAT' OR last_error LIKE 'UNMAPPED_CHAT:%')
+            </if>
+        </where>
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <select id="selectTaskById" resultMap="WeChatOfferTaskResult">
+        SELECT <include refid="TaskColumns"/> FROM wechat_offer_task WHERE id = #{id}
+    </select>
+
+    <select id="selectByUnique" resultMap="WeChatOfferTaskResult">
+        SELECT <include refid="TaskColumns"/> FROM wechat_offer_task
+        WHERE source_username = #{sourceUsername} AND source_local_id = #{sourceLocalId}
+          AND task_type = #{taskType} AND pn_normalized = #{pnNormalized} AND send_type = #{sendType}
+        LIMIT 1
+    </select>
+
+    <insert id="insertTaskIgnore" parameterType="com.ruoyi.wexinAuto.model.WeChatOfferTask">
+        INSERT IGNORE INTO wechat_offer_task (
+            source_username, source_local_id, source_server_id, source_message_time,
+            source_category, task_type, send_type, ori_target, ori_msg, pn_original, pn_normalized,
+            brand, product_type, spec, qty, ori_price, offer_price, send_target, send_target_success,
+            send_content, handle_status, send_attempts, matched_inq_json, offer_json, remark,
+            create_by, create_time, update_by, update_time
+        ) VALUES (
+            #{sourceUsername}, #{sourceLocalId}, #{sourceServerId}, #{sourceMessageTime},
+            #{sourceCategory}, #{taskType}, #{sendType}, #{oriTarget}, #{oriMsg}, #{pnOriginal}, #{pnNormalized},
+            #{brand}, #{productType}, #{spec}, #{qty}, #{oriPrice}, #{offerPrice}, #{sendTarget}, #{sendTargetSuccess},
+            #{sendContent}, #{handleStatus}, COALESCE(#{sendAttempts}, 0), #{matchedInqJson}, #{offerJson}, #{remark},
+            #{createBy}, NOW(), #{updateBy}, NOW()
+        )
+    </insert>
+
+    <update id="updateApproval" parameterType="com.ruoyi.wexinAuto.model.WeChatOfferTask">
+        UPDATE wechat_offer_task
+        SET handle_status = #{handleStatus},
+            offer_price = #{offerPrice},
+            send_target = #{sendTarget},
+            send_content = #{sendContent},
+            approval_reason = #{approvalReason},
+            approved_by = #{approvedBy},
+            approved_at = #{approvedAt},
+            sent_at = CASE WHEN #{handleStatus} = 'SENT' THEN COALESCE(sent_at, NOW()) ELSE sent_at END,
+            update_by = #{updateBy},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="markSendAttempt">
+        UPDATE wechat_offer_task
+        SET send_attempts = send_attempts + 1, last_attempt_at = #{attemptAt}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateSendResult">
+        UPDATE wechat_offer_task
+        SET send_target_success = #{successJson},
+            handle_status = #{handleStatus},
+            last_error = CASE WHEN #{handleStatus} = 'SENT' THEN NULL
+                              ELSE COALESCE(#{lastError}, last_error) END,
+            sent_at = #{sentAt},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="markUnknown">
+        UPDATE wechat_offer_task
+        SET last_error = #{error}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="confirmNotSent">
+        UPDATE wechat_offer_task
+        SET handle_status = 'APPROVED_PENDING_SEND', last_error = NULL, send_attempts = 0,
+            last_attempt_at = NULL, update_time = NOW()
+        WHERE id = #{id} AND handle_status = 'APPROVED_PENDING_SEND'
+    </update>
+
+    <select id="selectSendCandidates" resultMap="WeChatOfferTaskResult">
+        SELECT <include refid="TaskColumns"/> FROM wechat_offer_task
+        WHERE handle_status = 'APPROVED_PENDING_SEND'
+          AND send_target IS NOT NULL
+          AND send_attempts &lt; #{maxAttempts}
+          AND (last_error IS NULL OR last_error NOT LIKE 'GATEWAY_RESULT_UNKNOWN%')
+        ORDER BY id ASC LIMIT #{max}
+    </select>
+
+    <select id="selectApprovedForTarget" resultMap="WeChatOfferTaskResult">
+        SELECT <include refid="TaskColumns"/> FROM wechat_offer_task
+        WHERE handle_status = 'APPROVED_PENDING_SEND'
+          AND task_type = #{taskType}
+          AND send_type = #{sendType}
+          AND JSON_CONTAINS(send_target, JSON_OBJECT('name', #{targetName}))
+        ORDER BY id ASC LIMIT #{max}
+    </select>
+</mapper>

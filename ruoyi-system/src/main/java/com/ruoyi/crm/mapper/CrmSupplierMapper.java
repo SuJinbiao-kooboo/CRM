@@ -2,6 +2,7 @@ package com.ruoyi.crm.mapper;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Date;
 
 import com.ruoyi.crm.domain.dto.CrmSendEmailTaskDTO;
 import com.ruoyi.crm.domain.dto.CrmSupplierVO;
@@ -26,6 +27,12 @@ public interface CrmSupplierMapper {
     int deleteAttachmentsBySupplier(@Param("fromType") String fromType, @Param("fromId") Long fromId);
     List<CrmSupplier> selectSupplierOptions(CrmSupplier supplier);
     List<CrmSupplier> selectSupplierSimpleList(CrmSupplier supplier);
+    /** 微信自动化的全量交易对手映射（含停用/缺编码，供两步解析）。 */
+    List<CrmSupplier> selectAllForWeChat();
+    /** 自动发送成功后更新交易对手跟进时间与结论。 */
+    int updateWechatFollowUpByCodes(@Param("codes") List<String> codes,
+                                    @Param("followTime") Date followTime,
+                                    @Param("result") String result);
     /** 按编码批量查询供应商名称（Offer/AI查询/比价关联真实供应商名称用） */
     List<CrmSupplier> selectNamesByCodes(@Param("codes") List<String> codes);
     /** 跟进人昵称解析：登录名转昵称（存储为登录名保证唯一，展示用昵称） */

@@ -66,6 +66,38 @@ public class WeChatMessage {
     @JsonProperty("entry_at")
     private String entryAt;
 
+    /** 分类状态：PENDING/PROCESSING/SUCCESS/FAILED/SKIPPED */
+    @JsonProperty("classify_status")
+    private String classifyStatus;
+
+    /** 分类状态更新时间 */
+    @JsonProperty("classify_at")
+    private String classifyAt;
+
+    /** 分类连续失败次数（用于失败冷却） */
+    @JsonProperty("classify_fail_count")
+    private Integer classifyFailCount;
+
+    /** 任务生成状态：PENDING/PROCESSING/GENERATED/MANUAL_REVIEW/SKIPPED/FAILED */
+    @JsonProperty("task_status")
+    private String taskStatus;
+
+    /** 任务状态更新时间 */
+    @JsonProperty("task_at")
+    private String taskAt;
+
+    /** 任务生成结果说明或异常原因 */
+    @JsonProperty("task_message")
+    private String taskMessage;
+
+    /** TRACE 飞书预警成功时间，用于数据库级去重 */
+    @JsonProperty("trace_alerted_at")
+    private String traceAlertedAt;
+
+    /** TRACE 预警失败原因，下一轮重试 */
+    @JsonProperty("trace_alert_error")
+    private String traceAlertError;
+
     /** 关联INQ(JSON: id/server_id/sender/content/create_time)：OFFER=回应的INQ；TRACE=对应的INQ */
     @JsonProperty("relat_inq")
     private String relatInq;
@@ -96,4 +128,13 @@ public class WeChatMessage {
 
     /** 媒体消息 md5 */
     private String md5;
+
+    /** 查询条件：开始时间（不落库） */
+    private String beginTime;
+
+    /** 查询条件：结束时间（不落库） */
+    private String endTime;
+
+    /** 查询条件：正文/会话模糊词（不落库） */
+    private String keyword;
 }

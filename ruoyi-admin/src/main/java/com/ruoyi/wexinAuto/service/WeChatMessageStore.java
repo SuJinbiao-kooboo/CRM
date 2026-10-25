@@ -4,6 +4,7 @@ import com.ruoyi.wexinAuto.mapper.WeChatMessageMapper;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -11,10 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * 微信消息持久化：所有消息(监听+主动拉取)统一入库，
- * 保留最近 {@code msgRetentionDays} 天，过期由定时任务清理。
- */
+/** 微信消息持久化：正常会话写主表，排除会话写黑表；主表按保留天数定时清理。 */
 @Slf4j
 @Service
 public class WeChatMessageStore {
@@ -60,6 +58,20 @@ public class WeChatMessageStore {
         }
         log.info("黑名单消息入库 {} 条(写入/更新 {})", total, ok);
         return ok;
+    }
+
+    /** 把主表中命中排除关键词的存量消息迁入黑表；复制和删除在同一事务内完成。 */
+    @Transactional(rollbackFor = Exception.class)
+    public int moveBlacklistedMessages(List<String> keys) {
+        if (keys == null || keys.isEmpty()) {
+            return 0;
+        }
+        int copied = mapper.moveBlacklistedToBlack(keys);
+        int removed = mapper.deleteBlacklistedFromMain(keys);
+        if (removed > 0) {
+            log.info("排除会话存量迁移: 复制 {} 条, 主表删除 {} 条", copied, removed);
+        }
+        return removed;
     }
 
     /** 一条异常不能拖垮整批：先二分拆分，最终定位到具体坏数据并继续写其余消息。 */

@@ -68,11 +68,11 @@ WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='wechat_analysis_c
 INSERT INTO sys_dict_data
     (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark)
 SELECT 2, 'blackNames', '山樾湾2F业主群,前海路5号玩乐吃喝,封窗进展,兔宝宝山樾湾2F 812苏总', 'wechat_analysis_config', 'N', '0', 'admin', NOW(),
-       '分类黑名单：按会话名精确匹配，永远优先于白名单；历史消息需执行本脚本第 4 节纠正'
+       '会话排除名单：名称包含任一关键词即转存 wechat_message_black，永远优先于白名单'
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='wechat_analysis_config' AND dict_label='blackNames');
 
 UPDATE sys_dict_data
-SET remark='分类黑名单：按会话名精确匹配，永远优先于白名单；不参与AI分类'
+SET remark='会话排除名单：名称包含任一关键词即转存 wechat_message_black，永远优先于白名单'
 WHERE dict_type='wechat_analysis_config' AND dict_label='blackNames';
 UPDATE sys_dict_data
 SET remark='拉取过滤：名称包含任一关键词的群/好友消息转存 wechat_message_black，不进入分类'

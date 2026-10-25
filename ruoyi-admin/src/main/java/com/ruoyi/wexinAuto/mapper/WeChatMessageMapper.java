@@ -89,5 +89,9 @@ public interface WeChatMessageMapper {
 
     int insertBlackBatch(@Param("list") List<WeChatMessage> list);
 
+    int moveBlacklistedToBlack(@Param("keys") List<String> keys);
+
+    int deleteBlacklistedFromMain(@Param("keys") List<String> keys);
+
     int purgeBefore(@Param("before") String before);
 }

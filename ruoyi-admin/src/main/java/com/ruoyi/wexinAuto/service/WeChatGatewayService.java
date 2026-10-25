@@ -38,10 +38,11 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.Deque;
 import java.util.HashSet;
-import java.util.Set;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -91,6 +92,8 @@ public class WeChatGatewayService {
     private volatile boolean listening = false;
     private final AtomicLong listenCount = new AtomicLong(0);
     private final AtomicLong filteredCount = new AtomicLong(0);
+    /** 排除会话配置指纹：首次加载或名单变化时纠正一次主表存量。 */
+    private volatile String excludedChatsSignature;
 
     /** 监听路径：每个会话最近 N 条已分类消息（供 AI 上下文使用） */
     private final Map<String, Deque<WeChatMessage>> listenHistory = new ConcurrentHashMap<>();
@@ -147,6 +150,7 @@ public class WeChatGatewayService {
     // 主动拉取：按时间(到秒,闭区间) + 可选群/好友名
     // ------------------------------------------------------------------
     public List<WeChatMessage> fetch(String since, String chat, boolean media, Integer limit, Integer status) {
+        reconcileBlacklistedMessages();
         // 先增量同步最新消息(继承轮询水位；指定 chat 时只同步该会话)，随后从库里查询
         dumpIncremental(chat, null, media);
         // 从库里读(带历史分类结果)。注意：查询接口不触发 AI 分类——
@@ -177,6 +181,7 @@ public class WeChatGatewayService {
      * @param force true=忽略 pollIntervalSec 间隔直接拉（手动接口）；false=按间隔节流（定时任务）
      */
     public Map<String, Object> pollOnce(String chat, String since, boolean force) {
+        reconcileBlacklistedMessages();
         Map<String, Object> out = new LinkedHashMap<>();
         if (!analysisBool("pollEnabled", true)) {
             out.put("message", "轮询拉取已关闭(字典 pollEnabled=false)");
@@ -382,7 +387,7 @@ public class WeChatGatewayService {
      * since 为空时：dump --since <水位-冗余回看>，即只拉新增；
      * since 非空时(如 2026-10-17 00:00:00)：dump --since <指定时间>，重新拉该时刻之后的消息，
      * 已入库的(唯一键 username+local_id 冲突)由 SQL 直接跳过，不重复处理、不覆盖已有分类。
-     * 解析出的消息先过 pollIgnoreChats 名称关键词过滤，再入库(status=0)。
+     * 解析出的消息先过 pollIgnoreChats / blackNames 名称关键词过滤，命中写黑表，其余入库(status=0)。
      *
      * @return false 表示上一轮 dump 仍在执行、本次被跳过
      */
@@ -431,9 +436,9 @@ public class WeChatGatewayService {
                 if (!raw.isEmpty()) {
                     List<WeChatMessage> normal = new ArrayList<>();
                     List<WeChatMessage> black = new ArrayList<>();
-                    splitIgnoreChats(raw, normal, black);
+                    splitExcludedChats(raw, normal, black);
                     if (!black.isEmpty()) {
-                        log.info("黑名单消息 {} 条转存 wechat_message_black(不处理)", black.size());
+                        log.info("排除会话消息 {} 条转存 wechat_message_black(不处理)", black.size());
                         store.saveBlackAll(black);
                     }
                     if (!normal.isEmpty()) {
@@ -455,17 +460,17 @@ public class WeChatGatewayService {
     }
 
     /**
-     * pollIgnoreChats 黑名单拆分：名称包含任一关键词(不区分大小写)的消息 → black(转存
+     * pollIgnoreChats / blackNames 黑名单拆分：名称包含任一关键词(不区分大小写)的消息 → black(转存
      * wechat_message_black，只落库不做任何处理)；其余 → normal(正常入库参与分类)。
      */
-    private void splitIgnoreChats(List<WeChatMessage> raw, List<WeChatMessage> normal, List<WeChatMessage> black) {
-        List<String> keys = ignoredChatKeys();
+    private void splitExcludedChats(List<WeChatMessage> raw, List<WeChatMessage> normal, List<WeChatMessage> black) {
+        List<String> keys = excludedChatKeys();
         if (keys.isEmpty()) {
             normal.addAll(raw);
             return;
         }
         for (WeChatMessage m : raw) {
-            if (matchesIgnoredChat(m, keys)) {
+            if (matchesExcludedChat(m, keys)) {
                 black.add(m);
             } else {
                 normal.add(m);
@@ -473,20 +478,25 @@ public class WeChatGatewayService {
         }
     }
 
-    private List<String> ignoredChatKeys() {
-        List<String> keys = new ArrayList<>();
-        String cfg = analysisStr("pollIgnoreChats", "");
-        if (StringUtils.isNotBlank(cfg)) {
-            for (String key : cfg.split(",")) {
-                if (StringUtils.isNotBlank(key)) {
-                    keys.add(key.trim().toLowerCase());
-                }
-            }
-        }
-        return keys;
+    private List<String> excludedChatKeys() {
+        Set<String> keys = new LinkedHashSet<>();
+        addChatKeys(keys, analysisStr("pollIgnoreChats", ""));
+        addChatKeys(keys, analysisStr("blackNames", ""));
+        return new ArrayList<>(keys);
     }
 
-    private boolean matchesIgnoredChat(WeChatMessage m, List<String> keys) {
+    private void addChatKeys(Set<String> keys, String cfg) {
+        if (StringUtils.isBlank(cfg)) {
+            return;
+        }
+        for (String key : cfg.split(",")) {
+            if (StringUtils.isNotBlank(key)) {
+                keys.add(key.trim().toLowerCase());
+            }
+        }
+    }
+
+    private boolean matchesExcludedChat(WeChatMessage m, List<String> keys) {
         String name = StringUtils.trimToEmpty(m == null ? null : m.getName()).toLowerCase();
         for (String key : keys) {
             if (!key.isEmpty() && name.contains(key)) {
@@ -494,6 +504,26 @@ public class WeChatGatewayService {
             }
         }
         return false;
+    }
+
+    /** 名单变化时把主表中已命中的历史消息一次性迁到黑表，防止页面继续显示。 */
+    private int reconcileBlacklistedMessages() {
+        List<String> keys = excludedChatKeys();
+        String signature = String.join("\u0001", keys);
+        if (signature.equals(excludedChatsSignature)) {
+            return 0;
+        }
+        try {
+            int moved = store.moveBlacklistedMessages(keys);
+            excludedChatsSignature = signature;
+            if (moved > 0) {
+                log.info("排除会话存量纠偏完成: 从 wechat_message 迁移 {} 条到 wechat_message_black", moved);
+            }
+            return moved;
+        } catch (Exception e) {
+            log.error("排除会话存量纠偏失败，将在下一轮重试", e);
+            return 0;
+        }
     }
 
     private static String fmtTime(long ms) {
@@ -1037,7 +1067,7 @@ public class WeChatGatewayService {
             if (msg == null || msg.getUsername() == null) {
                 return;
             }
-            if (matchesIgnoredChat(msg, ignoredChatKeys())) {
+            if (matchesExcludedChat(msg, excludedChatKeys())) {
                 store.saveBlackAll(Collections.singletonList(msg));
                 filteredCount.incrementAndGet();
                 return;
@@ -1521,7 +1551,7 @@ public class WeChatGatewayService {
     // ------------------------------------------------------------------
     // 分析配置
     // ------------------------------------------------------------------
-    /** 读取字典里的名单（dict_label=whiteNames/blackNames，逗号拼接） */
+    /** 读取字典里的精确名单（dict_label=whiteNames/selfNames，逗号拼接）。 */
     private Set<String> analysisNames(String label) {
         Set<String> names = new HashSet<>();
         List<SysDictData> list = DictUtils.getDictCache(ANALYSIS_DICT_TYPE);
@@ -1611,22 +1641,15 @@ public class WeChatGatewayService {
         return cats;
     }
 
-    /**
-     * 第一层过滤器：blackNames 按会话名精确匹配并优先排除；
-     * whiteNames 非空时只放行精确匹配的白名单会话。
-     * 关键词包含匹配由入库前的 pollIgnoreChats 负责，避免“交流”等短词误伤业务群。
-     */
+    /** 分类兜底：已命中排除关键词或不在白名单的会话不进入 AI 分类。 */
     private boolean passAnalysis(WeChatMessage m) {
         if (m == null) {
             return false;
         }
         Set<String> white = analysisNames("whiteNames");
-        Set<String> black = analysisNames("blackNames");
         String name = StringUtils.trimToEmpty(m.getName());
-        for (String key : black) {
-            if (name.equals(StringUtils.trimToEmpty(key))) {
-                return false;
-            }
+        if (matchesExcludedChat(m, excludedChatKeys())) {
+            return false;
         }
         if (!white.isEmpty()) {
             return white.contains(name);

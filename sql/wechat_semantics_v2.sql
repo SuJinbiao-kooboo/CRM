@@ -18,14 +18,14 @@ SELECT 120, 'pollIgnoreChats', '业主群,玩乐吃喝,封窗进展,兔宝宝山
        '拉取过滤：名称包含任一关键词的群/好友消息转存 wechat_message_black，不进入分类；多个用英文逗号分隔'
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='wechat_analysis_config' AND dict_label='pollIgnoreChats');
 
--- 2) 已入库消息的黑名单（精确匹配会话名）
+-- 2) 会话排除黑名单（名称包含关键词，命中转存黑表）
 UPDATE sys_dict_data
 SET dict_value = '山樾湾2F业主群,前海路5号玩乐吃喝,封窗进展,兔宝宝山樾湾2F 812苏总',
-    remark = '会话黑名单（精确匹配 name）：不参与AI分类，已入库的历史消息会被标记 OTHER/FILTER'
+    remark = '会话排除名单：名称包含任一关键词即转存 wechat_message_black，不进入主表'
 WHERE dict_type = 'wechat_analysis_config' AND dict_label = 'blackNames';
 INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark)
 SELECT 121, 'blackNames', '山樾湾2F业主群,前海路5号玩乐吃喝,封窗进展,兔宝宝山樾湾2F 812苏总', 'wechat_analysis_config', 'N', '0', 'admin', NOW(),
-       '会话黑名单（精确匹配 name）：不参与AI分类，已入库的历史消息会被标记 OTHER/FILTER'
+       '会话排除名单：名称包含任一关键词即转存 wechat_message_black，不进入主表'
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='wechat_analysis_config' AND dict_label='blackNames');
 
 -- 3) 我方微信名/别名：用于区分“客户问我方”和“我方问供应商”

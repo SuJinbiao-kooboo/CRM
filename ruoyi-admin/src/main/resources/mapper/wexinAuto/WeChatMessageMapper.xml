@@ -74,6 +74,27 @@
         ON DUPLICATE KEY UPDATE username = VALUES(username)
     </insert>
 
+    <insert id="moveBlacklistedToBlack">
+        INSERT INTO wechat_message_black (username, name, local_id, server_id, type, sender, content, quote, quote_kind,
+            media_path, create_time, sort_seq, md5)
+        SELECT username, name, local_id, server_id, type, sender, content, quote, quote_kind,
+            media_path, create_time, sort_seq, md5
+        FROM wechat_message
+        WHERE
+        <foreach collection="keys" item="key" open="(" separator=" OR " close=")">
+            LOWER(name) LIKE CONCAT('%', LOWER(#{key}), '%')
+        </foreach>
+        ON DUPLICATE KEY UPDATE username = VALUES(username)
+    </insert>
+
+    <delete id="deleteBlacklistedFromMain">
+        DELETE FROM wechat_message
+        WHERE
+        <foreach collection="keys" item="key" open="(" separator=" OR " close=")">
+            LOWER(name) LIKE CONCAT('%', LOWER(#{key}), '%')
+        </foreach>
+    </delete>
+
     <update id="updateCategory">
         UPDATE wechat_message
         SET msg_category = #{m.msgCategory},

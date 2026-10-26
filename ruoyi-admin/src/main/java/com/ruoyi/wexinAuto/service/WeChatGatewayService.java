@@ -30,6 +30,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,11 +44,14 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import java.text.SimpleDateFormat;
 
@@ -75,6 +81,15 @@ public class WeChatGatewayService {
 
     /** 同会话 AI 分类失败后的冷却时间(ms)，避免网络故障时反复打接口 */
     private static final long FAIL_COOLDOWN_MS = 3 * 60 * 1000L;
+
+    /** 聊天记录页面允许查看的文档文件类型，不开放音频、视频。 */
+    private static final Set<String> DOCUMENT_EXTENSIONS = new HashSet<>(Arrays.asList(
+            "pdf", "xls", "xlsx", "csv", "txt", "md", "json", "xml", "log",
+            "doc", "docx", "ppt", "pptx", "jpg", "jpeg", "png", "gif", "webp", "bmp"));
+    private static final Set<String> IMAGE_EXTENSIONS = new HashSet<>(Arrays.asList(
+            "jpg", "jpeg", "png", "gif", "webp", "bmp"));
+    private static final Pattern FILE_EXT_PATTERN = Pattern.compile(
+            "<fileext(?:\\s[^>]*)?>([\\s\\S]*?)</fileext>", Pattern.CASE_INSENSITIVE);
 
     private final WeChatGatewayProperties props;
     private final WeChatMessageHandler handler;
@@ -1359,6 +1374,143 @@ public class WeChatGatewayService {
             return all;
         }
         return new ArrayList<>(all.subList(all.size() - n, all.size()));
+    }
+
+    /** 按需下载单条图片或文档文件，返回可读取的本地路径；音频、视频不在此接口开放。 */
+    public Path ensureMedia(WeChatMessage message) {
+        if (message == null || StringUtils.isBlank(message.getUsername())) {
+            throw new IllegalArgumentException("消息不存在");
+        }
+        String type = StringUtils.trimToEmpty(message.getType());
+        boolean image = "图片".equals(type);
+        if (!image && !"文件".equals(type) && !"文件/链接/卡片".equals(type)) {
+            throw new IllegalArgumentException("该消息没有可下载的图片或文档文件");
+        }
+        if (!image && !DOCUMENT_EXTENSIONS.contains(fileExtension(message))) {
+            throw new IllegalArgumentException("该消息不是可查看的文档文件（不支持音频、视频）");
+        }
+        Path root = Paths.get(props.getMediaDir()).toAbsolutePath().normalize();
+        Path existing = existingMedia(root, message.getMediaPath());
+        if (existing != null) {
+            if (!isAllowedMediaPath(existing, image)) {
+                throw new IllegalArgumentException("该消息不是可查看的图片或文档文件");
+            }
+            return existing;
+        }
+
+        synchronized (dumpLock) {
+            existing = existingMedia(root, message.getMediaPath());
+            if (existing != null) {
+                if (!isAllowedMediaPath(existing, image)) {
+                    throw new IllegalArgumentException("该消息不是可查看的图片或文档文件");
+                }
+                return existing;
+            }
+            List<String> cmd = new ArrayList<>();
+            cmd.add(props.getPython());
+            cmd.add(props.getScript());
+            cmd.add("media");
+            cmd.add("--username");
+            cmd.add(message.getUsername());
+            cmd.add("--local-id");
+            cmd.add(String.valueOf(message.getLocalId()));
+            cmd.add("--media");
+            cmd.add(props.getMediaDir());
+
+            Path filePath;
+            try {
+                ProcessBuilder pb = new ProcessBuilder(cmd);
+                pb.redirectErrorStream(true);
+                Process process = pb.start();
+                String mediaLine = null;
+                String errorLine = null;
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (line.startsWith("MEDIA_PATH=")) {
+                            mediaLine = line.substring("MEDIA_PATH=".length()).trim();
+                        } else if (StringUtils.isNotBlank(line)) {
+                            if (line.contains("[错误]")) {
+                                errorLine = line.replaceFirst("^\\[错误\\]\\s*", "");
+                            }
+                            log.info("[wx_gateway media] {}", line);
+                        }
+                    }
+                }
+                int code = process.waitFor();
+                if (code != 0) {
+                    throw new IllegalStateException(StringUtils.defaultIfBlank(errorLine,
+                            "媒体下载进程异常退出，exitCode=" + code));
+                }
+                if (StringUtils.isBlank(mediaLine)) {
+                    throw new IllegalStateException("媒体文件未下载或本机不存在");
+                }
+                filePath = Paths.get(mediaLine).toAbsolutePath().normalize();
+            } catch (Exception e) {
+                log.warn("微信媒体下载失败: username={} localId={} type={}",
+                        message.getUsername(), message.getLocalId(), type, e);
+                throw new IllegalStateException("媒体下载失败: " + e.getMessage(), e);
+            }
+            if (!filePath.startsWith(root) || !Files.isRegularFile(filePath)) {
+                throw new IllegalStateException("媒体文件路径无效");
+            }
+            if (!isAllowedMediaPath(filePath, image)) {
+                throw new IllegalStateException("该文件不是可查看的图片或文档文件（不支持音频、视频）");
+            }
+            store.updateMediaPath(message, filePath.toString());
+            return filePath;
+        }
+    }
+
+    private static String fileExtension(WeChatMessage message) {
+        String content = StringUtils.defaultString(message.getContent());
+        Matcher matcher = FILE_EXT_PATTERN.matcher(content);
+        if (matcher.find()) {
+            return normalizeExtension(matcher.group(1));
+        }
+        String name = StringUtils.substringBetween(content, "<title>", "</title>");
+        if (StringUtils.isBlank(name)) {
+            name = content;
+        }
+        int dot = name.lastIndexOf('.');
+        if (dot >= 0) {
+            return normalizeExtension(name.substring(dot + 1));
+        }
+        String mediaPath = message.getMediaPath();
+        return StringUtils.isBlank(mediaPath) ? "" : pathExtension(Paths.get(mediaPath));
+    }
+
+    private static String normalizeExtension(String extension) {
+        return StringUtils.defaultString(extension)
+                .replace("<![CDATA[", "")
+                .replace("]]>", "")
+                .trim()
+                .replaceFirst("^\\.", "")
+                .toLowerCase(Locale.ROOT);
+    }
+
+    private static String pathExtension(Path file) {
+        String name = file.getFileName() == null ? "" : file.getFileName().toString();
+        int dot = name.lastIndexOf('.');
+        return dot >= 0 ? normalizeExtension(name.substring(dot + 1)) : "";
+    }
+
+    private static boolean isAllowedMediaPath(Path file, boolean image) {
+        String extension = pathExtension(file);
+        return image ? IMAGE_EXTENSIONS.contains(extension) : DOCUMENT_EXTENSIONS.contains(extension);
+    }
+
+    private Path existingMedia(Path root, String mediaPath) {
+        if (StringUtils.isBlank(mediaPath)) {
+            return null;
+        }
+        try {
+            Path file = Paths.get(mediaPath).toAbsolutePath().normalize();
+            return file.startsWith(root) && Files.isRegularFile(file) ? file : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private List<WeChatMessage> runProcess(List<String> cmd, boolean collect) {

@@ -87,6 +87,9 @@ public interface WeChatMessageMapper {
 
     List<WeChatMessage> selectMessageList(WeChatMessage query);
 
+    int updateMediaPath(@Param("username") String username, @Param("localId") long localId,
+                        @Param("mediaPath") String mediaPath);
+
     int insertBlackBatch(@Param("list") List<WeChatMessage> list);
 
     int moveBlacklistedToBlack(@Param("keys") List<String> keys);

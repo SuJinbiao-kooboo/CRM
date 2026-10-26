@@ -222,6 +222,19 @@ public class WeChatMessageStore {
         }
     }
 
+    /** 回写按需下载后的媒体绝对路径。 */
+    public void updateMediaPath(WeChatMessage message, String mediaPath) {
+        if (message == null || mediaPath == null || mediaPath.isEmpty()) {
+            return;
+        }
+        try {
+            mapper.updateMediaPath(message.getUsername(), message.getLocalId(), mediaPath);
+            message.setMediaPath(mediaPath);
+        } catch (Exception e) {
+            log.warn("微信媒体路径回写失败: username={} localId={}", message.getUsername(), message.getLocalId(), e);
+        }
+    }
+
     /** 原子领取分类任务。 */
     public boolean markClassifyProcessing(String username, long localId, int timeoutSec, int cooldownSec) {
         try {

@@ -5,7 +5,9 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.file.FileUtils;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
 import com.ruoyi.wexinAuto.service.WeChatGatewayService;
 import com.ruoyi.wexinAuto.service.WeChatMessageStore;
@@ -18,10 +20,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.servlet.http.HttpServletResponse;
+import java.net.URLConnection;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +63,55 @@ public class CrmWeChatMessageController extends BaseController {
         data.put("poll", gateway.pollStatus());
         data.put("entry", gateway.offerEntryStatus());
         return success(data);
+    }
+
+    /** 按需读取图片或文件；download=false 供浏览器直接打开，true 下载原文件。 */
+    @PreAuthorize("@ss.hasPermi('wechat:message:query')")
+    @GetMapping("/media")
+    public void media(@RequestParam String username, @RequestParam Long localId,
+                      @RequestParam(defaultValue = "false") boolean download,
+                      HttpServletResponse response) throws Exception {
+        List<WeChatMessage> rows = messageStore.queryByKeys(
+                Collections.singletonList(username + ":" + localId));
+        if (rows.isEmpty()) {
+            throw new ServiceException("消息不存在或已过期");
+        }
+        WeChatMessage message = rows.get(0);
+        Path file;
+        try {
+            file = gateway.ensureMedia(message);
+        } catch (Exception e) {
+            throw new ServiceException(e.getMessage());
+        }
+        String fileName = mediaFileName(message, file);
+        String contentType = Files.probeContentType(file);
+        if (StringUtils.isBlank(contentType)) {
+            contentType = URLConnection.guessContentTypeFromName(fileName);
+        }
+        response.setContentType(StringUtils.defaultIfBlank(contentType, "application/octet-stream"));
+        response.setContentLengthLong(Files.size(file));
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        if (download) {
+            FileUtils.setAttachmentResponseHeader(response, fileName);
+        } else {
+            String encoded = FileUtils.percentEncode(fileName);
+            response.setHeader("Content-Disposition",
+                    "inline; filename=" + encoded + "; filename*=UTF-8''" + encoded);
+        }
+        FileUtils.writeBytes(file.toString(), response.getOutputStream());
+    }
+
+    private static String mediaFileName(WeChatMessage message, Path file) {
+        String name = file.getFileName().toString();
+        String prefix = message.getUsername() + "_" + message.getLocalId() + "_";
+        if (name.startsWith(prefix)) {
+            return name.substring(prefix.length());
+        }
+        String imagePrefix = message.getUsername() + "_" + message.getLocalId() + ".";
+        if (name.startsWith(imagePrefix)) {
+            return "微信图片_" + message.getLocalId() + name.substring(imagePrefix.length() - 1);
+        }
+        return name;
     }
 
     /** 指定 1～20 条消息做人工分类；不带消息键时仍受 classifyEnabled 控制。 */

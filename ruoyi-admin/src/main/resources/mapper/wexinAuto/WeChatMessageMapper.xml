@@ -385,6 +385,11 @@
         ORDER BY create_time DESC, id DESC
     </select>
 
+    <update id="updateMediaPath">
+        UPDATE wechat_message SET media_path = #{mediaPath}
+        WHERE username = #{username} AND local_id = #{localId}
+    </update>
+
     <delete id="purgeBefore">
         DELETE FROM wechat_message WHERE create_time &lt; #{before}
     </delete>

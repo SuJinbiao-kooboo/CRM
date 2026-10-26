@@ -8,6 +8,17 @@ export function getWechatMessageStats() {
   return request({ url: '/crm/wechat-message/stats', method: 'get' })
 }
 
+export function getWechatMedia(params) {
+  return request({
+    url: '/crm/wechat-message/media',
+    method: 'get',
+    params: params,
+    responseType: 'blob',
+    timeout: 180000,
+    silent: true
+  })
+}
+
 export function runWechatClassify(data) {
   return request({ url: '/crm/wechat-message/classify/run', method: 'post', data: data, timeout: 480000 })
 }

@@ -20,6 +20,9 @@
   2) 实时监听新消息(所有会话; NDJSON 一行一条到 stdout, 水位自动持久化):
      python wx_gateway.py listen [--media 目录]
 
+  3) 按消息键下载单条媒体(供聊天记录页面按需查看/下载):
+     python wx_gateway.py media --username <会话ID> --local-id <库内消息ID> --media <目录>
+
   消息 NDJSON 字段:
     username  会话(微信号/群id)  name       会话显示名
     local_id  库内ID             type       文本/图片/语音/视频/文件/系统...
@@ -436,7 +439,9 @@ def parse_quote(content):
 def row_to_json(db, ctx, m, media, name):
     media_path = ""
     mtype = m.get("type")
-    if media is not None and mtype in ("图片", "语音", "视频", "文件"):
+    raw_content = m.get("content") or ""
+    is_file = mtype == "文件/链接/卡片" and "<fileext>" in raw_content.lower()
+    if media is not None and (mtype in ("图片", "语音", "视频", "文件") or is_file):
         try:
             media_path = media.download_media(m.get("__session") or m.get("username"),
                                               m["local_id"], save_dir=media.save_dir) or ""
@@ -619,6 +624,18 @@ def cmd_whoami(args):
     sys.stdout.flush()
 
 
+def cmd_media(args):
+    """下载指定消息的图片或文件，成功后输出 MEDIA_PATH=<绝对路径>。"""
+    db, media = build_db(args.media, args.account)
+    if media is None:
+        die("未配置 --media 目录")
+    path = media.download_media(args.username, args.local_id, save_dir=args.media)
+    if not path:
+        die("媒体文件未下载或本机不存在: %s/%s" % (args.username, args.local_id))
+    print("MEDIA_PATH=" + os.path.abspath(path))
+    sys.stdout.flush()
+
+
 def main():
     ap = argparse.ArgumentParser(description="wechatauto 消息网关（主动拉取/实时监听）")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -647,6 +664,13 @@ def main():
     p = sub.add_parser("whoami", help="输出当前登录微信账号(JSON)")
     p.add_argument("--account", default=None)
     p.set_defaults(func=cmd_whoami)
+
+    p = sub.add_parser("media", help="按消息键下载单条媒体，输出 MEDIA_PATH")
+    p.add_argument("--username", required=True, help="会话ID(wxid/群id)")
+    p.add_argument("--local-id", required=True, type=int, help="库内消息ID")
+    p.add_argument("--media", required=True, help="媒体保存目录")
+    p.add_argument("--account", default=None)
+    p.set_defaults(func=cmd_media)
     args = ap.parse_args()
     cleanup_stale_proc_dirs()
     try:

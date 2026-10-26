@@ -58,16 +58,41 @@
       </el-table-column>
       <el-table-column label="正文" min-width="300">
         <template slot-scope="scope">
-          <div class="message-content">
-            <el-link v-if="isImage(scope.row)" type="primary" :underline="false" @click="showDetail(scope.row)">
-              <i class="el-icon-picture-outline"></i> 查看图片
-            </el-link>
-            <el-link v-else-if="hasFile(scope.row)" type="primary" :underline="false" @click="showDetail(scope.row)">
-              <i class="el-icon-document"></i> {{ cardTitle(scope.row.content) || '查看文件' }}
-            </el-link>
-            <span v-else>{{ displayContent(scope.row) }}</span>
-          </div>
-          <div v-if="scope.row.quote" class="quote-preview">引用：{{ scope.row.quote }}</div>
+          <el-tooltip placement="top-start" effect="dark" :open-delay="300" popper-class="wechat-message-tooltip">
+            <div slot="content" class="message-tooltip-content">
+              <div class="message-tooltip-label">正文</div>
+              <div class="message-tooltip-text">{{ displayContent(scope.row) || '（空消息）' }}</div>
+              <div v-if="scope.row.quote" class="message-tooltip-quote">
+                <div class="message-tooltip-label">引用{{ quoteDisplayKind(scope.row) }}</div>
+                <div v-if="isQuoteImage(scope.row)" class="message-tooltip-media">
+                  <img v-if="quoteMediaUrl(scope.row)" :src="quoteMediaUrl(scope.row)" class="quote-hover-image" alt="引用图片">
+                  <span v-else class="message-tooltip-muted">{{ quoteMediaError(scope.row) || '引用图片加载中…' }}</span>
+                </div>
+                <div v-if="quoteDisplayText(scope.row)" class="message-tooltip-text">{{ quoteDisplayText(scope.row) }}</div>
+                <div v-if="isQuoteFile(scope.row)" class="message-tooltip-file">
+                  <i class="el-icon-document"></i>
+                  <span>{{ quoteFileName(scope.row) || '引用文件' }}</span>
+                  <span class="message-tooltip-muted">详情可打开、下载</span>
+                </div>
+                <div v-if="isQuotePlaceholder(scope.row) && quoteInfoLoading(scope.row)" class="message-tooltip-muted">正在读取引用详情…</div>
+                <div v-if="quoteInfoError(scope.row)" class="message-tooltip-muted">{{ quoteInfoError(scope.row) }}</div>
+              </div>
+            </div>
+            <div class="message-hover">
+              <div class="message-content">
+                <el-link v-if="isImage(scope.row)" type="primary" :underline="false" @click="showDetail(scope.row)">
+                  <i class="el-icon-picture-outline"></i> 查看图片
+                </el-link>
+                <el-link v-else-if="hasFile(scope.row)" type="primary" :underline="false" @click="showDetail(scope.row)">
+                  <i class="el-icon-document"></i> {{ cardTitle(scope.row.content) || '查看文件' }}
+                </el-link>
+                <span v-else>{{ displayContent(scope.row) }}</span>
+              </div>
+              <div v-if="scope.row.quote" class="quote-preview">
+                <span class="quote-preview-label">引用{{ quoteDisplayKind(scope.row) }}：</span>{{ quoteSummary(scope.row) }}
+              </div>
+            </div>
+          </el-tooltip>
         </template>
       </el-table-column>
       <el-table-column label="分类状态" width="105" align="center">
@@ -114,8 +139,30 @@
         <el-form-item label="正文"><div class="detail-text">{{ displayContent(detail) }}</div></el-form-item>
         <el-form-item v-if="detail.quote" label="引用内容">
           <div class="quote-box">
-            <span class="quote-kind">{{ quoteKindLabel(detail.quoteKind) }}</span>
-            <div class="detail-text">{{ detail.quote }}</div>
+            <span class="quote-kind">
+              <i :class="quoteKindIcon(quoteDisplayKind(detail))"></i>
+              {{ quoteDisplayKind(detail) }}
+            </span>
+            <div v-if="isQuoteImage(detail)" v-loading="detailQuoteMediaLoading" class="quote-image-panel">
+              <el-image v-if="detailQuoteMediaUrl" :src="detailQuoteMediaUrl" :preview-src-list="[detailQuoteMediaUrl]" fit="contain" class="quote-detail-image" />
+              <div v-else-if="detailQuoteMediaError" class="media-error">
+                {{ detailQuoteMediaError }}
+                <el-button type="text" @click="loadDetailQuoteMedia(detail)">重试</el-button>
+              </div>
+              <div v-if="detailQuoteMediaUrl" class="media-actions">
+                <el-button size="mini" type="primary" icon="el-icon-download" :loading="mediaDownloading" @click="downloadQuoteMedia(detail)">下载图片</el-button>
+              </div>
+            </div>
+            <div v-if="isQuoteFile(detail)" class="file-card quote-file-card">
+              <i class="el-icon-document file-icon"></i>
+              <span class="file-name">{{ quoteFileName(detail) || '引用文件' }}</span>
+              <el-button size="mini" type="primary" plain icon="el-icon-view" @click="openQuoteFilePreview(detail)">打开</el-button>
+              <el-button size="mini" type="primary" icon="el-icon-download" :loading="mediaDownloading" @click="downloadQuoteMedia(detail)">下载</el-button>
+            </div>
+            <div v-if="quoteDisplayText(detail)" class="detail-text">{{ quoteDisplayText(detail) }}</div>
+            <div v-if="isQuotePlaceholder(detail)" class="quote-empty">
+              {{ quoteInfoLoading(detail) ? '正在读取引用详情…' : (quoteInfoError(detail) || '引用的' + quoteDisplayKind(detail) + '未包含可展示内容') }}
+            </div>
           </div>
         </el-form-item>
         <el-form-item v-if="isImage(detail)" label="图片">
@@ -165,7 +212,7 @@
         </div>
       </div>
       <div slot="footer">
-        <el-button size="small" type="primary" icon="el-icon-download" :loading="mediaDownloading" @click="downloadMedia(filePreviewRow)">下载原文件</el-button>
+        <el-button size="small" type="primary" icon="el-icon-download" :loading="mediaDownloading" @click="downloadFilePreview">下载原文件</el-button>
         <el-button size="small" @click="filePreviewOpen = false">关闭</el-button>
       </div>
     </el-dialog>
@@ -175,7 +222,7 @@
 <script>
 import { saveAs } from 'file-saver'
 import * as XLSX from 'xlsx'
-import { listWechatMessages, getWechatMessageStats, getWechatMedia, runWechatClassify, clearWechatClassifyCache, scanWechatTrace, runWechatEntry, requeueWechatEntry, runWechatPoll } from '@/api/crm/wechatMessage'
+import { listWechatMessages, getWechatMessageStats, getWechatMedia, getWechatQuoteInfo, getWechatQuoteMedia, runWechatClassify, clearWechatClassifyCache, scanWechatTrace, runWechatEntry, requeueWechatEntry, runWechatPoll } from '@/api/crm/wechatMessage'
 
 const DOCUMENT_EXTS = ['pdf', 'xls', 'xlsx', 'csv', 'txt', 'md', 'json', 'xml', 'log', 'doc', 'docx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
 const TEXT_EXTS = ['txt', 'md', 'json', 'xml', 'log']
@@ -206,9 +253,18 @@ export default {
       detailMediaUrl: '',
       detailMediaLoading: false,
       detailMediaError: '',
+      detailQuoteMediaUrl: '',
+      detailQuoteMediaLoading: false,
+      detailQuoteMediaError: '',
+      quoteInfoMap: {},
+      quoteMediaMap: {},
+      quoteInfoLoadingMap: {},
+      quoteInfoErrorMap: {},
+      quoteMediaErrorMap: {},
       mediaDownloading: false,
       filePreviewOpen: false,
       filePreviewRow: {},
+      filePreviewQuote: false,
       filePreviewName: '',
       filePreviewLoading: false,
       filePreviewError: '',
@@ -228,6 +284,10 @@ export default {
     this.dateRange = this.last30Days()
     this.handleQuery()
     this.loadStats()
+  },
+  beforeDestroy() {
+    this.releaseQuotePreviewMedia()
+    this.releaseDetailQuoteMedia()
   },
   methods: {
     last30Days() {
@@ -250,6 +310,8 @@ export default {
       listWechatMessages(query).then(res => {
         this.messageList = res.rows || []
         this.total = res.total || 0
+        this.releaseQuotePreviewMedia()
+        this.loadQuoteDetails(this.messageList)
       }).finally(() => { this.loading = false })
     },
     loadStats() {
@@ -325,24 +387,195 @@ export default {
         this.$modal.msgSuccess((res.data && res.data.message) || '已清空')
       }).catch(() => {})
     },
+    quoteKey(row) {
+      return row ? row.username + ':' + row.localId : ''
+    },
+    quoteInfoFor(row) {
+      return this.quoteInfoMap[this.quoteKey(row)] || null
+    },
+    isQuoteImage(row) {
+      const kind = this.quoteDisplayKind(row)
+      return kind === '图片' || kind === 'image' || kind === '表情' || kind === 'emoji'
+    },
+    isQuoteFile(row) {
+      const kind = this.quoteDisplayKind(row)
+      return kind === '文件' || kind === 'file'
+    },
+    isQuotePlaceholderText(value) {
+      return /^【(图片|表情|语音|视频|卡片|文件)】$/.test(String(value || '').trim())
+    },
+    quoteDisplayKind(row) {
+      const info = this.quoteInfoFor(row)
+      return (info && info.kind) || (row && row.quoteKind) || '内容'
+    },
+    quoteDisplayText(row) {
+      if (this.isQuoteImage(row) || this.isQuoteFile(row)) {
+        return ''
+      }
+      const info = this.quoteInfoFor(row)
+      if (info && info.quote && !this.isQuotePlaceholderText(info.quote)) {
+        return info.quote
+      }
+      return this.quoteBody(row)
+    },
+    quoteFileName(row) {
+      const info = this.quoteInfoFor(row)
+      if (info && info.fileName) {
+        return info.fileName
+      }
+      return this.isQuoteFile(row) ? this.quoteBody(row) : ''
+    },
+    isQuotePlaceholder(row) {
+      if (!row || !row.quote) return false
+      if (this.isQuoteImage(row) || this.isQuoteFile(row)) return false
+      return !this.quoteDisplayText(row) &&
+        (this.isQuoteImage(row) || this.isQuoteFile(row) ||
+         ['卡片', 'card', '语音', 'voice', '视频', 'video'].indexOf(String(this.quoteDisplayKind(row))) >= 0)
+    },
+    quoteNeedsInfo(row) {
+      if (!row || !row.quote || this.quoteInfoFor(row)) return false
+      const kind = String(row.quoteKind || '')
+      if (['图片', 'image', '表情', 'emoji', '文件', 'file', '卡片', 'card'].indexOf(kind) >= 0) {
+        return this.isQuotePlaceholder(row) || kind === '图片' || kind === 'image' ||
+          kind === '表情' || kind === 'emoji' || kind === '文件' || kind === 'file'
+      }
+      return !this.quoteBody(row)
+    },
+    quoteInfoLoading(row) {
+      return !!this.quoteInfoLoadingMap[this.quoteKey(row)]
+    },
+    quoteInfoError(row) {
+      return this.quoteInfoErrorMap[this.quoteKey(row)] || ''
+    },
+    quoteMediaUrl(row) {
+      return this.quoteMediaMap[this.quoteKey(row)] || ''
+    },
+    quoteMediaError(row) {
+      return this.quoteMediaErrorMap[this.quoteKey(row)] || ''
+    },
+    quoteSummary(row) {
+      if (this.isQuoteImage(row)) {
+        return this.quoteMediaUrl(row) ? '图片（悬浮查看）' : (this.quoteMediaError(row) || '图片加载中')
+      }
+      if (this.isQuoteFile(row)) {
+        return this.quoteFileName(row) || this.quoteInfoError(row) || '文件加载中'
+      }
+      return this.quoteDisplayText(row) || (this.quoteInfoLoading(row) ? '读取中…' : (this.quoteInfoError(row) || '无文字内容'))
+    },
+    loadQuoteInfo(row) {
+      if (!row || !this.quoteNeedsInfo(row)) {
+        return Promise.resolve(row)
+      }
+      const key = this.quoteKey(row)
+      this.$set(this.quoteInfoLoadingMap, key, true)
+      this.$set(this.quoteInfoErrorMap, key, '')
+      return getWechatQuoteInfo({ username: row.username, localId: row.localId })
+        .then(res => {
+          if (res.data) {
+            this.$set(this.quoteInfoMap, key, res.data)
+          }
+        })
+        .catch(async error => {
+          this.$set(this.quoteInfoErrorMap, key, await this.errorMessage(error, '引用详情读取失败'))
+        })
+        .finally(() => {
+          this.$set(this.quoteInfoLoadingMap, key, false)
+        })
+    },
+    loadQuoteDetails(rows) {
+      const pending = (rows || [])
+        .filter(row => this.quoteNeedsInfo(row))
+        .map(row => this.loadQuoteInfo(row))
+      return Promise.all(pending).then(() => {
+        ;(rows || []).filter(row => this.isQuoteImage(row)).forEach(row => this.loadQuotePreview(row))
+      })
+    },
+    async getQuoteMediaBlob(row, download, fallback) {
+      let blob
+      try {
+        blob = await getWechatQuoteMedia({
+          username: row.username,
+          localId: row.localId,
+          download: !!download
+        })
+      } catch (error) {
+        throw new Error(await this.errorMessage(error, fallback))
+      }
+      if (!(blob instanceof Blob) || blob.size === 0) {
+        throw new Error(fallback)
+      }
+      if (this.isJsonBlob(blob)) {
+        throw new Error(await this.blobMessage(blob, fallback))
+      }
+      return blob
+    },
+    loadQuotePreview(row) {
+      const key = this.quoteKey(row)
+      if (!this.isQuoteImage(row) || this.quoteMediaMap[key]) {
+        return Promise.resolve()
+      }
+      this.$set(this.quoteMediaErrorMap, key, '')
+      return this.getQuoteMediaBlob(row, false, '引用图片读取失败')
+        .then(blob => this.$set(this.quoteMediaMap, key, URL.createObjectURL(blob)))
+        .catch(error => this.$set(this.quoteMediaErrorMap, key, error.message || '引用图片读取失败'))
+    },
+    releaseQuotePreviewMedia() {
+      Object.keys(this.quoteMediaMap).forEach(key => URL.revokeObjectURL(this.quoteMediaMap[key]))
+      this.quoteInfoMap = {}
+      this.quoteMediaMap = {}
+      this.quoteInfoLoadingMap = {}
+      this.quoteInfoErrorMap = {}
+      this.quoteMediaErrorMap = {}
+    },
     showDetail(row) {
       this.releaseDetailMedia()
+      this.releaseDetailQuoteMedia()
       this.detail = row
       this.detailMediaError = ''
+      this.detailQuoteMediaError = ''
       this.detailOpen = true
       if (this.isImage(row)) {
         this.loadImagePreview(row)
       }
+      this.loadQuoteDetails([row]).then(() => {
+        if (this.isQuoteImage(row)) {
+          this.loadDetailQuoteMedia(row)
+        }
+      })
     },
     closeDetail() {
       this.releaseDetailMedia()
+      this.releaseDetailQuoteMedia()
       this.detail = {}
       this.detailMediaError = ''
+      this.detailQuoteMediaError = ''
     },
     releaseDetailMedia() {
       if (this.detailMediaUrl) {
         URL.revokeObjectURL(this.detailMediaUrl)
         this.detailMediaUrl = ''
+      }
+    },
+    releaseDetailQuoteMedia() {
+      if (this.detailQuoteMediaUrl) {
+        URL.revokeObjectURL(this.detailQuoteMediaUrl)
+        this.detailQuoteMediaUrl = ''
+      }
+    },
+    async loadDetailQuoteMedia(row) {
+      this.releaseDetailQuoteMedia()
+      this.detailQuoteMediaError = ''
+      if (!this.isQuoteImage(row)) {
+        return
+      }
+      this.detailQuoteMediaLoading = true
+      try {
+        const blob = await this.getQuoteMediaBlob(row, false, '引用图片读取失败')
+        this.detailQuoteMediaUrl = URL.createObjectURL(blob)
+      } catch (error) {
+        this.detailQuoteMediaError = error.message || '引用图片读取失败'
+      } finally {
+        this.detailQuoteMediaLoading = false
       }
     },
     isImage(row) {
@@ -390,15 +623,38 @@ export default {
       if (!row) return ''
       if (this.isImage(row)) return '【图片】'
       if (this.hasFile(row)) return this.cardTitle(row.content) || '微信文件'
-      const type = String(row.type || '')
-      if (type === '文件/链接/卡片' || type === '链接' || type === '卡片') {
-        return this.cardTitle(row.content) || '【卡片消息】'
-      }
-      const content = String(row.content || '')
-      if (type && type !== '文本' && type.toUpperCase() !== 'TEXT' && content.trim().indexOf('<') === 0) {
-        return '【' + type + '】'
+      const content = String(row.content || '').trim()
+      if (!content) return ''
+      if (/^\s*(?:<\?xml[\s\S]*?\?>\s*)?<msg(?:\s|>)/i.test(content)) {
+        return this.cardTitle(content) || '【卡片消息】'
       }
       return content
+    },
+    quoteBody(row) {
+      if (!row) return ''
+      const quote = String(row.quote || '').trim()
+      if (!quote || this.isQuotePlaceholderText(quote)) {
+        return ''
+      }
+      return quote
+    },
+    quoteKindIcon(kind) {
+      const icons = {
+        text: 'el-icon-document',
+        图片: 'el-icon-picture-outline',
+        image: 'el-icon-picture-outline',
+        表情: 'el-icon-picture-outline',
+        emoji: 'el-icon-picture-outline',
+        语音: 'el-icon-microphone',
+        voice: 'el-icon-microphone',
+        视频: 'el-icon-video-camera',
+        video: 'el-icon-video-camera',
+        卡片: 'el-icon-chat-line-square',
+        card: 'el-icon-chat-line-square',
+        文件: 'el-icon-document',
+        file: 'el-icon-document'
+      }
+      return icons[kind] || 'el-icon-chat-dot-square'
     },
     quoteKindLabel(kind) {
       const labels = {
@@ -413,6 +669,8 @@ export default {
         video: '视频',
         卡片: '卡片',
         card: '卡片',
+        文件: '文件',
+        file: '文件',
         other: '其他'
       }
       return labels[kind] || kind || '内容'
@@ -442,14 +700,11 @@ export default {
       }
       return fallback
     },
-    async getMediaBlob(row, download, fallback) {
+    async getMediaBlob(row, download, fallback, quote = false) {
       let blob
       try {
-        blob = await getWechatMedia({
-          username: row.username,
-          localId: row.localId,
-          download: !!download
-        })
+        const params = { username: row.username, localId: row.localId, download: !!download }
+        blob = quote ? await getWechatQuoteMedia(params) : await getWechatMedia(params)
       } catch (error) {
         throw new Error(await this.errorMessage(error, fallback))
       }
@@ -478,40 +733,62 @@ export default {
         this.detailMediaLoading = false
       }
     },
-    downloadName(row, blob) {
-      let name = this.hasFile(row) ? this.cardTitle(row.content) : ''
-      if (!name && this.isImage(row)) {
-        const mime = blob && blob.type ? String(blob.type).toLowerCase() : ''
-        name = '微信图片_' + row.localId + '.' + (IMAGE_MIME_EXTS[mime] || 'jpg')
-      }
-      if (!name && this.hasFile(row)) {
-        const ext = this.fileExtension(row)
-        name = '微信文件_' + row.localId + (ext ? '.' + ext : '')
+    downloadName(row, blob, quote = false) {
+      const mime = blob && blob.type ? String(blob.type).toLowerCase() : ''
+      let name = ''
+      if (quote && this.isQuoteImage(row)) {
+        name = '微信引用图片_' + row.localId + '.' + (IMAGE_MIME_EXTS[mime] || 'jpg')
+      } else if (quote && this.isQuoteFile(row)) {
+        name = this.quoteFileName(row) || ('微信引用文件_' + row.localId)
+      } else if (!quote) {
+        name = this.hasFile(row) ? this.cardTitle(row.content) : ''
+        if (!name && this.isImage(row)) {
+          name = '微信图片_' + row.localId + '.' + (IMAGE_MIME_EXTS[mime] || 'jpg')
+        }
+        if (!name) {
+          const ext = this.fileExtension(row)
+          name = '微信文件_' + row.localId + (ext ? '.' + ext : '')
+        }
       }
       name = name || ('微信文件_' + row.localId)
       return name.replace(/[\\/:*?"<>|]/g, '_')
     },
-    async downloadMedia(row) {
+    async downloadMedia(row, quote = false) {
       if (!row || !row.username || this.mediaDownloading) return
       this.mediaDownloading = true
       try {
-        const blob = await this.getMediaBlob(row, true, '文件下载失败')
-        saveAs(blob, this.downloadName(row, blob))
+        const blob = await this.getMediaBlob(row, true, quote ? '引用文件下载失败' : '文件下载失败', quote)
+        saveAs(blob, this.downloadName(row, blob, quote))
       } catch (error) {
         this.$modal.msgError(error.message || '文件下载失败')
       } finally {
         this.mediaDownloading = false
       }
     },
-    async openFilePreview(row) {
+    downloadQuoteMedia(row) {
+      return this.downloadMedia(row, true)
+    },
+    downloadFilePreview() {
+      return this.downloadMedia(this.filePreviewRow, this.filePreviewQuote)
+    },
+    quoteFileExtension(row) {
+      const name = this.quoteFileName(row)
+      const dot = name.lastIndexOf('.')
+      return dot >= 0 ? name.substring(dot + 1).replace(/[^a-zA-Z0-9]/g, '').toLowerCase() : ''
+    },
+    openQuoteFilePreview(row) {
+      return this.openFilePreview(row, true)
+    },
+    async openFilePreview(row, quote = false) {
       this.clearFilePreview()
       this.filePreviewRow = row
-      this.filePreviewName = this.cardTitle(row.content) || '微信文件'
+      this.filePreviewQuote = !!quote
+      this.filePreviewName = quote ? (this.quoteFileName(row) || '引用文件') : (this.cardTitle(row.content) || '微信文件')
       this.filePreviewOpen = true
       this.filePreviewLoading = true
       try {
-        const blob = await this.getMediaBlob(row, false, '文件读取失败')
-        const ext = this.fileExtension(row)
+        const blob = await this.getMediaBlob(row, false, quote ? '引用文件读取失败' : '文件读取失败', quote)
+        const ext = quote ? this.quoteFileExtension(row) : this.fileExtension(row)
         if (ext === 'pdf') {
           if (blob.size > 30 * 1024 * 1024) {
             throw new Error('PDF 超过 30MB，请下载后查看')
@@ -576,6 +853,7 @@ export default {
       }
       this.filePreviewOpen = false
       this.filePreviewRow = {}
+      this.filePreviewQuote = false
       this.filePreviewName = ''
       this.filePreviewError = ''
       this.filePreviewKind = ''
@@ -605,11 +883,25 @@ export default {
 </script>
 
 <style scoped>
-.message-content { line-height: 1.5; word-break: break-all; }
+.message-hover { cursor: default; }
+.message-content { line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
 .quote-preview { margin-top: 3px; color: #909399; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quote-preview-label { color: #606266; }
+.message-tooltip-content { max-width: 560px; line-height: 1.6; }
+.message-tooltip-label { margin-bottom: 2px; color: #c0c4cc; font-size: 12px; }
+.message-tooltip-text { white-space: pre-wrap; word-break: break-word; }
+.message-tooltip-quote { margin-top: 8px; padding-top: 8px; border-top: 1px solid #606266; }
+.message-tooltip-media { margin-bottom: 6px; }
+.message-tooltip-muted { color: #c0c4cc; font-size: 12px; }
+.message-tooltip-file { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.quote-hover-image { display: block; max-width: 420px; max-height: 240px; object-fit: contain; border-radius: 3px; background: #303133; }
 .detail-text { white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
 .quote-box { border-left: 3px solid #dcdfe6; padding: 6px 10px; background: #f5f7fa; }
 .quote-kind { display: inline-block; margin-bottom: 4px; color: #909399; font-size: 12px; }
+.quote-empty { color: #909399; font-size: 13px; }
+.quote-image-panel { min-height: 80px; margin-bottom: 6px; }
+.quote-detail-image { display: block; max-width: 100%; max-height: 360px; }
+.quote-file-card { margin: 6px 0; }
 .media-panel { min-height: 80px; }
 .image-preview { display: block; width: 100%; max-width: 860px; max-height: 520px; }
 .media-actions { margin-top: 10px; }

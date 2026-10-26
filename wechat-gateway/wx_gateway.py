@@ -404,25 +404,45 @@ def _quote_kind(qt):
         return "text"
     return _QUOTE_LABEL.get(qt, "other")
 
-def parse_quote(content):
-    """若 content 是带 <refermsg> 的卡片 XML，返回 (原文txt, 引用展示txt, 引用类型)；
-    否则返回 (content, "", "")。引用为文本时只取前 256 字；图片/表情/语音/视频/卡片只给说明。"""
+
+def _xml_root(value):
+    """解析引用 content 中嵌套的 XML；不是 XML 时返回 None。"""
+    text = value.strip() if isinstance(value, str) else ""
+    if not text:
+        return None
+    match = re.search(r"<msg[\s\S]*?</msg>", text)
+    if not match:
+        return None
+    try:
+        return ET.fromstring(match.group(0))
+    except Exception:
+        return None
+
+
+def parse_quote_detail(content):
+    """解析一条引用消息，返回 (原文, 引用展示文本, 引用类型, 媒体信息)。
+
+    媒体信息仅用于按需读取引用图片/文件，不写入消息表，避免扩大现有数据模型。
+    """
     if not isinstance(content, str):
-        return content, "", ""
+        if isinstance(content, bytes):
+            content = content.decode("utf-8", "replace")
+        else:
+            return content, "", "", {}
     low = content.strip()
     # 原始内容可能带发送者前缀(如 "wxid_xxx:\n" 或 "xxx:\n")，先定位 XML 本体
     m = re.search(r"<msg[\s\S]*?</msg>", low)
     if not m:
-        return content, "", ""
+        return content, "", "", {}
     xml_str = m.group(0)
     try:
         root = ET.fromstring(xml_str)
     except Exception:
-        return content, "", ""
+        return content, "", "", {}
     app = root.find("appmsg")
     refer = (app.find("refermsg") if app is not None else None) or root.find(".//refermsg")
     if refer is None:
-        return content, "", ""
+        return content, "", "", {}
     # 原文：优先取卡片标题/摘要，否则保留原 content
     own = (app.findtext("title") or "").strip() if app is not None else ""
     if not own and app is not None:
@@ -430,11 +450,130 @@ def parse_quote(content):
     qt = (refer.findtext("type") or "").strip()
     qtext = (refer.findtext("content") or "").strip()
     kind = _quote_kind(qt)
-    if kind in ("图片", "表情", "语音", "视频", "卡片"):
+    nested = _xml_root(qtext)
+    nested_app = nested.find("appmsg") if nested is not None else None
+    nested_title = (nested_app.findtext("title") or "").strip() if nested_app is not None else ""
+    file_ext = (nested_app.findtext(".//fileext") or "").strip() if nested_app is not None else ""
+    media = {
+        "file_name": "",
+        "image_md5": "",
+        "refer_svrid": (refer.findtext("svrid") or "").strip(),
+        "refer_create_time": (refer.findtext("createtime") or "").strip(),
+        "has_media": False,
+    }
+
+    if file_ext:
+        kind = "文件"
+        media["file_name"] = nested_title or qtext[:256]
+        media["has_media"] = bool(media["file_name"])
+        quote = media["file_name"]
+    elif kind == "图片" or kind == "表情":
+        image = nested.find(".//img") if nested is not None else None
+        media["image_md5"] = (image.get("md5") or "").strip().lower() if image is not None else ""
+        media["has_media"] = bool(media["image_md5"])
+        quote = "【%s】" % kind
+    elif kind == "卡片":
+        media["file_name"] = nested_title
+        quote = nested_title[:256] if nested_title else "【卡片】"
+    elif nested_title:
+        quote = nested_title[:256]
+    elif kind in ("语音", "视频"):
         quote = "【%s】" % kind
     else:
         quote = qtext[:256] if qtext else ""
+    return own, quote, kind, media
+
+
+def parse_quote(content):
+    """兼容旧调用：返回 (原文, 引用展示文本, 引用类型)。"""
+    own, quote, kind, _ = parse_quote_detail(content)
     return own, quote, kind
+
+
+def _cached_quote_file(save_dir, stem):
+    for ext in ("jpg", "jpeg", "png", "gif", "webp", "bmp", "wxgf", "img"):
+        path = os.path.join(save_dir, stem + "." + ext)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def _decoded_row_content(db, row):
+    """get_message_row 返回的是原始压缩 BLOB，按微信库同一套规则解码正文。"""
+    content = row.get("content") if row else None
+    if not isinstance(content, bytes):
+        return content or ""
+    try:
+        from wechatauto.db import WeChatDB
+        mtype = WeChatDB._msg_type_name(row.get("local_type") or 49)
+        return WeChatDB._friendly_content(content, mtype)
+    except Exception as e:
+        log("原始消息解码失败: %s" % e)
+        return content.decode("utf-8", "replace")
+
+
+def _quote_media_path(db, media, username, local_id, save_dir):
+    """按外层引用消息解析并落盘被引用的图片或文件。"""
+    row = db.get_message_row(username, local_id)
+    if not row:
+        die("原始消息不存在: %s/%s" % (username, local_id))
+    _, quote, kind, meta = parse_quote_detail(
+        strip_wxid_prefix(_decoded_row_content(db, row)))
+    stem = "%s_%s_quote" % (username, local_id)
+    if kind in ("图片", "表情"):
+        md5 = meta.get("image_md5") or ""
+        if not md5:
+            die("引用图片缺少 md5，无法读取")
+        cached = _cached_quote_file(save_dir, stem)
+        if cached:
+            return cached
+        files = media._image_files(username, md5)
+        for tier in ("original", "mid", "thumb"):
+            hit = files.get(tier)
+            if not hit:
+                continue
+            try:
+                data = media.decrypt_image(hit[0])
+                return media._write_decrypted(data, stem, save_dir=save_dir)
+            except Exception as e:
+                log("引用图片解密失败(%s): %s" % (tier, e))
+        # 引用里记录的是图片内容 md5；本地附件目录有时按原消息 packed_info 的另一
+        # 个 md5 落盘，因此回查同会话原图片行，再走微信库自己的图片下载器。
+        for image_row in db.get_image_rows(username, limit=5000):
+            parts = []
+            for value in (image_row.get("content"), image_row.get("packed_info")):
+                if isinstance(value, str):
+                    parts.append(value.encode("utf-8", "replace"))
+                elif isinstance(value, (bytes, bytearray, memoryview)):
+                    parts.append(bytes(value))
+            raw = b"".join(parts)
+            svrid = str(image_row.get("server_id") or "")
+            if md5.encode() not in raw and (not meta.get("refer_svrid") or svrid != meta["refer_svrid"]):
+                continue
+            downloaded = media.download_image(
+                username, image_row["local_id"], save_dir=save_dir, tier="best")
+            if downloaded:
+                ext = os.path.splitext(downloaded)[1]
+                target = os.path.join(save_dir, stem + ext)
+                shutil.copy2(downloaded, target)
+                return target
+        die("本机暂无引用图片缓存，未下载成功")
+    if kind == "文件":
+        name = os.path.basename(str(meta.get("file_name") or "").replace("\\", "/"))
+        if not name:
+            die("引用文件缺少文件名，无法读取")
+        target = os.path.join(save_dir, stem + "_" + name)
+        if os.path.isfile(target):
+            return target
+        base = os.path.join(db.account_dir, "msg", "file")
+        for root, _, files in os.walk(base):
+            if name in files:
+                source = os.path.join(root, name)
+                os.makedirs(save_dir, exist_ok=True)
+                shutil.copy2(source, target)
+                return target
+        die("本机暂无引用文件: %s" % name)
+    die("该引用%s没有可读取的图片或文件" % (quote or kind))
 
 def row_to_json(db, ctx, m, media, name):
     media_path = ""
@@ -636,6 +775,34 @@ def cmd_media(args):
     sys.stdout.flush()
 
 
+def cmd_quote_info(args):
+    """解析外层消息引用的真实文本/类型；供聊天记录悬浮与详情按需补全。"""
+    db, _ = build_db(None, args.account)
+    row = db.get_message_row(args.username, args.local_id)
+    if not row:
+        die("原始消息不存在: %s/%s" % (args.username, args.local_id))
+    _, quote, kind, media = parse_quote_detail(
+        strip_wxid_prefix(_decoded_row_content(db, row)))
+    out = {
+        "kind": kind,
+        "quote": quote,
+        "file_name": media.get("file_name") or "",
+        "has_media": bool(media.get("has_media")),
+    }
+    print(json.dumps(out, ensure_ascii=False))
+    sys.stdout.flush()
+
+
+def cmd_quote_media(args):
+    """按外层消息键下载被引用的图片或文档文件。"""
+    db, media = build_db(args.media, args.account)
+    if media is None:
+        die("未配置 --media 目录")
+    path = _quote_media_path(db, media, args.username, args.local_id, args.media)
+    print("MEDIA_PATH=" + os.path.abspath(path))
+    sys.stdout.flush()
+
+
 def main():
     ap = argparse.ArgumentParser(description="wechatauto 消息网关（主动拉取/实时监听）")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -671,6 +838,19 @@ def main():
     p.add_argument("--media", required=True, help="媒体保存目录")
     p.add_argument("--account", default=None)
     p.set_defaults(func=cmd_media)
+
+    p = sub.add_parser("quote-info", help="解析消息引用的真实类型与文本，输出 JSON")
+    p.add_argument("--username", required=True, help="会话ID(wxid/群id)")
+    p.add_argument("--local-id", required=True, type=int, help="库内消息ID")
+    p.add_argument("--account", default=None)
+    p.set_defaults(func=cmd_quote_info)
+
+    p = sub.add_parser("quote-media", help="下载消息引用的图片/文件，输出 MEDIA_PATH")
+    p.add_argument("--username", required=True, help="会话ID(wxid/群id)")
+    p.add_argument("--local-id", required=True, type=int, help="库内消息ID")
+    p.add_argument("--media", required=True, help="媒体保存目录")
+    p.add_argument("--account", default=None)
+    p.set_defaults(func=cmd_quote_media)
     args = ap.parse_args()
     cleanup_stale_proc_dirs()
     try:

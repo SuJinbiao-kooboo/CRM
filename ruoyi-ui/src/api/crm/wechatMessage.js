@@ -19,6 +19,26 @@ export function getWechatMedia(params) {
   })
 }
 
+export function getWechatQuoteInfo(params) {
+  return request({
+    url: '/crm/wechat-message/quote-info',
+    method: 'get',
+    params: params,
+    silent: true
+  })
+}
+
+export function getWechatQuoteMedia(params) {
+  return request({
+    url: '/crm/wechat-message/quote-media',
+    method: 'get',
+    params: params,
+    responseType: 'blob',
+    timeout: 180000,
+    silent: true
+  })
+}
+
 export function runWechatClassify(data) {
   return request({ url: '/crm/wechat-message/classify/run', method: 'post', data: data, timeout: 480000 })
 }

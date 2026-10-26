@@ -1376,6 +1376,107 @@ public class WeChatGatewayService {
         return new ArrayList<>(all.subList(all.size() - n, all.size()));
     }
 
+    /** 读取一条引用消息的真实文本/类型；历史占位引用在前端按需补全。 */
+    public Map<String, Object> quoteInfo(WeChatMessage message) {
+        if (message == null || StringUtils.isBlank(message.getUsername())) {
+            throw new IllegalArgumentException("消息不存在");
+        }
+        List<String> cmd = new ArrayList<>();
+        cmd.add(props.getPython());
+        cmd.add(props.getScript());
+        cmd.add("quote-info");
+        cmd.add("--username");
+        cmd.add(message.getUsername());
+        cmd.add("--local-id");
+        cmd.add(String.valueOf(message.getLocalId()));
+        List<String> lines = runGatewayCommand(cmd, "引用解析");
+        for (String line : lines) {
+            if (!line.startsWith("{")) {
+                continue;
+            }
+            try {
+                JsonNode node = jackson.readTree(line);
+                Map<String, Object> info = new LinkedHashMap<>();
+                info.put("kind", node.path("kind").asText(""));
+                info.put("quote", node.path("quote").asText(""));
+                info.put("fileName", node.path("file_name").asText(""));
+                info.put("hasMedia", node.path("has_media").asBoolean(false));
+                return info;
+            } catch (Exception e) {
+                throw new IllegalStateException("引用解析结果格式错误", e);
+            }
+        }
+        throw new IllegalStateException("引用解析没有返回结果");
+    }
+
+    /** 按需下载引用中的图片或文档文件。 */
+    public Path ensureQuoteMedia(WeChatMessage message) {
+        if (message == null || StringUtils.isBlank(message.getUsername())) {
+            throw new IllegalArgumentException("消息不存在");
+        }
+        Path root = Paths.get(props.getMediaDir()).toAbsolutePath().normalize();
+        List<String> cmd = new ArrayList<>();
+        cmd.add(props.getPython());
+        cmd.add(props.getScript());
+        cmd.add("quote-media");
+        cmd.add("--username");
+        cmd.add(message.getUsername());
+        cmd.add("--local-id");
+        cmd.add(String.valueOf(message.getLocalId()));
+        cmd.add("--media");
+        cmd.add(props.getMediaDir());
+        List<String> lines = runGatewayCommand(cmd, "引用媒体下载");
+        for (String line : lines) {
+            if (!line.startsWith("MEDIA_PATH=")) {
+                continue;
+            }
+            Path file = Paths.get(line.substring("MEDIA_PATH=".length()).trim())
+                    .toAbsolutePath().normalize();
+            if (!file.startsWith(root) || !Files.isRegularFile(file)) {
+                throw new IllegalStateException("引用媒体文件路径无效");
+            }
+            String ext = pathExtension(file);
+            if (!IMAGE_EXTENSIONS.contains(ext) && !DOCUMENT_EXTENSIONS.contains(ext)) {
+                throw new IllegalStateException("该引用文件类型暂不支持查看（不支持音频、视频）");
+            }
+            return file;
+        }
+        throw new IllegalStateException("引用媒体没有返回文件");
+    }
+
+    private List<String> runGatewayCommand(List<String> cmd, String operation) {
+        List<String> lines = new ArrayList<>();
+        String error = null;
+        try {
+            ProcessBuilder pb = new ProcessBuilder(cmd);
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.startsWith("[错误]")) {
+                        error = line.replaceFirst("^\\[错误\\]\\s*", "");
+                    } else if (StringUtils.isNotBlank(line)) {
+                        lines.add(line.trim());
+                    }
+                    log.info("[wx_gateway {}] {}", operation, line);
+                }
+            }
+            int code = process.waitFor();
+            if (code != 0) {
+                throw new IllegalStateException(StringUtils.defaultIfBlank(error,
+                        operation + "失败，exitCode=" + code));
+            }
+            return lines;
+        } catch (Exception e) {
+            log.warn("微信网关{}失败: username={} localId={}",
+                    operation, cmd.size() > 4 ? cmd.get(4) : "", cmd.size() > 6 ? cmd.get(6) : "", e);
+            throw new IllegalStateException(StringUtils.defaultIfBlank(error,
+                    operation + "失败: " + e.getMessage()), e);
+        }
+    }
+
     /** 按需下载单条图片或文档文件，返回可读取的本地路径；音频、视频不在此接口开放。 */
     public Path ensureMedia(WeChatMessage message) {
         if (message == null || StringUtils.isBlank(message.getUsername())) {

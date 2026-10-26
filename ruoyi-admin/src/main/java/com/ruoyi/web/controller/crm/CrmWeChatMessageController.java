@@ -71,19 +71,55 @@ public class CrmWeChatMessageController extends BaseController {
     public void media(@RequestParam String username, @RequestParam Long localId,
                       @RequestParam(defaultValue = "false") boolean download,
                       HttpServletResponse response) throws Exception {
-        List<WeChatMessage> rows = messageStore.queryByKeys(
-                Collections.singletonList(username + ":" + localId));
-        if (rows.isEmpty()) {
-            throw new ServiceException("消息不存在或已过期");
-        }
-        WeChatMessage message = rows.get(0);
+        WeChatMessage message = requiredMessage(username, localId);
         Path file;
         try {
             file = gateway.ensureMedia(message);
         } catch (Exception e) {
             throw new ServiceException(e.getMessage());
         }
-        String fileName = mediaFileName(message, file);
+        writeMediaResponse(file, mediaFileName(message, file), download, response);
+    }
+
+    /** 补全历史引用消息的真实类型与文本，不修改消息表。 */
+    @PreAuthorize("@ss.hasPermi('wechat:message:query')")
+    @GetMapping("/quote-info")
+    public AjaxResult quoteInfo(@RequestParam String username, @RequestParam Long localId) {
+        WeChatMessage message = requiredMessage(username, localId);
+        try {
+            return success(gateway.quoteInfo(message));
+        } catch (Exception e) {
+            throw new ServiceException(e.getMessage());
+        }
+    }
+
+    /** 按需读取被引用的图片或文档文件。 */
+    @PreAuthorize("@ss.hasPermi('wechat:message:query')")
+    @GetMapping("/quote-media")
+    public void quoteMedia(@RequestParam String username, @RequestParam Long localId,
+                           @RequestParam(defaultValue = "false") boolean download,
+                           HttpServletResponse response) throws Exception {
+        WeChatMessage message = requiredMessage(username, localId);
+        Path file;
+        try {
+            file = gateway.ensureQuoteMedia(message);
+        } catch (Exception e) {
+            throw new ServiceException(e.getMessage());
+        }
+        writeMediaResponse(file, quoteMediaFileName(message, file), download, response);
+    }
+
+    private WeChatMessage requiredMessage(String username, Long localId) {
+        List<WeChatMessage> rows = messageStore.queryByKeys(
+                Collections.singletonList(username + ":" + localId));
+        if (rows.isEmpty()) {
+            throw new ServiceException("消息不存在或已过期");
+        }
+        return rows.get(0);
+    }
+
+    private static void writeMediaResponse(Path file, String fileName, boolean download,
+                                           HttpServletResponse response) throws Exception {
         String contentType = Files.probeContentType(file);
         if (StringUtils.isBlank(contentType)) {
             contentType = URLConnection.guessContentTypeFromName(fileName);
@@ -110,6 +146,19 @@ public class CrmWeChatMessageController extends BaseController {
         String imagePrefix = message.getUsername() + "_" + message.getLocalId() + ".";
         if (name.startsWith(imagePrefix)) {
             return "微信图片_" + message.getLocalId() + name.substring(imagePrefix.length() - 1);
+        }
+        return name;
+    }
+
+    private static String quoteMediaFileName(WeChatMessage message, Path file) {
+        String name = file.getFileName().toString();
+        String prefix = message.getUsername() + "_" + message.getLocalId() + "_quote_";
+        if (name.startsWith(prefix)) {
+            return name.substring(prefix.length());
+        }
+        String imagePrefix = message.getUsername() + "_" + message.getLocalId() + "_quote.";
+        if (name.startsWith(imagePrefix)) {
+            return "微信引用图片_" + message.getLocalId() + name.substring(imagePrefix.length() - 1);
         }
         return name;
     }

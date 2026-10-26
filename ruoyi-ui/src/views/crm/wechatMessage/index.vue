@@ -37,12 +37,12 @@
     </el-form>
 
     <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5"><el-button type="primary" plain icon="el-icon-download" size="mini" :loading="polling" @click="handlePoll" v-hasPermi="['wechat:message:poll']">拉取</el-button></el-col>
-      <el-col :span="1.5"><el-button type="warning" plain icon="el-icon-magic-stick" size="mini" :loading="classifying" @click="handleClassifySelected" v-hasPermi="['wechat:message:classify']">分类选中</el-button></el-col>
-      <el-col :span="1.5"><el-button type="success" plain icon="el-icon-document-add" size="mini" :loading="entering" @click="handleEntrySelected" v-hasPermi="['wechat:message:entry']">录入选中</el-button></el-col>
-      <el-col :span="1.5"><el-button type="info" plain icon="el-icon-refresh-left" size="mini" @click="handleRequeue" v-hasPermi="['wechat:message:entry']">重排选中</el-button></el-col>
-      <el-col :span="1.5"><el-button type="danger" plain icon="el-icon-bell" size="mini" @click="handleTraceScan" v-hasPermi="['wechat:message:classify']">TRACE补扫</el-button></el-col>
-      <el-col :span="1.5"><el-button plain icon="el-icon-delete-solid" size="mini" @click="handleClearCache" v-hasPermi="['wechat:message:classify']">清分类缓存</el-button></el-col>
+      <el-col :span="1.5"><el-button type="primary" plain icon="el-icon-download" size="mini" :loading="polling" @click="handlePoll" v-hasPermi="['wechat:message:poll']">拉取<el-tooltip content="立即从微信本地库同步最新消息并入库；聊天对象有值时只拉该会话，留空拉全部。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip></el-button></el-col>
+      <el-col :span="1.5"><el-button type="warning" plain icon="el-icon-magic-stick" size="mini" :loading="classifying" @click="handleClassifySelected" v-hasPermi="['wechat:message:classify']">分类选中<el-tooltip content="对勾选消息重新调用 AI 分类为 INQ、OFFER、TRACE 或 OTHER，单次最多 20 条。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip></el-button></el-col>
+      <el-col :span="1.5"><el-button type="success" plain icon="el-icon-document-add" size="mini" :loading="entering" @click="handleEntrySelected" v-hasPermi="['wechat:message:entry']">录入选中<el-tooltip content="对勾选消息立即执行 AI 录入和料号匹配；仅处理已成功分类的 INQ/OFFER，已录入消息会幂等跳过。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip></el-button></el-col>
+      <el-col :span="1.5"><el-button type="info" plain icon="el-icon-refresh-left" size="mini" @click="handleRequeue" v-hasPermi="['wechat:message:entry']">重排选中<el-tooltip content="将失败、跳过或达到重试上限的录入消息重新放回队列，不立即执行，成功记录不会被覆盖。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip></el-button></el-col>
+      <el-col :span="1.5"><el-button type="danger" plain icon="el-icon-bell" size="mini" @click="handleTraceScan" v-hasPermi="['wechat:message:classify']">TRACE补扫<el-tooltip content="补扫近期已关联 INQ/OFFER 但尚未成功发送的 TRACE 预警，已预警消息不会重复发送。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip></el-button></el-col>
+      <el-col :span="1.5"><el-button plain icon="el-icon-delete-solid" size="mini" @click="handleClearCache" v-hasPermi="['wechat:message:classify']">清分类缓存<el-tooltip content="清空 AI 分类缓存，不修改历史分类结果；用于调整提示词后重新计算，会增加 AI 调用量。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip></el-button></el-col>
       <right-toolbar :showSearch.sync="showSearch" @queryTable="getList" />
     </el-row>
 
@@ -883,6 +883,7 @@ export default {
 </script>
 
 <style scoped>
+.button-help-icon { margin-left: 4px; cursor: help; font-size: 13px; }
 .message-hover { cursor: default; }
 .message-content { line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
 .quote-preview { margin-top: 3px; color: #909399; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

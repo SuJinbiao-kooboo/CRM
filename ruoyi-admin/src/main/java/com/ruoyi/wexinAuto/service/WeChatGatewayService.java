@@ -139,6 +139,8 @@ public class WeChatGatewayService {
 
     /** 正在推送 TRACE 预警的消息键，防止分类回写与定时补扫并发重复推送。 */
     private final Set<String> traceAlerting = ConcurrentHashMap.newKeySet();
+    /** 同一会话的 TRACE 预警互斥，保证冷却检查与发送之间不会被并发绕过。 */
+    private final Set<String> traceAlertChatLocks = ConcurrentHashMap.newKeySet();
 
     // ---------- INQ/OFFER 自动录入状态 ----------
     /** 录入任务互斥锁（定时扫描与手动触发共用，防止并发重入） */
@@ -1260,6 +1262,11 @@ public class WeChatGatewayService {
                 || !analysisBool("traceAlertEnabled", true)) {
             return false;
         }
+        if (WeChatTextUtils.isSelf(m.getSender(), config.selfNames())) {
+            log.info("我方成员消息不推送TRACE飞书: chat={} sender={} localId={}",
+                    m.getName(), m.getSender(), m.getLocalId());
+            return false;
+        }
         if (StringUtils.isNotBlank(m.getTraceAlertedAt())) {
             return false;
         }
@@ -1276,43 +1283,66 @@ public class WeChatGatewayService {
                     maxAgeMin, m.getName(), m.getSender(), m.getCreateTime());
             return false;
         }
-        String alertKey = "TRACE|" + m.getUsername() + "|" + m.getLocalId();
-        if (!traceAlerting.add(alertKey)) {
-            return false;
+        String username = StringUtils.trimToEmpty(m.getUsername());
+        boolean chatLocked = false;
+        if (StringUtils.isNotBlank(username)) {
+            if (!traceAlertChatLocks.add(username)) {
+                return false;
+            }
+            chatLocked = true;
         }
         try {
-            String detail = "会话: " + StringUtils.defaultString(m.getName()) + "\n"
-                    + "发言人: " + StringUtils.defaultString(m.getSender()) + "\n"
-                    + "时间: " + StringUtils.defaultString(m.getCreateTime()) + "\n"
-                    + "内容: " + WeChatTextUtils.clip(m.getContent(), 600) + "\n"
-                    + "分类理由: " + StringUtils.defaultString(m.getCategoryReason()) + "\n"
-                    + "关联INQ: " + relText(m.getRelatInq()) + "\n"
-                    + "关联OFFER: " + relText(m.getRelatOffer()) + "\n"
-                    + "建议: 立即确认库存/价格/交期及订单推进动作。";
-            try {
-                if (!aiChannelService.alert(alertKey,
-                        "【微信TRACE预警】询报价二次跟进，存在订单机会", detail)) {
-                    store.markTraceAlertError(m.getUsername(), m.getLocalId(), "飞书预警返回失败");
-                    log.warn("TRACE预警推送未成功，等待下一轮重试: chat={} sender={} localId={}",
-                            m.getName(), m.getSender(), m.getLocalId());
+            int cooldownMin = Math.max(0, analysisInt("traceAlertChatCooldownMin", 5));
+            if (cooldownMin > 0 && StringUtils.isNotBlank(username)) {
+                String since = fmtTime(System.currentTimeMillis() - cooldownMin * 60_000L);
+                if (store.hasRecentTraceAlert(username, since)) {
+                    log.info("同会话{}分钟内已发送过TRACE预警，本次跳过飞书: chat={} localId={}",
+                            cooldownMin, m.getName(), m.getLocalId());
                     return false;
                 }
-            } catch (Exception e) {
-                store.markTraceAlertError(m.getUsername(), m.getLocalId(), safeMessage(e));
-                log.warn("TRACE预警异常: chat={} sender={} localId={} error={}",
-                        m.getName(), m.getSender(), m.getLocalId(), e.getMessage());
+            }
+            String alertKey = "TRACE|" + m.getUsername() + "|" + m.getLocalId();
+            if (!traceAlerting.add(alertKey)) {
                 return false;
             }
-            if (!store.markTraceAlerted(m.getUsername(), m.getLocalId())) {
-                log.warn("TRACE预警已发送但去重状态回写失败: chat={} localId={}",
-                        m.getName(), m.getLocalId());
-                return false;
+            try {
+                String detail = "会话: " + StringUtils.defaultString(m.getName()) + "\n"
+                        + "发言人: " + StringUtils.defaultString(m.getSender()) + "\n"
+                        + "时间: " + StringUtils.defaultString(m.getCreateTime()) + "\n"
+                        + "内容: " + WeChatTextUtils.clip(m.getContent(), 600) + "\n"
+                        + "分类理由: " + StringUtils.defaultString(m.getCategoryReason()) + "\n"
+                        + "关联INQ: " + relText(m.getRelatInq()) + "\n"
+                        + "关联OFFER: " + relText(m.getRelatOffer()) + "\n"
+                        + "建议: 立即确认库存/价格/交期及订单推进动作。";
+                try {
+                    if (!aiChannelService.alert(alertKey,
+                            "【微信TRACE预警】询报价二次跟进，存在订单机会", detail)) {
+                        store.markTraceAlertError(m.getUsername(), m.getLocalId(), "飞书预警返回失败");
+                        log.warn("TRACE预警推送未成功，等待下一轮重试: chat={} sender={} localId={}",
+                                m.getName(), m.getSender(), m.getLocalId());
+                        return false;
+                    }
+                } catch (Exception e) {
+                    store.markTraceAlertError(m.getUsername(), m.getLocalId(), safeMessage(e));
+                    log.warn("TRACE预警异常: chat={} sender={} localId={} error={}",
+                            m.getName(), m.getSender(), m.getLocalId(), e.getMessage());
+                    return false;
+                }
+                if (!store.markTraceAlerted(m.getUsername(), m.getLocalId())) {
+                    log.warn("TRACE预警已发送但去重状态回写失败: chat={} localId={}",
+                            m.getName(), m.getLocalId());
+                    return false;
+                }
+                m.setTraceAlertedAt(fmtTime(System.currentTimeMillis()));
+                log.info("TRACE预警已推送: chat={} sender={} localId={}", m.getName(), m.getSender(), m.getLocalId());
+                return true;
+            } finally {
+                traceAlerting.remove(alertKey);
             }
-            m.setTraceAlertedAt(fmtTime(System.currentTimeMillis()));
-            log.info("TRACE预警已推送: chat={} sender={} localId={}", m.getName(), m.getSender(), m.getLocalId());
-            return true;
         } finally {
-            traceAlerting.remove(alertKey);
+            if (chatLocked) {
+                traceAlertChatLocks.remove(username);
+            }
         }
     }
 

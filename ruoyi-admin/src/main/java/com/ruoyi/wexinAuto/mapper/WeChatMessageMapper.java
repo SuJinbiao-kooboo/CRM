@@ -42,6 +42,8 @@ public interface WeChatMessageMapper {
 
     List<WeChatMessage> queryTraceAlerts(@Param("since") String since, @Param("max") int max);
 
+    int countRecentTraceAlerts(@Param("username") String username, @Param("since") String since);
+
     List<WeChatMessage> queryProcessable(@Param("chat") String chat, @Param("chats") List<String> chats,
                                          @Param("categories") List<String> categories,
                                          @Param("since") String since, @Param("minAgeSec") int minAgeSec,

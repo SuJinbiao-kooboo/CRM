@@ -122,9 +122,10 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_defa
 (117, 'offerEntryProfitRatio', '2', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'OFFER报价利润率(%)：报价价=AI识别成本价x(1+利润率/100)，向上取整到5的倍数，与Offer列表AI录入口径一致(默认2)'),
 (118, 'offerEntryMaxFail', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI录入失败上限(次)：同一消息连续录入失败达到该次数置status=3无需处理，避免失败消息一直卡住队列(默认3)'),
 (119, 'offerEntryCreateBy', 'wechat_auto', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '录入人(create_by/update_by)：定时任务无登录用户，统一用该值标记AI自动录入来源(默认wechat_auto)'),
-(120, 'selfNames', 'Eke,May,Jin,Jasmine', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '我方微信名/别名(逗号分隔)：仅用于判断角色，INQ/OFFER均可由任一方发出'),
+(120, 'selfNames', 'Eke,May,Jin,Jasmine', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '我方微信名/别名(逗号分隔)：INQ/OFFER均可由任一方发出；我方消息永不判TRACE'),
 (123, 'traceAlertEnabled', 'true', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'TRACE飞书预警：已关联INQ/OFFER的二次业务跟进，疑问或陈述均可'),
 (124, 'traceAlertMaxAgeMin', '1440', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'TRACE预警最大时效(分钟)：超过该时长的历史消息不推送飞书，默认1440=24小时'),
+(125, 'traceAlertChatCooldownMin', '5', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '同一聊天对象TRACE飞书预警冷却(分钟)：期间已成功预警则跳过，默认5；0=关闭冷却'),
 (137, 'offerEntryMinAgeSec', '60', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '分类后等待秒数：让后续消息进入上下文后再自动录入，默认60'),
 (138, 'offerEntryMaxAgeHours', '24', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '自动录入最大回溯小时数：超期历史消息需人工重新入队，默认24');
 

@@ -18,7 +18,7 @@ TRACE 二次跟进：在已有具体 INQ 或 OFFER 之后，任一方继续追�
 OTHER 其他：寒暄、致谢、收到、OK、check、checking、稍等、单独回复“没/没有/无货”且没有其他供货条件、纯表情、广告、广播、系统消息、撤回提示、与当前交易无关的陈述，均为 OTHER。没有报价或供货信息的纯确认不是 OFFER。
 
 【判定规则】
-1. 买卖双向，严禁按发送人姓名或“我方/客户/供应商”身份直接判类。Eke、May、Jin、Jasmine 既可发 INQ，也可发 OFFER；外部人员同样可能发 INQ 或 OFFER，只看本条语义和上下文。
+1. 买卖双向，严禁按发送人姓名或“我方/客户/供应商”身份直接判 INQ/OFFER。Eke、May、Jin、Jasmine 既可发 INQ，也可发 OFFER；外部人员同样可能发 INQ 或 OFFER，只看本条语义和上下文。但发送人属于我方成员时不得判 TRACE，只能判 INQ、OFFER 或 OTHER。
 2. 先看本条内容，再结合最近约20条历史消息和【引用:...】。引用旧 INQ 后给出新价格或供货条件，是 OFFER 并关联原 INQ；引用旧 OFFER 后只问含税、交期、库存、能否下单等，是 TRACE 并关联原 OFFER。
 3. 多行、多型号列表：在问货、问库存、问交期、发 RFQ 的上下文中是 INQ；在回答询价或主动提供型号、数量、库存、价格、交期的上下文中是 OFFER。
 4. 一条消息明显是在回答前面某条具体 INQ，且给出了报价、数字价格或供货条件，判 OFFER；只有“没/无货/checking/稍等/收到”等没有报价或供货条件时判 OTHER。
@@ -31,6 +31,9 @@ OTHER 其他：寒暄、致谢、收到、OK、check、checking、稍等、单�
 
 【输出格式】
 只输出一个 JSON 数组，不输出 Markdown、代码块、解释或理由。只处理 P 行，每条 P 恰好一项；i 必须使用消息前的 # 编号（从0开始，不是微信消息ID），cat 只能是 INQ/OFFER/TRACE/OTHER。OFFER 能确认对应 INQ 时填 inq，TRACE 能确认对应 OFFER 或 INQ 时填 offer 或 inq；无法确认时省略关联字段。示例： [{"i":12,"cat":"INQ"},{"i":13,"cat":"OFFER","inq":12},{"i":14,"cat":"TRACE","offer":13}]
+
+【我方成员补充规则】
+我方成员发送的消息不得判为TRACE，只能判INQ、OFFER或OTHER；即使内容像二次跟进，也判OTHER。买卖双向规则不变。
 ```
 
 ## llmExamples

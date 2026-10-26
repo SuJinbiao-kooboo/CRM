@@ -235,6 +235,14 @@
         ORDER BY sort_seq ASC LIMIT #{max}
     </select>
 
+    <select id="countRecentTraceAlerts" resultType="int">
+        SELECT COUNT(*) FROM wechat_message
+        WHERE username = #{username}
+          AND msg_category = 'TRACE'
+          AND trace_alerted_at IS NOT NULL
+          AND trace_alerted_at &gt;= #{since}
+    </select>
+
     <select id="queryProcessable" resultMap="WeChatMessageResult">
         SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
         WHERE classify_status = 'SUCCESS'

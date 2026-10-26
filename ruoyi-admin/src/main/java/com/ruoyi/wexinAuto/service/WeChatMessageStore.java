@@ -289,6 +289,16 @@ public class WeChatMessageStore {
         }
     }
 
+    /** 同一聊天对象在指定时间点之后是否已成功发送过TRACE预警。 */
+    public boolean hasRecentTraceAlert(String username, String since) {
+        try {
+            return mapper.countRecentTraceAlerts(username, since) > 0;
+        } catch (Exception e) {
+            log.error("查询同会话近期TRACE预警失败: username={}", username, e);
+            return false;
+        }
+    }
+
     /** 未分类消息统计：{cnt=条数, earliest=最早未分类消息时间}。 */
     public java.util.Map<String, Object> unclassifiedStats() {
         try {

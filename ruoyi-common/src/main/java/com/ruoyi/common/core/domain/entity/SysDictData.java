@@ -85,7 +85,7 @@ public class SysDictData extends BaseEntity
     }
 
     @NotBlank(message = "字典键值不能为空")
-    @Size(min = 0, max = 100, message = "字典键值长度不能超过100个字符")
+    @Size(min = 0, max = 8192, message = "字典键值长度不能超过8192个字符")
     public String getDictValue()
     {
         return dictValue;

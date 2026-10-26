@@ -150,7 +150,11 @@
           <el-input v-model="form.dictLabel" placeholder="请输入数据标签" />
         </el-form-item>
         <el-form-item label="数据键值" prop="dictValue">
-          <el-input v-model="form.dictValue" placeholder="请输入数据键值" />
+          <el-input
+            v-model="form.dictValue"
+            :type="form.dictType === 'wechat_analysis_config' ? 'textarea' : 'text'"
+            :autosize="form.dictType === 'wechat_analysis_config' ? { minRows: 6, maxRows: 24 } : false"
+            placeholder="请输入数据键值" />
         </el-form-item>
         <el-form-item label="样式属性" prop="cssClass">
           <el-input v-model="form.cssClass" placeholder="请输入样式属性" />

@@ -39,7 +39,7 @@ public class WeChatLlmClassifier {
     private static final int CONTEXT_CONTENT_MAX = 240;
     private static final int PENDING_CONTENT_MAX = 600;
     private static final int QUOTE_MAX = 100;
-    private static final int EXAMPLES_MAX = 800;
+    private static final int EXAMPLES_MAX = 6000;
     private static final int CACHE_MAX = 50000;
 
     private final ObjectMapper jackson = new ObjectMapper();

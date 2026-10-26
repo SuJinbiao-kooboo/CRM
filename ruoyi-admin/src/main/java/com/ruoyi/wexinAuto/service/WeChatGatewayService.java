@@ -88,6 +88,11 @@ public class WeChatGatewayService {
     private static final Set<String> DOCUMENT_EXTENSIONS = new HashSet<>(Arrays.asList(
             "pdf", "xls", "xlsx", "csv", "txt", "md", "json", "xml", "log",
             "doc", "docx", "ppt", "pptx", "jpg", "jpeg", "png", "gif", "webp", "bmp"));
+
+    /** 卡片、链接占位文本和裸链接没有可分类正文，不送模型。 */
+    private static final Pattern NON_TEXT_ONLY = Pattern.compile(
+            "^(?:【(?:卡片|图片|文件|链接|表情|语音|视频)】|\\[(?:卡片|图片|文件|链接|表情|语音|视频)\\]|(?:https?://|www\\.)\\S+)$",
+            Pattern.CASE_INSENSITIVE);
     private static final Set<String> IMAGE_EXTENSIONS = new HashSet<>(Arrays.asList(
             "jpg", "jpeg", "png", "gif", "webp", "bmp"));
     private static final Pattern FILE_EXT_PATTERN = Pattern.compile(
@@ -295,13 +300,13 @@ public class WeChatGatewayService {
             item.put("category", m.getMsgCategory());
             item.put("reason", m.getCategoryReason());
             results.add(item);
-            if (dryRun ? StringUtils.isNotBlank(m.getMsgCategory())
-                    : "SUCCESS".equalsIgnoreCase(m.getClassifyStatus())) {
-                done++;
-            } else if ("FAILED".equalsIgnoreCase(m.getClassifyStatus())) {
+            if ("FAILED".equalsIgnoreCase(m.getClassifyStatus())) {
                 failed++;
             } else if ("SKIPPED".equalsIgnoreCase(m.getClassifyStatus())) {
                 skipped++;
+            } else if ("SUCCESS".equalsIgnoreCase(m.getClassifyStatus())
+                    || (dryRun && StringUtils.isNotBlank(m.getMsgCategory()))) {
+                done++;
             }
         }
         out.put("classified", done);
@@ -319,7 +324,7 @@ public class WeChatGatewayService {
                 message += "，跳过 " + skipped + " 条";
             }
             if (done == 0) {
-                message += "。请查看“分类状态/分类说明”确认具体原因";
+                message += "。请查看“分类状态”旁的原因提示或本条详情中的“分类说明”";
             }
             out.put("message", message);
         }
@@ -335,19 +340,21 @@ public class WeChatGatewayService {
         Map<String, List<WeChatMessage>> byChat = new LinkedHashMap<>();
         for (WeChatMessage m : rows) {
             if (StringUtils.equalsIgnoreCase("AI_AUTO", m.getCategorySource())) {
+                String reason = "AI_AUTO消息跳过分类";
                 if (!dryRun) {
-                    store.markClassifySkipped(m.getUsername(), m.getLocalId(), "AI_AUTO消息跳过分类");
-                    m.setClassifyStatus("SKIPPED");
-                    m.setCategoryReason("AI_AUTO消息跳过分类");
+                    store.markClassifySkipped(m.getUsername(), m.getLocalId(), reason);
                 }
+                m.setClassifyStatus("SKIPPED");
+                m.setCategoryReason(reason);
                 continue;
             }
             if (!isTextMessage(m)) {
+                String reason = classifySkipReason(m);
                 if (!dryRun) {
-                    store.markClassifySkipped(m.getUsername(), m.getLocalId(), "非文本或系统消息，不调用模型");
-                    m.setClassifyStatus("SKIPPED");
-                    m.setCategoryReason("非文本或系统消息，不调用模型");
+                    store.markClassifySkipped(m.getUsername(), m.getLocalId(), reason);
                 }
+                m.setClassifyStatus("SKIPPED");
+                m.setCategoryReason(reason);
                 continue;
             }
             if (!passAnalysis(m)) {
@@ -358,6 +365,14 @@ public class WeChatGatewayService {
             }
             if (!dryRun && !store.markClassifyProcessing(m.getUsername(), m.getLocalId(), timeout, cooldown, force)) {
                 continue;
+            }
+            if (!dryRun) {
+                // 强制重分类时清空内存中的旧结果，避免模型失败后把旧分类误写为本次成功。
+                m.setMsgCategory(null);
+                m.setCategorySource(null);
+                m.setCategoryReason(null);
+                m.setRelatInq(null);
+                m.setRelatOffer(null);
             }
             byChat.computeIfAbsent(keyOf(m), k -> new ArrayList<>()).add(m);
         }
@@ -377,6 +392,8 @@ public class WeChatGatewayService {
                         store.updateCategory(m);
                         handler.handle(m);
                         maybeAlertTrace(m);
+                    } else {
+                        m.setClassifyStatus("SUCCESS");
                     }
                 } else if (!dryRun) {
                     String reason = "模型未返回可识别的分类结果";
@@ -389,11 +406,35 @@ public class WeChatGatewayService {
     }
 
     private boolean isTextMessage(WeChatMessage message) {
-        if (message == null || StringUtils.isBlank(message.getContent())) {
+        if (message == null) {
             return false;
         }
         String type = StringUtils.trimToEmpty(message.getType());
-        return type.isEmpty() || "文本".equals(type) || "TEXT".equalsIgnoreCase(type);
+        if (type.isEmpty() || "文本".equals(type) || "TEXT".equalsIgnoreCase(type)
+                || "文件/链接/卡片".equals(type)) {
+            return hasClassifiableText(message.getContent());
+        }
+        return false;
+    }
+
+    /** 引用消息在微信原始类型中仍是 appmsg，但正文可能是正常聊天文字，不能只按 type 跳过。 */
+    private boolean hasClassifiableText(String content) {
+        String text = StringUtils.trimToEmpty(content);
+        if (text.isEmpty() || text.startsWith("<")) {
+            return false;
+        }
+        return !NON_TEXT_ONLY.matcher(text).matches();
+    }
+
+    private String classifySkipReason(WeChatMessage message) {
+        String type = StringUtils.defaultIfBlank(message.getType(), "空");
+        if (StringUtils.isBlank(message.getContent())) {
+            return "消息正文为空，不调用模型（消息类型=" + type + "）";
+        }
+        if ("文件/链接/卡片".equals(type)) {
+            return "卡片/链接/文件消息没有可分类正文，不调用模型（消息类型=" + type + "）";
+        }
+        return "非文本或系统消息，不调用模型（消息类型=" + type + "）";
     }
 
     /** 清空AI分类缓存：提示词/语义规则调整后，重跑历史消息前使用。 */

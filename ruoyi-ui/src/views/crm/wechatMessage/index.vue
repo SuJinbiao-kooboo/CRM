@@ -100,8 +100,11 @@
           </el-tooltip>
         </template>
       </el-table-column>
-      <el-table-column label="分类状态" width="105" align="center">
-        <template slot-scope="scope"><el-tag size="mini" :type="statusType(scope.row.classifyStatus)">{{ scope.row.classifyStatus || '-' }}</el-tag></template>
+      <el-table-column label="分类状态" width="125" align="center">
+        <template slot-scope="scope">
+          <el-tag size="mini" :type="statusType(scope.row.classifyStatus)">{{ scope.row.classifyStatus || '-' }}</el-tag>
+          <el-tooltip v-if="scope.row.categoryReason" :content="scope.row.categoryReason" placement="top"><i class="el-icon-warning-outline button-help-icon" /></el-tooltip>
+        </template>
       </el-table-column>
       <el-table-column label="录入状态" width="120" align="center">
         <template slot-scope="scope">
@@ -135,7 +138,9 @@
           <el-col :span="12"><el-form-item label="聊天对象">{{ detail.name }}</el-form-item></el-col>
           <el-col :span="12"><el-form-item label="发言人">{{ detail.sender }}</el-form-item></el-col>
           <el-col :span="12"><el-form-item label="消息时间">{{ detail.createTime }}</el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="消息ID">{{ detail.id || '-' }}</el-form-item></el-col>
           <el-col :span="12"><el-form-item label="消息键">{{ detail.username }}:{{ detail.localId }}</el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="消息类型">{{ detail.type || '-' }}</el-form-item></el-col>
           <el-col :span="12"><el-form-item label="分类">{{ detail.msgCategory }} / {{ detail.categorySource }}</el-form-item></el-col>
           <el-col :span="12"><el-form-item label="分类状态">{{ detail.classifyStatus }}</el-form-item></el-col>
           <el-col :span="12"><el-form-item label="录入状态">{{ detail.entryStatus }}</el-form-item></el-col>
@@ -190,7 +195,7 @@
             <el-button size="mini" type="primary" icon="el-icon-download" :loading="mediaDownloading" @click="downloadMedia(detail)">下载</el-button>
           </div>
         </el-form-item>
-        <el-form-item label="分类说明"><div class="detail-text">{{ detail.categoryReason }}</div></el-form-item>
+        <el-form-item label="分类说明"><div class="detail-text">{{ detail.categoryReason || '-' }}</div></el-form-item>
         <el-form-item label="录入说明"><div class="detail-text">{{ detail.entryMessage }}</div></el-form-item>
         <el-form-item label="任务说明"><div class="detail-text">{{ detail.taskMessage }}</div></el-form-item>
         <el-form-item v-if="detail.relatInq" label="关联 INQ"><pre class="json-box">{{ pretty(detail.relatInq) }}</pre></el-form-item>
@@ -231,6 +236,27 @@ import { listWechatMessages, getWechatMessageStats, getWechatMedia, getWechatQuo
 
 const DOCUMENT_EXTS = ['pdf', 'xls', 'xlsx', 'csv', 'txt', 'md', 'json', 'xml', 'log', 'doc', 'docx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
 const TEXT_EXTS = ['txt', 'md', 'json', 'xml', 'log']
+const MESSAGE_FIELD_ALIASES = {
+  msg_category: 'msgCategory',
+  category_source: 'categorySource',
+  category_reason: 'categoryReason',
+  entry_fail_count: 'entryFailCount',
+  entry_status: 'entryStatus',
+  entry_message: 'entryMessage',
+  entry_offer_count: 'entryOfferCount',
+  entry_offer_ids: 'entryOfferIds',
+  entry_at: 'entryAt',
+  classify_status: 'classifyStatus',
+  classify_at: 'classifyAt',
+  classify_fail_count: 'classifyFailCount',
+  task_status: 'taskStatus',
+  task_at: 'taskAt',
+  task_message: 'taskMessage',
+  trace_alerted_at: 'traceAlertedAt',
+  trace_alert_error: 'traceAlertError',
+  relat_inq: 'relatInq',
+  relat_offer: 'relatOffer'
+}
 const IMAGE_MIME_EXTS = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -315,11 +341,21 @@ export default {
         query.endTime = this.dateRange[1] + ' 23:59:59'
       }
       listWechatMessages(query).then(res => {
-        this.messageList = res.rows || []
+        this.messageList = (res.rows || []).map(this.normalizeMessage)
         this.total = res.total || 0
         this.releaseQuotePreviewMedia()
         this.loadQuoteDetails(this.messageList)
       }).finally(() => { this.loading = false })
+    },
+    normalizeMessage(row) {
+      const data = Object.assign({}, row)
+      Object.keys(MESSAGE_FIELD_ALIASES).forEach(key => {
+        const field = MESSAGE_FIELD_ALIASES[key]
+        if (data[field] === undefined) {
+          data[field] = data[key]
+        }
+      })
+      return data
     },
     loadStats() {
       getWechatMessageStats().then(res => {

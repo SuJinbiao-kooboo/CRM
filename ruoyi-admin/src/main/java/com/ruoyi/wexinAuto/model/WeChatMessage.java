@@ -98,6 +98,10 @@ public class WeChatMessage {
     @JsonProperty("trace_alert_error")
     private String traceAlertError;
 
+    /** TRACE 预警因同会话冷却跳过的时间；跳过项不再补发 */
+    @JsonProperty("trace_alert_suppressed_at")
+    private String traceAlertSuppressedAt;
+
     /** 关联INQ(JSON: id/server_id/sender/content/create_time)：OFFER=回应的INQ；TRACE=对应的INQ */
     @JsonProperty("relat_inq")
     private String relatInq;

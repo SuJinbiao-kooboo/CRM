@@ -88,6 +88,8 @@ public interface WeChatMessageMapper {
     int markTraceAlertError(@Param("username") String username, @Param("localId") long localId,
                             @Param("error") String error);
 
+    int markTraceAlertSuppressed(@Param("username") String username, @Param("localId") long localId);
+
     List<WeChatMessage> selectMessageList(WeChatMessage query);
 
     int updateMediaPath(@Param("username") String username, @Param("localId") long localId,

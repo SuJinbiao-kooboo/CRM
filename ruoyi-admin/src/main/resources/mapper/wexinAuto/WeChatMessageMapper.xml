@@ -37,6 +37,7 @@
         <result property="taskMessage" column="task_message"/>
         <result property="traceAlertedAt" column="trace_alerted_at"/>
         <result property="traceAlertError" column="trace_alert_error"/>
+        <result property="traceAlertSuppressedAt" column="trace_alert_suppressed_at"/>
     </resultMap>
 
     <sql id="WeChatMessageColumns">
@@ -44,7 +45,7 @@
         media_path, create_time, sort_seq, md5, msg_category, category_source, category_reason, status,
         relat_inq, relat_offer, entry_fail_count, classify_status, classify_at, classify_fail_count,
         entry_status, entry_message, entry_offer_count, entry_offer_ids, entry_at,
-        task_status, task_at, task_message, trace_alerted_at, trace_alert_error
+        task_status, task_at, task_message, trace_alerted_at, trace_alert_error, trace_alert_suppressed_at
     </sql>
 
     <insert id="batchUpsert">
@@ -230,6 +231,7 @@
           AND msg_category = 'TRACE'
           AND category_source IN ('LLM','CACHE')
           AND trace_alerted_at IS NULL
+          AND trace_alert_suppressed_at IS NULL
           AND create_time &gt;= #{since}
           AND ((relat_inq IS NOT NULL AND relat_inq != '') OR (relat_offer IS NOT NULL AND relat_offer != ''))
         ORDER BY sort_seq ASC LIMIT #{max}
@@ -372,6 +374,13 @@
     <update id="markTraceAlertError">
         UPDATE wechat_message SET trace_alert_error = #{error}
         WHERE username = #{username} AND local_id = #{localId} AND trace_alerted_at IS NULL
+    </update>
+
+    <update id="markTraceAlertSuppressed">
+        UPDATE wechat_message
+        SET trace_alert_suppressed_at = NOW(), trace_alert_error = NULL
+        WHERE username = #{username} AND local_id = #{localId}
+          AND trace_alerted_at IS NULL AND trace_alert_suppressed_at IS NULL
     </update>
 
     <select id="selectMessageList" parameterType="com.ruoyi.wexinAuto.model.WeChatMessage" resultMap="WeChatMessageResult">

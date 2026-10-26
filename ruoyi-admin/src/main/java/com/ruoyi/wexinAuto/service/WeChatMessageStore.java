@@ -435,6 +435,16 @@ public class WeChatMessageStore {
         }
     }
 
+    /** 记录该 TRACE 因同会话冷却被跳过，后续扫描不再补发。 */
+    public boolean markTraceAlertSuppressed(String username, long localId) {
+        try {
+            return mapper.markTraceAlertSuppressed(username, localId) > 0;
+        } catch (Exception e) {
+            log.warn("TRACE预警冷却跳过状态回写失败: username={} localId={}", username, localId, e);
+            return false;
+        }
+    }
+
     /** 管理页条件查询，分页由 Controller 的 startPage 完成。 */
     public List<WeChatMessage> selectMessageList(WeChatMessage query) {
         try {

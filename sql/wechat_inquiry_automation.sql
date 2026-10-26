@@ -45,6 +45,7 @@ CALL add_wechat_automation_column('wechat_message', 'task_at', "DATETIME NULL CO
 CALL add_wechat_automation_column('wechat_message', 'task_message', "VARCHAR(1000) NOT NULL DEFAULT '' COMMENT '任务生成结果/异常原因'");
 CALL add_wechat_automation_column('wechat_message', 'trace_alerted_at', "DATETIME NULL COMMENT 'TRACE飞书预警成功时间'");
 CALL add_wechat_automation_column('wechat_message', 'trace_alert_error', "VARCHAR(1000) NULL COMMENT 'TRACE预警失败原因'");
+CALL add_wechat_automation_column('wechat_message', 'trace_alert_suppressed_at', "DATETIME NULL COMMENT 'TRACE预警因同会话冷却跳过的时间，不再补发'");
 
 CALL add_wechat_automation_index('wechat_message', 'idx_classify_state', 'KEY idx_classify_state (classify_status, sort_seq)');
 CALL add_wechat_automation_index('wechat_message', 'idx_entry_state', 'KEY idx_entry_state (entry_status, entry_at)');

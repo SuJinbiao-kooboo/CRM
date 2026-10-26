@@ -5,6 +5,20 @@
 -- 执行后刷新字典缓存：POST /system/dict/data/refreshCache，或重启服务。
 -- =====================================================================
 
+-- 0) 记录冷却跳过的 TRACE，避免冷却结束后补发旧预警
+SET @ddl = (
+    SELECT IF(COUNT(*) = 0,
+        'ALTER TABLE wechat_message ADD COLUMN trace_alert_suppressed_at DATETIME NULL COMMENT ''TRACE预警因同会话冷却跳过的时间，不再补发''',
+        'SELECT 1')
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'wechat_message'
+      AND COLUMN_NAME = 'trace_alert_suppressed_at'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 -- 1) 新增同会话预警冷却参数，默认 5 分钟，0=关闭
 INSERT INTO sys_dict_data
     (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark)

@@ -121,6 +121,9 @@
       <el-table-column label="TRACE预警" width="135" align="center">
         <template slot-scope="scope">
           <span v-if="scope.row.traceAlertedAt">{{ scope.row.traceAlertedAt }}</span>
+          <el-tooltip v-else-if="scope.row.traceAlertSuppressedAt" :content="'同会话预警冷却跳过：' + scope.row.traceAlertSuppressedAt" placement="top">
+            <span class="text-info">冷却跳过</span>
+          </el-tooltip>
           <span v-else-if="scope.row.traceAlertError" class="text-danger">{{ scope.row.traceAlertError }}</span>
           <span v-else>-</span>
         </template>
@@ -254,6 +257,7 @@ const MESSAGE_FIELD_ALIASES = {
   task_message: 'taskMessage',
   trace_alerted_at: 'traceAlertedAt',
   trace_alert_error: 'traceAlertError',
+  trace_alert_suppressed_at: 'traceAlertSuppressedAt',
   relat_inq: 'relatInq',
   relat_offer: 'relatOffer'
 }

@@ -1296,6 +1296,9 @@ public class WeChatGatewayService {
             if (cooldownMin > 0 && StringUtils.isNotBlank(username)) {
                 String since = fmtTime(System.currentTimeMillis() - cooldownMin * 60_000L);
                 if (store.hasRecentTraceAlert(username, since)) {
+                    if (store.markTraceAlertSuppressed(m.getUsername(), m.getLocalId())) {
+                        m.setTraceAlertSuppressedAt(fmtTime(System.currentTimeMillis()));
+                    }
                     log.info("同会话{}分钟内已发送过TRACE预警，本次跳过飞书: chat={} localId={}",
                             cooldownMin, m.getName(), m.getLocalId());
                     return false;

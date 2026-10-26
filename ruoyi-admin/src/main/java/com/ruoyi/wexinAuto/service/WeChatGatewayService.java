@@ -19,6 +19,8 @@ import com.ruoyi.wexinAuto.msg.WeChatMessageHandler;
 import com.ruoyi.wexinAuto.msg.WeChatMessageParser;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.utils.DictUtils;
+import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.system.service.ISysDictDataService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,6 +102,9 @@ public class WeChatGatewayService {
     private final AiChannelService aiChannelService;
     private final WeChatAutomationConfig config;
     private final WeChatPartyService partyService;
+
+    @Autowired
+    private ISysDictDataService dictDataService;
 
     private final Object listenLock = new Object();
     private Process listenProcess;
@@ -246,10 +251,10 @@ public class WeChatGatewayService {
             out.put("classified", 0);
             return out;
         }
-        processClassification(rows, false);
+        processClassification(rows, false, false);
         long done = 0;
         for (WeChatMessage m : rows) {
-            if (StringUtils.isNotBlank(m.getMsgCategory())) {
+            if ("SUCCESS".equalsIgnoreCase(m.getClassifyStatus())) {
                 done++;
             }
         }
@@ -279,26 +284,49 @@ public class WeChatGatewayService {
             out.put("message", dryRun ? "未找到可回放消息" : "未找到可分类消息，已录入或已生成任务的消息不允许覆盖");
             return out;
         }
-        processClassification(rows, dryRun);
+        processClassification(rows, dryRun, true);
         List<Map<String, Object>> results = new ArrayList<>();
         int done = 0;
+        int failed = 0;
+        int skipped = 0;
         for (WeChatMessage m : rows) {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("key", m.getUsername() + ":" + m.getLocalId());
             item.put("category", m.getMsgCategory());
             item.put("reason", m.getCategoryReason());
             results.add(item);
-            if (StringUtils.isNotBlank(m.getMsgCategory())) {
+            if (dryRun ? StringUtils.isNotBlank(m.getMsgCategory())
+                    : "SUCCESS".equalsIgnoreCase(m.getClassifyStatus())) {
                 done++;
+            } else if ("FAILED".equalsIgnoreCase(m.getClassifyStatus())) {
+                failed++;
+            } else if ("SKIPPED".equalsIgnoreCase(m.getClassifyStatus())) {
+                skipped++;
             }
         }
         out.put("classified", done);
+        out.put("failed", failed);
+        out.put("skipped", skipped);
         out.put("results", results);
-        out.put("message", dryRun ? "只读回放完成，未写入数据库" : "明确消息分类完成");
+        if (dryRun) {
+            out.put("message", "只读回放完成，未写入数据库");
+        } else {
+            String message = "分类完成：成功 " + done + " 条";
+            if (failed > 0) {
+                message += "，失败 " + failed + " 条";
+            }
+            if (skipped > 0) {
+                message += "，跳过 " + skipped + " 条";
+            }
+            if (done == 0) {
+                message += "。请查看“分类状态/分类说明”确认具体原因";
+            }
+            out.put("message", message);
+        }
         return out;
     }
 
-    private void processClassification(List<WeChatMessage> rows, boolean dryRun) {
+    private void processClassification(List<WeChatMessage> rows, boolean dryRun, boolean force) {
         if (rows == null || rows.isEmpty()) {
             return;
         }
@@ -309,12 +337,16 @@ public class WeChatGatewayService {
             if (StringUtils.equalsIgnoreCase("AI_AUTO", m.getCategorySource())) {
                 if (!dryRun) {
                     store.markClassifySkipped(m.getUsername(), m.getLocalId(), "AI_AUTO消息跳过分类");
+                    m.setClassifyStatus("SKIPPED");
+                    m.setCategoryReason("AI_AUTO消息跳过分类");
                 }
                 continue;
             }
             if (!isTextMessage(m)) {
                 if (!dryRun) {
                     store.markClassifySkipped(m.getUsername(), m.getLocalId(), "非文本或系统消息，不调用模型");
+                    m.setClassifyStatus("SKIPPED");
+                    m.setCategoryReason("非文本或系统消息，不调用模型");
                 }
                 continue;
             }
@@ -324,7 +356,7 @@ public class WeChatGatewayService {
                 }
                 continue;
             }
-            if (!dryRun && !store.markClassifyProcessing(m.getUsername(), m.getLocalId(), timeout, cooldown)) {
+            if (!dryRun && !store.markClassifyProcessing(m.getUsername(), m.getLocalId(), timeout, cooldown, force)) {
                 continue;
             }
             byChat.computeIfAbsent(keyOf(m), k -> new ArrayList<>()).add(m);
@@ -335,7 +367,7 @@ public class WeChatGatewayService {
             int ctxWin = Math.max(20, Math.min(100, config.integer("aiContextWindow", 20)));
             List<WeChatMessage> context = recentContext(keyOf(chatRows.get(0)), chatRows, ctxWin);
             try {
-                classifyWithContext(keyOf(chatRows.get(0)), context, chatRows, chatName);
+                classifyWithContext(keyOf(chatRows.get(0)), context, chatRows, chatName, !force);
             } catch (Exception e) {
                 log.warn("分类批次异常: chat={} error={}", chatName, e.getMessage());
             }
@@ -347,8 +379,10 @@ public class WeChatGatewayService {
                         maybeAlertTrace(m);
                     }
                 } else if (!dryRun) {
-                    store.markClassifyFailed(m.getUsername(), m.getLocalId(),
-                            "模型未返回可识别的分类结果");
+                    String reason = "模型未返回可识别的分类结果";
+                    store.markClassifyFailed(m.getUsername(), m.getLocalId(), reason);
+                    m.setClassifyStatus("FAILED");
+                    m.setCategoryReason(reason);
                 }
             }
         }
@@ -371,6 +405,41 @@ public class WeChatGatewayService {
         return out;
     }
 
+    /** 更新自动分类总开关；写入 wechat_analysis_config.classifyEnabled 并立即刷新字典缓存。 */
+    public Map<String, Object> updateClassifyEnabled(boolean enabled) {
+        SysDictData query = new SysDictData();
+        query.setDictType(ANALYSIS_DICT_TYPE);
+        List<SysDictData> rows = dictDataService.selectDictDataList(query);
+        SysDictData target = null;
+        if (rows != null) {
+            for (SysDictData row : rows) {
+                if ("classifyEnabled".equals(row.getDictLabel())) {
+                    target = row;
+                    break;
+                }
+            }
+        }
+        String value = enabled ? "true" : "false";
+        if (target == null) {
+            target = new SysDictData();
+            target.setDictType(ANALYSIS_DICT_TYPE);
+            target.setDictLabel("classifyEnabled");
+            target.setDictValue(value);
+            target.setDictSort(129L);
+            target.setStatus("0");
+            target.setCreateBy(SecurityUtils.getUsername());
+            dictDataService.insertDictData(target);
+        } else {
+            target.setDictValue(value);
+            target.setUpdateBy(SecurityUtils.getUsername());
+            dictDataService.updateDictData(target);
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("autoEnabled", enabled);
+        out.put("message", enabled ? "自动分类已开启" : "自动分类已关闭，仅保留手动分类");
+        return out;
+    }
+
     /** 轮询拉取/分类参数状态（便于 Postman 观察配置生效情况）。 */
     public Map<String, Object> pollStatus() {
         Map<String, Object> m = new LinkedHashMap<>();
@@ -386,6 +455,7 @@ public class WeChatGatewayService {
         m.put("classifyTriggerCount", analysisInt("classifyTriggerCount", 5));
         m.put("classifyMaxIdleSec", analysisInt("classifyMaxIdleSec", 180));
         m.put("classifyBatchSize", analysisInt("classifyBatchSize", 20));
+        m.put("classifyEnabled", config.bool("classifyEnabled", false));
         m.put("running", pollRunning.get());
         m.put("lastRunAt", lastPollFinishedAt == 0 ? null : fmtTime(lastPollFinishedAt));
         m.put("lastFetched", lastPollFetched);
@@ -664,7 +734,7 @@ public class WeChatGatewayService {
         }
         List<WeChatMessage> selected = new ArrayList<>(rows.subList(0, Math.min(batch, rows.size())));
         long t0 = System.currentTimeMillis();
-        processClassification(selected, false);
+        processClassification(selected, false, false);
         log.info("定时分类完成: 处理 {} 条, 耗时 {}ms", selected.size(), System.currentTimeMillis() - t0);
     }
 
@@ -1132,7 +1202,7 @@ public class WeChatGatewayService {
             int ctxWin = Math.max(20, Math.min(100, analysisInt("aiContextWindow", 20)));
             List<WeChatMessage> pending = new ArrayList<>(chatMsgs);
             List<WeChatMessage> context = recentContext(key, pending, ctxWin);
-            classifyWithContext(key, context, pending, chatName);
+            classifyWithContext(key, context, pending, chatName, true);
             for (WeChatMessage m : pending) {
                 if (m.getMsgCategory() != null && !m.getMsgCategory().isEmpty()) {
                     store.updateCategory(m);
@@ -1266,14 +1336,16 @@ public class WeChatGatewayService {
     }
 
     /** 单会话分类管线：缓存命中 → AI 分类。返回时 pending 内已带分类和关联字段。 */
-    private synchronized void classifyWithContext(String chatKey, List<WeChatMessage> context, List<WeChatMessage> pending, String chatName) {
+    private synchronized void classifyWithContext(String chatKey, List<WeChatMessage> context,
+                                                  List<WeChatMessage> pending, String chatName,
+                                                  boolean useCache) {
         if (pending == null || pending.isEmpty()) {
             return;
         }
         // 1) 缓存命中；未命中的全部交给提示词驱动的 AI 分类
         List<WeChatMessage> blank = new ArrayList<>();
         for (WeChatMessage m : pending) {
-            if (!llm.applyCached(m)) {
+            if (!useCache || !llm.applyCached(m)) {
                 blank.add(m);
             }
         }

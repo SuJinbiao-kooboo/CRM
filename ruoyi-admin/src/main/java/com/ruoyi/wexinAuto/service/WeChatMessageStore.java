@@ -236,9 +236,11 @@ public class WeChatMessageStore {
     }
 
     /** 原子领取分类任务。 */
-    public boolean markClassifyProcessing(String username, long localId, int timeoutSec, int cooldownSec) {
+    public boolean markClassifyProcessing(String username, long localId, int timeoutSec, int cooldownSec,
+                                          boolean force) {
         try {
-            return mapper.markClassifyProcessing(username, localId, Math.max(30, timeoutSec), Math.max(0, cooldownSec)) > 0;
+            return mapper.markClassifyProcessing(username, localId, Math.max(30, timeoutSec),
+                    Math.max(0, cooldownSec), force) > 0;
         } catch (Exception e) {
             log.warn("消息分类领取失败: username={} localId={}", username, localId, e);
             return false;

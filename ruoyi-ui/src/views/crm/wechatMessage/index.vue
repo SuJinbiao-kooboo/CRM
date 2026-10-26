@@ -37,8 +37,13 @@
     </el-form>
 
     <el-row :gutter="10" class="mb8">
+      <el-col :span="3" class="auto-classify-switch">
+        <span class="auto-classify-label">自动分类</span>
+        <el-switch v-model="autoClassifyEnabled" :disabled="autoClassifySaving" active-color="#13ce66" v-hasPermi="['wechat:message:classify']" @change="handleAutoClassifyChange" />
+        <el-tooltip content="测试阶段请保持关闭，勾选消息后点“分类选中”；开启后由后端定时扫描新消息并自动分类。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip>
+      </el-col>
       <el-col :span="1.5"><el-button type="primary" plain icon="el-icon-download" size="mini" :loading="polling" @click="handlePoll" v-hasPermi="['wechat:message:poll']">拉取<el-tooltip content="立即从微信本地库同步最新消息并入库；聊天对象有值时只拉该会话，留空拉全部。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip></el-button></el-col>
-      <el-col :span="1.5"><el-button type="warning" plain icon="el-icon-magic-stick" size="mini" :loading="classifying" @click="handleClassifySelected" v-hasPermi="['wechat:message:classify']">分类选中<el-tooltip content="对勾选消息重新调用 AI 分类为 INQ、OFFER、TRACE 或 OTHER，单次最多 20 条。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip></el-button></el-col>
+      <el-col :span="1.5"><el-button type="warning" plain icon="el-icon-magic-stick" size="mini" :loading="classifying" @click="handleClassifySelected" v-hasPermi="['wechat:message:classify']">分类选中<el-tooltip content="对勾选消息强制重新调用 AI 分类为 INQ、OFFER、TRACE 或 OTHER，不读取分类缓存，单次最多 20 条；已录入或已生成任务的消息不会被覆盖。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip></el-button></el-col>
       <el-col :span="1.5"><el-button type="success" plain icon="el-icon-document-add" size="mini" :loading="entering" @click="handleEntrySelected" v-hasPermi="['wechat:message:entry']">录入选中<el-tooltip content="对勾选消息立即执行 AI 录入和料号匹配；仅处理已成功分类的 INQ/OFFER，已录入消息会幂等跳过。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip></el-button></el-col>
       <el-col :span="1.5"><el-button type="info" plain icon="el-icon-refresh-left" size="mini" @click="handleRequeue" v-hasPermi="['wechat:message:entry']">重排选中<el-tooltip content="将失败、跳过或达到重试上限的录入消息重新放回队列，不立即执行，成功记录不会被覆盖。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip></el-button></el-col>
       <el-col :span="1.5"><el-button type="danger" plain icon="el-icon-bell" size="mini" @click="handleTraceScan" v-hasPermi="['wechat:message:classify']">TRACE补扫<el-tooltip content="补扫近期已关联 INQ/OFFER 但尚未成功发送的 TRACE 预警，已预警消息不会重复发送。" placement="top"><i class="el-icon-warning-outline button-help-icon" @click.stop /></el-tooltip></el-button></el-col>
@@ -222,7 +227,7 @@
 <script>
 import { saveAs } from 'file-saver'
 import * as XLSX from 'xlsx'
-import { listWechatMessages, getWechatMessageStats, getWechatMedia, getWechatQuoteInfo, getWechatQuoteMedia, runWechatClassify, clearWechatClassifyCache, scanWechatTrace, runWechatEntry, requeueWechatEntry, runWechatPoll } from '@/api/crm/wechatMessage'
+import { listWechatMessages, getWechatMessageStats, getWechatMedia, getWechatQuoteInfo, getWechatQuoteMedia, runWechatClassify, setWechatClassifyConfig, clearWechatClassifyCache, scanWechatTrace, runWechatEntry, requeueWechatEntry, runWechatPoll } from '@/api/crm/wechatMessage'
 
 const DOCUMENT_EXTS = ['pdf', 'xls', 'xlsx', 'csv', 'txt', 'md', 'json', 'xml', 'log', 'doc', 'docx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
 const TEXT_EXTS = ['txt', 'md', 'json', 'xml', 'log']
@@ -241,6 +246,8 @@ export default {
       loading: false,
       polling: false,
       classifying: false,
+      autoClassifyEnabled: false,
+      autoClassifySaving: false,
       entering: false,
       showSearch: true,
       total: 0,
@@ -319,7 +326,8 @@ export default {
         const data = res.data || {}
         const poll = data.poll || {}
         const entry = data.entry || {}
-        this.statsText = '未分类 ' + (poll.unclassifiedCnt || 0) + ' 条，待录入 ' + (entry.pendingCnt || 0) + ' 条，最近拉取 ' + (poll.lastRunAt || '-')
+        this.autoClassifyEnabled = !!poll.classifyEnabled
+        this.statsText = (poll.classifyEnabled ? '自动分类已开启' : '自动分类已关闭') + '，未分类 ' + (poll.unclassifiedCnt || 0) + ' 条，待录入 ' + (entry.pendingCnt || 0) + ' 条，最近拉取 ' + (poll.lastRunAt || '-')
       }).catch(() => {})
     },
     handleQuery() {
@@ -363,6 +371,18 @@ export default {
         this.$modal.msgSuccess((res.data && res.data.message) || '分类完成')
         this.getList()
       }).finally(() => { this.classifying = false })
+    },
+    handleAutoClassifyChange(enabled) {
+      const target = !!enabled
+      this.autoClassifySaving = true
+      setWechatClassifyConfig(target).then(res => {
+        const data = res.data || {}
+        this.autoClassifyEnabled = typeof data.autoEnabled === 'boolean' ? data.autoEnabled : target
+        this.$modal.msgSuccess(data.message || (target ? '自动分类已开启' : '自动分类已关闭'))
+        this.loadStats()
+      }).catch(() => {
+        this.autoClassifyEnabled = !target
+      }).finally(() => { this.autoClassifySaving = false })
     },
     handleEntrySelected() {
       if (!this.requireSelection()) return
@@ -884,6 +904,8 @@ export default {
 
 <style scoped>
 .button-help-icon { margin-left: 4px; cursor: help; font-size: 13px; }
+.auto-classify-switch { line-height: 28px; white-space: nowrap; }
+.auto-classify-label { margin-right: 6px; color: #606266; font-size: 13px; }
 .message-hover { cursor: default; }
 .message-content { line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
 .quote-preview { margin-top: 3px; color: #909399; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

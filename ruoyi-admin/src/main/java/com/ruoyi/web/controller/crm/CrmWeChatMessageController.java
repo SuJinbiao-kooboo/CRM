@@ -180,6 +180,21 @@ public class CrmWeChatMessageController extends BaseController {
         return success(gateway.classifyOnce(text(body, "chat")));
     }
 
+    /** 自动分类总开关：关闭时只允许在页面手动勾选后分类。 */
+    @PreAuthorize("@ss.hasPermi('wechat:message:classify')")
+    @Log(title = "微信自动分类开关", businessType = BusinessType.UPDATE)
+    @PostMapping("/classify/config")
+    public AjaxResult updateClassifyConfig(@RequestBody(required = false) Map<String, Object> body) {
+        if (body == null || !body.containsKey("enabled")) {
+            return error("缺少enabled参数");
+        }
+        String value = String.valueOf(body.get("enabled"));
+        if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
+            return error("enabled只能为true或false");
+        }
+        return success(gateway.updateClassifyEnabled(Boolean.parseBoolean(value)));
+    }
+
     @PreAuthorize("@ss.hasPermi('wechat:message:classify')")
     @PostMapping("/classify/cache/clear")
     public AjaxResult clearClassifyCache() {

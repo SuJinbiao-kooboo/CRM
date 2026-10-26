@@ -17,7 +17,8 @@ public interface WeChatMessageMapper {
     int updateFiltered(@Param("m") WeChatMessage m, @Param("reason") String reason);
 
     int markClassifyProcessing(@Param("username") String username, @Param("localId") long localId,
-                               @Param("timeoutSec") int timeoutSec, @Param("cooldownSec") int cooldownSec);
+                               @Param("timeoutSec") int timeoutSec, @Param("cooldownSec") int cooldownSec,
+                               @Param("force") boolean force);
 
     int markClassifyFailed(@Param("username") String username, @Param("localId") long localId,
                            @Param("reason") String reason);

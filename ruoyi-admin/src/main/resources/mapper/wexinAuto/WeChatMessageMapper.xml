@@ -138,10 +138,12 @@
         UPDATE wechat_message
         SET classify_status = 'PROCESSING', classify_at = NOW()
         WHERE username = #{username} AND local_id = #{localId}
+          <if test="force == null or force == false">
           AND (
               (classify_status IN ('PENDING','FAILED') AND (classify_at IS NULL OR classify_at &lt;= DATE_SUB(NOW(), INTERVAL #{cooldownSec} SECOND)))
               OR (classify_status = 'PROCESSING' AND classify_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND))
           )
+          </if>
     </update>
 
     <update id="markClassifyFailed">

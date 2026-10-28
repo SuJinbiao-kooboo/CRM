@@ -17,6 +17,9 @@ public interface ISubscriptionService {
      */
     Map<String, Object> addSubscriptions(List<String> emails);
 
-    /** 批量将订阅置为无效(status=0)，返回影响行数。 */
-    int invalidateSubscriptions(List<Long> ids);
+    /** 批量更新订阅状态(1-生效/0-失效)，返回影响行数。 */
+    int updateStatus(List<Long> ids, int status);
+
+    /** 批量物理删除订阅记录，返回删除行数。 */
+    int deleteSubscriptions(List<Long> ids);
 }

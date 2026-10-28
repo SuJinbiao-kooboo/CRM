@@ -9,6 +9,10 @@ export function addSubscriptions(emails) {
   return request({ url: '/crm/subscription/add', method: 'post', data: { emails: emails } })
 }
 
-export function invalidateSubscriptions(ids) {
-  return request({ url: '/crm/subscription/invalidate', method: 'post', data: { ids: ids } })
+export function updateSubscriptionStatus(ids, status) {
+  return request({ url: '/crm/subscription/status', method: 'post', data: { ids: ids, status: status } })
+}
+
+export function deleteSubscriptions(ids) {
+  return request({ url: '/crm/subscription/delete', method: 'post', data: { ids: ids } })
 }

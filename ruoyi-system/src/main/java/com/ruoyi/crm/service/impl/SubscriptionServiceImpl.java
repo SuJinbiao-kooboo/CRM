@@ -86,10 +86,18 @@ public class SubscriptionServiceImpl implements ISubscriptionService {
     }
 
     @Override
-    public int invalidateSubscriptions(List<Long> ids) {
+    public int updateStatus(List<Long> ids, int status) {
         if (ids == null || ids.isEmpty()) {
             return 0;
         }
-        return subscriptionMapper.invalidateSubscriptions(ids);
+        return subscriptionMapper.updateSubscriptionStatus(ids, status);
+    }
+
+    @Override
+    public int deleteSubscriptions(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+        return subscriptionMapper.deleteSubscriptionByIds(ids);
     }
 }

@@ -26,6 +26,9 @@ public interface SubscriptionMapper {
     /** 将已取消的订阅重新激活为已订阅(status=1)。 */
     int reactivateSubscription(@Param("email") String email, @Param("module") String module);
 
-    /** 按主键批量将订阅状态置为无效(status=0)。 */
-    int invalidateSubscriptions(@Param("ids") List<Long> ids);
+    /** 按主键批量更新订阅状态：1-已订阅，0-已取消。 */
+    int updateSubscriptionStatus(@Param("ids") List<Long> ids, @Param("status") int status);
+
+    /** 按主键批量物理删除订阅记录。 */
+    int deleteSubscriptionByIds(@Param("ids") List<Long> ids);
 }

@@ -40,13 +40,21 @@
         WHERE email = #{email} AND module = #{module}
     </update>
 
-    <update id="invalidateSubscriptions">
+    <update id="updateSubscriptionStatus">
         UPDATE portal.t_subscription
-        SET status = 0, update_time = NOW()
+        SET status = #{status}, update_time = NOW()
         WHERE id IN
         <foreach collection="ids" item="id" open="(" separator="," close=")">
             #{id}
         </foreach>
     </update>
+
+    <delete id="deleteSubscriptionByIds">
+        DELETE FROM portal.t_subscription
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
 
 </mapper>

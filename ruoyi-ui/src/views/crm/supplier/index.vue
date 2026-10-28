@@ -670,9 +670,11 @@
         <el-table-column label="取消订阅原因" prop="cancel_reason" min-width="150" show-overflow-tooltip />
         <el-table-column label="创建时间" prop="create_time" width="150" align="center" />
         <el-table-column label="更新时间" prop="update_time" width="150" align="center" />
-        <el-table-column label="操作" width="80" align="center">
+        <el-table-column label="操作" width="150" align="center">
           <template slot-scope="scope">
-            <el-button type="text" size="mini" :disabled="Number(scope.row.status) === 0" @click="invalidateSub(scope.row)">删除</el-button>
+            <el-button v-if="Number(scope.row.status) === 1" type="text" size="mini" @click="changeSubStatus(scope.row, 0)">失效</el-button>
+            <el-button v-else type="text" size="mini" @click="changeSubStatus(scope.row, 1)">生效</el-button>
+            <el-button type="text" size="mini" style="color:#f56c6c" @click="deleteSub(scope.row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -694,7 +696,7 @@
 <script>
 import { listSupplier, getSupplier, addSupplier, updateSupplier, updateSupplierContact, updateSupplierFollowUp, delSupplier, getSupplierDetail, delSupplierAttachment, listSupplierUsers } from '@/api/crm/supplier'
 import request from '@/utils/request'
-import { listSubscription, addSubscriptions, invalidateSubscriptions } from '@/api/crm/subscription'
+import { listSubscription, addSubscriptions, updateSubscriptionStatus, deleteSubscriptions } from '@/api/crm/subscription'
 import { getDicts } from '@/api/system/dict/data'
 import { getToken } from '@/utils/auth'
 
@@ -1213,11 +1215,20 @@ export default {
         this.$modal.msgSuccess('导入完成：成功 ' + (this.subResult.success || 0) + ' 条，失败 ' + (this.subResult.fail || 0) + ' 条')
       }).catch(() => { this.subSaving = false })
     }
-    ,invalidateSub(row) {
-      this.$confirm('确认将邮箱「' + row.email + '」置为无效吗？', '提示', { type: 'warning' }).then(() => {
-        return invalidateSubscriptions([row.id])
+    ,changeSubStatus(row, status) {
+      const label = status === 1 ? '生效' : '失效'
+      this.$confirm('确认将邮箱「' + row.email + '」' + label + '吗？', '提示', { type: 'warning' }).then(() => {
+        return updateSubscriptionStatus([row.id], status)
       }).then(() => {
-        this.$modal.msgSuccess('已置为无效')
+        this.$modal.msgSuccess('已' + label)
+        this.loadSubscriptions()
+      }).catch(() => {})
+    }
+    ,deleteSub(row) {
+      this.$confirm('确认彻底删除邮箱「' + row.email + '」吗？删除后不可恢复！', '警告', { type: 'error' }).then(() => {
+        return deleteSubscriptions([row.id])
+      }).then(() => {
+        this.$modal.msgSuccess('删除成功')
         this.loadSubscriptions()
       }).catch(() => {})
     }

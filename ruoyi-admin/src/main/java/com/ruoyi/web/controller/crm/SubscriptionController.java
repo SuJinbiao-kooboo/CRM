@@ -59,12 +59,33 @@ public class SubscriptionController extends BaseController {
         return AjaxResult.success("导入完成", result);
     }
 
-    /** 删除（逻辑删除）：将状态置为无效(status=0)。 */
+    /** 生效/失效：批量更新状态(1-生效/0-失效)。 */
     @PreAuthorize("@ss.hasPermi('crm:supplier:edit')")
     @Log(title = "Offer邮箱", businessType = BusinessType.UPDATE)
-    @PostMapping("/invalidate")
-    public AjaxResult invalidate(@RequestBody Map<String, Object> body) {
+    @PostMapping("/status")
+    public AjaxResult updateStatus(@RequestBody Map<String, Object> body) {
         Object idsObj = body.get("ids");
+        List<Long> ids = parseIds(idsObj);
+        int status = "0".equals(String.valueOf(body.get("status"))) ? 0 : 1;
+        int n = subscriptionService.updateStatus(ids, status);
+        Map<String, Object> result = new HashMap<>();
+        result.put("count", n);
+        return AjaxResult.success("操作成功", result);
+    }
+
+    /** 物理删除订阅记录。 */
+    @PreAuthorize("@ss.hasPermi('crm:supplier:edit')")
+    @Log(title = "Offer邮箱", businessType = BusinessType.DELETE)
+    @PostMapping("/delete")
+    public AjaxResult delete(@RequestBody Map<String, Object> body) {
+        List<Long> ids = parseIds(body.get("ids"));
+        int n = subscriptionService.deleteSubscriptions(ids);
+        Map<String, Object> result = new HashMap<>();
+        result.put("count", n);
+        return AjaxResult.success("删除成功", result);
+    }
+
+    private List<Long> parseIds(Object idsObj) {
         List<Long> ids = new ArrayList<>();
         if (idsObj instanceof List) {
             for (Object o : (List<?>) idsObj) {
@@ -74,9 +95,6 @@ public class SubscriptionController extends BaseController {
                 }
             }
         }
-        int n = subscriptionService.invalidateSubscriptions(ids);
-        Map<String, Object> result = new HashMap<>();
-        result.put("count", n);
-        return AjaxResult.success("操作成功", result);
+        return ids;
     }
 }

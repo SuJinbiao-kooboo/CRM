@@ -1,0 +1,5668 @@
+[
+ {
+  "id": "1753901824182001my7I",
+  "name": "Dell Technologies",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1673484952159001t0Lo",
+  "name": "CoreWeave",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1746049128860001I6C7",
+  "name": "DDN",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1745950782901001nlN5",
+  "name": "Oracle",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1729252822888001brb7",
+  "name": "Lenovo",
+  "emails": [],
+  "phones": [
+   "0000635040",
+   "002928-4185",
+   "294-296-3242",
+   "294-296-3131",
+   "294-296-1467",
+   "294-296-3513",
+   "294-296-1513",
+   "310-311-3647"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1562629051102001TToX",
+  "name": "GIGABYTE",
+  "emails": [],
+  "phones": [
+   "+86-10-62102838",
+   "+86-10-62102848",
+   "+86-28-85236930",
+   "+86-28-85256822",
+   "+86-20-87540700",
+   "+86-20-87509080",
+   "+86-21-63400912",
+   "+86-21-63410100",
+   "00847.00847",
+   "00848.00847",
+   "00847-4.86415",
+   "00847-4.86416",
+   "00100007869"
+  ],
+  "pages": [
+   "https://www.gigabyte.cn/Contact",
+   "https://www.gigabyte.cn/About",
+   "https://www.gigabyte.cn/Support"
+  ]
+ },
+ {
+  "id": "1730805022818001vgGl",
+  "name": "Nscale ",
+  "emails": [],
+  "phones": [
+   "00836820083"
+  ],
+  "pages": [
+   "https://www.nscale.com/contact",
+   "https://www.nscale.com/contact/sales",
+   "https://www.nscale.com/about"
+  ]
+ },
+ {
+  "id": "1727854847255001Ay5c",
+  "name": "Nebius",
+  "emails": [
+   "media@nebius.com",
+   "askir@nebius.com",
+   "security@nebius.com"
+  ],
+  "phones": [
+   "005-3124-4186",
+   "003 3.003 0 0 0 1.97",
+   "009-3.004-3.141 3.112",
+   "00012 12.659",
+   "00554 9.01587",
+   "00013 12.6585",
+   "004510641696768"
+  ],
+  "pages": [
+   "https://nebius.com/",
+   "https://nebius.com/contacts",
+   "https://nebius.com/about"
+  ]
+ },
+ {
+  "id": "1576612071507001BlwI",
+  "name": "Microsoft Azure ",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://learn.microsoft.com/en-us/lifecycle/faq/internet-explorer-microsoft-edge"
+  ]
+ },
+ {
+  "id": "1695864400494001URVS",
+  "name": "Ernst & Young",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.ey.com/en_gl/functional/forms/contact/contact-ey-alliances-team",
+   "https://www.ey.com/en_gl/about-us",
+   "https://www.ey.com/en_gl/about-us"
+  ]
+ },
+ {
+  "id": "1705473129456001SiaX",
+  "name": "Together AI ",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.together.ai/contact-sales",
+   "https://www.together.ai/about-us",
+   "https://www.together.ai/support"
+  ]
+ },
+ {
+  "id": "1565017345889001oeeq",
+  "name": "Amazon Web Services",
+  "emails": [],
+  "phones": [
+   "0053649665882"
+  ],
+  "pages": [
+   "https://aws.amazon.com/contact-us/?nc2=h_ut_cu",
+   "https://aws.amazon.com/contact-us/?nc1=f_m",
+   "https://aws.amazon.com/about-aws/global-infrastructure/?nc2=h_dsc_aa_gi"
+  ]
+ },
+ {
+  "id": "1762879138532001p2m3",
+  "name": "Tata Consultancy Services (TCS)",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.tcs.com/contact-us/whats-on-your-mind",
+   "https://www.tcs.com/contact-us/whats-on-your-mind/ir-landing/ir-form",
+   "https://www.tcs.com/contact-us/whats-on-your-mind/global-contact-us"
+  ]
+ },
+ {
+  "id": "1755879145069001LXDg",
+  "name": "Akamai Technologies",
+  "emails": [],
+  "phones": [
+   "617-444-3000",
+   "617-444-3001"
+  ],
+  "pages": [
+   "https://www.akamai.com/zh/why-akamai/contact-us/contact-sales",
+   "https://www.akamai.com/zh/why-akamai/contact-us",
+   "https://www.akamai.com/zh/company"
+  ]
+ },
+ {
+  "id": "1746053584386001dGyO",
+  "name": "Accenture",
+  "emails": [],
+  "phones": [
+   "1 (877) 889-9009",
+   "1 (216) 672-0266"
+  ],
+  "pages": [
+   "https://www.accenture.cn/cn-zh/about/contact-us",
+   "https://www.accenture.cn/cn-zh/about/company-index",
+   "https://www.accenture.cn/cn-zh/about/reinvention-services"
+  ]
+ },
+ {
+  "id": "1725475474164001udd8",
+  "name": "Vertiv",
+  "emails": [
+   "salescloudsupport@vertivco.com",
+   "contact@vertiv.com",
+   "ir@vertiv.com"
+  ],
+  "phones": [
+   "+1-614-888-0246",
+   "+1-614-841-6882",
+   "+1-954-377-3101",
+   "+1-256-430-4000",
+   "+1-800-800-1280",
+   "+1-800-432-3219",
+   "+1-614-841-6400",
+   "+1-877-373-6374",
+   "0080011554499",
+   "008-876510",
+   "000 800 001 6151",
+   "0066-33-813454",
+   "00801-136091",
+   "001-800-12-0666732",
+   "007803-011-0248",
+   "1 888 793 8763"
+  ],
+  "pages": [
+   "https://www.vertiv.com/en-us/contacts/",
+   "https://www.vertiv.com/en-us/contacts/sales/",
+   "https://www.vertiv.com/en-us/support/warranty/it-management-hardware-support-contacts/"
+  ]
+ },
+ {
+  "id": "1730222084028001WmmI",
+  "name": "Supermicro",
+  "emails": [
+   "sales-usa@supermicro.com",
+   "government_sales-usa@supermicro.com",
+   "marketing@supermicro.com",
+   "webmaster@supermicro.com",
+   "support@supermicro.com",
+   "sales_europe@supermicro.com",
+   "support_europe@supermicro.com",
+   "sales-asia@supermicro.com",
+   "sales-cn@supermicro.com",
+   "sales_inquiry_jp@supermicro.com",
+   "support@supermicro.com.tw",
+   "support-cn@supermicro.com",
+   "support_japan@supermicro.com"
+  ],
+  "phones": [
+   "+1-408-503-8000",
+   "+1-408-503-8008",
+   "+31-73-640-0390",
+   "+31-73-641-6525",
+   "+886-2-8226-3990",
+   "+886-2-8226-3992",
+   "+886-3-362-8266",
+   "+82-2-554-0045"
+  ],
+  "pages": [
+   "https://www.supermicro.org.cn/en/about/contact",
+   "https://www.supermicro.org.cn/en/",
+   "https://www.supermicro.org.cn/en/about"
+  ]
+ },
+ {
+  "id": "1727840172544001LqLf",
+  "name": "Foxconn",
+  "emails": [
+   "ir@foxconn.com",
+   "citibank@shareholders-online.com",
+   "media@foxconn.com",
+   "hhri@foxconn.com",
+   "mih@mih-ev.org",
+   "edward.sx.yang@foxconn.com",
+   "stevenchiang@foxconn.com",
+   "117@foxconn.com",
+   "service@investorsspecials.com"
+  ],
+  "phones": [
+   "+886-2-2268-3466",
+   "+866-2-2371-16583",
+   "+866-2-2371-56184",
+   "+1-877-248-42373",
+   "+1-816-843-42814",
+   "+866-2-2371-1658",
+   "+866-2-2371-5618",
+   "+1-877-248-4237",
+   "+886-906-586-086",
+   "+86-183-1699-4246",
+   "+84 852-211-726"
+  ],
+  "pages": [
+   "https://www.honhai.com/en-us/investor-relations/contact-information",
+   "https://www.honhai.com/en-us/contact",
+   "https://www.honhai.com/en-us/about/group-profile"
+  ]
+ },
+ {
+  "id": "1698079200163001C9mV",
+  "name": "HPE",
+  "emails": [],
+  "phones": [
+   "0009292800",
+   "1-888-342-2156",
+   "1-800-633-3600"
+  ],
+  "pages": [
+   "https://www.hpe.com/us/en/contact-hpe.html",
+   "https://www.hpe.com/us/en/about.html",
+   "https://www.hpe.com/us/en/about/technology-leadership-ai.html"
+  ]
+ },
+ {
+  "id": "1570473021026001DzzF",
+  "name": "Google Cloud",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762310096934001nE50",
+  "name": "ASUS",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1564778119440001gxGC",
+  "name": "Cisco",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1562632314103001Tj5x",
+  "name": "PNY Technologies",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1726030596529001cKt0",
+  "name": "CrowdStrike",
+  "emails": [],
+  "phones": [
+   "(888) 512-8906",
+   "1-888-512-8906",
+   "+44 (118) 2285099",
+   "+61 (2) 72533097",
+   "+61 (1800) 290857",
+   "+55-0800-7610109",
+   "+57 (800) 9111042",
+   "+45 70725673",
+   "+33 (800) 911115",
+   "+33 (1) 59009997"
+  ],
+  "pages": [
+   "https://www.crowdstrike.com/en-us/contact-us/",
+   "https://www.crowdstrike.com/en-us/about-us/cyber-superintelligence-lab/",
+   "https://www.crowdstrike.com/en-us/about-us/"
+  ]
+ },
+ {
+  "id": "1563827203102001Iqll",
+  "name": "World Wide Technology ",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762761248829001AX3N",
+  "name": "Firmus ",
+  "emails": [
+   "kate.mclaughlin@firmus.co",
+   "roger.newby@sodali.com",
+   "toby.langley@firmus.co",
+   "lauren.crystal@firmus.co"
+  ],
+  "phones": [
+   "+64 27 533 4529",
+   "+61 401 278 906",
+   "+61 450 223 995",
+   "000000000000002"
+  ],
+  "pages": [
+   "https://firmus.co/about",
+   "https://firmus.co/about/press-kit"
+  ]
+ },
+ {
+  "id": "1655829238172001wvMf",
+  "name": "Vultr",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1730924990761001lw8m",
+  "name": "IBM",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1571413903830001Q4Bl",
+  "name": "Lambda",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://lambda.ai/about",
+   "https://lambda.ai/support"
+  ]
+ },
+ {
+  "id": "1753811877252001RXbX",
+  "name": "Deloitte",
+  "emails": [
+   "togal@deloitte.co.il",
+   "jianwei@deloitte.com",
+   "jjaaj@deloitte.ca",
+   "anjanikumar@deloitte.com",
+   "sroddick@deloitte.co.uk"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.deloitte.com/global/en/contact/contact-us.html?icid=top_contact-us",
+   "https://www.deloitte.com/global/en/alliances/nvidia.html",
+   "https://www.deloitte.com/global/en/contact/rfp.html?icid=quicklinks_submit-rfp"
+  ]
+ },
+ {
+  "id": "16372619385380012bky",
+  "name": "CDW",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1701117235092001wxvg",
+  "name": "CoolIT Systems",
+  "emails": [],
+  "phones": [
+   "+1 403-770-5766",
+   "+886 2-8521-6998"
+  ],
+  "pages": [
+   "https://www.coolitsystems.com/contact/careers/",
+   "https://www.coolitsystems.com/contact/contact/",
+   "https://www.coolitsystems.com/contact/suppliers_partners/"
+  ]
+ },
+ {
+  "id": "1734397663248001EI6x",
+  "name": "Cadence",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762305393148001WcOd",
+  "name": "QCT",
+  "emails": [
+   "chris-chou@quantaqct.com"
+  ],
+  "phones": [
+   "+1-510-270-6111",
+   "+1-510-270-6161",
+   "+1-510-270-6216",
+   "+1-425-633-1620",
+   "+1-425-633-1621",
+   "+86-18600681833",
+   "+86-18069899636",
+   "+886-3-286-0707"
+  ],
+  "pages": [
+   "https://www.qct.io/contactform/index",
+   "https://www.qct.io/Contact-QCT/index",
+   "https://www.qct.io/Company-AboutQCT/index"
+  ]
+ },
+ {
+  "id": "1762532473599001KdHe",
+  "name": "Micron Technology",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.micron.com/secure-portal/technical-support-contact",
+   "https://www.micron.com/secure-portal/sales-support-contact",
+   "https://www.micron.com/about/blog"
+  ]
+ },
+ {
+  "id": "1731515843446001jS2p",
+  "name": "IREN",
+  "emails": [
+   "ir@iren.com",
+   "privacy@iren.com",
+   "linh.tran@iren.com",
+   "andrew.fonceca@iren.com",
+   "kathy.fitzgerald@iren.com",
+   "no-reply@iren.ai",
+   "info@iren.com",
+   "media@iren.com",
+   "tim.delcourt@iren.com",
+   "tribeni.lodh@iren.com",
+   "david.chase@iren.com",
+   "veronica.gutierrez@iren.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://iren.com/investors/contact",
+   "https://iren.com/contact",
+   "https://iren.com/company/team"
+  ]
+ },
+ {
+  "id": "1762305843527001EXtf",
+  "name": "Wistron & Wiwynn",
+  "emails": [
+   "gscm_office@wistron.com",
+   "esg@wistron.com",
+   "ir_office@wistron.com",
+   "pr_office@wistron.com",
+   "web_master@wistron.com"
+  ],
+  "phones": [
+   "005721397",
+   "004882855",
+   "0080503694276",
+   "0064776395",
+   "001.46-3.996"
+  ],
+  "pages": [
+   "https://www.wistron.com/en/ContactUS",
+   "https://www.wistron.com/en/AboutWistron",
+   "https://www.wistron.com/en/AboutWistron/GlobalOperation"
+  ]
+ },
+ {
+  "id": "1693528635007001P8wR",
+  "name": "Crusoe Energy ",
+  "emails": [],
+  "phones": [
+   "003 11.4682 9.0374",
+   "007 6.52769 6.05331",
+   "0093 18.7008",
+   "0007 12.3813",
+   "0007 7.61938"
+  ],
+  "pages": [
+   "https://www.crusoe.ai/contact-sales",
+   "https://www.crusoe.ai/contact-sales/nvidia-gb200",
+   "https://www.crusoe.ai/contact-sales/nvidia-b200"
+  ]
+ },
+ {
+  "id": "1763046485928001Fv3d",
+  "name": "Agile Robots SE",
+  "emails": [
+   "welcome@agile-robots.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.agile-robots.com/de/impressum/"
+  ]
+ },
+ {
+  "id": "1579045196191001A1WE",
+  "name": "Samsung Semiconductor",
+  "emails": [
+   "help@miraisemi.com"
+  ],
+  "phones": [
+   "+82-31-209-7114",
+   "+82-2-6678-2580",
+   "+82-2-3458-9000",
+   "+82-2-3775-0101"
+  ],
+  "pages": [
+   "https://semiconductor.samsung.com/support/contact-info/global-network/korea/",
+   "https://semiconductor.samsung.com/foundry/about-samsung-foundry/company-info/",
+   "https://semiconductor.samsung.com/foundry/about-samsung-foundry/quality-policy/"
+  ]
+ },
+ {
+  "id": "1727966845566001y8CG",
+  "name": "Capital One",
+  "emails": [],
+  "phones": [
+   "0085729255",
+   "0085611654",
+   "0085747233",
+   "0085738161",
+   "0085721794",
+   "0085806859",
+   "0085618521",
+   "0085832508"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1762541249734001QuTr",
+  "name": "Radiant",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://radiant.co/contact",
+   "https://radiant.co/about"
+  ]
+ },
+ {
+  "id": "1755295840638001z14s",
+  "name": "Eaton",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1700252580370001HdjC",
+  "name": "Mistral AI",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1746043529202001XXnD",
+  "name": "SAP",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1576602006126001BNxG",
+  "name": "SK hynix",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1567689459528001t40q",
+  "name": "Advantech",
+  "emails": [],
+  "phones": [
+   "000000000",
+   "400-810-0345",
+   "400-810-8389"
+  ],
+  "pages": [
+   "https://www.advantech.com.cn/zh-cn/contact/service-request-form",
+   "https://www.advantech.com.cn/zh-cn/contact",
+   "https://www.advantech.com.cn/zh-cn/contact/service-request-form?subject=price%2band%2bquotation"
+  ]
+ },
+ {
+  "id": "1762529472989001LvoU",
+  "name": "VAST Data",
+  "emails": [
+   "hello@vastdata.com"
+  ],
+  "phones": [
+   "212-658-1753"
+  ],
+  "pages": [
+   "https://www.vastdata.com/contact",
+   "https://www.vastdata.com/about",
+   "https://www.vastdata.com/platform/supported-platforms"
+  ]
+ },
+ {
+  "id": "1727887759169001hKmj",
+  "name": "LITEON Technology",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1730315975764001wRGz",
+  "name": "Equinix, Inc. ",
+  "emails": [
+   "20press@equinix.com",
+   "20equinixapac@lewispr.com",
+   "20equinix@apcoworldwide.com",
+   "20analystrelations@equinix.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.equinix.com/contact-us",
+   "https://www.equinix.com/contact-us/sales",
+   "https://www.equinix.com/about"
+  ]
+ },
+ {
+  "id": "1580156173426001spul",
+  "name": "Hyve Solutions ",
+  "emails": [
+   "sales@hyvesolutions.com",
+   "americaspayroll@tdsynnex.com",
+   "pr@hyvesolutions.com",
+   "billf@hughes-agency.com"
+  ],
+  "phones": [
+   "855-869-6873",
+   "800-367-5690",
+   "727-599-2750",
+   "864-271-0718"
+  ],
+  "pages": [
+   "https://www.hyvesolutions.com/contact",
+   "https://www.hyvesolutions.com/corporate-responsibility",
+   "https://www.hyvesolutions.com/services/on-site-support"
+  ]
+ },
+ {
+  "id": "1732210970524001l2iM",
+  "name": "ServiceNow",
+  "emails": [
+   "info@servicenow.com",
+   "legalnotices@servicenow.com"
+  ],
+  "phones": [
+   "+1 (844) 863-1987"
+  ],
+  "pages": [
+   "https://www.servicenow.com/contact-us.html",
+   "https://www.servicenow.com/company/how-servicenow-uses-servicenow.html",
+   "https://www.servicenow.com/company.html"
+  ]
+ },
+ {
+  "id": "1727737839145001m4iK",
+  "name": "Aivres Systems",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://aivres.com/company/",
+   "https://aivres.com/company/corporate-responsibility/"
+  ]
+ },
+ {
+  "id": "1762354399791001UsN4",
+  "name": "Global AI ",
+  "emails": [
+   "info@globalai.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.globalai.com/contact",
+   "https://www.globalai.com/about",
+   "https://www.globalai.com/about"
+  ]
+ },
+ {
+  "id": "1762489582664001StLk",
+  "name": "Cloudflare",
+  "emails": [],
+  "phones": [
+   "+55 11 91086-1380",
+   "+59 150 701 179",
+   "+1 226-705-2945",
+   "+50 646 008 807",
+   "+1 849 936 8072",
+   "+59 396 428 4222",
+   "+503 2104 5029",
+   "+50 422 630 049"
+  ],
+  "pages": [
+   "https://www.cloudflare.com/resource/contact-enterprise-sales/",
+   "https://www.cloudflare.com/about/"
+  ]
+ },
+ {
+  "id": "1762315249245001rKMX",
+  "name": "Core42 (A G42 Company)",
+  "emails": [],
+  "phones": [
+   "008899412",
+   "008914762"
+  ],
+  "pages": [
+   "https://www.core42.ai/contact-us",
+   "https://www.core42.ai/contact-us",
+   "https://www.core42.ai/"
+  ]
+ },
+ {
+  "id": "1582241010410001Eb9r",
+  "name": "MSI",
+  "emails": [],
+  "phones": [
+   "+886-2-3234-5599",
+   "00376287400"
+  ],
+  "pages": [
+   "https://www.msi.cn/support"
+  ]
+ },
+ {
+  "id": "1698079201842001CRJr",
+  "name": "NetApp",
+  "emails": [
+   "ng-uspr@netapp.com",
+   "investor_relations@netapp.com"
+  ],
+  "phones": [
+   "+1 408 822 6000",
+   "003 78.1559 43.6003",
+   "0001 41.5686",
+   "003 19.2638 41.7946",
+   "003 10.7565 43.1734",
+   "0074 10.7035 42.972",
+   "009 29.0507",
+   "0055 57.3789",
+   "+18772638277",
+   "008 181.536",
+   "000003911433",
+   "877-263-8277",
+   "+353 21 236 8000",
+   "+18884638277",
+   "+14088226000",
+   "+353212368000",
+   "001 55.3102 8.69077",
+   "001 38.0424",
+   "0028 62.6289",
+   "001 32.7186 31.1439",
+   "001 44.3558 82.2001",
+   "001 57.1402 82.2001",
+   "002 85.9432"
+  ],
+  "pages": [
+   "https://www.netapp.com/forms/sales-contact/",
+   "https://www.netapp.com/company/contact-us/",
+   "https://www.netapp.com/company/"
+  ]
+ },
+ {
+  "id": "1762755478744001MOCb",
+  "name": "Infosys",
+  "emails": [],
+  "phones": [
+   "+55 31 98448 4132",
+   "+55 11 97682 5006",
+   "+1 587 534 8001",
+   "+1 905 247 4700",
+   "+1 604 334 9306",
+   "+1 639 974 0141",
+   "+52 55 1719 3100",
+   "+52 55 1719 3101",
+   "+61 3 9860 2000",
+   "+61 3 9860 2999",
+   "+61 8 6256 3550",
+   "+61 2 8912 1500",
+   "+61 2 8912 1555",
+   "+86 411 39981001",
+   "+86 411 39981002",
+   "+86 571 87930031"
+  ],
+  "pages": [
+   "https://www.infosys.com/contact.html",
+   "https://www.infosys.com/contact/country.html",
+   "https://www.infosys.com/contact/country/asia-pacific-infosys.html"
+  ]
+ },
+ {
+  "id": "1763153158579001X78g",
+  "name": "Meta",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://pytorch.org/contact/",
+   "https://pytorch.org/"
+  ]
+ },
+ {
+  "id": "1732311615704001vFUU",
+  "name": "Schneider Electric ",
+  "emails": [
+   "mediarelations@se.com"
+  ],
+  "phones": [
+   "000268325",
+   "0041666687",
+   "004011125",
+   "0048029998",
+   "0079171193",
+   "0079179636"
+  ],
+  "pages": [
+   "https://www.se.com/ww/en/about-us/open-source/",
+   "https://www.se.com/ww/en/about-us/newsroom/news/press-releases/Schneider-Electric-and-Apple-introduce-new-Smart-Thermostat-for-Apple-Home-Collection-and-Power-Mount-for-Apple-HomeView-6ace265b43c902c2d70a3335/"
+  ]
+ },
+ {
+  "id": "1765392049275001N5nS",
+  "name": "ABB",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1730383000134001q2yc",
+  "name": "SHI International Corp.",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762307133361001Emz9",
+  "name": "Delta Electronics",
+  "emails": [],
+  "phones": [
+   "+1-510-668-5100",
+   "+1-512-902-1420",
+   "+1-978-656-3993",
+   "+1-734-464-0068",
+   "+1-626-581-8666",
+   "+1-919-767-3800",
+   "+1-262-278-4370",
+   "+1-425-947-4400"
+  ],
+  "pages": [
+   "https://www.delta-americas.com/en-US/about/Delta-Profile",
+   "https://www.delta-americas.com/en-US/about/Leadership",
+   "https://www.delta-americas.com/en-US/about/Global-Operations"
+  ]
+ },
+ {
+  "id": "1730328018243001f3gd",
+  "name": "Fireworks AI",
+  "emails": [],
+  "phones": [
+   "00974755-2048",
+   "00306748466258",
+   "004 76.1684 8.79857",
+   "001 102.345 12.164",
+   "0003 0.1625 4.80003",
+   "0003 16 8.60315",
+   "008552107",
+   "007518797"
+  ],
+  "pages": [
+   "https://fireworks.ai/contact",
+   "https://fireworks.ai/about"
+  ]
+ },
+ {
+  "id": "1757023854356001htcD",
+  "name": "Lightwheel",
+  "emails": [],
+  "phones": [
+   "009-3.026-5.286-5.122",
+   "003-20.095 3.33",
+   "003-2.608 2.887",
+   "001-14.21 2.506",
+   "009 8.496-2.811.02",
+   "007.99 0 1.978 0 2.967",
+   "008-1.973 0-3.946",
+   "006-1.684 4.701"
+  ],
+  "pages": [
+   "https://lightwheel.ai/contact",
+   "https://lightwheel.ai/"
+  ]
+ },
+ {
+  "id": "16312273710770019Wtm",
+  "name": "Inventec Corporation",
+  "emails": [
+   "li.billlf@inventec.com.cn"
+  ],
+  "phones": [
+   "+886-3-3900000",
+   "+86 13391121676",
+   "+1-408-642-3395"
+  ],
+  "pages": [
+   "https://ebg.inventec.com/en/support",
+   "https://ebg.inventec.com/en/support/download-center"
+  ]
+ },
+ {
+  "id": "1567727749510001W2gt",
+  "name": "ASROCK RACK INC. ",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762992144659001ha3e",
+  "name": "HP",
+  "emails": [
+   "fuwu@hp.com",
+   "hpshopping_com@hp.com",
+   "store@hp.com",
+   "hpstorepost@hp.com",
+   "opsmanager@hp.com"
+  ],
+  "phones": [
+   "00928439865874",
+   "008201015",
+   "400-820-1015",
+   "400 820 1015",
+   "400 885 6616",
+   "400 610 3888",
+   "400 828 8660",
+   "0000000000001"
+  ],
+  "pages": [
+   "https://www.hp.com/cn-zh/contact-hp/contact.html",
+   "https://www.hpstore.cn/contact-us",
+   "https://www.hp.com/cn-zh/contact-hp/webchat-support.html?src=csptwechat"
+  ]
+ },
+ {
+  "id": "1762412094146001GNVp",
+  "name": "Hitachi",
+  "emails": [
+   "rd.contact@hal.hitachi.com"
+  ],
+  "phones": [
+   "+1 (408) 986-6300"
+  ],
+  "pages": [
+   "https://www.hitachi.com/en-us/contact/",
+   "https://www.hitachi.com/en-us/about/rd/contact/",
+   "https://www.hitachi.com/en-us/about/"
+  ]
+ },
+ {
+  "id": "1756836524302001Mnno",
+  "name": "Lightning AI",
+  "emails": [
+   "sales@lightning.ai"
+  ],
+  "phones": [],
+  "pages": [
+   "https://lightning.ai/about/",
+   "https://lightning.ai/about/",
+   "https://lightning.ai/about/"
+  ]
+ },
+ {
+  "id": "1698079205903001CN2L",
+  "name": "Astera Labs",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1729786342617001Jhhc",
+  "name": "HCLTech",
+  "emails": [
+   "hclfederal@immixgroup.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.hcltech.com/contact-us/request-for-services",
+   "https://www.hcltech.com/about-us",
+   "https://www.hcltech.com/corporate-social-responsibility"
+  ]
+ },
+ {
+  "id": "1746535729977001GW55",
+  "name": "Everpure",
+  "emails": [
+   "info@purestorage.com",
+   "info-japan@purestorage.com",
+   "korea@purestorage.com",
+   "pr@everpuredata.com",
+   "info@everpuredata.com",
+   "benelux@everpuredata.com",
+   "nordics@everpuredata.com",
+   "ireland@everpuredata.com",
+   "greaterchina@everpuredata.com",
+   "info-japan@everpuredata.com",
+   "korea@everpuredata.com",
+   "ta-ops@everpuredata.com"
+  ],
+  "phones": [
+   "1-800-976-6494",
+   "+800-379-7873",
+   "+44 800 976 6494",
+   "+1-800-976-6494",
+   "+49 800 976 6494",
+   "+31 800 976 6494",
+   "+65 800 976 6494",
+   "+61 800 976 6494",
+   "000 800 976 6494",
+   "001 5.46667 15.4001"
+  ],
+  "pages": [
+   "https://www.everpuredata.com/contact.html",
+   "https://www.everpuredata.com/contact/sales.html",
+   "https://www.everpuredata.com/company/careers.html"
+  ]
+ },
+ {
+  "id": "1728047090599001k6aE",
+  "name": "CommScope",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1690568897573001wQ63",
+  "name": "Weka ",
+  "emails": [
+   "pr@weka.io"
+  ],
+  "phones": [
+   "00612600741888",
+   "002.008-3.536",
+   "008-1.02.167-1.81.562",
+   "0063-3.2583",
+   "0093 15.236",
+   "0055 3.5834",
+   "000811325",
+   "0072433881",
+   "+18443920665",
+   "1-844-392-0665"
+  ],
+  "pages": [
+   "https://www.weka.io/contact"
+  ]
+ },
+ {
+  "id": "1728346200031001G5G2",
+  "name": "SoftServe",
+  "emails": [],
+  "phones": [
+   "+1-512-516-8880",
+   "+1-866-687-3588",
+   "+380-32-240-9999",
+   "+1 866 687 3588"
+  ],
+  "pages": [
+   "https://www.softserveinc.com/en-us/contact",
+   "https://www.softserveinc.com/en-us/about-us",
+   "https://www.softserveinc.com/en-us/insights/who-should-own-your-companys-robots"
+  ]
+ },
+ {
+  "id": "1757377410420001PMHx",
+  "name": "Nokia",
+  "emails": [
+   "press.services@nokia.com",
+   "press@hmdglobal.com",
+   "nokia.iar@nokia.com",
+   "investor.relations@nokia.com"
+  ],
+  "phones": [
+   "+358 10 4488 000",
+   "+358 10 4484 900",
+   "+358 10 44 81 002"
+  ],
+  "pages": [
+   "https://www.nokia.com/contact-us/worldwide-offices/",
+   "https://www.nokia.com/contact-us/",
+   "https://www.nokia.com/about-us/investors/"
+  ]
+ },
+ {
+  "id": "1692030759936001qhf0",
+  "name": "PEGATRON",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://svr.pegatroncorp.com/contact",
+   "https://svr.pegatroncorp.com/contact",
+   "https://svr.pegatroncorp.com/company"
+  ]
+ },
+ {
+  "id": "1762799394055001R9jS",
+  "name": "Databricks, Inc.",
+  "emails": [],
+  "phones": [
+   "1-866-330-0121"
+  ],
+  "pages": [
+   "https://www.databricks.com/company/contact",
+   "https://www.databricks.com/company/about-us",
+   "https://www.databricks.com/company/leadership-team"
+  ]
+ },
+ {
+  "id": "1691428140886001e0pW",
+  "name": "EdgeConneX",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1728637161699001yEK8",
+  "name": "EDOM Technology Co., Ltd.",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1727812642349001JjPG",
+  "name": "Baseten",
+  "emails": [],
+  "phones": [
+   "0008335-664287",
+   "005463256"
+  ],
+  "pages": [
+   "https://www.baseten.co/about-us/",
+   "https://www.baseten.co/resources/customers/zed-industries-serves-2x-faster-code-completions-with-baseten/",
+   "https://www.baseten.co/talk-to-us/"
+  ]
+ },
+ {
+  "id": "1725047269425001dSxF",
+  "name": "Simplismart",
+  "emails": [
+   "contact@simplismart.ai",
+   "meghank.kishan@saaswin.co"
+  ],
+  "phones": [],
+  "pages": [
+   "https://simplismart.ai/contact-us",
+   "https://simplismart.ai/"
+  ]
+ },
+ {
+  "id": "1727877135918001xH2D",
+  "name": "Anaconda",
+  "emails": [],
+  "phones": [
+   "00832 75.7013"
+  ],
+  "pages": [
+   "https://www.anaconda.com/contact/sales",
+   "https://www.anaconda.com/contact",
+   "https://www.anaconda.com/about-us"
+  ]
+ },
+ {
+  "id": "1763656430524001X2ND",
+  "name": "Arrow",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1730827659313001HEHN",
+  "name": "AHEAD",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.ahead.com/contact/",
+   "https://www.ahead.com/intelligent-support/"
+  ]
+ },
+ {
+  "id": "1753716185965001i661",
+  "name": "Hydra Host",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1763412088812001vNzf",
+  "name": "Synopsys",
+  "emails": [],
+  "phones": [
+   "000 800-541-7737",
+   "+56-2-3321-2860",
+   "+3741-049-2100",
+   "+32-16-79-72-51",
+   "+45-70-71-69-80",
+   "+358-9-424-52280",
+   "+33-4-12-34-05-55",
+   "+33-1-64-53-27-30"
+  ],
+  "pages": [
+   "https://www.synopsys.com/contact-sales.html",
+   "https://www.synopsys.com/company/contact-synopsys/office-locations.html",
+   "https://www.synopsys.com/company.html"
+  ]
+ },
+ {
+  "id": "1765832836698001knid",
+  "name": "ClickHouse",
+  "emails": [],
+  "phones": [
+   "008 18.008 0 1 1 25"
+  ],
+  "pages": [
+   "https://clickhouse.com/company/contact?loc=nav",
+   "https://clickhouse.com/company/contact?loc=homepage-hero",
+   "https://clickhouse.com/company/contact"
+  ]
+ },
+ {
+  "id": "1765377980949001mTl7",
+  "name": "Cognizant",
+  "emails": [
+   "inquiry@cognizant.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.cognizant.com/cn/zh/about-cognizant/contact-us",
+   "https://www.cognizant.com/us/en/about-cognizant/contact-us",
+   "https://www.cognizant.com/cn/zh/about-cognizant/responsible-ai"
+  ]
+ },
+ {
+  "id": "1762873830565001WCBr",
+  "name": "Astris AI, A Lockheed Martin Company",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://astrisai.com/contact-us",
+   "https://astrisai.com/about",
+   "https://astrisai.com/about"
+  ]
+ },
+ {
+  "id": "15678035617210012fWo",
+  "name": "Cirrascale Cloud Services ",
+  "emails": [
+   "info@cirrascale.com"
+  ],
+  "phones": [
+   "(888) 942-3800"
+  ],
+  "pages": [
+   "https://www.cirrascale.com/contact",
+   "https://www.cirrascale.com/about",
+   "https://www.cirrascale.com/about"
+  ]
+ },
+ {
+  "id": "1562631983696001TQ7V",
+  "name": "Penguin Solutions ",
+  "emails": [
+   "sales@penguinsolutions.com",
+   "ir@penguinsolutions.com",
+   "pr@penguinsolutions.com"
+  ],
+  "phones": [
+   "1-415-954-2800"
+  ],
+  "pages": [
+   "https://www.penguinsolutions.com/en-us/contact-us",
+   "https://www.penguinsolutions.com/en-us/company/about-us",
+   "https://www.penguinsolutions.com/en-us/company/leadership"
+  ]
+ },
+ {
+  "id": "1660843588833001xeE2",
+  "name": "Capgemini",
+  "emails": [],
+  "phones": [
+   "+33 1 47 54 50 00",
+   "+33 1 47 54 50 25"
+  ],
+  "pages": [
+   "https://www.capgemini.com/contact-us/",
+   "https://www.capgemini.com/contact-us/",
+   "https://www.capgemini.com/about-us/"
+  ]
+ },
+ {
+  "id": "1762544284176001IAcD",
+  "name": "Dataiku",
+  "emails": [],
+  "phones": [
+   "0006534548",
+   "000-6709841"
+  ],
+  "pages": [
+   "https://www.dataiku.com/company",
+   "https://www.dataiku.com/company/careers",
+   "https://www.dataiku.com/company/events"
+  ]
+ },
+ {
+  "id": "1726703502537001cW4f",
+  "name": "GMI Cloud",
+  "emails": [],
+  "phones": [
+   "004-9.057 2.17",
+   "007-3.255 2.007",
+   "007-1.23-3.762-2.426",
+   "008-2.68-5.217-3.488",
+   "005.9-2.027.605-3.725",
+   "003 8.6 1.003"
+  ],
+  "pages": [
+   "https://www.gmicloud.ai/en/company/about",
+   "https://www.gmicloud.ai/en/company/events",
+   "https://www.gmicloud.ai/en/company/partnership"
+  ]
+ },
+ {
+  "id": "1753969979543001DWgP",
+  "name": "EDB",
+  "emails": [
+   "techsupport@enterprisedb.com",
+   "salesinquiry@enterprisedb.com",
+   "trial-help@enterprisedb.com",
+   "hr@enterprisedb.com"
+  ],
+  "phones": [
+   "+1-781-532-6739",
+   "+44 1344 968527",
+   "+65 3163 3120",
+   "+1-732-331-1320",
+   "+44-20-3371-9820",
+   "0008000503922",
+   "+1-732-931-7033",
+   "008000503910"
+  ],
+  "pages": [
+   "https://www.enterprisedb.com/contact",
+   "https://www.enterprisedb.com/company",
+   "https://www.enterprisedb.com/leadership-team"
+  ]
+ },
+ {
+  "id": "1767940601360001JsUA",
+  "name": "Intel",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.intel.com/content/www/us/en/support/contact-us.html",
+   "https://www.intel.com/content/www/us/en/support/contact-us.html",
+   "https://www.intel.com/content/www/us/en/newsroom/news/corporate/intel-classiq-accelerate-scalable-quantum-computing.html"
+  ]
+ },
+ {
+  "id": "1762306306900001bHJg",
+  "name": "Compal Electronics, Inc.",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.compalserver.com/solution/",
+   "https://www.compalserver.com/solution/intel/"
+  ]
+ },
+ {
+  "id": "1763665120471001tnrY",
+  "name": "DDC Solutions (a member of Daikin group)",
+  "emails": [],
+  "phones": [
+   "+1 877.205.5971 5785",
+   "+1 877.205.5971"
+  ],
+  "pages": [
+   "https://ddcsolutions.com/about/",
+   "https://ddcsolutions.com/about/",
+   "https://ddcsolutions.com/"
+  ]
+ },
+ {
+  "id": "1765827536223001UcYw",
+  "name": "Ingram Micro",
+  "emails": [
+   "globalcx@ingrammicro.com",
+   "infosec@ingrammicro.com",
+   "corpmail@ingrammicro.com",
+   "electronic.services@ingrammicro.com",
+   "info@promarktech.com",
+   "customer.service@ingrammicro.com",
+   "marketing.argentina@ingrammicro.com",
+   "solucionesaclientes@ingrammicro.com",
+   "mobilitysolutionsna@ingrammicro.com",
+   "marketing.uruguay@ingrammicro.com",
+   "artan.resuli@ingrammicro.com",
+   "office@ingrammicro.at",
+   "info@ingrammicro.be",
+   "office-bih@ingrammicro.com",
+   "info-croatia@ingrammicro.com",
+   "cz@ingrammicro.com",
+   "support_dk@ingrammicro.com",
+   "myynti.ts@ingrammicro.com",
+   "ouverture@ingrammicro.fr",
+   "de-smbox-webmaster@ingrammicro.com",
+   "ugyfelszolgalat@ingrammicro.com",
+   "il-info@ingrammicro.com",
+   "sheref.nishliu@ingrammicro.com",
+   "office-macedonia@ingrammicro.com",
+   "info@ingrammicro.nl",
+   "salg.norge@ingrammicro.com",
+   "ploffice@ingrammicro.com",
+   "pt.comercial@ingrammicro.com",
+   "info-serbia@ingrammicro.com",
+   "office-serbia@ingrammicro.com",
+   "info@rrc-bt.com",
+   "comercial@ingrammicro.es",
+   "support-se@ingrammicro.com",
+   "info@ingrammicro.ch",
+   "duyuru.tr@ingrammicro.com",
+   "sales@ingrammicro.com.au",
+   "prc_marketing@ingrammicro.com",
+   "sales.enquiry.hk@ingrammicro-asia.com",
+   "in-partnercommunication@ingrammicro.com",
+   "wehearyou.id@ingrammicro-asia.com",
+   "enquiry.my@ingrammicro.com",
+   "sales@ingrammicro.co.nz",
+   "salesenquiries.ph@ingrammicro-asia.com",
+   "salesenquiries.sg@ingrammicro-asia.com",
+   "th-contactus@ingrammicro.com",
+   "sales.enquiry_imtw@ingrammicro.com",
+   "info@apteclebanon.com"
+  ],
+  "phones": [
+   "+54 (11) 5238-1444",
+   "000943778",
+   "+598 (2) 9003744",
+   "+355 68 407 9650",
+   "+43 1 4081543",
+   "+32 2 2549211",
+   "+387 61 265 531",
+   "+33 825 82 58 25"
+  ],
+  "pages": [
+   "https://www.ingrammicro.com/en-us/company/contact-us",
+   "https://www.ingrammicro.com/en-us/company/about-us",
+   "https://www.ingrammicro.com/en-us/company/about-us/locations"
+  ]
+ },
+ {
+  "id": "1762426547697001vzPY",
+  "name": "MiTAC Computing Technology Corporation",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762379759842001vkGU",
+  "name": "KIOXIA America, Inc.",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.kioxia.com/en-jp/contact.html",
+   "https://www.kioxia.com/en-jp/about.html",
+   "https://www.kioxia.com/en-jp/about/message.html"
+  ]
+ },
+ {
+  "id": "1745916151014001DX4g",
+  "name": "ElevenLabs",
+  "emails": [
+   "noise@20aq.289c1f1d.avif",
+   "bradley@elevenlabs.io",
+   "lucass@elevenlabs.io",
+   "tristan@elevenlabs.io",
+   "john@mail.com"
+  ],
+  "phones": [
+   "0001164227",
+   "0001164228",
+   "000178793",
+   "0001787940",
+   "0001787941",
+   "00446) 91.93",
+   "007 13.2104",
+   "0052 5.96373",
+   "123 456 7890",
+   "0000000000002",
+   "0000000001",
+   "00000000000004",
+   "0047 5.9133",
+   "0047 18.0864"
+  ],
+  "pages": [
+   "https://elevenlabs.io/contact-sales",
+   "https://elevenlabs.io/about",
+   "https://elevenlabs.io/agents/ai-customer-support"
+  ]
+ },
+ {
+  "id": "1736203211057001eGLD",
+  "name": "Intelliflex",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1735844332328001byg5",
+  "name": "Core Scientific",
+  "emails": [
+   "sales@corescientific.com",
+   "contact@corescientific.com",
+   "ir@corescientific.com",
+   "press@corescientific.com"
+  ],
+  "phones": [
+   "512-402-5233"
+  ],
+  "pages": [
+   "https://corescientific.com/contact-us/",
+   "https://corescientific.com/about/mission-vision/",
+   "https://corescientific.com/about/community-impact/"
+  ]
+ },
+ {
+  "id": "1703018475433001bxom",
+  "name": "Glean",
+  "emails": [
+   "hello@glean.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.glean.com/about",
+   "https://www.glean.com/about/ai-at-glean",
+   "https://www.glean.com/about/glean-story"
+  ]
+ },
+ {
+  "id": "1736534839674001YmRf",
+  "name": "nVent",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1771566571992001rAfb",
+  "name": "LiveX AI",
+  "emails": [
+   "contact@livex.ai"
+  ],
+  "phones": [
+   "+1-661-384-7070",
+   "(661) 384-7070"
+  ],
+  "pages": [
+   "https://livex.ai/about"
+  ]
+ },
+ {
+  "id": "1746135610329001COrn",
+  "name": "Centific",
+  "emails": [],
+  "phones": [
+   "000000000000001"
+  ],
+  "pages": [
+   "https://www.centific.com/contact/book-a-demo",
+   "https://www.centific.com/contact/contact",
+   "https://www.centific.com/contact/newsletter"
+  ]
+ },
+ {
+  "id": "1762377748850001R91D",
+  "name": "Netris",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762323782767001qHXv",
+  "name": "L&T Technology Services",
+  "emails": [
+   "info@ltts.com"
+  ],
+  "phones": [
+   "265-670 5000"
+  ],
+  "pages": [
+   "https://www.ltts.com/contact-us",
+   "https://www.ltts.com/about-us",
+   "https://www.ltts.com/about-us/accolades"
+  ]
+ },
+ {
+  "id": "1694538324818001qF3u",
+  "name": "Marvik",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.marvik.ai/contact",
+   "https://www.marvik.ai/about",
+   "https://www.marvik.ai/blog/claude-managed-agents-technical-overview-architecture-and-cost-analysis"
+  ]
+ },
+ {
+  "id": "1692154205825001AHAD",
+  "name": "Rafay",
+  "emails": [
+   "info@rafay.co"
+  ],
+  "phones": [
+   "(669) 336-4800",
+   "(877) 355-1777"
+  ],
+  "pages": [
+   "https://rafay.co/contact",
+   "https://rafay.co/company/about",
+   "https://rafay.co/company/careers"
+  ]
+ },
+ {
+  "id": "1737646141955001LL2y",
+  "name": "Quantinuum",
+  "emails": [],
+  "phones": [
+   "+1 (855) 888-7686"
+  ],
+  "pages": [
+   "https://www.quantinuum.com/contact",
+   "https://www.quantinuum.com/company/about",
+   "https://www.quantinuum.com/company/about"
+  ]
+ },
+ {
+  "id": "1762496868101001RUH2",
+  "name": "EXL",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1724267538863001lCPP",
+  "name": "LTM",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.ltm.com/contactus",
+   "https://www.ltm.com/about-us",
+   "https://www.ltm.com/about-us/partners"
+  ]
+ },
+ {
+  "id": "1578957673152001to62",
+  "name": "Lablup Inc.",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.lablup.com/contact",
+   "https://www.lablup.com/about/vision",
+   "https://www.lablup.com/about/company"
+  ]
+ },
+ {
+  "id": "1762972229328001fbv7",
+  "name": "Elastic",
+  "emails": [
+   "info@elastic.co"
+  ],
+  "phones": [
+   "+1 650 880 1240"
+  ],
+  "pages": [
+   "https://www.elastic.co/contact",
+   "https://www.elastic.co/about",
+   "https://www.elastic.co/about/"
+  ]
+ },
+ {
+  "id": "1727883575346001jgpb",
+  "name": "Solidigm",
+  "emails": [],
+  "phones": [
+   "+1 (855) 765 4301"
+  ],
+  "pages": [
+   "https://www.solidigmtech.com.cn/support-page.html",
+   "https://www.solidigmtech.com.cn/support/warranty-rma.html",
+   "https://www.solidigmtech.com.cn/support/faqs.html"
+  ]
+ },
+ {
+  "id": "1769797711475001JOvG",
+  "name": "Cursor",
+  "emails": [
+   "jane@acme.co"
+  ],
+  "phones": [
+   "0023 29.1212",
+   "001 36.3402",
+   "001 28.5076",
+   "004 21.3992 23.2004",
+   "0023 26.5288",
+   "0008 54.2373",
+   "0083 65.7551",
+   "0098 34.1388",
+   "001126114"
+  ],
+  "pages": [
+   "https://cursor.com/contact-sales?source=navbar",
+   "https://cursor.com/contact-sales?source=hero_request_demo",
+   "https://cursor.com/product"
+  ]
+ },
+ {
+  "id": "1755809832752001lhfp",
+  "name": "vCluster",
+  "emails": [],
+  "phones": [
+   "00836820083"
+  ],
+  "pages": [
+   "https://www.vcluster.com/company/about"
+  ]
+ },
+ {
+  "id": "1575929266647001YfQW",
+  "name": "TSMC",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762358421536001tOW8",
+  "name": "Pellera Technologies",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1564777958113001ot1q",
+  "name": "Red Hat",
+  "emails": [
+   "apac@redhat.com",
+   "info-latam@redhat.com"
+  ],
+  "phones": [
+   "+61 3 9624 8100",
+   "+55 11 3529 6006",
+   "+86 (010) 6260 8130",
+   "+852 36150747",
+   "000-800-919-0891",
+   "+81 (3) 45881313",
+   "+52 55-8851-6452",
+   "+65 6490 4200",
+   "+65 490 4201",
+   "+1 919 754 3700",
+   "001 803 440 224",
+   "+82 2 6105 4390",
+   "+63 2 8540 1451",
+   "00801491500",
+   "+65 6232 4222",
+   "0008009190895"
+  ],
+  "pages": [
+   "https://www.redhat.com/en/contact",
+   "https://www.redhat.com/en/contact/customer-service",
+   "https://www.redhat.com/en/contact/sales"
+  ]
+ },
+ {
+  "id": "1565017346666001opo2",
+  "name": "Nutanix",
+  "emails": [
+   "pr@nutanix.com",
+   "university@nutanix.com"
+  ],
+  "phones": [
+   "408-216-8360",
+   "(408) 216-8360",
+   "008320000",
+   "0035620000"
+  ],
+  "pages": [
+   "https://www.nutanix.com/contact-us",
+   "https://www.nutanix.com/company/customers",
+   "https://www.nutanix.com/company/news-events/webinars-on-demand"
+  ]
+ },
+ {
+  "id": "1753624644432001e8VZ",
+  "name": "Spectro Cloud",
+  "emails": [
+   "support@spectrocloud.com",
+   "jobs@spectrocloud.com"
+  ],
+  "phones": [
+   "+1 408 418 8868"
+  ],
+  "pages": [
+   "https://www.spectrocloud.com/contact",
+   "https://www.spectrocloud.com/company",
+   "https://www.spectrocloud.com/corporate-responsibility-program"
+  ]
+ },
+ {
+  "id": "1768929402891001YHPp",
+  "name": "PwC",
+  "emails": [],
+  "phones": [
+   "+1-646-471-3000"
+  ],
+  "pages": [
+   "https://www.pwc.com/us/en/content/pwc/content/pwc/global/forms/contactUsNew.html?parentPagePath=/content/pwc/us/en&style=red",
+   "https://www.pwc.com/us/en/about-us.html",
+   "https://www.pwc.com/us/en/about-us/alumni/our-alumni.html"
+  ]
+ },
+ {
+  "id": "1763763580759001J4FX",
+  "name": "Sanmina",
+  "emails": [
+   "geoff.gagne@sanmina.com"
+  ],
+  "phones": [
+   "1 408 964 3500",
+   "1 408 964 3440",
+   "1 408 931 5137",
+   "+49.(0)9831.51",
+   "+49.(0)9831.51.4229",
+   "+852.2305.1800",
+   "+852.2799.2398",
+   "+65.6245.7300",
+   "+65.6273.7079"
+  ],
+  "pages": [
+   "https://www.sanmina.com/media-center/media-contacts/",
+   "https://www.sanmina.com/contact/",
+   "https://www.sanmina.com/company-profile/"
+  ]
+ },
+ {
+  "id": "1755352774954001SoGN",
+  "name": "Accelsius",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1567689821780001WIUm",
+  "name": "Aetina Corporation",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1755110298283001JsgQ",
+  "name": "Siemens",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1733321510501001mGQm",
+  "name": "5C",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://5c.ai/contact",
+   "https://5c.ai/about-us"
+  ]
+ },
+ {
+  "id": "1724346857976001YWNe",
+  "name": "ZutaCore®",
+  "emails": [
+   "info@zutacore.com",
+   "india@zutacore.com"
+  ],
+  "phones": [
+   "+1 877 520 3908",
+   "+972 52 7504010",
+   "+886 910 801507",
+   "886 910 8015"
+  ],
+  "pages": [
+   "https://zutacore.com/contact/",
+   "https://zutacore.com/about"
+  ]
+ },
+ {
+  "id": "1764821192347001lsvd",
+  "name": "AInvest",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762549438850001WGmy",
+  "name": "AAEON",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.aaeon.com/en/contact/contact_form",
+   "https://www.aaeon.com/en/contact",
+   "https://www.aaeon.com/en/contact/enews_form"
+  ]
+ },
+ {
+  "id": "1746211794149001a3ws",
+  "name": "AI21",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1765998177741001mz01",
+  "name": "MediaTek",
+  "emails": [
+   "security@mediatek.com"
+  ],
+  "phones": [
+   "+358 20 7930 700",
+   "+49 2111645260",
+   "+91-80-42842600",
+   "+91-80-42842601",
+   "+91-120-6151000",
+   "0008006501839",
+   "0008006500366",
+   "000800-4401319"
+  ],
+  "pages": [
+   "https://www.mediatek.com/company/contact-us",
+   "https://www.mediatek.com/company/contact-us",
+   "https://www.mediatek.com/security-contact"
+  ]
+ },
+ {
+  "id": "1763406413569001kiod",
+  "name": "Adaption",
+  "emails": [
+   "info@adaptionlabs.ai"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1763141091839001KUBN",
+  "name": "Yotta Data Services ",
+  "emails": [
+   "marketing@yotta.com",
+   "info@yotta.com",
+   "careers@yotta.com"
+  ],
+  "phones": [
+   "00076 2026",
+   "+912192400011"
+  ],
+  "pages": [
+   "https://yotta.com/contact/",
+   "https://yotta.com/2026-frost-sullivan-company-of-the-year-recognition/",
+   "https://yotta.com/life-at-yotta/"
+  ]
+ },
+ {
+  "id": "1756348304185001uHIX",
+  "name": "Amdocs",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1567727279476001DGX9",
+  "name": "Analog Devices ",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762748657476001XqiC",
+  "name": "Altos Computing Inc.",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1767198075017001LX6E",
+  "name": "Abridge",
+  "emails": [
+   "sample@email.tst",
+   "press@abridge.com"
+  ],
+  "phones": [
+   "860-391-5236"
+  ],
+  "pages": [
+   "https://www.abridge.com/contact",
+   "https://www.abridge.com/about",
+   "https://www.abridge.com/press-release/abridge-announces-partnership-in-the-university-of-kansas-health-systems-140-locations-the-first-major-rollout-of-generative-ai-in-healthcare"
+  ]
+ },
+ {
+  "id": "1764884258622001OQgi",
+  "name": "WD",
+  "emails": [
+   "pdl-web-it-monitoring@wdc.com",
+   "dl-it-aem-support@wdc.com",
+   "jobs@wdc.com",
+   "investor@wdc.com",
+   "dev.vrat.pandey@wdc.com",
+   "pro.rewards@wdc.com",
+   "generalwebinquiries@wdc.com",
+   "wd.mediainquiries@wdc.com"
+  ],
+  "phones": [
+   "+1 (855)-799-5529"
+  ],
+  "pages": [
+   "https://www.westerndigital.com/company/contact-us?selectedValue=looking-to-purchase",
+   "https://www.westerndigital.com/company/contact-us",
+   "https://www.westerndigital.com/company/newsroom/press-releases/2026/2026-05-14-wd-named-to-2026-sp-dow-jones-best-in-class-index-north-america"
+  ]
+ },
+ {
+  "id": "1764954897004001ZC26",
+  "name": "AI-RAN Alliance ",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1701989607681001mHI1",
+  "name": "Amphenol",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1726167742514001KF4r",
+  "name": "AIBLE",
+  "emails": [],
+  "phones": [
+   "+1 (650) 864-1715",
+   "+1 (312) 869-9658"
+  ],
+  "pages": [
+   "https://www.aible.com/contact-us/",
+   "https://www.aible.com/about-us",
+   "https://www.aible.com/aible-partners"
+  ]
+ },
+ {
+  "id": "1734541267634001bwiR",
+  "name": "Arize AI",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762314090741001Fg1j",
+  "name": "AI Pub by Ten: Making Every GPU Count",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1736288087456001q7aL",
+  "name": "MEGMEET",
+  "emails": [
+   "sales.us@megmeet.com"
+  ],
+  "phones": [
+   "+1-408-260-7211"
+  ],
+  "pages": [
+   "https://en.megmeet.com/about",
+   "https://en.megmeet.com/about/exhibition.html",
+   "https://en.megmeet.com/about/social.html"
+  ]
+ },
+ {
+  "id": "1731949742664001WHmT",
+  "name": "Arango",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1763422385589001Fb9Y",
+  "name": "NTT DATA",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.nttdata.com/global/en/contact-us",
+   "https://www.nttdata.com/global/en/about-us",
+   "https://www.nttdata.com/global/en/about-us/profile"
+  ]
+ },
+ {
+  "id": "1690479175757001Knkr",
+  "name": "Basler ",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1727814383090001yReM",
+  "name": "Applied Digital",
+  "emails": [
+   "apld@gateway-grp.com",
+   "jsa_applied@jsa.net",
+   "apld@gatewayir.com"
+  ],
+  "phones": [
+   "000000 100"
+  ],
+  "pages": [
+   "https://www.applieddigital.com/contact",
+   "https://www.applieddigital.com/about",
+   "https://www.applieddigital.com/"
+  ]
+ },
+ {
+  "id": "1733786373732001DefD",
+  "name": "Barco",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1758227257472001G0Ws",
+  "name": "Bechtel",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1727753501305001ROgX",
+  "name": "Seagate Technology",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1567689981489001WiTe",
+  "name": "AIC Inc. ",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762324895821001o5ig",
+  "name": "Beehe Electric(Taicang) Co., Ltd.",
+  "emails": [
+   "sales@beehe.com"
+  ],
+  "phones": [
+   "+86-512-5398-3020",
+   "+86-0512-5398-3020",
+   "+86-180-1930-6327"
+  ],
+  "pages": [
+   "https://www.beehe.com/contact",
+   "https://www.beehe.com/about"
+  ]
+ },
+ {
+  "id": "1746460163636001YjtN",
+  "name": "Tech Mahindra",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762536844734001ei3d",
+  "name": "Wipro",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "16012586547220014qD8",
+  "name": "Salesforce ",
+  "emails": [],
+  "phones": [
+   "000000000062",
+   "0035962362",
+   "001077348",
+   "1-800-664-9073"
+  ],
+  "pages": [
+   "https://www.salesforce.com/service/contact-center/",
+   "https://www.salesforce.com/company/contact-us/?d=cta-header-9",
+   "https://www.salesforce.com/company/contact-us/?d=pb&pr="
+  ]
+ },
+ {
+  "id": "1730909200231001MBpY",
+  "name": "TrendAI",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.trendaisecurity.com/en/contact",
+   "https://www.trendaisecurity.com/en/about",
+   "https://www.trendaisecurity.com/en/corporate-social-responsibility"
+  ]
+ },
+ {
+  "id": "1576200829114001YC71",
+  "name": "APPRO Photoelectron Inc.",
+  "emails": [
+   "sales@appropho.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.appropho.com/contact.html",
+   "https://www.appropho.com/contact_en.html",
+   "https://www.appropho.com/about_en.html"
+  ]
+ },
+ {
+  "id": "1762331146394001JRUT",
+  "name": "AVerMedia Technologies, Inc.",
+  "emails": [],
+  "phones": [
+   "1-408-479-4093"
+  ],
+  "pages": [
+   "https://professional.avermedia.com/about/contact",
+   "https://professional.avermedia.com/support/contact-us",
+   "https://professional.avermedia.com/about/avermedia"
+  ]
+ },
+ {
+  "id": "1731961606715001Bsek",
+  "name": "Alembic: AI-Powered Causal Platform",
+  "emails": [
+   "prforalembic@bospar.com",
+   "cammy.keiler@alembic.com"
+  ],
+  "phones": [
+   "00001 23.96",
+   "00008 51.5596",
+   "008588882"
+  ],
+  "pages": [
+   "https://alembic.com/contact",
+   "https://alembic.com/company",
+   "https://alembic.com/company/news"
+  ]
+ },
+ {
+  "id": "1763113510848001h3pv",
+  "name": "Silicon Motion Inc.",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.siliconmotion.com/support/contact",
+   "https://www.siliconmotion.com/company/overview",
+   "https://www.siliconmotion.com/company/leadership/n"
+  ]
+ },
+ {
+  "id": "1763048695057001ZYsN",
+  "name": "Aligned Data Systems",
+  "emails": [],
+  "phones": [
+   "00618-1024",
+   "004110879323",
+   "00349999999"
+  ],
+  "pages": [
+   "https://aligneddc.com/contact/",
+   "https://aligneddc.com/about-aligned/",
+   "https://aligneddc.com/locations/"
+  ]
+ },
+ {
+  "id": "1727833639581001Nz0Y",
+  "name": "BizLink Technology, Inc.",
+  "emails": [
+   "esg@bizlinktech.com"
+  ],
+  "phones": [
+   "004184100417"
+  ],
+  "pages": [
+   "https://www.bizlinktech.com/contact",
+   "https://www.bizlinktech.com/company-overview",
+   "https://www.bizlinktech.com/corporate-governance"
+  ]
+ },
+ {
+  "id": "1728028631060001MDhj",
+  "name": "Bitdeer AI",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.bitdeer.ai/en/contact",
+   "https://www.bitdeer.ai/en/contact?product=GB300",
+   "https://www.bitdeer.ai/en/about"
+  ]
+ },
+ {
+  "id": "1729030148030001hMQC",
+  "name": "F5, Inc.",
+  "emails": [],
+  "phones": [
+   "008 36.6988",
+   "004 18.3008",
+   "008 24.4516 14.092",
+   "008 5.27242",
+   "002 5.21684 12.9308",
+   "004 2.004 0 0 0 3.42",
+   "000135931",
+   "00367985-1200"
+  ],
+  "pages": [
+   "https://www.f5.com/products/get-f5?ls=meta",
+   "https://www.f5.com/go/contact/request-f5-professional-services",
+   "https://www.f5.com/go/contact/contact-f5-distributed-cloud"
+  ]
+ },
+ {
+  "id": "1730135918040001a5yb",
+  "name": "Aviz Networks",
+  "emails": [],
+  "phones": [
+   "005380974",
+   "00231323645612",
+   "003889187"
+  ],
+  "pages": [
+   "https://aviznetworks.com/contact-us",
+   "https://aviznetworks.com/company/about-us",
+   "https://aviznetworks.com/company/meet-the-team"
+  ]
+ },
+ {
+  "id": "1727879032542001A3Yh",
+  "name": "Arrcus",
+  "emails": [
+   "sales@arrcus.com",
+   "support@arrcus.com"
+  ],
+  "phones": [
+   "+81 3 5403 6500"
+  ],
+  "pages": [
+   "https://arrcus.com/contact-us",
+   "https://arrcus.com/about-us",
+   "https://arrcus.com/about-us?tab=0"
+  ]
+ },
+ {
+  "id": "1700526429667001iyOr",
+  "name": "Beamr ",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://beamr.com/contact",
+   "https://beamr.com/cabr"
+  ]
+ },
+ {
+  "id": "1769454607468001q36G",
+  "name": "AUMOVIO",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762307921088001FWBe",
+  "name": "Bellwether Electronic Corp.",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1734649994228001bG0m",
+  "name": "Berkeley Communications",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1753707787661001FvVB",
+  "name": "Booz Allen",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1564778119369001gceV",
+  "name": "AMAX",
+  "emails": [
+   "info@amax.com"
+  ],
+  "phones": [
+   "000-5500984180",
+   "+1 (800) 800-6328",
+   "+1 (800) 889-2629",
+   "+1 (510) 651-8886",
+   "+1 (214) 587-1829",
+   "+353 (61) 432-888",
+   "+886 (49) 06-933",
+   "+86 (21) 5103-5919"
+  ],
+  "pages": [
+   "https://www.amax.com/contact-us/",
+   "https://www.amax.com/about-us/",
+   "https://www.amax.com/about-us/"
+  ]
+ },
+ {
+  "id": "1769209385173001CGVt",
+  "name": "Bones Studio",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1727975797605001Z3Ag",
+  "name": "Canonical",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1758560848259001SF4j",
+  "name": "Cohere Technologies",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1727972037077001ocJ8",
+  "name": "Chenbro",
+  "emails": [
+   "info@chenbro.com",
+   "usinfo@chenbro.com",
+   "deinfo@chenbro.com",
+   "cninfo@chenbro.com"
+  ],
+  "phones": [
+   "+886-2-82265500",
+   "+886-2-82265392",
+   "+1-909-9370100",
+   "+1-909-9372100",
+   "+86-010-53277230",
+   "+86-21-33232288"
+  ],
+  "pages": [
+   "https://www.chenbro.com/en-US/contact-us",
+   "https://www.chenbro.com/en-US/contact-us",
+   "https://www.chenbro.com/en-US/about"
+  ]
+ },
+ {
+  "id": "1753717970342001rtDB",
+  "name": "Boyd",
+  "emails": [],
+  "phones": [
+   "000-4589381715"
+  ],
+  "pages": [
+   "https://www.boydcorp.com/contact-us.html",
+   "https://www.boydcorp.com/about-boyd/leadership.html",
+   "https://www.boydcorp.com/about-boyd/boyd-capabilities.html"
+  ]
+ },
+ {
+  "id": "1562617310475001DpH4",
+  "name": "Carahsoft Technology Corp.",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762904573942001ASDj",
+  "name": "ADLINK Technology, Inc.",
+  "emails": [
+   "japan@adlinktech.com",
+   "korea@adlinktech.com"
+  ],
+  "phones": [
+   "+886-3-216-5088",
+   "+886-3-328-5706",
+   "+886-4-2708-2338",
+   "+886-4-2708-2056",
+   "+886-6-313-7768",
+   "+886-6-313-3166",
+   "+86-21-5132-8988",
+   "+86-21-5192-3588"
+  ],
+  "pages": [
+   "https://www.adlinktech.com/en/Contact_us_form",
+   "https://www.adlinktech.com/en/contactus"
+  ]
+ },
+ {
+  "id": "1733164849916001pzIB",
+  "name": "Clockwork.io",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1768517752019001HWWB",
+  "name": "BNY",
+  "emails": [
+   "investorrelations@bny.com"
+  ],
+  "phones": [
+   "+1 800 205 7699",
+   "+1 617 360 6990",
+   "+1 800 254 2826",
+   "+1 212 495 1784"
+  ],
+  "pages": [
+   "https://www.bny.com/corporate/global/en/investor-relations/investor-contacts.html",
+   "https://www.bny.com/corporate/global/en/contact-us.html"
+  ]
+ },
+ {
+  "id": "1696454907813001upJX",
+  "name": "DataRobot",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1767198392969001Sw0U",
+  "name": "Chai Discovery",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762348675117001z930",
+  "name": "Check Point",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1728337329312001wzQ3",
+  "name": "D3 Embedded",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762333986240001JBHO",
+  "name": "Cerebro",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://cerebro.cloud/contact",
+   "https://cerebro.cloud/colocation"
+  ]
+ },
+ {
+  "id": "1736909067699001p5bm",
+  "name": "Deeproute AI Co Ltd",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1728425554629001hE4y",
+  "name": "Deepchecks",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762306134058001aKZ9",
+  "name": "Classiq Technologies Inc. ",
+  "emails": [
+   "classiq.careers@comeetapply.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.classiq.io/contact-us",
+   "https://www.classiq.io/about-us",
+   "https://www.classiq.io/company"
+  ]
+ },
+ {
+  "id": "1754336641464001cCGB",
+  "name": "ClearML",
+  "emails": [
+   "pr@clear.ml"
+  ],
+  "phones": [],
+  "pages": [
+   "https://clear.ml/contact-us",
+   "https://clear.ml/about-us",
+   "https://clear.ml/"
+  ]
+ },
+ {
+  "id": "1562619564890001muvs",
+  "name": "Connect Tech",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762322905087001fjO3",
+  "name": "Axiomtek Co., Ltd.",
+  "emails": [
+   "info@axiomtek.com.tw",
+   "axcn@axiomtek.com.cn",
+   "welcome@axiomtek.de",
+   "info@axiomtek.it",
+   "info@axiomtek.com.my",
+   "sales@axiomtek.co.th",
+   "info@axiomtek.co.uk",
+   "info@axiomtek.com",
+   "sales@axiomtek.com",
+   "technicalsupport@axiomtek.com"
+  ],
+  "phones": [
+   "+886-2-8646-2111",
+   "1-500 501-1000",
+   "+886-4-2252-1030",
+   "+86-0755-83487887",
+   "+86-021-5407-0022",
+   "+86-010-6297-0207",
+   "+49 0217-3399360",
+   "+39 02 664299",
+   "+813-6895-7522"
+  ],
+  "pages": [
+   "https://www.axiomtek.com/contact-us/product-inquiry",
+   "https://www.axiomtek.com/contact-us/channel-partners",
+   "https://www.axiomtek.com/contact-us/sales-contacts"
+  ]
+ },
+ {
+  "id": "1762330441248001s29e",
+  "name": "Bulk Infrastructure ",
+  "emails": [
+   "post@bulk.no"
+  ],
+  "phones": [
+   "+47 47 80 70 00",
+   "+47 92656228",
+   "+47 969 02 957",
+   "+47 46614668",
+   "+47 97506675"
+  ],
+  "pages": [
+   "https://bulkinfrastructure.com/contact-us",
+   "https://bulkinfrastructure.com/fiber-networks/about-us",
+   "https://bulkinfrastructure.com/industrial-real-estate/about-ire"
+  ]
+ },
+ {
+  "id": "1698346615634001T5Y3",
+  "name": "Bria",
+  "emails": [],
+  "phones": [
+   "007 16 11.352",
+   "000246966",
+   "000790835889571",
+   "009650735291",
+   "00620404412"
+  ],
+  "pages": [
+   "https://bria.ai/contact-us",
+   "https://bria.ai/about-bria",
+   "https://bria.ai/"
+  ]
+ },
+ {
+  "id": "1766418628374001nP2G",
+  "name": "DeepHow",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://deephow.com/contact-us"
+  ]
+ },
+ {
+  "id": "1734032606302001Mv7f",
+  "name": "Docker",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.docker.com/pricing/contact-sales/",
+   "https://www.docker.com/contact-sales/",
+   "https://www.docker.com/company/contact/"
+  ]
+ },
+ {
+  "id": "1762360935268001eKZ3",
+  "name": "Distributional",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://distributional.com/about",
+   "https://distributional.com/blog/distributional-is-now-talaria"
+  ]
+ },
+ {
+  "id": "1727809330033001i5H1",
+  "name": "Cloudian",
+  "emails": [],
+  "phones": [
+   "+1 650 227 2380",
+   "+81-3-4540-1257",
+   "+81-3-4540-1000",
+   "+86 10 5082 5002",
+   "+82 (0)10 4388 4477",
+   "+61 (2) 8069 2413",
+   "+31 (0) 20 808 3056",
+   "+39 029 4755 157"
+  ],
+  "pages": [
+   "https://cloudian.com/company/contact_us/",
+   "https://cloudian.com/contact-sales/",
+   "https://cloudian.com/company/events/"
+  ]
+ },
+ {
+  "id": "1562620779240001mK28",
+  "name": "EIZO Rugged Solutions",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1763589513609001pAf5",
+  "name": "Aurora ",
+  "emails": [
+   "support@aurora.tech",
+   "press@aurora.tech",
+   "ir@aurora.tech"
+  ],
+  "phones": [
+   "+1-888-583-9506"
+  ],
+  "pages": [
+   "https://aurora.tech/contact-us",
+   "https://aurora.tech/company",
+   "https://ir.aurora.tech/news-events/press-releases/detail/144/aurora-launches-second-generation-driverless-trucks-in-u-s-to-meet-customer-demand"
+  ]
+ },
+ {
+  "id": "1745999209442001rLiQ",
+  "name": "Deutsche Telekom AG",
+  "emails": [
+   "impressum@telekom.de"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.telekom.de/impressum"
+  ]
+ },
+ {
+  "id": "1729036205363001pi5C",
+  "name": "Contextual AI",
+  "emails": [
+   "k@dnmpxbogfkaejyjtd4ia.tcunfv"
+  ],
+  "phones": [
+   "002 180.236 57.6002",
+   "005 55.2002",
+   "003 55.0557",
+   "006 54.8604 95.6689",
+   "006 93.1406",
+   "008 95.1914",
+   "006 57.2793 92.6494",
+   "0088 94.2109",
+   "0075642966"
+  ],
+  "pages": [
+   "https://contextual.ai/contact-us",
+   "https://contextual.ai/company"
+  ]
+ },
+ {
+  "id": "1762978692379001LWRe",
+  "name": "Delos Data",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.delosdata.com/about"
+  ]
+ },
+ {
+  "id": "1769529710947001oNIf",
+  "name": "Cyborg",
+  "emails": [
+   "hello@cyborg.co"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.cyborg.co/contact/",
+   "https://www.cyborg.co/about/"
+  ]
+ },
+ {
+  "id": "1762306264888001UIno",
+  "name": "DG Matrix",
+  "emails": [
+   "customers@dgmatrix.com",
+   "investors@dgmatrix.com",
+   "media@dgmatrix.com",
+   "partnerships@dgmatrix.com",
+   "careers@dgmatrix.com",
+   "contact@dgmatrix.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.dgmatrix.com/contact",
+   "https://www.dgmatrix.com/about"
+  ]
+ },
+ {
+  "id": "1614707163231001MVCO",
+  "name": "Dassault Systèmes",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762414884616001kxOU",
+  "name": "EverFocus",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762310066605001G7p7",
+  "name": "Enactic, Inc.",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://enactic.ai/contact/",
+   "https://enactic.ai/"
+  ]
+ },
+ {
+  "id": "1721867646140001yEkt",
+  "name": "Cohesity",
+  "emails": [],
+  "phones": [
+   "000000954",
+   "+1-855-214-3133",
+   "1-855-214-3133",
+   "+43 (192) 84293",
+   "+32 (10) 39 62 32",
+   "+45 32737084",
+   "+358 (9) 42455321",
+   "+33 3 76 39 90 63",
+   "+49 895 419 4068",
+   "+49 895 419 2140",
+   "+39 028 295 6903"
+  ],
+  "pages": [
+   "https://www.cohesity.com/contact/",
+   "https://www.cohesity.com/contact/contact-sales/",
+   "https://www.cohesity.com/solutions/minimum-viable-company/"
+  ]
+ },
+ {
+  "id": "1729101130893001RAI4",
+  "name": "DigitalOcean, LLC",
+  "emails": [],
+  "phones": [
+   "0013001400"
+  ],
+  "pages": [
+   "https://www.digitalocean.com/company/contact/sales?referrer=tophat",
+   "https://www.digitalocean.com/company/contact/sales?referrer=footer",
+   "https://www.digitalocean.com/company/contact/abuse"
+  ]
+ },
+ {
+  "id": "1765922606105001tPXQ",
+  "name": "Fogsphere",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1754940068629001CoZf",
+  "name": "Deepwave",
+  "emails": [],
+  "phones": [
+   "267-538-0473"
+  ],
+  "pages": [
+   "https://deepwave.ai/info/about-us/",
+   "https://deepwave.ai/",
+   "https://deepwave.ai/forms/inquiry/"
+  ]
+ },
+ {
+  "id": "1762361731076001SH2w",
+  "name": "CPC (Colder Products Company)",
+  "emails": [],
+  "phones": [
+   "+49-6105-9743-003",
+   "+86-21-2411-2666",
+   "651-645-0091",
+   "+86 21 2411 2666",
+   "+86 400 990 1978",
+   "1-800-444-2474",
+   "1-800-519-7633",
+   "400 990 1978"
+  ],
+  "pages": [
+   "https://www.cpcworldwide.com/Contact-Us/Find-a-Distributor",
+   "https://www.cpcworldwide.com/Contact-Us",
+   "https://www.cpcworldwide.com/About-CPC"
+  ]
+ },
+ {
+  "id": "1756600452023001zxkd",
+  "name": "Dyna Robotics",
+  "emails": [
+   "johndoe@mail.com"
+  ],
+  "phones": [
+   "0000298023",
+   "0000119209",
+   "0000149012"
+  ],
+  "pages": [
+   "https://www.dyna.co/",
+   "https://www.dyna.co/company"
+  ]
+ },
+ {
+  "id": "1768774376700001s4Oa",
+  "name": "GALBOT",
+  "emails": [
+   "business@galbot.com"
+  ],
+  "phones": [],
+  "pages": [
+   "http://www.galbot.com/contact/",
+   "http://www.galbot.com/about/"
+  ]
+ },
+ {
+  "id": "1765674126354001MtwS",
+  "name": "Emerald AI",
+  "emails": [
+   "info@emeraldai.co",
+   "press@emeraldai.co"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.emeraldai.co/contact-us",
+   "https://www.emeraldai.co/company"
+  ]
+ },
+ {
+  "id": "1734107490663001iQ9y",
+  "name": "Fiddler AI",
+  "emails": [
+   "security@fiddler.ai"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.fiddler.ai/contact-sales",
+   "https://www.fiddler.ai/about",
+   "https://www.fiddler.ai/blog"
+  ]
+ },
+ {
+  "id": "1725853450141001Dk4v",
+  "name": "Field AI ",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.fieldai.com/contact",
+   "https://www.fieldai.com/"
+  ]
+ },
+ {
+  "id": "1705542868901001vdek",
+  "name": "Frore Systems ",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.froresystems.com/contact",
+   "https://www.froresystems.com/about-us/leadership",
+   "https://www.froresystems.com/about-us/our-team"
+  ]
+ },
+ {
+  "id": "1761138309374001WcdC",
+  "name": "Dynatrace",
+  "emails": [
+   "sales@dynatrace.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.dynatrace.com/platform/grail/"
+  ]
+ },
+ {
+  "id": "1765323848327001B0pS",
+  "name": "Hexagon Robotics",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1736473358417001V8Cl",
+  "name": "Flexcompute",
+  "emails": [
+   "compliance@flexcompute.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://flexcompute.com/about/contact",
+   "https://flexcompute.com/about/security",
+   "https://flexcompute.com/about/company"
+  ]
+ },
+ {
+  "id": "1723009392242001iATh",
+  "name": "E2E Networks",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1737258832633001alxe",
+  "name": "Infleqtion",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1728428267170001C779",
+  "name": "Fortanix",
+  "emails": [
+   "info@fortanix.com",
+   "fortanix@bocamarketing.com"
+  ],
+  "phones": [
+   "+31850608282",
+   "+91 080-41749241",
+   "0006153871",
+   "+16509432484"
+  ],
+  "pages": [
+   "https://www.fortanix.com/contact-us",
+   "https://www.fortanix.com/company/about",
+   "https://www.fortanix.com/company/pr/2026/10/fortanix-announces-confidential-ai-for-enterprise-grade-kubernetes-workloads-on-cncf-confidential-containers-coco"
+  ]
+ },
+ {
+  "id": "1732041184482001wfeI",
+  "name": "Graid Technology",
+  "emails": [
+   "info@graidtech.com",
+   "andrea.eaken@graidtech.com"
+  ],
+  "phones": [
+   "(866) 472-4310"
+  ],
+  "pages": [
+   "https://graidtech.com/contact-us",
+   "https://graidtech.com/contact-us",
+   "https://graidtech.com/about-us"
+  ]
+ },
+ {
+  "id": "1730238262553001g2Oy",
+  "name": "Gatik",
+  "emails": [],
+  "phones": [
+   "00155267157",
+   "005032545156"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1698079199570001Cg7o",
+  "name": "Future Tech",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1578420973000001kJTZ",
+  "name": "Ignitarium",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1746821398792001AcKL",
+  "name": "Encord",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1768984744477001qGBj",
+  "name": "Geely Auto Group",
+  "emails": [],
+  "phones": [
+   "400-886-9888"
+  ],
+  "pages": [
+   "https://zgh.com/contact/?lang=en",
+   "https://zgh.com/about-social-innovation/?lang=en",
+   "https://zgh.com/about-social-innovation/improving-life-case-study-ivics/?lang=en"
+  ]
+ },
+ {
+  "id": "1565017346305001ohlC",
+  "name": "H2O.ai",
+  "emails": [
+   "bruna.smith@h2o.ai",
+   "sales@h2o.ai",
+   "apacsales@h2o.ai",
+   "emeasales@h2o.ai",
+   "latamsales@h2o.ai"
+  ],
+  "phones": [
+   "+1 (650) 227-4572",
+   "+65 9230 2724"
+  ],
+  "pages": [
+   "https://h2o.ai/company/contact-us",
+   "https://h2o.ai/company/events",
+   "https://h2o.ai/company"
+  ]
+ },
+ {
+  "id": "1697039587101001OzyR",
+  "name": "Hammerspace",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1730967512921001RE0R",
+  "name": "Flex",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762316406514001bZa0",
+  "name": "Keysight",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1733433578895001ZWfy",
+  "name": "Exxact",
+  "emails": [
+   "rma@exxactcorp.com",
+   "sales@exxactcorp.com"
+  ],
+  "phones": [
+   "00290848663",
+   "510.226.7366",
+   "510.226.7367"
+  ],
+  "pages": [
+   "https://www.exxactcorp.com/Contact-Us",
+   "https://www.exxactcorp.com/category/Services-Support",
+   "https://www.exxactcorp.com/Supported-Software"
+  ]
+ },
+ {
+  "id": "1768200762028001eDE3",
+  "name": "Jump Trading",
+  "emails": [
+   "info@jumptrading.com",
+   "mediainquiries@jumptrading.com"
+  ],
+  "phones": [
+   "00975005430"
+  ],
+  "pages": [
+   "https://www.jumptrading.com/"
+  ]
+ },
+ {
+  "id": "1698079200812001Cz8F",
+  "name": "Lanner Electronics",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1692073632004001ZXZ0",
+  "name": "Innodisk Corporation",
+  "emails": [],
+  "phones": [
+   "0095532994",
+   "009745259"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1757613018718001ieSq",
+  "name": "Instrumental",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1763279240915001V61g",
+  "name": "Lightricks",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1694204818398001tAb2",
+  "name": "FriendliAI",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1708128026830001owM8",
+  "name": "Lucid",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762694098935001wDWo",
+  "name": "Decart ",
+  "emails": [
+   "contact@decart.ai"
+  ],
+  "phones": [
+   "008 23.8809 12.2008",
+   "00381839 14.3882",
+   "002 11.6258",
+   "00607 20.5499",
+   "0059 20.5244 24.073",
+   "009 22.1738",
+   "001 22.3582 18.0431",
+   "004 16.2627 9.11433"
+  ],
+  "pages": [
+   "https://decart.ai/contact-us",
+   "https://decart.ai/about",
+   "https://decart.ai/publications/decart-raises-300m-tech-leaders-back-the-company-as-both-customers-and-investors"
+  ]
+ },
+ {
+  "id": "1763013505342001FNOd",
+  "name": "FPT",
+  "emails": [
+   "support@fptcloud.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://factory.fpt.ai/contact-us",
+   "https://factory.fpt.ai/customer-stories/fpt-smart-cloud-enhances-customer-support-and-workforce-development"
+  ]
+ },
+ {
+  "id": "1732298425535001pRU7",
+  "name": "Fu2re",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1746699379656001c17O",
+  "name": "IQM Quantum Computers",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762357911282001Xx1w",
+  "name": "Idealworks",
+  "emails": [
+   "datenschutz@idealworks.com",
+   "sales@idealworks.com",
+   "communications@idealworks.com",
+   "hello@idealworks.com"
+  ],
+  "phones": [
+   "0031560100",
+   "+49 89 262008381",
+   "0036936051953",
+   "+49-89-262008381"
+  ],
+  "pages": [
+   "https://www.idealworks.com/en/contact",
+   "https://www.idealworks.com/en/about",
+   "https://www.idealworks.com/en/legal/imprint"
+  ]
+ },
+ {
+  "id": "1768421274615001MpZj",
+  "name": "Gcore",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762875616700001FNmQ",
+  "name": "Innoactive GmbH",
+  "emails": [
+   "info@innoactive.de"
+  ],
+  "phones": [
+   "+49 89 2154870"
+  ],
+  "pages": [
+   "https://innoactive.io/contact",
+   "https://innoactive.io/imprint",
+   "https://innoactive.io/immersive-for-autodesk-vred"
+  ]
+ },
+ {
+  "id": "1762443106998001GXOa",
+  "name": "Manycore Tech",
+  "emails": [
+   "hr@qunhemail.com",
+   "manycoretech.ecom@computershare.com.hk"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1698079201510001CXxO",
+  "name": "Microway",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1746741564034001uBmz",
+  "name": "KION",
+  "emails": [],
+  "phones": [
+   "+49 69 20110 7135",
+   "+86 (21) 6086 2999",
+   "400 878 1999",
+   "+49 69 20 1100"
+  ],
+  "pages": [
+   "https://www.kiongroup.com/cn/About-us/KION-at-a-glance/",
+   "https://www.kiongroup.com/cn/About-us/Management/"
+  ]
+ },
+ {
+  "id": "1762954714051001prsA",
+  "name": "Mitsubishi Heavy Industries, Ltd.",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762306960334001RvTj",
+  "name": "Latitude.sh",
+  "emails": [
+   "sales@latitude.sh",
+   "legal@latitude.sh"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.latitude.sh/contact",
+   "https://www.latitude.sh/dashboard/account?contactSupport",
+   "https://www.latitude.sh/about"
+  ]
+ },
+ {
+  "id": "1699994339924001dTLE",
+  "name": "Luminary",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://luminary.ai/company/"
+  ]
+ },
+ {
+  "id": "1767979385869001WG9Z",
+  "name": "Jacobs",
+  "emails": [
+   "jacobsir@jacobs.com",
+   "jacobshr@servicenowservices.com",
+   "michelle.baird@jacobs.com",
+   "jacobssupplier.qualifications@jacobs.com",
+   "media@jacobs.com",
+   "diane.kinka@jacobs.com"
+  ],
+  "phones": [
+   "(757) 708-3073"
+  ],
+  "pages": [
+   "https://www.jacobs.com/contact",
+   "https://www.jacobs.com/about",
+   "https://www.jacobs.com/about/company-overview"
+  ]
+ },
+ {
+  "id": "1579289745867001AN2X",
+  "name": "Lattice Semiconductor",
+  "emails": [
+   "webmaster@latticesemi.com",
+   "custreq@latticesemi.com",
+   "sales@latticesemi.com",
+   "lsc.export@latticesemi.com",
+   "marketing@latticesemi.com",
+   "general_inquiries@latticesemi.com",
+   "sophia.hong@latticesemi.com"
+  ],
+  "phones": [
+   "000037576630",
+   "000000006907",
+   "000059264035",
+   "1-866-515-9527",
+   "(503) 268-8000",
+   "+1 (503) 268-8786"
+  ],
+  "pages": [
+   "https://www.latticesemi.com/About/ContactUs",
+   "https://www.latticesemi.com/About/EthicsContactInformation",
+   "https://www.latticesemi.com/About/Newsroom/MediaContacts"
+  ]
+ },
+ {
+  "id": "1614124432648001bctB",
+  "name": "Mark III Systems ",
+  "emails": [
+   "info@markiiisys.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.markiiisys.com/about/contact",
+   "https://www.markiiisys.com/about",
+   "https://www.markiiisys.com/about/partners"
+  ]
+ },
+ {
+  "id": "1763989192423001uUp3",
+  "name": "GE VERNOVA",
+  "emails": [
+   "media@gevernova.com",
+   "corporate.ombuds@gevernova.com",
+   "investors@gevernova.com",
+   "board@gevernova.com"
+  ],
+  "phones": [
+   "+1 617 674 7568",
+   "+1 651 450 4064",
+   "1-407-378-6203",
+   "1-888-999-0031"
+  ],
+  "pages": [
+   "https://www.gevernova.com/contact",
+   "https://www.gevernova.com/company/about",
+   "https://www.gevernova.com/company/about"
+  ]
+ },
+ {
+  "id": "1770150997472001urJl",
+  "name": "Cohere",
+  "emails": [
+   "support@cohere.com",
+   "safety@cohere.ai",
+   "labs@cohere.com",
+   "brittawnya@cohere.com"
+  ],
+  "phones": [
+   "002604-171",
+   "008-4706-9214",
+   "1586-024-0268"
+  ],
+  "pages": [
+   "https://cohere.com/contact-sales",
+   "https://cohere.com/about",
+   "https://cohere.com/research/grants"
+  ]
+ },
+ {
+  "id": "1579740895375001LRxi",
+  "name": "LILT",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://lilt.com/contact",
+   "https://lilt.com/company",
+   "https://lilt.com/use-cases/helpdesk-support"
+  ]
+ },
+ {
+  "id": "1734507260952001KKnI",
+  "name": "Lila Sciences",
+  "emails": [
+   "press@lila.ai",
+   "partnerships@lila.ai"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.lila.ai/contact",
+   "https://www.lila.ai/about",
+   "https://www.lila.ai/news/lilas-ceo-geoffrey-von-maltzahn-2026-tech-visionary-of-the-year"
+  ]
+ },
+ {
+  "id": "1689805969490001Cu6L",
+  "name": "Liqid",
+  "emails": [
+   "info@liqid.com",
+   "partner@liqid.com",
+   "pr@liqid.com"
+  ],
+  "phones": [
+   "303.500.1551"
+  ],
+  "pages": [
+   "https://www.liqid.com/company/contact",
+   "https://www.liqid.com/company/about",
+   "https://www.liqid.com/company/leadership"
+  ]
+ },
+ {
+  "id": "1598048030102001eNcv",
+  "name": "Domino Data Lab",
+  "emails": [],
+  "phones": [
+   "0000298023",
+   "0000119209",
+   "0000149012",
+   "00000745058",
+   "00000596046",
+   "00000000000276",
+   "(415) 570-2425",
+   "000599880024"
+  ],
+  "pages": [
+   "https://domino.ai/contactus",
+   "https://domino.ai/company",
+   "https://domino.ai/company/sustainability"
+  ]
+ },
+ {
+  "id": "1769804337305001ZaNH",
+  "name": "KX",
+  "emails": [
+   "sales@kx.com",
+   "kxcommunity@kx.com",
+   "licadmin@kx.com"
+  ],
+  "phones": [
+   "+1 (212) 447 6700",
+   "+44 (0)28 3025 2242",
+   "+65 65921960",
+   "+61 (0)2 9236 5700",
+   "+1 (905) 278 9444",
+   "+65 6403 3855",
+   "+813 6634 9799",
+   "+44 (0)28 9023 3518",
+   "+353 (0)1 630 7700",
+   "+44 (0)207 337 1210"
+  ],
+  "pages": [
+   "https://kx.com/contact/",
+   "https://kx.com/about/",
+   "https://kx.com/software-support/"
+  ]
+ },
+ {
+  "id": "1736194402657001W87t",
+  "name": "Mirantis",
+  "emails": [
+   "dataprivacy@mirantis.com",
+   "jeckert@eckertcomms.com"
+  ],
+  "phones": [
+   "+1-650-963-9828",
+   "+1 650-610-2572",
+   "+48 61 880 04 36",
+   "+38 057 728-4214",
+   "057 728-4214"
+  ],
+  "pages": [
+   "https://www.mirantis.com/contact/",
+   "https://www.mirantis.com/about/",
+   "https://www.mirantis.com/company/press-center/company-news/mirantis-k0rdent-joins-the-nvidia-certified-hypervisors-program-for-high-performance-gpu-virtualization/"
+  ]
+ },
+ {
+  "id": "15678087806380018Yx3",
+  "name": "Neousys Technology America, Inc. ",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1698079198855001Ch4j",
+  "name": "e-con Systems ",
+  "emails": [
+   "salesna@e-consystems.com",
+   "saleseu@e-consystems.com",
+   "sales@e-consystems.com",
+   "salesin@e-consystems.com",
+   "silicondevice@e-consystems.com",
+   "saleskr@e-consystems.com",
+   "salesil@e-consystems.com",
+   "sales_asean@e-consystems.com",
+   "salesuni@e-consystems.com",
+   "salesjp@e-consystems.com"
+  ],
+  "phones": [
+   "+1 408 766 7503",
+   "+82-10-5380-0313",
+   "+1-408-766-7503",
+   "+49-721-66 37 922",
+   "+81-45-910-0180",
+   "+82-70-8795-5590",
+   "+1-408-766-7503 11",
+   "+44(0)118 981 6888",
+   "008 2005 2003",
+   "118 981 6888"
+  ],
+  "pages": [
+   "https://www.e-consystems.com/contactus.asp",
+   "https://www.e-consystems.com/aboutus.asp",
+   "https://www.e-consystems.com/location.asp"
+  ]
+ },
+ {
+  "id": "1577129674946001dg5B",
+  "name": "Leopard Imaging ",
+  "emails": [
+   "sales@leopardimaging.com",
+   "order@leopardimaging.com",
+   "support@leopardimaging.com"
+  ],
+  "phones": [
+   "(408) 263-0988",
+   "(408) 217-1960"
+  ],
+  "pages": [
+   "https://leopardimaging.com/contact-us/",
+   "https://leopardimaging.com/about-us/",
+   "https://leopardimaging.com/corporate-policies/"
+  ]
+ },
+ {
+  "id": "1767922367150001loqW",
+  "name": "Opentrons",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1767197096184001hiWF",
+  "name": "OpenEvidence",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1759775503407001AIHT",
+  "name": "ODINN",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1770756283963001SNLN",
+  "name": "Persona AI",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1734430561590001l5qY",
+  "name": "Milestone Systems",
+  "emails": [
+   "orders@milestonesys.com",
+   "tst@milestone.dk",
+   "sce@milestone.dk"
+  ],
+  "phones": [
+   "+1 503 350 1100",
+   "+1 877 350 1101",
+   "+52 55 2789 0328",
+   "+54 11 5252-8790",
+   "+55 11 3197-6520",
+   "+57 1 5088163",
+   "+45 88 300 300",
+   "+33 1 84 02 03 16",
+   "+359 2 4426172",
+   "+33 1 84 02 10 80",
+   "+49 89 20000-757",
+   "+43 720568-180",
+   "+41 225441-280",
+   "+31 202 625 597",
+   "+39 02 9475 1082"
+  ],
+  "pages": [
+   "https://www.milestonesys.com/contact-us/",
+   "https://www.milestonesys.com/contact-sales/",
+   "https://www.milestonesys.com/company/about-us/"
+  ]
+ },
+ {
+  "id": "1762314468245001WP4C",
+  "name": "Phison Technology",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1723829807519001AVBY",
+  "name": "MinIO",
+  "emails": [],
+  "phones": [
+   "(650) 414-2080"
+  ],
+  "pages": [
+   "https://www.min.io/contact-us",
+   "https://www.min.io/about",
+   "https://www.min.io/press/minio-launches-aistor-memory-the-enterprise-memory-foundation-for-agentic-ai"
+  ]
+ },
+ {
+  "id": "1764785113495001vGBF",
+  "name": "Personal AI",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762312279190001qFTV",
+  "name": "Onyx Healthcare, Inc.",
+  "emails": [
+   "sales@onyx-healthcare.com"
+  ],
+  "phones": [
+   "009631408",
+   "009303805",
+   "008811786",
+   "008847212",
+   "008990545",
+   "008978685"
+  ],
+  "pages": [
+   "https://www.onyx-healthcare.com/en-US/company/profile_onyxmedicalAIexpert",
+   "https://www.onyx-healthcare.com/en-US/support/warranty"
+  ]
+ },
+ {
+  "id": "1727923289519001e2UW",
+  "name": "NEXCOM International Co., Ltd.",
+  "emails": [
+   "contact@nexcom.com.tw",
+   "sam@nexcom.com.tw",
+   "shawnlin1@greenbase.com.tw",
+   "ipsservices@nexcom.com.tw",
+   "mcsservice@nexcom.com.tw",
+   "sam_lin@nexcom.com.tw",
+   "sales@nexcom.com",
+   "ventas@nexcom.com",
+   "sales@nexcom.cn",
+   "sales@nexcom-jp.com"
+  ],
+  "phones": [
+   "+886-2-8226-7786",
+   "+886-2-8226-7782",
+   "+886-2-8226-7796",
+   "+886-2-8226-7792",
+   "+886-2-8226-7726",
+   "+886-2-8226-7900",
+   "+886-2-89763077",
+   "+886-4-2249-1179"
+  ],
+  "pages": [
+   "https://www.nexcom.com/About/Page/worldwide-service-network",
+   "https://www.nexcom.com/About",
+   "https://www.nexcom.com/About/Page/milestone"
+  ]
+ },
+ {
+  "id": "1767644043482001GBA8",
+  "name": "Modular",
+  "emails": [
+   "careers@modular.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.modular.com/company/about",
+   "https://www.modular.com/company/careers",
+   "https://www.modular.com/company/culture"
+  ]
+ },
+ {
+  "id": "1730795097473001VtBR",
+  "name": "Physicl",
+  "emails": [
+   "legal@physicl.ai"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.physicl.ai/company"
+  ]
+ },
+ {
+  "id": "1763753999634001KLHf",
+  "name": "Murata",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.murata.com/en-us/support/contactinformation",
+   "https://www.murata.com/en-us/contactform",
+   "https://www.murata.com/en-us/news/emc/emifil/2026/0910"
+  ]
+ },
+ {
+  "id": "1729670185606001zcet",
+  "name": "Neural Concept",
+  "emails": [
+   "contact@neuralconcept.com",
+   "neuralconcept@5wpr.com",
+   "neuralconcept@thoughtldr.com",
+   "legal@neuralconcept.com",
+   "jobs@neuralconcept.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.neuralconcept.com/get-started",
+   "https://www.neuralconcept.com/newsroom/company-news",
+   "https://www.neuralconcept.com/who-we-are"
+  ]
+ },
+ {
+  "id": "1734054241198001RAsp",
+  "name": "Protopia AI",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1765577240223001rJuC",
+  "name": "Peritas AI",
+  "emails": [],
+  "phones": [
+   "(954) 998-6002"
+  ],
+  "pages": [
+   "https://www.peritas.ai/",
+   "https://www.peritas.ai/"
+  ]
+ },
+ {
+  "id": "1728656357758001mzHN",
+  "name": "ProHawk AI",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1755523047211001w3u9",
+  "name": "Lyzr.ai",
+  "emails": [
+   "contact@lyzr.ai"
+  ],
+  "phones": [
+   "009 113.599",
+   "007 103.123",
+   "001 85.4636",
+   "002 85.3215",
+   "009 77.9681",
+   "008 77.2867",
+   "006 80.9488",
+   "002 69.8298"
+  ],
+  "pages": [
+   "https://www.lyzr.ai/contact/",
+   "https://www.lyzr.ai/about-us/",
+   "https://www.lyzr.ai/ecommerce-agents/"
+  ]
+ },
+ {
+  "id": "1766345645815001JONG",
+  "name": "Phaidra",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.phaidra.ai/contact?hsLang=en",
+   "https://www.phaidra.ai/about?hsLang=en"
+  ]
+ },
+ {
+  "id": "1701451222624001WyoB",
+  "name": "Pasqal",
+  "emails": [
+   "events@insights.pasqal.com",
+   "pr@services.pasqal.com",
+   "marketing@contact.pasqal.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.pasqal.com/contact-us/",
+   "https://www.pasqal.com/about-us/partners/",
+   "https://www.pasqal.com/about-us/"
+  ]
+ },
+ {
+  "id": "1762399905683001Vbsk",
+  "name": "PC Partner Technology Pte. Ltd.",
+  "emails": [],
+  "phones": [
+   "+65-6859-8900"
+  ],
+  "pages": [
+   "https://www.pcpartner.com/en/subpage.php?sid=16",
+   "https://www.pcpartner.com/en/subpage.php?sid=67",
+   "https://www.pcpartner.com/en/subpage.php?sid=61"
+  ]
+ },
+ {
+  "id": "1762830149715001vSPL",
+  "name": "Nanyang Biologics",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.nyb.group/contact-us",
+   "https://www.nyb.group/about-us",
+   "https://www.nyb.group/newsroom/gen-models-to-agents-ai-next-phase-in-molecular-discovery"
+  ]
+ },
+ {
+  "id": "1756657391673001ZqBt",
+  "name": "Quantum Machines",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1672250996725001jx6w",
+  "name": "onsemi",
+  "emails": [
+   "media@onsemi.com",
+   "investor@onsemi.com"
+  ],
+  "phones": [
+   "+1 (602)-244-6600"
+  ],
+  "pages": [
+   "https://www.onsemi.com/support/company-contacts",
+   "https://www.onsemi.com/support/company-contacts/contact-sales",
+   "https://www.onsemi.com/support/company-contacts/quality-contacts"
+  ]
+ },
+ {
+  "id": "1768422178630001mJYz",
+  "name": "Parallel Domain",
+  "emails": [],
+  "phones": [
+   "0031 52.1995 13.814",
+   "0031 79.3184 13.814",
+   "008 5.37668 5.46791",
+   "009 3.55736 6.62486",
+   "00819 6.43468",
+   "0066 2.94747",
+   "006 3.51218 17.1753",
+   "001 2.02852"
+  ],
+  "pages": [
+   "https://paralleldomain.com/contact-us",
+   "https://paralleldomain.com/company/about"
+  ]
+ },
+ {
+  "id": "1562631685044001TIOn",
+  "name": "One Stop Systems",
+  "emails": [
+   "sales@onestopsystems.com",
+   "whitepaper@onestopsystems.com",
+   "hr@onestopsystems.com"
+  ],
+  "phones": [
+   "+1 (877) 438-2724",
+   "+1 (760) 745-9883",
+   "760.354.9552",
+   "00187772963",
+   "002929699",
+   "000996387",
+   "005714979",
+   "004109347",
+   "004797475",
+   "005387299",
+   "216-464-6400",
+   "303-282-4800",
+   "949-450-6200",
+   "619-238-1900"
+  ],
+  "pages": [
+   "https://onestopsystems.com/pages/contact_us",
+   "https://onestopsystems.com/pages/contact-us-ir",
+   "https://onestopsystems.com/pages/contact-hr"
+  ]
+ },
+ {
+  "id": "1755703937752001RMEZ",
+  "name": "Richtech Robotics",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1765583073780001Uta7",
+  "name": "LEM Surgical",
+  "emails": [
+   "info@lemsurgical.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://lemsurgical.com/contact/",
+   "https://lemsurgical.com/about-lem/",
+   "https://lemsurgical.com/about-lem/"
+  ]
+ },
+ {
+  "id": "1727753459797001ejnk",
+  "name": "Linker Vision",
+  "emails": [
+   "marketing@linkervision.com"
+  ],
+  "phones": [
+   "00864847453"
+  ],
+  "pages": [
+   "https://www.linkervision.com/about-new",
+   "https://www.linkervision.com/sales"
+  ]
+ },
+ {
+  "id": "1763514014187001X78v",
+  "name": "Premio Inc",
+  "emails": [
+   "sales@premioinc.com"
+  ],
+  "phones": [
+   "00162322053",
+   "1-800-977-3646",
+   "626.839.3100",
+   "800.977.3646",
+   "00331559 56",
+   "005744105856",
+   "800-977-3646"
+  ],
+  "pages": [
+   "https://premioinc.com/pages/contact-us",
+   "https://premioinc.com/pages/about-us",
+   "https://premioinc.com/pages/corporate-social-responsibility"
+  ]
+ },
+ {
+  "id": "1769822220153001YyAY",
+  "name": "PlusAI",
+  "emails": [
+   "info@plus.ai"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.plus.ai/contact",
+   "https://www.plus.ai/company"
+  ]
+ },
+ {
+  "id": "15678100240960012PXs",
+  "name": "Quobyte",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762312447940001EmUj",
+  "name": "Noble Machines",
+  "emails": [],
+  "phones": [
+   "0035796471491",
+   "(408) 242-9634"
+  ],
+  "pages": [
+   "https://www.noblemachines.ai/contact",
+   "https://www.noblemachines.ai/company",
+   "https://www.noblemachines.ai/company"
+  ]
+ },
+ {
+  "id": "1756840083266001aylU",
+  "name": "Qblox",
+  "emails": [
+   "hello@qblox.com",
+   "security@qblox.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://qblox.com/contact",
+   "https://qblox.com/about",
+   "https://qblox.com/company/product-security"
+  ]
+ },
+ {
+  "id": "1733540219401001Xa26",
+  "name": "Rockwell Automation",
+  "emails": [
+   "mpelzer@rockwellautomation.com",
+   "20privacy@ra.rockwell.com",
+   "privacy@ra.rockwell.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.rockwellautomation.com/en-us/company/about-us/legal-notices/privacy-and-cookies-policy.html",
+   "https://www.rockwellautomation.com/en-us/company/news/case-studies/utility-improves-cyber-ot.html",
+   "https://www.rockwellautomation.com/en-us/company/news/case-studies/prestige-biologics-plantpax.html"
+  ]
+ },
+ {
+  "id": "1731979511885001xJoL",
+  "name": "Q-CTRL",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://q-ctrl.com/contact",
+   "https://q-ctrl.com/about",
+   "https://q-ctrl.com/about"
+  ]
+ },
+ {
+  "id": "1755584194070001BVPt",
+  "name": "OpenNebula Systems",
+  "emails": [
+   "contact-eu@opennebula.io",
+   "contact-us@opennebula.io",
+   "sales@opennebula.io",
+   "webmaster@opennebula.io",
+   "community-manager@opennebula.io",
+   "press@opennebula.io",
+   "legal@opennebula.io",
+   "secure@opennebula.io"
+  ],
+  "phones": [
+   "000-9840149086",
+   "+34 91 297 97 41",
+   "+32 2 790 64 90",
+   "+1 (781) 238-6643",
+   "000-7774462630"
+  ],
+  "pages": [
+   "https://opennebula.io/contact/",
+   "https://opennebula.io/contact/",
+   "https://opennebula.io/"
+  ]
+ },
+ {
+  "id": "1732112402966001KpCe",
+  "name": "Qodo",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.qodo.ai/contact/",
+   "https://www.qodo.ai/about/",
+   "https://www.qodo.ai/about/"
+  ]
+ },
+ {
+  "id": "1728072400424001tuwJ",
+  "name": "ScaleFlux",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1692216120791001HhKU",
+  "name": "Qt Group",
+  "emails": [
+   "pr@qt.io",
+   "partners@qt.io",
+   "info@wisdomtechnology.co.za"
+  ],
+  "phones": [
+   "+358 988 618 040",
+   "+27647658810"
+  ],
+  "pages": [
+   "https://www.qt.io/contact-us",
+   "https://www.qt.io/contact-us/partners",
+   "https://www.qt.io/contact-us"
+  ]
+ },
+ {
+  "id": "1762791485050001szFX",
+  "name": "Reflection",
+  "emails": [],
+  "phones": [
+   "004 5.61499",
+   "0066 5.99992",
+   "005 0.315905 6.358",
+   "00134859 5.95735",
+   "001 6.35998",
+   "009 7.50876 6.35782",
+   "002 8.37453 6.35777",
+   "002 9.51705 5.98317"
+  ],
+  "pages": [
+   "https://reflection.ai/contact",
+   "https://reflection.ai/about",
+   "https://reflection.ai/blog/beam-is-available"
+  ]
+ },
+ {
+  "id": "1733167779724001lhLY",
+  "name": "SUSE",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1581033912045001crI3",
+  "name": "Switch ",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1693506098946001RgJI",
+  "name": "Source Code",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1692648822292001cSGU",
+  "name": "Rescale",
+  "emails": [],
+  "phones": [
+   "1-855-737-2253"
+  ],
+  "pages": [
+   "https://rescale.com/contact-us/",
+   "https://rescale.com/company/about/",
+   "https://rescale.com/company/careers/"
+  ]
+ },
+ {
+  "id": "1762416073106001FKzi",
+  "name": "Sharpa",
+  "emails": [
+   "sales@sharpa.com",
+   "pr@sharpa.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.sharpa.com/pages/contact",
+   "https://www.sharpa.com/pages/about",
+   "https://www.sharpa.com/pages/about"
+  ]
+ },
+ {
+  "id": "1756906795880001lmAI",
+  "name": "Rigetti Computing",
+  "emails": [
+   "support@rigetti.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.rigetti.com/about-rigetti-computing",
+   "https://www.rigetti.com/about-rigetti-computing",
+   "https://www.rigetti.com/about-rigetti-computing"
+  ]
+ },
+ {
+  "id": "1693503424261001JZIC",
+  "name": "Telit",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1765581621019001oKjX",
+  "name": "Sword Health, Inc.",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1736442708340001Ajwn",
+  "name": "SoundHound AI",
+  "emails": [],
+  "phones": [
+   "(408) 441-3200"
+  ],
+  "pages": [
+   "https://www.soundhound.com/use-cases/contact-center",
+   "https://www.soundhound.com/contact",
+   "https://www.soundhound.com/about"
+  ]
+ },
+ {
+  "id": "1692649999846001S97L",
+  "name": "Roboflow",
+  "emails": [],
+  "phones": [
+   "0042046251",
+   "00350385423966",
+   "0000000000002 50",
+   "000000000000007",
+   "00350385424",
+   "0028030833918",
+   "002803083",
+   "1030 388 1030"
+  ],
+  "pages": [
+   "https://roboflow.com/contact",
+   "https://roboflow.com/about",
+   "https://roboflow.com/case-studies/bnsf"
+  ]
+ },
+ {
+  "id": "1764786271874001XVKt",
+  "name": "PTC",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.ptc.com/en/about/ptc-next",
+   "https://www.ptc.com/en/about/awards-and-recognition",
+   "https://www.ptc.com/en/about"
+  ]
+ },
+ {
+  "id": "1769468724184001wTcw",
+  "name": "StarBot Inc.",
+  "emails": [
+   "info@starbotusa.com",
+   "sales@starbotusa.com"
+  ],
+  "phones": [
+   "(888) 795-8999"
+  ],
+  "pages": [
+   "https://www.starbotusa.com/contact"
+  ]
+ },
+ {
+  "id": "1728974266261001rXrd",
+  "name": "Solomon Technology Corporation",
+  "emails": [],
+  "phones": [
+   "+886 2 8791 8989",
+   "+1 713 588 1633",
+   "+1 909 345 7024",
+   "+86 21 5956 8315",
+   "+86 755 8209 6916"
+  ],
+  "pages": [
+   "https://www.solomon-3d.com/contact-us-2/",
+   "https://www.solomon-3d.com/company/",
+   "https://www.solomon-3d.com/news-events/company-news/super-vision-humanoid-robot/"
+  ]
+ },
+ {
+  "id": "1771538446301001whvL",
+  "name": "Trinity",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1736881233751001atBE",
+  "name": "Teradyne",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1727880814303001oXwa",
+  "name": "SqueezeBits ",
+  "emails": [
+   "info@squeezebits.com"
+  ],
+  "phones": [
+   "+82) 2-6248-1024"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1766251213221001d9Gj",
+  "name": "Tensormesh",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1764862641795001BU89",
+  "name": "TELUS",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1724362585131001DiUR",
+  "name": "SoftBank Corp. ",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.softbank.jp/corp/d/contact_press/",
+   "https://www.softbank.jp/en/corp/aboutus/",
+   "https://www.softbank.jp/en/corp/aboutus/message/"
+  ]
+ },
+ {
+  "id": "1762621818005001RAif",
+  "name": "Unitree Robotics",
+  "emails": [
+   "sales_global@unitree.com",
+   "marketing@unitree.com",
+   "support@unitree.com",
+   "hr@unitree.com",
+   "supplychain@unitree.com",
+   "security@unitree.com"
+  ],
+  "phones": [
+   "+86 17621781139"
+  ],
+  "pages": [
+   "https://www.unitree.com/contact/",
+   "https://www.unitree.com/about/"
+  ]
+ },
+ {
+  "id": "1730491370641001qUbo",
+  "name": "SecEdge Inc.",
+  "emails": [],
+  "phones": [
+   "+1 408.462.1376"
+  ],
+  "pages": [
+   "https://www.secedge.com/contact-us/",
+   "https://www.secedge.com/contact-us/",
+   "https://www.secedge.com/about-us/"
+  ]
+ },
+ {
+  "id": "1762451766648001bqVw",
+  "name": "Tensor",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.tensor.auto/contact",
+   "https://www.tensor.auto/company"
+  ]
+ },
+ {
+  "id": "1730285114532001x5dl",
+  "name": "Multiverse Computing",
+  "emails": [
+   "contact@multiversecomputing.com",
+   "contact.canada@multiversecomputing.com",
+   "contact-france@multiversecomputing.com"
+  ],
+  "phones": [
+   "0076 47.9999",
+   "003 28.8806",
+   "007 31.7854",
+   "004 17.0858",
+   "003 19.9903",
+   "003 17.0858",
+   "+34 943 37 19 56",
+   "+1 416 703 0003",
+   "+33 (0) 624 452 318",
+   "+34 943 371-956"
+  ],
+  "pages": [
+   "https://multiversecomputing.com/contact-us",
+   "https://multiversecomputing.com/contact",
+   "https://multiversecomputing.com/solutions/corporates"
+  ]
+ },
+ {
+  "id": "1763587567024001hyW1",
+  "name": "Texas Instruments",
+  "emails": [
+   "mediarelations@ti.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.ti.com/about-ti/events/electronica.html?HQS=evt-tsw-inno-electronica2026_null-bhp-pp_tdsw-null-wwe",
+   "https://www.ti.com/about-ti/newsroom/news-releases/2026/2026-10-12-ti-unveils-new-adc-to-enable-nanosecond-level-telemetry-and-minimize-downtime-in-ai-data-centers.html?HQS=asc-tech-inno-adc34x_null-bhp-pr-null-wwe",
+   "https://www.ti.com/about-ti/behind-chip/articles/whats-next-for-the-future-of-data-center-networking-optics.html?HQS=multi-tech-data-dccommnetwork_dce_optics-blog-bhp-null-wwe"
+  ]
+ },
+ {
+  "id": "1769451447425001B1IX",
+  "name": "Thermo Fisher Scientific",
+  "emails": [],
+  "phones": [
+   "400-820-8982",
+   "400 820 8982"
+  ],
+  "pages": [
+   "https://www.thermofisher.cn/cn/zh/home/about-us/partnering-licensing/oem-commercial-supply.html",
+   "https://www.thermofisher.cn/cn/zh/home/about-us.html",
+   "https://www.thermofisher.cn/cn/zh/home/about-us/news-gallery.html"
+  ]
+ },
+ {
+  "id": "1633337553509001KDp7",
+  "name": "Silicon Highway",
+  "emails": [
+   "sales@siliconhighway.com"
+  ],
+  "phones": [
+   "+44 118 981 6888",
+   "118 981 6888"
+  ],
+  "pages": [
+   "https://www.siliconhighway.com/contact2",
+   "https://www.siliconhighway.com/contact2",
+   "https://www.siliconhighway.com/about-us"
+  ]
+ },
+ {
+  "id": "1727750209765001mgDf",
+  "name": "Vecow",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1736183083286001Yxl1",
+  "name": "Thoughtworks",
+  "emails": [
+   "peoplesupport-china@thoughtworks.com",
+   "sg-th-sharedservices@thoughtworks.com",
+   "peoplesupport-apac@thoughtworks.com",
+   "ukpeoplesupport@thoughtworks.com",
+   "backgroundverification-india@thoughtworks.com",
+   "peoplesupport-na@thoughtworks.com",
+   "shared-services-americas-people-support@thoughtworks.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.thoughtworks.com/contact-us",
+   "https://www.thoughtworks.com/about-us",
+   "https://www.thoughtworks.com/about-us/partnerships/cloud/aws/reinvent"
+  ]
+ },
+ {
+  "id": "1768232825480001dB9p",
+  "name": "UL Solutions",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.ul.com/contact-us",
+   "https://www.ul.com/about",
+   "https://www.ul.com/about/william-henry-merrill-society"
+  ]
+ },
+ {
+  "id": "1733824701674001eq4R",
+  "name": "SimScale",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.simscale.com/projects/Templates/nonlinear_rubber_simulation_of_hydraulic_seal_contact_mechanics_110400323/",
+   "https://www.simscale.com/projects/Templates/metal_forming_simulation_-nafems_contact_benchmark_3-/",
+   "https://www.simscale.com/about-us/"
+  ]
+ },
+ {
+  "id": "1689800870430001KVtN",
+  "name": "Seeed Studio",
+  "emails": [
+   "order@seeed.io"
+  ],
+  "phones": [
+   "+86-0755-86095676"
+  ],
+  "pages": [
+   "https://www.seeedstudio.com/contacts",
+   "https://www.seeedstudio.com/about-us/"
+  ]
+ },
+ {
+  "id": "1768096979700001YL9C",
+  "name": "Visteon Corporation",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1730465158859001DE0M",
+  "name": "Wayvw",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1766000407665001nyRp",
+  "name": "PsiQuantum",
+  "emails": [
+   "media@psiquantum.com",
+   "info@psiquantum.com",
+   "construct@psiquantum.com"
+  ],
+  "phones": [
+   "0084254530"
+  ],
+  "pages": [
+   "https://www.psiquantum.com/contact-us",
+   "https://www.psiquantum.com/about"
+  ]
+ },
+ {
+  "id": "1765936903485001vGWz",
+  "name": "Upscale AI",
+  "emails": [
+   "info@upscaleai.com",
+   "press@upscaleai.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://upscale.com/about-us"
+  ]
+ },
+ {
+  "id": "1580358056313001Odfc",
+  "name": "WeRide",
+  "emails": [
+   "pr@weride.ai",
+   "careers@weride.ai",
+   "contactus@weride.ai",
+   "hr@weride.ai",
+   "contact@weride.ai"
+  ],
+  "phones": [
+   "400-102-3883"
+  ],
+  "pages": [
+   "https://www.weride.ai/contact",
+   "https://www.weride.ai/about",
+   "https://www.weride.ai/about"
+  ]
+ },
+ {
+  "id": "1766157979542001CPeK",
+  "name": "Tulip",
+  "emails": [
+   "hello@tulip.co"
+  ],
+  "phones": [
+   "(833) 468-8547",
+   "+49 89 21547670",
+   "+1 (833) 468-8547"
+  ],
+  "pages": [
+   "https://tulip.co/contact-sales/",
+   "https://tulip.co/contact-us/",
+   "https://tulip.co/about-us/"
+  ]
+ },
+ {
+  "id": "1729985149773001Ybua",
+  "name": "VESSL AI",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762455443399001wejk",
+  "name": "Zadara, Inc.",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762964896349001PeG9",
+  "name": "Trane",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.trane.com/commercial/north-america/us/en/contact-us.html",
+   "https://www.trane.com/commercial/north-america/us/en/contact-us/locate-sales-offices.html",
+   "https://www.trane.com/commercial/north-america/us/en/contact-us/locate-sales-offices.html"
+  ]
+ },
+ {
+  "id": "1762307214892001jTTM",
+  "name": "YUAN High-Tech Development Co., Ltd.",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.yuan.com.tw/about",
+   "https://www.yuan.com.tw/supports/catalog-download",
+   "https://www.yuan.com.tw/supports/driver-download"
+  ]
+ },
+ {
+  "id": "1704386413964001DLwS",
+  "name": "Voxel51",
+  "emails": [
+   "support@voxel51.com"
+  ],
+  "phones": [
+   "0000000003",
+   "0000000004",
+   "0000000005",
+   "004064776",
+   "002556818181818",
+   "007167780",
+   "003-4.76.278",
+   "005-1.064.127",
+   "007 2.145 1.514 3.683",
+   "833.829 3833"
+  ],
+  "pages": [
+   "https://voxel51.com/about"
+  ]
+ },
+ {
+  "id": "1764897831945001BLht",
+  "name": "Aqrose Technology: AI-Powered Solutions for Industrial Inspection Challenges",
+  "emails": [
+   "info.eu@aqrose.com",
+   "isabella.curvo@aqrose.de",
+   "yongsheng.wang@aqrose.com",
+   "sean.wang@aqrose.de",
+   "contact@aqrose.com",
+   "long.huang@aqrose.com",
+   "haodong.zhang@aqrose.com",
+   "dy.kim@aqrose.com",
+   "yixiang.lin@aqrose.com"
+  ],
+  "phones": [
+   "+49) 015224755950",
+   "+86 1520 152 3630",
+   "+49 162 966 5238",
+   "1520 152 3630",
+   "162 966 5238",
+   "00313131553",
+   "0033759944",
+   "+86 13552426267",
+   "+86 15201523630",
+   "+81 070-3255-4456",
+   "+82 10-3653-8658",
+   "+886 972 123 825"
+  ],
+  "pages": [
+   "https://www.aqrose.com/contactus.html",
+   "https://www.aqrose.com/About-Us.html"
+  ]
+ },
+ {
+  "id": "1691720401107001PzxK",
+  "name": "Unstructured ",
+  "emails": [
+   "support@unstructured.io"
+  ],
+  "phones": [],
+  "pages": [
+   "https://unstructured.io/?modal=contact-sales"
+  ]
+ },
+ {
+  "id": "1766553261546001ve4e",
+  "name": "AlphaZ",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1769024773188001a222",
+  "name": "Aigen Inc.",
+  "emails": [
+   "media@aigen.io",
+   "partners@aigen.io"
+  ],
+  "phones": [],
+  "pages": [
+   "https://aigen.io/contact",
+   "https://aigen.io/about"
+  ]
+ },
+ {
+  "id": "1733433181612001BrV2",
+  "name": "Vention",
+  "emails": [
+   "info@vention.cc",
+   "john@acme.com",
+   "johnmiller@acme.com",
+   "client@domain.com",
+   "john.miller@acme.com",
+   "finance@acme.com",
+   "emea@vention.cc"
+  ],
+  "phones": [
+   "+1-800-940-3617",
+   "0012 17.3677",
+   "007 28.2474 7.30774",
+   "+1 (555) 000-0000",
+   "+1 234 567 890",
+   "1-800-940-3617",
+   "+49-30-56795545",
+   "000001074498643"
+  ],
+  "pages": [
+   "https://vention.com/contact",
+   "https://vention.com/contact/new",
+   "https://vention.com/about"
+  ]
+ },
+ {
+  "id": "1730746522676001D3he",
+  "name": "StudyFetch ",
+  "emails": [
+   "support@honen.com",
+   "owner@acme.com",
+   "jane@acme.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://honen.com/contact",
+   "https://honen.com/about",
+   "https://honen.com/support"
+  ]
+ },
+ {
+  "id": "1737733806407001qLdV",
+  "name": "VITURE",
+  "emails": [
+   "happycustomer@viture.us",
+   "hello@viture.jp",
+   "pr@viture.com",
+   "marketing@viture.com",
+   "bd@viture.com",
+   "partners@viture.com",
+   "join@viture.com"
+  ],
+  "phones": [
+   "000131613"
+  ],
+  "pages": [
+   "https://www.viture.com/contact"
+  ]
+ },
+ {
+  "id": "1765088221397001Q329",
+  "name": "Singtel RE:AI",
+  "emails": [
+   "s-re-ai@singtel.com",
+   "re-ai@singtel.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.re-ai.ai/about-us/contact-us",
+   "https://www.re-ai.ai/about-us",
+   "https://www.re-ai.ai/about-us/newsroom"
+  ]
+ },
+ {
+  "id": "1732480797876001U4wL",
+  "name": "Tailscale",
+  "emails": [
+   "tailscale@hachyderm.io"
+  ],
+  "phones": [
+   "006870493",
+   "00855039323525",
+   "0002600639",
+   "009365-198"
+  ],
+  "pages": [
+   "https://tailscale.com/contact/sales",
+   "https://tailscale.com/contact/partnerships",
+   "https://tailscale.com/contact/support"
+  ]
+ },
+ {
+  "id": "1564778120194001gLqS",
+  "name": "WOLF Advanced Technology",
+  "emails": [
+   "sales@wolf-at.com",
+   "support@wolf-at.com"
+  ],
+  "phones": [
+   "1 (800) 931-4114"
+  ],
+  "pages": [
+   "https://wolfadvancedtechnology.com/contact",
+   "https://wolfadvancedtechnology.com/about-wolf"
+  ]
+ },
+ {
+  "id": "1673542037981001yuZH",
+  "name": "Sterling",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1766354431778001yWfN",
+  "name": "IQVIA ",
+  "emails": [
+   "iqviauniversity@iqvia.com",
+   "infosariosupport@quintiles.com",
+   "business.ethics@iqvia.com"
+  ],
+  "phones": [
+   "+1 866 267 4479"
+  ],
+  "pages": [
+   "https://www.iqvia.com/contact",
+   "https://www.iqvia.com/about-us/commitment-to-global-health",
+   "https://www.iqvia.com/about-us/iqvia-connected-intelligence"
+  ]
+ },
+ {
+  "id": "1762441428203001Kqc1",
+  "name": "ALLSIDES",
+  "emails": [
+   "hello@allsides.tech",
+   "hello@covisionmedia.ai",
+   "careers@allsides.tech",
+   "covisionmedia@pec.it"
+  ],
+  "phones": [
+   "+1 929 615 8411",
+   "+39 340 335 5506",
+   "340 335 5506"
+  ],
+  "pages": [
+   "https://www.allsides.tech/contact",
+   "https://www.allsides.tech/about-us",
+   "https://www.allsides.tech/imprint"
+  ]
+ },
+ {
+  "id": "1764105153248001MMTC",
+  "name": "Biofy",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762755492222001r5Xo",
+  "name": "AuraML",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1695313741552001o5D0",
+  "name": "Union.ai",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.union.ai/contact",
+   "https://www.union.ai/company",
+   "https://www.union.ai/support"
+  ]
+ },
+ {
+  "id": "1729627716260001oX1w",
+  "name": "Adaptive ML",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://www.adaptive-ml.com/contact-us",
+   "https://www.adaptive-ml.com/about",
+   "https://www.adaptive-ml.com/about"
+  ]
+ },
+ {
+  "id": "1765171300739001CVcE",
+  "name": "Krinwave Technology",
+  "emails": [
+   "pr@krinwave.com",
+   "kwhr@krinwave.com",
+   "kwmarketing@krinwave.com",
+   "overseassales@krinwave.com"
+  ],
+  "phones": [
+   "0002008245",
+   "+86 0755 8652 2864"
+  ],
+  "pages": [
+   "https://www.krinwave.com/en/contact/"
+  ]
+ },
+ {
+  "id": "1727814424272001afr5",
+  "name": "VDURA",
+  "emails": [
+   "info@vdura.com"
+  ],
+  "phones": [
+   "000000000"
+  ],
+  "pages": [
+   "https://www.vdura.com/",
+   "https://www.vdura.com/company/contact-vdura/",
+   "https://www.vdura.com/company/contact-vdura/"
+  ]
+ },
+ {
+  "id": "1745916210633001DKTm",
+  "name": "Generative Bionics",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1764115184413001cyDf",
+  "name": "Genspark",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1754266645917001U942",
+  "name": "Teradata",
+  "emails": [
+   "hr.support@teradata.com",
+   "ask.services@teradata.com",
+   "customer.education@teradata.com",
+   "certification.teradata@teradata.com",
+   "accreditation.teradata@teradata.com"
+  ],
+  "phones": [
+   "00000000000001",
+   "1-800-367-5690"
+  ],
+  "pages": [
+   "https://www.teradata.com/about-us/contact",
+   "https://www.teradata.com/about-us",
+   "https://www.teradata.com/about-us/awards"
+  ]
+ },
+ {
+  "id": "1769120522546001rL0S",
+  "name": "Avrio AI ",
+  "emails": [
+   "hello@avrioai.com",
+   "support@goavrio.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.avrioai.com/contact",
+   "https://www.avrioai.com/contact?topic=security",
+   "https://www.avrioai.com/about"
+  ]
+ },
+ {
+  "id": "1765194660663001vGVs",
+  "name": "CATCHES AI",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1765582329579001N104",
+  "name": "XRlabs LTD",
+  "emails": [
+   "general@xrlabs.ai"
+  ],
+  "phones": [
+   "303 123 1113"
+  ],
+  "pages": [
+   "https://xrlabs.ai/contact",
+   "https://xrlabs.ai/",
+   "https://xrlabs.ai/company"
+  ]
+ },
+ {
+  "id": "1763059907669001ucci",
+  "name": "ceramic.ai",
+  "emails": [
+   "sales@ceramic.ai",
+   "info@ceramic.ai",
+   "support@ceramic.ai"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.ceramic.ai/contact"
+  ]
+ },
+ {
+  "id": "1763417967791001BAuL",
+  "name": "FlexAI",
+  "emails": [
+   "support@flex.ai",
+   "commercial@flex.ai"
+  ],
+  "phones": [],
+  "pages": [
+   "https://flex.ai/contact"
+  ]
+ },
+ {
+  "id": "1769309422785001sWfb",
+  "name": "lakeFS",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1766626940177001mwnw",
+  "name": "Flox",
+  "emails": [
+   "flox@fosstodon.org",
+   "hello@flox.dev"
+  ],
+  "phones": [],
+  "pages": [
+   "https://flox.dev/contact/",
+   "https://flox.dev/about/"
+  ]
+ },
+ {
+  "id": "1763646092092001mcvl",
+  "name": "CAMB.AI",
+  "emails": [
+   "help@camb.ai",
+   "arsalan.nawazish@camb.ai"
+  ],
+  "phones": [],
+  "pages": [
+   "https://help.camb.ai/en/articles/8751313-contact-us"
+  ]
+ },
+ {
+  "id": "1769137582001001kw50",
+  "name": "San Francisco Compute Company",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762817736018001LiZV",
+  "name": "PYLER ",
+  "emails": [
+   "pylerbiz@pyler.tech"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1755618464646001Tivt",
+  "name": "Utilidata",
+  "emails": [
+   "info@karman.co",
+   "sales@karman.co",
+   "media@karman.co",
+   "partnerships@karman.co"
+  ],
+  "phones": [
+   "401-383-5800",
+   "(401) 383-5800",
+   "009687166",
+   "00343111012",
+   "0040086797"
+  ],
+  "pages": [
+   "https://www.karman.co/contact-us",
+   "https://www.karman.co/our-company",
+   "https://www.karman.co/press-release/utilidata-rebrands-as-karman"
+  ]
+ },
+ {
+  "id": "1765480907425001Qnsj",
+  "name": "HUMANOID",
+  "emails": [],
+  "phones": [],
+  "pages": [
+   "https://thehumanoid.ai/",
+   "https://thehumanoid.ai/technology/"
+  ]
+ },
+ {
+  "id": "1762824159878001iCg3",
+  "name": "Manus",
+  "emails": [
+   "media@manus.ai"
+  ],
+  "phones": [],
+  "pages": [
+   "https://manus.im/about"
+  ]
+ },
+ {
+  "id": "1762501697994001yd41",
+  "name": "MetAI",
+  "emails": [
+   "bd@met-ai.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://www.met-ai.com/en/contact-us",
+   "https://www.met-ai.com/en/about-met-ai",
+   "https://www.met-ai.com/en/news-and-blogs/metai-named-to-the-information-s-top-50-most-promising-startups-of-2025"
+  ]
+ },
+ {
+  "id": "1763675640040001hmmb",
+  "name": "Panthalassa",
+  "emails": [
+   "media@panthalassa.com"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1766605178514001gojM",
+  "name": "Modal",
+  "emails": [
+   "support@modal.com",
+   "press@modal.com"
+  ],
+  "phones": [],
+  "pages": [
+   "https://modal.com/company"
+  ]
+ },
+ {
+  "id": "1697665044981001fNbA",
+  "name": "Deepgram",
+  "emails": [
+   "info@deepgram.com",
+   "security@deepgram.com",
+   "legalnotices@deepgram.com"
+  ],
+  "phones": [
+   "002557544757033",
+   "006825939",
+   "002758871",
+   "008645533141",
+   "009009009009",
+   "000483678514",
+   "000470932622",
+   "00680272109"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1641925995363001pn3V",
+  "name": "TD Synnex ",
+  "emails": [
+   "experience@tdsynnex.com",
+   "fraud@tdsynnex.com"
+  ],
+  "phones": [
+   "888-985-7755"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1728215826244001hBV9",
+  "name": "xpander.ai",
+  "emails": [
+   "support@xpander.ai"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1731538011515001Cuar",
+  "name": "CodeRabbit",
+  "emails": [
+   "support@coderabbit.ai",
+   "pr@coderabbit.ai"
+  ],
+  "phones": [
+   "006.127 12.3 12",
+   "002-3.03.08.08",
+   "002 4.002 0 0 1 7.753",
+   "009.051.02.076.032"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1768393498925001LnqO",
+  "name": "Deepdub",
+  "emails": [],
+  "phones": [
+   "008585715"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1755489428591001XXmm",
+  "name": "Deep Infra",
+  "emails": [
+   "feedback@deepinfra.com",
+   "dedicated@deepinfra.com"
+  ],
+  "phones": [
+   "008682485"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1762488859547001hrPO",
+  "name": "Factory",
+  "emails": [
+   "contact@factory.com"
+  ],
+  "phones": [
+   "002 0.51601",
+   "005 1.05846",
+   "002 0.52923",
+   "005 325.241 103.203",
+   "003 507.476 92.2722",
+   "005 3.159-1.016 3.798",
+   "006 4.094-1.89 4.092",
+   "003-2.322-1.838-4.202",
+   "0012 13.0262",
+   "001 9.62175",
+   "006 115.408 7.70023",
+   "003 109.972 24.8377",
+   "002 784.992 15.9902",
+   "002 783.692 13.5302",
+   "002 14.5202",
+   "002 782.542 13.1002"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1766402937134001opUi",
+  "name": "Haptikos",
+  "emails": [
+   "info@haptikos.tech"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1747253849815001v7Gs",
+  "name": "H Company",
+  "emails": [
+   "contact@hcompany.ai",
+   "media@hcompany.ai"
+  ],
+  "phones": [
+   "842.672 1226",
+   "000000000000002"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1763367978201001lMZb",
+  "name": "Heidi",
+  "emails": [
+   "support@heidihealth.com"
+  ],
+  "phones": [
+   "005998942",
+   "001198-1188"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1765518712463001l247",
+  "name": "Lexlegis.Ai",
+  "emails": [
+   "sales@lexlegis.ai",
+   "support@lexlegis.ai",
+   "press@lexlegis.ai"
+  ],
+  "phones": [
+   "+91 99205-46100"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1762329413199001oe6W",
+  "name": "Marketeam.ai",
+  "emails": [
+   "ella@marketeam.ai"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1766203009394001HhRN",
+  "name": "Mirror Security",
+  "emails": [
+   "hello@mirrorsecurity.io"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1745906757156001soXd",
+  "name": "Photoroom",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762473033509001HmBQ",
+  "name": "Plurai ",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1763687733396001fp9k",
+  "name": "Quantum Brilliance",
+  "emails": [
+   "media@quantum-brilliance.com"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762392397183001wT20",
+  "name": "Rox",
+  "emails": [
+   "security@rox.com"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1765905761789001vrfx",
+  "name": "SkillReal LTD",
+  "emails": [
+   "info@skillreal.com",
+   "service@skillreal.com"
+  ],
+  "phones": [
+   "001555459"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1726035254043001GXPg",
+  "name": "Skymeric Technologies LLC",
+  "emails": [
+   "sales@skymeric.com",
+   "amol.bhore@skymeric.com",
+   "sales@skymeric.comamol.bhore"
+  ],
+  "phones": [
+   "+91 97304 83300",
+   "+91-96070 02088",
+   "+91-97304 83300",
+   "+1 (609) 339-4184"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1763521398608001js6W",
+  "name": "Spingence Technology",
+  "emails": [
+   "salesinfo@spingence.com"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1766019403568001p7hP",
+  "name": "SpiralAI",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1766417750428001RICN",
+  "name": "SpiralDB",
+  "emails": [],
+  "phones": [
+   "001 10.3606",
+   "007 57.3061 4.26007",
+   "0099 5.42553",
+   "0059 17.4327"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1707931179325001ugTS",
+  "name": "SuperAnnotate ",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1769615567020001CLY1",
+  "name": "Superb AI, Inc",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1765472480159001MF1o",
+  "name": "SurrealDB",
+  "emails": [
+   "support@surrealdb.com",
+   "info@surrealdb.com",
+   "security@surrealdb.com",
+   "legal@surrealdb.com"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1770779356249001Ufie",
+  "name": "SynaXG",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762401449107001lWN0",
+  "name": "Tripo ",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1765830303840001PBq3",
+  "name": "Type One Energy",
+  "emails": [],
+  "phones": [
+   "+1 608-616-5965"
+  ],
+  "pages": []
+ },
+ {
+  "id": "1768919109471001Ybaw",
+  "name": "Tzafon",
+  "emails": [
+   "hello@lightcone.ai",
+   "careers@tzafon.ai"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1764491189211001ukVZ",
+  "name": "Verobotics",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1769125900291001VOLt",
+  "name": "Vortex Imaging",
+  "emails": [
+   "info@vortex-imaging.com"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762822993609001SUjF",
+  "name": "Whale",
+  "emails": [
+   "sales@whale.im",
+   "hello@whale.im"
+  ],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1762818912461001LWRE",
+  "name": "WideBot AI",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1769141243713001Uuuk",
+  "name": "WisdomAI",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ },
+ {
+  "id": "1733169124467001SM57",
+  "name": "ZEDEDA",
+  "emails": [],
+  "phones": [],
+  "pages": []
+ }
+]

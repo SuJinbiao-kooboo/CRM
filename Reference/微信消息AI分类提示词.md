@@ -5,6 +5,7 @@
 - `llmPromptBase`：`dict_code=100080`
 - `llmExamples`：`dict_code=100081`
 - 说明：本文件是当前数据库配置的快照；运行时以字典配置为准。提示词调整后需清空分类缓存。
+- 2026-10-28 更新：`selfNames` 发送人的消息在进入本提示词前已被代码直接归类为 `OTHER`（`category_source=SELF`），不会读取分类缓存或调用 AI；下文旧版“我方成员只排除 TRACE”的规则不再决定实际分类结果。
 
 ## llmPromptBase
 

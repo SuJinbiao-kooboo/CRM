@@ -339,6 +339,7 @@ public class WeChatGatewayService {
         }
         int timeout = Math.max(30, config.integer("processingTimeoutSec", 600));
         int cooldown = dryRun ? 0 : Math.max(0, config.integer("classifyRetryCooldownSec", 300));
+        Set<String> currentSelfNames = selfNames();
         Map<String, List<WeChatMessage>> byChat = new LinkedHashMap<>();
         for (WeChatMessage m : rows) {
             if (StringUtils.equalsIgnoreCase("AI_AUTO", m.getCategorySource())) {
@@ -350,7 +351,8 @@ public class WeChatGatewayService {
                 m.setCategoryReason(reason);
                 continue;
             }
-            if (!isTextMessage(m)) {
+            // 自己人消息直接归为 OTHER，非文本消息也不例外；后续分类入口不会再调用 AI。
+            if (!WeChatTextUtils.isSelf(m.getSender(), currentSelfNames) && !isTextMessage(m)) {
                 String reason = classifySkipReason(m);
                 if (!dryRun) {
                     store.markClassifySkipped(m.getUsername(), m.getLocalId(), reason);

@@ -236,6 +236,9 @@
       <el-col :span="1.5">
         <el-button type="warning" plain icon="el-icon-download" size="mini" @click="handleExport" v-hasPermi="['crm:supplier:export']">导出</el-button>
       </el-col>
+      <el-col :span="1.5">
+        <el-button type="info" plain icon="el-icon-message" size="mini" @click="openSubscriptions" v-hasPermi="['crm:supplier:list']">Offer邮箱</el-button>
+      </el-col>
     </el-row>
 
     <!-- :key=columnVersion：列顺序/显隐变化时强制重建表格，规避 element-ui 动态列调整后整列内容空白/错位的渲染不同步问题 -->
@@ -636,12 +639,62 @@
         <el-button @click="cancel">取 消</el-button>
       </div>
     </el-dialog>
+
+    <!-- Offer邮箱：portal.t_subscription 邮件订阅管理（分页 / 批量添加 / 逻辑删除） -->
+    <el-dialog title="Offer邮箱" :visible.sync="subOpen" width="920px" append-to-body @open="loadSubscriptions">
+      <div class="sub-toolbar">
+        <el-input v-model="subQuery.email" placeholder="订阅者邮箱" clearable size="small" style="width:200px;margin-right:8px" @keyup.enter.native="handleSubSearch" />
+        <el-input v-model="subQuery.module" placeholder="模块" clearable size="small" style="width:110px;margin-right:8px" />
+        <el-select v-model="subQuery.status" placeholder="订阅状态" clearable size="small" style="width:130px;margin-right:8px">
+          <el-option label="已订阅" :value="1" />
+          <el-option label="已取消" :value="0" />
+        </el-select>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="handleSubSearch">搜索</el-button>
+        <el-button type="success" size="mini" icon="el-icon-plus" @click="openSubAdd" v-hasPermi="['crm:supplier:edit']">批量添加</el-button>
+      </div>
+
+      <el-alert v-if="subResult" :title="subResultTitle" :type="subResult.fail > 0 ? 'warning' : 'success'" show-icon :closable="true" style="margin-bottom:10px" @close="subResult = null" />
+      <div v-if="subResult && subResult.failEmails && subResult.failEmails.length" class="sub-fail">
+        失败明细：{{ subResult.failEmails.join('；') }}
+      </div>
+
+      <el-table v-loading="subLoading" :data="subList" size="mini" border style="width:100%">
+        <el-table-column label="ID" prop="id" width="90" align="center" />
+        <el-table-column label="订阅者邮箱" prop="email" min-width="220" show-overflow-tooltip />
+        <el-table-column label="模块" prop="module" width="80" align="center" />
+        <el-table-column label="订阅状态" prop="status" width="100" align="center">
+          <template slot-scope="scope">
+            <el-tag :type="Number(scope.row.status) === 1 ? 'success' : 'info'" size="mini">{{ Number(scope.row.status) === 1 ? '已订阅' : '已取消' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="取消订阅原因" prop="cancel_reason" min-width="150" show-overflow-tooltip />
+        <el-table-column label="创建时间" prop="create_time" width="150" align="center" />
+        <el-table-column label="更新时间" prop="update_time" width="150" align="center" />
+        <el-table-column label="操作" width="80" align="center">
+          <template slot-scope="scope">
+            <el-button type="text" size="mini" :disabled="Number(scope.row.status) === 0" @click="invalidateSub(scope.row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <pagination v-show="subTotal > 0" :total="subTotal" :page.sync="subQuery.pageNum" :limit.sync="subQuery.pageSize" :page-sizes="[10,20,50,100]" layout="total, sizes, prev, pager, next, jumper" @pagination="loadSubscriptions" />
+
+      <el-dialog title="批量添加 Offer 邮箱" :visible.sync="subAddOpen" width="560px" append-to-body>
+        <p class="sub-tip">每行一个邮箱，也支持用逗号/分号分隔；写入 module=hk、status=1，邮箱重复或格式错误会计入失败。</p>
+        <el-input type="textarea" :rows="10" v-model="subEmails" placeholder="a@example.com&#10;b@example.com" />
+        <div slot="footer" class="dialog-footer">
+          <el-button type="primary" :loading="subSaving" @click="submitSubAdd">导 入</el-button>
+          <el-button @click="subAddOpen = false">取 消</el-button>
+        </div>
+      </el-dialog>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import { listSupplier, getSupplier, addSupplier, updateSupplier, updateSupplierContact, updateSupplierFollowUp, delSupplier, getSupplierDetail, delSupplierAttachment, listSupplierUsers } from '@/api/crm/supplier'
 import request from '@/utils/request'
+import { listSubscription, addSubscriptions, invalidateSubscriptions } from '@/api/crm/subscription'
 import { getDicts } from '@/api/system/dict/data'
 import { getToken } from '@/utils/auth'
 
@@ -767,13 +820,30 @@ export default {
       userLoading: false,
       editingCells: {},
       editingOriginal: '',
-      editValue: ''
+      editValue: '',
+      // Offer邮箱（portal.t_subscription）
+      subOpen: false,
+      subLoading: false,
+      subList: [],
+      subTotal: 0,
+      subQuery: { pageNum: 1, pageSize: 10, email: '', module: '', status: undefined },
+      subAddOpen: false,
+      subEmails: '',
+      subSaving: false,
+      subResult: null
     }
   },
   computed: {
     // 当前可见列（隐藏列不渲染，顺序即数组顺序）；visible 缺失时按可见处理
     renderColumns() {
       return this.tableColumns.filter(c => c.visible !== false)
+    },
+    subResultTitle() {
+      const r = this.subResult
+      if (!r) {
+        return ''
+      }
+      return '导入完成：成功 ' + (r.success || 0) + ' 条，失败 ' + (r.fail || 0) + ' 条'
     }
   },
   created() {
@@ -1104,6 +1174,53 @@ export default {
       this.exitEdit()
     }
     ,split(s) { return s ? s.split(',') : [] }
+    // ===== Offer邮箱（portal.t_subscription）=====
+    ,openSubscriptions() {
+      this.subResult = null
+      this.subQuery = { pageNum: 1, pageSize: 10, email: '', module: '', status: undefined }
+      this.subOpen = true
+      this.loadSubscriptions()
+    }
+    ,handleSubSearch() {
+      this.subQuery.pageNum = 1
+      this.loadSubscriptions()
+    }
+    ,loadSubscriptions() {
+      this.subLoading = true
+      listSubscription(this.subQuery).then(res => {
+        this.subList = res.rows || []
+        this.subTotal = res.total || 0
+        this.subLoading = false
+      }).catch(() => { this.subLoading = false })
+    }
+    ,openSubAdd() {
+      this.subEmails = ''
+      this.subAddOpen = true
+    }
+    ,submitSubAdd() {
+      const emails = (this.subEmails || '').split(/[\s,;，；]+/).map(s => s.trim()).filter(s => s)
+      if (!emails.length) {
+        this.$modal.msgWarning('请输入至少一个邮箱')
+        return
+      }
+      this.subSaving = true
+      addSubscriptions(emails).then(res => {
+        this.subResult = res.data || {}
+        this.subSaving = false
+        this.subAddOpen = false
+        this.subQuery.pageNum = 1
+        this.loadSubscriptions()
+        this.$modal.msgSuccess('导入完成：成功 ' + (this.subResult.success || 0) + ' 条，失败 ' + (this.subResult.fail || 0) + ' 条')
+      }).catch(() => { this.subSaving = false })
+    }
+    ,invalidateSub(row) {
+      this.$confirm('确认将邮箱「' + row.email + '」置为无效吗？', '提示', { type: 'warning' }).then(() => {
+        return invalidateSubscriptions([row.id])
+      }).then(() => {
+        this.$modal.msgSuccess('已置为无效')
+        this.loadSubscriptions()
+      }).catch(() => {})
+    }
     ,remoteUsers(query) {
       this.userLoading = true
       listSupplierUsers({ keyword: query }).then(res => {
@@ -1128,6 +1245,9 @@ export default {
 .cell-edit-icon { position: absolute; top: 4px; right: 4px; color: #909399; cursor: pointer; font-size: 14px; z-index: 1; opacity: .55; }
 .cell-edit-icon:hover, .inlinetext-cell:hover .cell-edit-icon, .multiselect-cell:hover .cell-edit-icon { color: #409eff; opacity: 1; }
 .mt10 { margin-top: 10px; }
+.sub-toolbar { margin-bottom: 10px; }
+.sub-fail { color: #e6a23c; font-size: 12px; margin-bottom: 10px; word-break: break-all; }
+.sub-tip { color: #909399; font-size: 12px; margin: 0 0 8px; }
 .preview-content { max-height: 70vh; overflow: auto; padding: 4px; }
 .preview-content >>> table { border-collapse: collapse; }
 .preview-content >>> td, .preview-content >>> th { border: 1px solid #dcdfe6; padding: 4px 8px; white-space: nowrap; }

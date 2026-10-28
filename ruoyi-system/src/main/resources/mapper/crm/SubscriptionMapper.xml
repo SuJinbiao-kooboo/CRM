@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.crm.mapper.SubscriptionMapper">
+
+    <select id="selectSubscriptionList" resultType="java.util.LinkedHashMap">
+        SELECT id, email, module, (status + 0) AS status, cancel_reason,
+               DATE_FORMAT(create_time, '%Y-%m-%d %H:%i:%s') AS create_time,
+               DATE_FORMAT(update_time, '%Y-%m-%d %H:%i:%s') AS update_time
+        FROM portal.t_subscription
+        <where>
+            <if test="email != null and email != ''">
+                AND email LIKE CONCAT('%', #{email}, '%')
+            </if>
+            <if test="module != null and module != ''">
+                AND module = #{module}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <insert id="insertSubscription">
+        INSERT INTO portal.t_subscription (email, module, status, create_time, update_time)
+        VALUES (#{email}, #{module}, #{status}, NOW(), NOW())
+    </insert>
+
+    <select id="selectStatusByEmail" resultType="java.lang.Integer">
+        SELECT status
+        FROM portal.t_subscription
+        WHERE email = #{email} AND module = #{module}
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
+    <update id="reactivateSubscription">
+        UPDATE portal.t_subscription
+        SET status = 1, cancel_reason = NULL, update_time = NOW()
+        WHERE email = #{email} AND module = #{module}
+    </update>
+
+    <update id="invalidateSubscriptions">
+        UPDATE portal.t_subscription
+        SET status = 0, update_time = NOW()
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+</mapper>

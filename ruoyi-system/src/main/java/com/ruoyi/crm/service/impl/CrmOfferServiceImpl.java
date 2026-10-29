@@ -39,6 +39,7 @@ import com.ruoyi.crm.mapper.CrmSupplierMapper;
 import com.ruoyi.crm.service.ICrmOfferService;
 import com.ruoyi.crm.service.ICrmSupplierService;
 import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.crm.util.OfferMaterialNormalizer;
 import com.ruoyi.crm.util.PnUtils;
 import com.ruoyi.crm.util.OfferTextFormatter;
 import com.ruoyi.system.service.ISysConfigService;
@@ -520,7 +521,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         // 2. 提取料号（转大写去重、保持原文顺序；入库均大写，但兼容历史数据大小写，查询用upper不区分大小写）
         LinkedHashSet<String> partNumbers = new LinkedHashSet<>();
         for (Map<String, Object> item : items) {
-            String pn = str(item.get("partNumber")).trim().toUpperCase();
+            String pn = OfferMaterialNormalizer.normalizePartNumberToken(str(item.get("partNumber")));
             if (!pn.isEmpty()) {
                 partNumbers.add(pn);
             }

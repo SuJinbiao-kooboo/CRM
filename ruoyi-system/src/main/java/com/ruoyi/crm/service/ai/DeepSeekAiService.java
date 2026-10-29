@@ -12,6 +12,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.common.core.redis.RedisCache;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.crm.util.OfferMaterialNormalizer;
 import com.ruoyi.system.service.ISysConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,9 +63,9 @@ public class DeepSeekAiService {
             + "请把文本中的每一条物料整理成结构化数据，并严格按如下JSON格式输出："
             + "{\"items\":[{\"brand\":\"品牌\",\"partNumber\":\"料号\",\"model\":\"型号\",\"spec\":\"规格\",\"quantity\":数量,\"price\":报价,\"currency\":\"币种\",\"dc\":\"DC编码\",\"coo\":\"产地\",\"deliveryTime\":\"交期\",\"productType\":\"产品类型\",\"productDetail\":\"详情\"}]}"
             + "字段规则：1. brand为品牌名称，按常见品牌对照表统一名称；"
-            + "2. partNumber为料号/型号（唯一标识符），不要修改或截断；注意CPU的料号"
+            + "2. partNumber为料号/型号（唯一标识符），不要修改或截断；AMD EPYC形如EPYC9015/100-000001553时，partNumber取9015、model取EPYC 9015，100-开头的OPN只放productDetail；西部数据形如0F62796-WUH722424ALE6L4时，partNumber取WUH722424ALE6L4，0F开头的内部编码不能作为料号；"
             + "3. deliveryTime为交期：L/T、LT、Lead Time、3d、2w、4-6周、货期之类的字眼就是交期信息，提取为简洁交期描述，没有的时候置空字符串"
-            + "4. spec为规格（型号的规范细节，说明容量大小和速度/转速）：SSD、RAM内存、HDD必须填写容量大小（如4TB、64GB、16TB），HDD还要写转速（如7200rpm、5400rpm），SSD/RAM可补充接口与速率（如M.2 NVMe、DDR5 6400）；颗粒必须填容量（如4GB eMMC、8Gb NAND、16GB UFS）；CPU、GPU等类别若无明确规格只写型号参数即可；原文确实没有规格信息时该字段置空字符串，不要编造也不要漏掉原文中已有的规格；"
+            + "4. spec为规格（型号的规范细节，说明容量大小和速度/转速）：SSD、RAM内存、HDD必须填写容量大小（如4TB、64GB、16TB）；HDD补充接口、转速、尺寸（如24TB SATA 6Gb/s 7200rpm 3.5-inch）；SSD补充总线、形态（如1.92TB PCIe 4.0 NVMe U.2、960GB SATA 6Gb/s 2.5-inch）；RAM补充代际、速率和模组类型（如64GB DDR4 3200 ECC RDIMM）；Samsung SSD如能确定系列，型号写PM1655/PM893/PM9A3等系列名，具体SKU保留在partNumber；颗粒必须填容量（如4GB eMMC、8Gb NAND、16GB UFS）；CPU、GPU等类别若无明确规格只写型号参数即可；原文和已确认型号都没有的规格不要编造，也不能漏掉原文已有规格；"
             + "5. 品牌字段是必须的"
             + "6. quantity为整数（1k换算为1000、500+取500、40pcs取40），无法识别时输出null；"
             + "7. price为纯数字（去掉货币符号和单位），无法识别或原文为No price/Not specified时输出null；currency只在原文明确出现非USD币种时填写币种代码（如EUR、CNY），原文无币种或USD时填写USD，无法归属时置空字符串；"
@@ -74,7 +75,11 @@ public class DeepSeekAiService {
             + "11. productDetail为详情：根据料号补充简短规格与主要参数（容量、接口、速度、系列、核心数等，如 4TB M.2 NVMe）；必须保证正确才能补充，不确定时使用原文描述；productDetail是汇总详情，spec保留原文细节"
             + "12. 不要遗漏任何一条物料，也不要编造原文中不存在的信息；"
             + "13. 料号的识别要特别注意，特别是CPU的，料号可能很短，比如 6338         SRKJ9      $1010    440pcs  6338 才是我要的料号，对料号的识别要做二次确认才行"
-            + "14. 最终输出字段需要至少有料号 型号 spec 品牌 数量 价格 dc coo deliveryTime productType productDetail；品牌大部分时候是空的，需要帮我根据料号查询信息补充，详情也最好也补充，但是一定要保证正确才能补充且需要简短 说明规格和主要参数即可";
+            + "14. 最终输出字段需要至少有料号 型号 spec 品牌 数量 价格 dc coo deliveryTime productType productDetail；品牌大部分时候是空的，需要帮我根据料号查询信息补充，详情也最好也补充，但是一定要保证正确才能补充且需要简短 说明规格和主要参数即可"
+            + "15. AMD EPYC的EPYC后的数字型号才是partNumber，例如EPYC9535/100-000001147输出partNumber=9535、model=EPYC 9535，不要输出100-000001147或EPYC9535作为料号；"
+            + "16. 西部数据0F内部编码与WUH正式型号同时出现时，只用WUH型号作为partNumber；只出现0F编码又无法确认正式型号时，不能猜测正式型号；"
+            + "17. Samsung SSD系列名只在能根据原文或明确型号确认时补充，不能把PM1653和PM1655混用；MZILG1T6、MZILG3T2属于PM1655，MZILG960、MZILG1T9、MZILG3T8、MZILG7T6、MZILG15T、MZILG30T属于PM1653；"
+            + "18. 接口类型必须写入spec：HDD/SSD写SATA、SAS、NVMe、PCIe及U.2、M.2、E1.S、E3.S等；RAM写DDR4/DDR5、ECC、RDIMM/LRDIMM/UDIMM等；无法确认的项省略，不得编造";
 
     /**
      * 调用 DeepSeek 接口，把无规则的物料文本整理为结构化物料列表
@@ -151,6 +156,8 @@ public class DeepSeekAiService {
         if (result.isEmpty()) {
             throw new ServiceException("AI未从内容中识别出有效的物料信息，请检查粘贴内容后重试");
         }
+        // 对可确定判断的料号格式统一归一化，保证 AI 录入与 AI 查询结果一致
+        OfferMaterialNormalizer.normalizeItems(result, content);
         // 调用成功后才把本轮问答追加进会话历史（带过期时间，自动续期）
         if (sessionKey != null) {
             saveHistory(sessionKey, history, content, aiContent);

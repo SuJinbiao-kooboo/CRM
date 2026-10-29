@@ -465,6 +465,9 @@ public class WeChatGatewayService {
         if (rows.isEmpty()) {
             throw new ServiceException("消息不存在或已被清理");
         }
+        if ("SELF".equalsIgnoreCase(rows.get(0).getCategorySource())) {
+            throw new ServiceException("我方成员消息按规则固定为 OTHER，不允许人工修改");
+        }
         if (!store.updateCategoryManual(username, localId, cat, "人工修改为" + cat)) {
             throw new ServiceException("已进入录入或任务流程的消息不允许修改分类");
         }

@@ -44,7 +44,7 @@
               <li><b>重排选中</b>：把失败、跳过或达到重试上限的录入消息重新放回队列，不立即执行。</li>
               <li><b>TRACE补扫</b>：补扫近期已关联 INQ/OFFER 且尚未成功发送的 TRACE 飞书预警，已预警消息不重复发送。</li>
               <li><b>清分类缓存</b>：只清空 AI 分类缓存，不改历史分类结果；调整提示词后使用。</li>
-              <li><b>列表分类下拉</b>：人工修改单条消息分类；已录入或已生成任务的消息锁定不可改。</li>
+              <li><b>列表分类下拉</b>：人工修改单条消息分类；我方成员消息固定 OTHER，不可改；已录入或已生成任务的消息也锁定。</li>
             </ul>
             <div class="help-title">分类规则</div>
             <ul>
@@ -460,6 +460,7 @@ export default {
     },
     categoryEditable(row) {
       if (!row) return false
+      if (String(row.categorySource || '').toUpperCase() === 'SELF') return false
       const entry = String(row.entryStatus || '').toUpperCase()
       const task = String(row.taskStatus || '').toUpperCase()
       return !['PROCESSING', 'SUCCESS', 'SUCCESS_WARN'].includes(entry) && !['PROCESSING', 'GENERATED'].includes(task)

@@ -14,6 +14,9 @@ public interface WeChatMessageMapper {
 
     int updateCategory(@Param("m") WeChatMessage m);
 
+    int updateCategoryManual(@Param("username") String username, @Param("localId") long localId,
+                             @Param("category") String category, @Param("reason") String reason);
+
     int updateFiltered(@Param("m") WeChatMessage m, @Param("reason") String reason);
 
     int markClassifyProcessing(@Param("username") String username, @Param("localId") long localId,

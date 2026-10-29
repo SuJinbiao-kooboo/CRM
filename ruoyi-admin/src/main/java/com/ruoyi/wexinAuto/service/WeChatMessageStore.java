@@ -157,6 +157,16 @@ public class WeChatMessageStore {
         }
     }
 
+    /** 人工修改分类；已进入录入/任务流程的消息不允许覆盖。 */
+    public boolean updateCategoryManual(String username, long localId, String category, String reason) {
+        try {
+            return mapper.updateCategoryManual(username, localId, category, reason) > 0;
+        } catch (Exception e) {
+            log.warn("人工修改分类失败: username={} localId={}", username, localId, e);
+            return false;
+        }
+    }
+
     /** 标记分类黑名单会话：OTHER/FILTER + status=3，避免继续被扫描和自动录入。 */
     public void updateFiltered(WeChatMessage m, String reason) {
         if (m == null) {

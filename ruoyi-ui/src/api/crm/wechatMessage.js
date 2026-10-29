@@ -43,6 +43,10 @@ export function runWechatClassify(data) {
   return request({ url: '/crm/wechat-message/classify/run', method: 'post', data: data, timeout: 480000 })
 }
 
+export function updateWechatMessageCategory(data) {
+  return request({ url: '/crm/wechat-message/category', method: 'post', data: data })
+}
+
 export function setWechatClassifyConfig(enabled) {
   return request({ url: '/crm/wechat-message/classify/config', method: 'post', data: { enabled: enabled } })
 }

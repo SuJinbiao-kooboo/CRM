@@ -117,6 +117,31 @@
           AND classify_status IN ('PENDING','PROCESSING','FAILED')
     </update>
 
+    <update id="updateCategoryManual">
+        UPDATE wechat_message
+        SET msg_category = #{category},
+            category_source = 'MANUAL',
+            category_reason = #{reason},
+            relat_inq = CASE WHEN #{category} IN ('OFFER','TRACE') THEN relat_inq ELSE '' END,
+            relat_offer = CASE WHEN #{category} = 'TRACE' THEN relat_offer ELSE '' END,
+            classify_status = 'SUCCESS',
+            classify_at = NOW(),
+            classify_fail_count = 0,
+            status = CASE WHEN #{category} IN ('INQ','OFFER') THEN 1 ELSE 3 END,
+            entry_status = CASE WHEN #{category} IN ('INQ','OFFER') THEN 'PENDING' ELSE 'NOT_APPLICABLE' END,
+            entry_message = '',
+            entry_at = NOW(),
+            task_status = CASE WHEN #{category} IN ('INQ','OFFER') THEN 'PENDING' ELSE 'SKIPPED' END,
+            task_at = NOW(),
+            task_message = CASE WHEN #{category} IN ('INQ','OFFER') THEN '' ELSE 'NOT_ROUTABLE' END,
+            trace_alerted_at = NULL,
+            trace_alert_error = NULL,
+            trace_alert_suppressed_at = NULL
+        WHERE username = #{username} AND local_id = #{localId}
+          AND COALESCE(entry_status,'') NOT IN ('PROCESSING','SUCCESS','SUCCESS_WARN')
+          AND COALESCE(task_status,'') NOT IN ('PROCESSING','GENERATED')
+    </update>
+
     <update id="updateFiltered">
         UPDATE wechat_message
         SET msg_category = 'OTHER',
@@ -229,7 +254,7 @@
         SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
         WHERE classify_status = 'SUCCESS'
           AND msg_category = 'TRACE'
-          AND category_source IN ('LLM','CACHE')
+          AND category_source IN ('LLM','CACHE','MANUAL')
           AND trace_alerted_at IS NULL
           AND trace_alert_suppressed_at IS NULL
           AND create_time &gt;= #{since}
@@ -248,7 +273,7 @@
     <select id="queryProcessable" resultMap="WeChatMessageResult">
         SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
         WHERE classify_status = 'SUCCESS'
-          AND category_source IN ('LLM','CACHE')
+          AND category_source IN ('LLM','CACHE','MANUAL')
           AND msg_category IN
           <foreach collection="categories" item="cat" open="(" separator="," close=")">#{cat}</foreach>
           AND create_time &gt;= #{since}
@@ -265,7 +290,7 @@
     <select id="processableStats" resultType="java.util.Map">
         SELECT COUNT(*) AS cnt, MIN(create_time) AS earliest FROM wechat_message
         WHERE classify_status = 'SUCCESS'
-          AND category_source IN ('LLM','CACHE')
+          AND category_source IN ('LLM','CACHE','MANUAL')
           AND msg_category IN
           <foreach collection="categories" item="cat" open="(" separator="," close=")">#{cat}</foreach>
           AND create_time &gt;= #{since}
@@ -309,7 +334,7 @@
         SET entry_status = 'PENDING', entry_message = '人工重新入队', entry_fail_count = 0,
             status = 1, entry_at = NOW(), task_status = 'PENDING', task_message = '', task_at = NOW()
         WHERE classify_status = 'SUCCESS'
-          AND category_source IN ('LLM','CACHE')
+          AND category_source IN ('LLM','CACHE','MANUAL')
           AND msg_category IN ('INQ','OFFER')
           AND entry_status IN ('SKIPPED','FAILED','DEAD')
           <if test="chat != null and chat != ''">AND name = #{chat}</if>
@@ -320,7 +345,7 @@
         SET entry_status = 'PENDING', entry_message = '人工重新入队', entry_fail_count = 0,
             status = 1, entry_at = NOW(), task_status = 'PENDING', task_message = '', task_at = NOW()
         WHERE classify_status = 'SUCCESS'
-          AND category_source IN ('LLM','CACHE')
+          AND category_source IN ('LLM','CACHE','MANUAL')
           AND msg_category IN ('INQ','OFFER')
           AND entry_status IN ('SKIPPED','FAILED','DEAD')
           AND CONCAT(username, ':', local_id) IN
@@ -335,7 +360,7 @@
     <select id="queryTaskCandidates" resultMap="WeChatMessageResult">
         SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
         WHERE classify_status = 'SUCCESS'
-          AND category_source IN ('LLM','CACHE')
+          AND category_source IN ('LLM','CACHE','MANUAL')
           AND msg_category IN ('INQ','OFFER')
           AND (
                 (entry_status IN ('SUCCESS','SUCCESS_WARN') AND task_status IN ('PENDING','FAILED'))

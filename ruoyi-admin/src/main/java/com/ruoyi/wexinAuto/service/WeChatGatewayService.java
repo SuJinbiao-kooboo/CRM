@@ -18,6 +18,7 @@ import com.ruoyi.wexinAuto.model.WeChatSendResult;
 import com.ruoyi.wexinAuto.msg.WeChatMessageHandler;
 import com.ruoyi.wexinAuto.msg.WeChatMessageParser;
 import com.ruoyi.common.core.domain.entity.SysDictData;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DictUtils;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.system.service.ISysDictDataService;
@@ -447,6 +448,32 @@ public class WeChatGatewayService {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("cacheCleared", true);
         out.put("message", "分类缓存已清空");
+        return out;
+    }
+
+    /** 人工修改单条消息分类；已录入或已生成任务的消息禁止覆盖，避免下游数据错乱。 */
+    public Map<String, Object> updateCategoryManually(String username, long localId, String category) {
+        String cat = StringUtils.trimToEmpty(category).toUpperCase(Locale.ROOT);
+        if (!Arrays.asList("INQ", "OFFER", "TRACE", "OTHER").contains(cat)) {
+            throw new ServiceException("分类只能是 INQ、OFFER、TRACE 或 OTHER");
+        }
+        if (StringUtils.isBlank(username)) {
+            throw new ServiceException("消息键不能为空");
+        }
+        List<WeChatMessage> rows = store.queryByKeys(
+                Collections.singletonList(username + ":" + localId));
+        if (rows.isEmpty()) {
+            throw new ServiceException("消息不存在或已被清理");
+        }
+        if (!store.updateCategoryManual(username, localId, cat, "人工修改为" + cat)) {
+            throw new ServiceException("已进入录入或任务流程的消息不允许修改分类");
+        }
+        llm.clearCache();
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("username", username);
+        out.put("localId", localId);
+        out.put("category", cat);
+        out.put("message", "分类已修改为" + cat);
         return out;
     }
 
@@ -1273,7 +1300,8 @@ public class WeChatGatewayService {
             return false;
         }
         if (!"LLM".equalsIgnoreCase(m.getCategorySource())
-                && !"CACHE".equalsIgnoreCase(m.getCategorySource())) {
+                && !"CACHE".equalsIgnoreCase(m.getCategorySource())
+                && !"MANUAL".equalsIgnoreCase(m.getCategorySource())) {
             return false;
         }
         if (StringUtils.isBlank(m.getRelatInq()) && StringUtils.isBlank(m.getRelatOffer())) {

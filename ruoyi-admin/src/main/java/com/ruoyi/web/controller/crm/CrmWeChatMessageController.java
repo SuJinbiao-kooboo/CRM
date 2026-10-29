@@ -180,6 +180,26 @@ public class CrmWeChatMessageController extends BaseController {
         return success(gateway.classifyOnce(text(body, "chat")));
     }
 
+    /** 列表下拉人工修改单条消息分类。 */
+    @PreAuthorize("@ss.hasPermi('wechat:message:classify')")
+    @Log(title = "微信消息人工分类", businessType = BusinessType.UPDATE)
+    @PostMapping("/category")
+    public AjaxResult updateCategory(@RequestBody Map<String, Object> body) {
+        String username = text(body, "username");
+        String category = text(body, "category");
+        Object localIdValue = body == null ? null : body.get("localId");
+        if (StringUtils.isBlank(username) || localIdValue == null) {
+            return error("缺少username或localId参数");
+        }
+        long localId;
+        try {
+            localId = Long.parseLong(String.valueOf(localIdValue));
+        } catch (NumberFormatException e) {
+            return error("localId格式不正确");
+        }
+        return success(gateway.updateCategoryManually(username, localId, category));
+    }
+
     /** 自动分类总开关：关闭时只允许在页面手动勾选后分类。 */
     @PreAuthorize("@ss.hasPermi('wechat:message:classify')")
     @Log(title = "微信自动分类开关", businessType = BusinessType.UPDATE)

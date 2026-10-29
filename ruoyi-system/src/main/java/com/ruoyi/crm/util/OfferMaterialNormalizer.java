@@ -26,6 +26,28 @@ public final class OfferMaterialNormalizer {
     private static final Pattern CAPACITY_G = Pattern.compile(
             "(?i)(?<![A-Z0-9])(\\d+(?:\\.\\d+)?)\\s*G(?![A-Z0-9])");
 
+    private static final Pattern NVIDIA_RTX_5090_TOKEN = Pattern.compile(
+            "(?i)^(?:NVIDIA\\s+)?(?:GEFORCE\\s+)?(?:RTX|RXT)[\\s-]*5090(?:\\s*(?:32G|32GB))?$");
+    private static final Pattern NVIDIA_5090_BARE_TOKEN = Pattern.compile(
+            "(?i)^5090(?:\\s*(?:32G|32GB))?$");
+    private static final Pattern NVIDIA_RTX_5090_ANY = Pattern.compile(
+            "(?i)(?<![0-9A-Z])(?:RTX|RXT|GEFORCE)?[\\s-]*5090(?![0-9A-Z])");
+    private static final Pattern NVIDIA_PRO_6000_ANY = Pattern.compile(
+            "(?i)(?<![0-9A-Z])(?:PRO[\\s-]*6000|6000[\\s-]*PRO)(?![0-9A-Z])");
+    private static final Pattern NVIDIA_PRO_6000_BARE_TOKEN = Pattern.compile(
+            "(?i)^(?:NVIDIA\\s+)?(?:RTX\\s+)?(?:PRO[\\s-]*6000|6000[\\s-]*PRO)(?:\\s*BLACKWELL)?(?:\\s*96G(?:B)?)?$");
+    private static final Pattern NVIDIA_PRO_6000_TOKEN = Pattern.compile(
+            "(?i)^(?:NVIDIA\\s+)?(?:RTX\\s+)?(?:PRO[\\s-]*6000|6000[\\s-]*PRO)"
+                    + "(?:\\s*BLACKWELL)?"
+                    + "(?:\\s*(SE|SERVER\\s+EDITION|SERVER\\s+VERSION|SERVER|SEVER(?:\\s+EDITION)?|服务器版本|服务器版?|服务版|WS|WORKSTATION\\s+EDITION|WORKSTATION|工作站版?))?"
+                    + "(?:\\s*96G(?:B)?)?$");
+    private static final Pattern NVIDIA_PRO_6000_D = Pattern.compile(
+            "(?i)(?:PRO[\\s-]*6000[\\s-]*D|6000[\\s-]*PRO[\\s-]*D)(?![A-Z])");
+    private static final Pattern NVIDIA_SERVER_MARK = Pattern.compile(
+            "(?i)(?<![A-Z0-9])(SE|SERVER(?:\\s+(?:EDITION|VERSION))?|SEVER(?:\\s+EDITION)?|服务器版本|服务器版?|服务版)(?![A-Z0-9])");
+    private static final Pattern NVIDIA_WORKSTATION_MARK = Pattern.compile(
+            "(?i)(?<![A-Z0-9])(WS|WORKSTATION(?:\\s+EDITION)?|工作站版?)(?![A-Z0-9])");
+
     private OfferMaterialNormalizer() {
     }
 
@@ -52,6 +74,17 @@ public final class OfferMaterialNormalizer {
         Matcher wd = WD_PAIR.matcher(normalized);
         if (wd.matches()) {
             return wd.group(2).toUpperCase(Locale.ROOT);
+        }
+        if (NVIDIA_RTX_5090_TOKEN.matcher(normalized).matches()
+                || NVIDIA_5090_BARE_TOKEN.matcher(normalized).matches()) {
+            return "RTX509032G";
+        }
+        Matcher nvidiaPro6000 = NVIDIA_PRO_6000_TOKEN.matcher(normalized);
+        if (nvidiaPro6000.matches() && nvidiaPro6000.group(1) != null) {
+            return isServerEditionToken(nvidiaPro6000.group(1)) ? "PRO6000SE96G" : "PRO6000WS96G";
+        }
+        if (NVIDIA_PRO_6000_BARE_TOKEN.matcher(normalized).matches()) {
+            return "PRO6000";
         }
         return normalized;
     }
@@ -89,6 +122,35 @@ public final class OfferMaterialNormalizer {
                 put(item, "productType", "HDD");
                 type = "HDD";
             }
+        }
+
+        String nvidiaPn = resolveNvidiaModel(pn, combined, type);
+        if (nvidiaPn != null) {
+            String aiModel = model;
+            pn = nvidiaPn;
+            if ("RTX509032G".equals(nvidiaPn)) {
+                model = "RTX 5090";
+                spec = ensureCapacity(spec, "32");
+            } else if ("PRO6000SE96G".equals(nvidiaPn)) {
+                model = "RTX PRO 6000 SE";
+                spec = ensureCapacity(spec, "96");
+            } else {
+                model = "RTX PRO 6000 WS";
+                spec = ensureCapacity(spec, "96");
+            }
+            put(item, "brand", "NVIDIA");
+            put(item, "productType", "GPU");
+            type = "GPU";
+            if (detail.isEmpty() && !aiModel.isEmpty() && !aiModel.equalsIgnoreCase(model)) {
+                detail = aiModel;
+            }
+            if (!originalPn.isEmpty() && originalPn.contains("-")
+                    && !originalPn.equalsIgnoreCase(nvidiaPn)) {
+                detail = appendMissing(detail, "原PN " + originalPn);
+            }
+        } else if (isNvidiaContext(combined, type)
+                && NVIDIA_PRO_6000_BARE_TOKEN.matcher(pn).matches()) {
+            pn = "PRO6000";
         }
 
         String samsungSeries = detectSamsungSeries(combined, pn);
@@ -169,6 +231,61 @@ public final class OfferMaterialNormalizer {
             }
         }
         return null;
+    }
+
+    /** NVIDIA RTX 5090 / RTX PRO 6000 的“系列+型号+版本+显存”归一化。 */
+    private static String resolveNvidiaModel(String pn, String combined, String type) {
+        if (!isNvidiaContext(combined, type)) {
+            return null;
+        }
+        if (pn.startsWith("RTX509032G") || NVIDIA_RTX_5090_ANY.matcher(combined).find()) {
+            return "RTX509032G";
+        }
+        if (!pn.startsWith("PRO6000") && !NVIDIA_PRO_6000_ANY.matcher(combined).find()) {
+            return null;
+        }
+        String upper = combined.toUpperCase(Locale.ROOT);
+        if (upper.contains("MAX-Q") || upper.contains("MAX Q") || upper.contains("MAX~Q")
+                || upper.contains("MAXQ")) {
+            return null;
+        }
+        boolean server = pn.startsWith("PRO6000SE96G") || NVIDIA_SERVER_MARK.matcher(combined).find();
+        boolean workstation = pn.startsWith("PRO6000WS96G")
+                || NVIDIA_WORKSTATION_MARK.matcher(combined).find();
+        if (server && !workstation) {
+            return "PRO6000SE96G";
+        }
+        if (workstation && !server) {
+            return "PRO6000WS96G";
+        }
+        return null;
+    }
+
+    private static boolean isNvidiaContext(String combined, String type) {
+        String upper = combined.toUpperCase(Locale.ROOT);
+        if (upper.contains("AMD") || upper.contains("RADEON")) {
+            return false;
+        }
+        if (upper.contains("整机") || upper.contains("机箱") || upper.contains("准系统")
+                || upper.contains("CHASSIS")
+                || NVIDIA_PRO_6000_D.matcher(combined).find()) {
+            return false;
+        }
+        return type.isEmpty() || "GPU".equalsIgnoreCase(type);
+    }
+
+    private static boolean isServerEditionToken(String token) {
+        String value = token.toUpperCase(Locale.ROOT);
+        return "SE".equals(value) || value.startsWith("SERVER") || value.startsWith("SEVER")
+                || value.startsWith("服务");
+    }
+
+    private static String ensureCapacity(String spec, String gb) {
+        if (spec != null && Pattern.compile("(?i)(?<![0-9A-Z])" + gb + "\\s*G(?:B)?(?![0-9A-Z])")
+                .matcher(spec).find()) {
+            return spec;
+        }
+        return appendMissing(spec, gb + "GB");
     }
 
     /** 只对可确认的三星 SSD 系列补充系列名；MZILG 按容量代号区分 PM1653/PM1655。 */

@@ -34,6 +34,10 @@ public abstract class AbstractQuartzJob implements Job
     {
         SysJob sysJob = new SysJob();
         BeanUtils.copyBeanProp(sysJob, context.getMergedJobDataMap().get(ScheduleConstants.TASK_PROPERTIES));
+        if (!JobIpWhitelist.isAllowed(sysJob))
+        {
+            return;
+        }
         try
         {
             before(context, sysJob);

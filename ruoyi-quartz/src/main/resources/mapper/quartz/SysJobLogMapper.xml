@@ -65,6 +65,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </foreach> 
  	</delete>
  	
+	<delete id="deleteJobLogBefore">
+		delete from sys_job_log where create_time &lt; #{cutoff}
+	</delete>
+
  	<update id="cleanJobLog">
         truncate table sys_job_log
     </update>

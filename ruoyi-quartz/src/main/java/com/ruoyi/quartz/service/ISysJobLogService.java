@@ -1,5 +1,6 @@
 package com.ruoyi.quartz.service;
 
+import java.util.Date;
 import java.util.List;
 import com.ruoyi.quartz.domain.SysJobLog;
 
@@ -48,6 +49,14 @@ public interface ISysJobLogService
      * @return 结果
      */
     public int deleteJobLogById(Long jobId);
+
+    /**
+     * 删除指定时间之前的调度日志
+     *
+     * @param cutoff 截止时间（不含）
+     * @return 删除数量
+     */
+    public int deleteJobLogBefore(Date cutoff);
 
     /**
      * 清空任务日志

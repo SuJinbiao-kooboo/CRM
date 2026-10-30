@@ -17,6 +17,14 @@ export function getJob(jobId) {
   })
 }
 
+// 查询当前服务主机的本地 IPv4
+export function getJobLocalIp() {
+  return request({
+    url: '/monitor/job/localIp',
+    method: 'get'
+  })
+}
+
 // 新增定时任务调度
 export function addJob(data) {
   return request({

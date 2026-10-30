@@ -25,6 +25,7 @@ import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.quartz.domain.SysJob;
 import com.ruoyi.quartz.service.ISysJobService;
 import com.ruoyi.quartz.util.CronUtils;
+import com.ruoyi.quartz.util.JobIpWhitelist;
 import com.ruoyi.quartz.util.ScheduleUtils;
 
 /**
@@ -49,6 +50,16 @@ public class SysJobController extends BaseController
         startPage();
         List<SysJob> list = jobService.selectJobList(sysJob);
         return getDataTable(list);
+    }
+
+    /**
+     * 查询当前服务主机的本地 IPv4，供页面复制到任务白名单。
+     */
+    @PreAuthorize("@ss.hasPermi('monitor:job:list')")
+    @GetMapping("/localIp")
+    public AjaxResult localIp()
+    {
+        return success(JobIpWhitelist.localIpv4Addresses());
     }
 
     /**

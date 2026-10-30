@@ -1,8 +1,8 @@
 <template>
   <div class="app-container">
     <el-alert type="info" :closable="false" show-icon style="margin-bottom: 12px;">
-      <div>微信自动化任务组受本机 IPv4 白名单限制；白名单在“系统管理 → 参数设置 → wechat.scheduler.allowedIps”维护，未命中时任务自动跳过并记录 WARN 日志。</div>
-      <div>任务开关只控制调度是否触发；实际处理仍受“参数配置 → wechat_analysis_config”中的 pollEnabled、classifyEnabled、offerEntryEnabled、autoTaskGenerateEnabled、autoSendEnabled 等业务开关控制。</div>
+      <div>每条任务均可设置本机 IPv4 白名单，为空表示不限制；未命中白名单时任务自动跳过并记录 WARN 日志。</div>
+      <div>调度日志只保留最近 3 天，系统每天自动清理；任务开关只控制调度是否触发，微信业务处理仍受 wechat_analysis_config 内的业务开关控制。</div>
     </el-alert>
     <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" v-show="showSearch" label-width="68px">
       <el-form-item label="任务名称" prop="jobName">
@@ -92,6 +92,26 @@
           v-hasPermi="['monitor:job:query']"
         >日志</el-button>
       </el-col>
+      <el-col :span="1.5">
+        <el-button
+          type="primary"
+          plain
+          icon="el-icon-copy-document"
+          size="mini"
+          :loading="localIpLoading"
+          @click="handleCopyLocalIp"
+          v-hasPermi="['monitor:job:list']"
+        >复制本机IP</el-button>
+      </el-col>
+      <el-col :span="1.5">
+        <el-button
+          type="info"
+          plain
+          icon="el-icon-question"
+          size="mini"
+          @click="openHelp = true"
+        >说明</el-button>
+      </el-col>
       <right-toolbar :showSearch.sync="showSearch" @queryTable="getList"></right-toolbar>
     </el-row>
 
@@ -106,6 +126,12 @@
       </el-table-column>
       <el-table-column label="调用目标字符串" align="center" prop="invokeTarget" :show-overflow-tooltip="true" />
       <el-table-column label="cron执行表达式" align="center" prop="cronExpression" :show-overflow-tooltip="true" />
+      <el-table-column label="IP白名单" align="center" prop="allowedIps" width="180" :show-overflow-tooltip="true">
+        <template slot-scope="scope">
+          <span v-if="scope.row.allowedIps">{{ scope.row.allowedIps }}</span>
+          <el-tag v-else size="mini" type="info">不限制</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="状态" align="center">
         <template slot-scope="scope">
           <el-switch
@@ -204,6 +230,19 @@
               </el-input>
             </el-form-item>
           </el-col>
+          <el-col :span="24">
+            <el-form-item label="IP白名单" prop="allowedIps">
+              <el-input
+                v-model="form.allowedIps"
+                type="textarea"
+                :rows="2"
+                maxlength="1000"
+                show-word-limit
+                placeholder="为空表示不限制；多个IPv4用英文逗号分隔，例如：192.168.1.10,192.168.1.11"
+              />
+              <div style="line-height: 20px; color: #909399; font-size: 12px;">校验运行后端的服务主机 IPv4，不是浏览器所在电脑；可点击列表上方“复制本机IP”。</div>
+            </el-form-item>
+          </el-col>
           <el-col :span="24" v-if="form.jobId !== undefined">
             <el-form-item label="状态">
               <el-radio-group v-model="form.status">
@@ -244,6 +283,28 @@
       <crontab @hide="openCron=false" @fill="crontabFill" :expression="expression"></crontab>
     </el-dialog>
 
+    <el-dialog title="定时任务管理说明" :visible.sync="openHelp" width="760px" append-to-body>
+      <div style="line-height: 1.9; color: #606266;">
+        <h4 style="margin-top: 0;">任务状态</h4>
+        <div>列表中的开关控制任务是否被调度器触发：正常表示已启用，暂停表示停用。修改状态会立即同步到 Quartz 调度器。</div>
+        <h4>IP 白名单</h4>
+        <div>每条任务独立配置，只有运行后端的服务主机任一 IPv4 命中该任务的白名单时才执行。为空表示该任务不限制 IP；多个 IPv4 用英文逗号分隔。</div>
+        <div>“复制本机IP”会读取服务主机当前的非回环 IPv4 并复制到剪贴板，可直接粘贴到对应任务的白名单。它不会读取浏览器所在电脑的网卡信息。</div>
+        <div>“执行一次”同样执行白名单校验；未命中时会跳过，且不会写入一条新的调度日志。</div>
+        <h4>调度日志</h4>
+        <div>调度日志仅保留最近 3 天，由系统任务“调度日志清理（保留3天）”每天 00:10 自动删除旧日志。也可以进入“调度日志”页面按任务查询。</div>
+        <h4>微信自动化业务开关</h4>
+        <div>任务开关只控制是否定时触发；消息拉取、分类、录入、任务生成、自动发送仍分别受 wechat_analysis_config 中的 pollEnabled、classifyEnabled、offerEntryEnabled、autoTaskGenerateEnabled、autoSendEnabled 控制。</div>
+        <h4>列表操作</h4>
+        <div>“新增”创建任务（默认暂停）；“修改”调整 cron、调用方法和白名单；“删除”删除任务及调度；“导出”导出当前查询结果；“查询/重置”按条件筛选任务。</div>
+        <h4>其他操作</h4>
+        <div>“执行一次”用于立即验证任务；“任务明细”查看下次执行时间和参数；“调度日志”查看执行结果和异常信息。</div>
+      </div>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" @click="openHelp = false">知道了</el-button>
+      </div>
+    </el-dialog>
+
     <!-- 任务日志详细 -->
     <el-dialog title="任务详细" :visible.sync="openView" width="700px" append-to-body>
       <el-form ref="form" :model="form" label-width="120px" size="mini">
@@ -264,6 +325,9 @@
           </el-col>
           <el-col :span="24">
             <el-form-item label="调用目标方法：">{{ form.invokeTarget }}</el-form-item>
+          </el-col>
+          <el-col :span="24">
+            <el-form-item label="IP白名单：">{{ form.allowedIps || '不限制' }}</el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="任务状态：">
@@ -295,7 +359,7 @@
 </template>
 
 <script>
-import { listJob, getJob, delJob, addJob, updateJob, runJob, changeJobStatus } from "@/api/monitor/job"
+import { listJob, getJob, getJobLocalIp, delJob, addJob, updateJob, runJob, changeJobStatus } from "@/api/monitor/job"
 import Crontab from '@/components/Crontab'
 
 export default {
@@ -326,6 +390,10 @@ export default {
       openView: false,
       // 是否显示Cron表达式弹出层
       openCron: false,
+      // 是否显示管理说明
+      openHelp: false,
+      // 本机IP读取中
+      localIpLoading: false,
       // 传入的表达式
       expression: "",
       // 查询参数
@@ -369,6 +437,49 @@ export default {
     jobGroupFormat(row, column) {
       return this.selectDictLabel(this.dict.type.sys_job_group, row.jobGroup)
     },
+    /** 复制当前服务主机 IPv4 */
+    handleCopyLocalIp() {
+      this.localIpLoading = true
+      getJobLocalIp().then(response => {
+        const ips = Array.isArray(response.data) ? response.data : []
+        if (ips.length === 0) {
+          this.$modal.msgWarning("未读取到服务主机 IPv4")
+          return
+        }
+        const text = ips.join(',')
+        this.copyText(text).then(ok => {
+          if (ok) {
+            this.$modal.msgSuccess("已复制服务主机 IP：" + text)
+          } else {
+            this.$modal.msgError("复制失败，请手动记录：" + text)
+          }
+        })
+      }).finally(() => {
+        this.localIpLoading = false
+      })
+    },
+    copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).then(() => true).catch(() => this.fallbackCopyText(text))
+      }
+      return Promise.resolve(this.fallbackCopyText(text))
+    },
+    fallbackCopyText(text) {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      let copied = false
+      try {
+        copied = document.execCommand('copy')
+      } catch (e) {
+        copied = false
+      }
+      document.body.removeChild(textarea)
+      return copied
+    },
     // 取消按钮
     cancel() {
       this.open = false
@@ -382,6 +493,7 @@ export default {
         jobGroup: undefined,
         invokeTarget: undefined,
         cronExpression: undefined,
+        allowedIps: undefined,
         misfirePolicy: 1,
         concurrent: 1,
         status: "0"

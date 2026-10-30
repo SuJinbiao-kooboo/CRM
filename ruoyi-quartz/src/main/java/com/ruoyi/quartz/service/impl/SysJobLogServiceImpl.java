@@ -1,5 +1,6 @@
 package com.ruoyi.quartz.service.impl;
 
+import java.util.Date;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -74,6 +75,15 @@ public class SysJobLogServiceImpl implements ISysJobLogService
     public int deleteJobLogById(Long jobId)
     {
         return jobLogMapper.deleteJobLogById(jobId);
+    }
+
+    /**
+     * 删除指定时间之前的调度日志
+     */
+    @Override
+    public int deleteJobLogBefore(Date cutoff)
+    {
+        return jobLogMapper.deleteJobLogBefore(cutoff);
     }
 
     /**

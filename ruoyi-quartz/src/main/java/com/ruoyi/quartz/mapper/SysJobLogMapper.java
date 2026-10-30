@@ -1,6 +1,8 @@
 package com.ruoyi.quartz.mapper;
 
+import java.util.Date;
 import java.util.List;
+import org.apache.ibatis.annotations.Param;
 import com.ruoyi.quartz.domain.SysJobLog;
 
 /**
@@ -56,6 +58,14 @@ public interface SysJobLogMapper
      * @return 结果
      */
     public int deleteJobLogById(Long jobId);
+
+    /**
+     * 删除指定时间之前的调度日志
+     *
+     * @param cutoff 截止时间（不含）
+     * @return 删除数量
+     */
+    public int deleteJobLogBefore(@Param("cutoff") Date cutoff);
 
     /**
      * 清空任务日志

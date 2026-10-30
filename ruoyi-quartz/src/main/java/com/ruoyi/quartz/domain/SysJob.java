@@ -54,6 +54,10 @@ public class SysJob extends BaseEntity
     @Excel(name = "任务状态", readConverterExp = "0=正常,1=暂停")
     private String status;
 
+    /** IP白名单：多个IPv4用逗号分隔；为空表示不限制 */
+    @Excel(name = "IP白名单")
+    private String allowedIps;
+
     public Long getJobId()
     {
         return jobId;
@@ -150,6 +154,17 @@ public class SysJob extends BaseEntity
         this.status = status;
     }
 
+    @Size(min = 0, max = 1000, message = "IP白名单不能超过1000个字符")
+    public String getAllowedIps()
+    {
+        return allowedIps;
+    }
+
+    public void setAllowedIps(String allowedIps)
+    {
+        this.allowedIps = allowedIps;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
@@ -161,6 +176,7 @@ public class SysJob extends BaseEntity
             .append("misfirePolicy", getMisfirePolicy())
             .append("concurrent", getConcurrent())
             .append("status", getStatus())
+            .append("allowedIps", getAllowedIps())
             .append("createBy", getCreateBy())
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())

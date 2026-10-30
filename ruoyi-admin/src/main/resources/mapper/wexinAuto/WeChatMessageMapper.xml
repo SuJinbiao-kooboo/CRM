@@ -287,6 +287,13 @@
         ORDER BY sort_seq ASC LIMIT #{max}
     </select>
 
+    <select id="queryEntryNeighbors" resultMap="WeChatMessageResult">
+        SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
+        WHERE username = #{username} AND name = #{name} AND sender = #{sender}
+          AND create_time &gt;= #{from} AND create_time &lt;= #{to}
+        ORDER BY sort_seq ASC
+    </select>
+
     <select id="processableStats" resultType="java.util.Map">
         SELECT COUNT(*) AS cnt, MIN(create_time) AS earliest FROM wechat_message
         WHERE classify_status = 'SUCCESS'

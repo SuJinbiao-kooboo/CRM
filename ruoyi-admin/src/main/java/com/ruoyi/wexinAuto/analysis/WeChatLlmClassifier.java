@@ -466,6 +466,8 @@ public class WeChatLlmClassifier {
             "OTHER=其他；纯确认（好/OK/check/稍等）、寒暄、致谢、系统消息、附件/名片、地址、内部说明、广告，以及只引用历史或泛泛提到offer但没有提出新问题、没有推进业务的陈述，均为OTHER。\n" +
             "结合最近20条上下文，买卖双向，不按发送人定方向；待判P消息若来自我方成员(selfNames)则一律OTHER，不参与AI判断；"
             + "历史H行标记[SELF-OTHER]的我方消息仍是业务上下文，可按内容作为后续消息的inq/offer关联对象；拿不准输出OTHER。\n" +
+            "同一发送人短时间内连续多条消息按一个整体判断：后一条只补充料号、型号、规格、数量、价格、库存、交期、原装/新旧等信息时，"
+            + "继承前一条类型（前条INQ则补充也INQ，前条OFFER则补充也OFFER），不能判TRACE；TRACE只用于对已有具体INQ/OFFER做二次了解或推进。\n" +
             "输出每条P消息：i=消息编号，cat=INQ/OFFER/TRACE/OTHER，inq/offer=对应消息编号，无关联可省略。";
 
     private static final String DEFAULT_EXAMPLES =
@@ -486,5 +488,9 @@ public class WeChatLlmClassifier {
             "#33 [客户] 多少钱拿的 → {\"i\":33,\"cat\":\"OTHER\"}\n" +
             "#34 [客户] 你们还收不 → {\"i\":34,\"cat\":\"OTHER\"}\n" +
             "#35 [客户] 2565X 有货吗 → {\"i\":35,\"cat\":\"INQ\"}\n" +
-            "#36 [客户] 多少钱 → {\"i\":36,\"cat\":\"TRACE\",\"inq\":35}";
+            "#36 [客户] 多少钱 → {\"i\":36,\"cat\":\"TRACE\",\"inq\":35}\n" +
+            "#37 [客户] Intel 6346 33片有货吗？ → {\"i\":37,\"cat\":\"INQ\"}\n" +
+            "#38 [客户] 有货吗（同一人紧接着补充） → {\"i\":38,\"cat\":\"INQ\"}\n" +
+            "#39 H [SELF-OTHER] [May] inq: RTX Pro 6000 Workstation 40Pcs\n#40 P [供应商] 18400USD → {\"i\":40,\"cat\":\"OFFER\",\"inq\":39}\n" +
+            "#41 P [供应商] 2weeks（上一条报价的交期补充） → {\"i\":41,\"cat\":\"OFFER\",\"inq\":39}";
 }

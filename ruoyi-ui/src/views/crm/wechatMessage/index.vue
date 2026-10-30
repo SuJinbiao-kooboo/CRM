@@ -39,8 +39,8 @@
             <ul>
               <li><b>自动分类</b>：关闭时只在勾选消息后手动分类；开启后由后端定时扫描未分类消息。</li>
               <li><b>拉取</b>：立即从微信本地库同步消息入库；聊天对象有值时只拉该会话，留空拉全部。</li>
-              <li><b>分类选中</b>：对勾选消息强制重新调用 AI 分类为 INQ/OFFER/TRACE/OTHER，单次最多 20 条；已录入或已生成任务的消息不会被覆盖。</li>
-              <li><b>录入选中</b>：对勾选消息执行 AI 录入和料号匹配；仅处理已成功分类的 INQ/OFFER，已录入消息幂等跳过。</li>
+              <li><b>分类选中</b>：对勾选消息强制重新调用 AI 分类为 INQ/OFFER/TRACE/OTHER，单次最多 20 条；已录入或已生成任务的消息不会被覆盖。同一发送人连续补充消息会继承前一条类型，不会误判为 TRACE。</li>
+              <li><b>录入选中</b>：对勾选消息执行 AI 录入和料号匹配；仅处理已成功分类的 INQ/OFFER。选中一条会自动扩展为同一发送人 30 秒内的连续消息组，并带上被引用的原文，整组只调用一次 AI 录入，已录入消息幂等跳过。</li>
               <li><b>重排选中</b>：把失败、跳过或达到重试上限的录入消息重新放回队列，不立即执行。</li>
               <li><b>TRACE补扫</b>：补扫近期已关联 INQ/OFFER 且尚未成功发送的 TRACE 飞书预警，已预警消息不重复发送。</li>
               <li><b>清分类缓存</b>：只清空 AI 分类缓存，不改历史分类结果；调整提示词后使用。</li>
@@ -55,6 +55,17 @@
               <li>买卖双向，不按“客户/供应商”身份直接判类；我方成员发送的待判消息固定为 OTHER/SELF，不调用 AI。</li>
               <li>我方历史消息在提示词中标记为 SELF-OTHER，仍作为业务上下文，可供后续外部消息关联 inq/offer。</li>
               <li>TRACE 飞书告警要求该条 TRACE 已关联 INQ 或 OFFER；无关联的 TRACE 不告警。</li>
+              <li>我方成员发送的消息固定为 OTHER，不调用 AI 分类；该名单由 <code>selfNames</code> 配置，默认 Eke,May,Jin,Jasmine。</li>
+              <li><b>过滤顺序</b>：blackNames / pollIgnoreChats 命中 → 转黑表；whiteNames 非空时只分类白名单会话；selfNames 直接 OTHER；其余才调用 AI。</li>
+              <li><b>人工改分类</b>：下拉修改会写入 MANUAL 来源，可正常参与后续录入和任务生成；已录入或已生成任务的消息会锁定，避免破坏已有记录。</li>
+            </ul>
+            <div class="help-title">多消息聚合录入</div>
+            <ul>
+              <li><b>聚合范围</b>：同一会话 + 同一发送人，相邻消息时间差不超过 <code>offerEntryGroupGapSec</code>（默认 30 秒）时视为一组；不同发送人、不同会话不会合并。</li>
+              <li><b>等待稳定</b>：组内最新一条消息距今不足 <code>offerEntryMinAgeSec</code>（默认 30 秒）时先不录入，避免报价/交期还在继续补充；返回结果里的“等待补充”即此情况。</li>
+              <li><b>引用原文</b>：消息的 <code>relat_inq</code>、<code>relat_offer</code> 或 <code>quote</code> 指向的原消息会作为料号上下文一并交给 AI；例如 Johnny 回复 18400USD 并补充 2weeks，会连同被引用的 May 的 INQ 一起解析。</li>
+              <li><b>一次录入</b>：整组只调用一次 AI 录入。组内除主消息外的 INQ/OFFER 也会标记录入成功，但任务状态记为 <code>SKIPPED</code>（MERGED_ENTRY），避免重复生成任务。</li>
+              <li><b>例子</b>：539167（Intel 6346 有货吗）+ 539168（紧接着补充）合并为一个 INQ；539379（被引用的询价）+ 543397（18400USD）+ 543398（2weeks）合并为一个 OFFER。</li>
             </ul>
             <div class="help-title">配置位置</div>
             <ul>
@@ -63,12 +74,14 @@
               <li><b>whiteNames</b>：非空时只有名称完全匹配的聊天对象参与分类；<b>selfNames</b>：我方成员名单，默认 Eke,May,Jin,Jasmine。</li>
               <li><b>llmPromptBase / llmExamples</b>：系统提示词和示例；<b>aiContextWindow</b> 控制最近上下文条数，<b>llmBatchSize</b> 控制单批条数。</li>
               <li><b>classifyEnabled</b>：自动分类开关；<b>classifyTriggerCount</b>、<b>classifyMaxIdleSec</b>、<b>classifyBatchSize</b> 控制定时触发。</li>
-              <li><b>traceAlertEnabled</b>：TRACE 告警开关；<b>traceAlertMaxAgeMin</b> 最大消息年龄，<b>traceAlertChatCooldownMin</b> 同群冷却分钟数。</li>
+              <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息聚合间隔秒数（默认 30）。</li>
+              <li><b>traceAlertEnabled</b>：TRACE 告警开关；<b>traceAlertMaxAgeMin</b> 最大消息年龄（默认 360 分钟，即只告警最近 6 小时），<b>traceAlertChatCooldownMin</b> 同群冷却分钟数。</li>
               <li><b>AI 接口</b>：系统管理 → 参数设置中的 <code>sys.ai.enabled</code>、<code>sys.ai.base.url</code>、<code>sys.ai.api.key</code>、<code>sys.ai.model</code>。</li>
             </ul>
             <div class="help-title">操作提示</div>
             <ul>
               <li>调整提示词后先“清分类缓存”，再勾选消息“分类选中”，否则可能命中旧缓存。</li>
+              <li>连续消息聚合是对提示词分类的兜底：即使分类把补充消息判成 TRACE，录入时仍会按同一发送人时间窗合并，不会把 OFFER 拆成两条。</li>
               <li>下拉人工改分类不会自动补关联；需要 TRACE 告警时请确保已有 INQ/OFFER 关联。</li>
             </ul>
           </div>

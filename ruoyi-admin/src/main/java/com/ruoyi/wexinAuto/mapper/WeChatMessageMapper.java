@@ -52,6 +52,10 @@ public interface WeChatMessageMapper {
                                          @Param("since") String since, @Param("minAgeSec") int minAgeSec,
                                          @Param("max") int max, @Param("timeoutSec") int timeoutSec);
 
+    List<WeChatMessage> queryEntryNeighbors(@Param("username") String username, @Param("name") String name,
+                                            @Param("sender") String sender, @Param("from") String from,
+                                            @Param("to") String to);
+
     java.util.Map<String, Object> processableStats(@Param("categories") List<String> categories,
                                                     @Param("since") String since);
 

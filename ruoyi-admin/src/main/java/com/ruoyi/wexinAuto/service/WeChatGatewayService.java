@@ -864,7 +864,8 @@ public class WeChatGatewayService {
                 return out;
             }
             int batch = Math.max(1, Math.min(100, config.integer("offerEntryBatchSize", 5)));
-            int minAgeSec = Math.max(0, config.integer("offerEntryMinAgeSec", 60));
+            int minAgeSec = Math.max(0, config.integer("offerEntryMinAgeSec", 30));
+            int groupGapSec = Math.max(1, config.integer("offerEntryGroupGapSec", 30));
             int maxAgeHours = Math.max(1, config.integer("offerEntryMaxAgeHours", 24));
             int timeout = Math.max(30, config.integer("processingTimeoutSec", 600));
             String since = fmtTime(System.currentTimeMillis() - maxAgeHours * 3600_000L);
@@ -873,6 +874,7 @@ public class WeChatGatewayService {
             out.put("categories", cats);
             out.put("maxAgeHours", maxAgeHours);
             out.put("minAgeSec", minAgeSec);
+            out.put("groupGapSec", groupGapSec);
             EntryStats stats = processEntryRows(rows, cats);
             lastEntryProcessed = rows.size();
             return entryResult(out, stats, rows.size());
@@ -909,102 +911,266 @@ public class WeChatGatewayService {
 
     private Map<String, Object> entryResult(Map<String, Object> out, EntryStats stats, int scanned) {
         out.put("scanned", scanned);
+        out.put("enteredGroups", stats.enteredGroups);
         out.put("enteredMessages", stats.enteredMessages);
         out.put("enteredOffers", stats.enteredOffers);
         out.put("alreadyEntered", stats.alreadyEntered);
         out.put("failed", stats.failed);
         out.put("skipped", stats.skipped);
-        out.put("message", "录入完成: " + stats.enteredMessages + " 条消息成功(物料 " + stats.enteredOffers
-                + " 行), 已录入 " + stats.alreadyEntered + ", 失败 " + stats.failed + ", 跳过 " + stats.skipped);
+        out.put("deferred", stats.deferred);
+        out.put("message", "录入完成: " + stats.enteredGroups + " 组/" + stats.enteredMessages
+                + " 条消息成功(物料 " + stats.enteredOffers + " 行), 已录入 " + stats.alreadyEntered
+                + ", 失败 " + stats.failed + ", 跳过 " + stats.skipped
+                + (stats.deferred > 0 ? ", 等待补充 " + stats.deferred : ""));
         return out;
     }
 
+    /**
+     * 录入主流程：同一会话、同一发送人在 offerEntryGroupGapSec 内的连续消息视为一组，
+     * 引用消息作为料号上下文一并拼接，整组只调用一次 AI 录入，避免 INQ/OFFER 被拆开。
+     */
     private EntryStats processEntryRows(List<WeChatMessage> rows, List<String> cats) {
         EntryStats stats = new EntryStats();
         if (rows == null || rows.isEmpty()) {
             return stats;
         }
         int timeout = Math.max(30, config.integer("processingTimeoutSec", 600));
+        int groupGapSec = Math.max(1, config.integer("offerEntryGroupGapSec", 30));
+        Set<String> handled = new HashSet<>();
         for (WeChatMessage m : rows) {
-            if (m.getMsgCategory() == null || !cats.contains(m.getMsgCategory().toUpperCase())
-                    || !"SUCCESS".equalsIgnoreCase(StringUtils.trimToEmpty(m.getClassifyStatus()))
-                    || (!"LLM".equalsIgnoreCase(m.getCategorySource())
-                    && !"CACHE".equalsIgnoreCase(m.getCategorySource()))) {
+            if (m == null || handled.contains(msgKey(m))) {
+                continue;
+            }
+            EntryGroup group = buildEntryGroup(m, groupGapSec);
+            handled.addAll(group.keys());
+            WeChatMessage anchor = firstRetryableEntryMember(group, cats);
+            if (anchor == null) {
                 stats.skipped++;
                 continue;
             }
-            if (!store.markEntryProcessing(m.getUsername(), m.getLocalId(), timeout)) {
+            int waitSec = group.unsettledSec(groupGapSec);
+            if (waitSec > 0) {
+                stats.deferred++;
+                log.info("消息组仍在补充中，等待{}秒后录入: chat={} sender={} 消息={}",
+                        waitSec, anchor.getName(), anchor.getSender(), group.localIds());
+                continue;
+            }
+            if (!store.markEntryProcessing(anchor.getUsername(), anchor.getLocalId(), timeout)) {
                 continue;
             }
             try {
-                enterOne(m, stats);
+                enterGroup(group, anchor, cats, stats);
             } catch (Exception e) {
-                String reason = safeMessage(e);
-                if (isPermanentEntrySkip(e)) {
-                    stats.skipped++;
-                    store.updateEntryOnly(m.getUsername(), m.getLocalId(), "SKIPPED",
-                            clipEntryMessage("需人工处理: " + reason), 0, "", 0);
-                    store.updateTaskState(m.getUsername(), m.getLocalId(), "MANUAL_REVIEW",
-                            "ENTRY_BUSINESS_SKIP");
-                    log.warn("微信消息录入业务跳过: chat={} sender={} serverId={} 原因={}",
-                            m.getName(), m.getSender(), m.getServerId(), reason);
-                    continue;
-                }
-                int maxFail = Math.max(1, config.integer("offerEntryMaxFail", 3));
-                int failCnt = (m.getEntryFailCount() == null ? 0 : m.getEntryFailCount()) + 1;
-                boolean dead = failCnt >= maxFail;
-                stats.failed++;
-                store.updateEntryOnly(m.getUsername(), m.getLocalId(), dead ? "DEAD" : "FAILED",
-                        clipEntryMessage("AI录入失败(" + failCnt + "/" + maxFail + "): " + reason),
-                        0, "", failCnt);
-                if (dead) {
-                    store.updateTaskState(m.getUsername(), m.getLocalId(), "MANUAL_REVIEW",
-                            "录入连续失败，已停止自动重试");
-                }
-                log.warn("微信消息AI录入失败({}/{}): chat={} sender={} serverId={} 原因={}",
-                        failCnt, maxFail, m.getName(), m.getSender(), m.getServerId(), reason);
+                handleEntryFailure(group, anchor, cats, e, stats);
             }
         }
         return stats;
     }
 
-    private void enterOne(WeChatMessage m, EntryStats stats) throws Exception {
-        int existing = offerMapper.countByWechat(StringUtils.defaultString(m.getServerId()),
-                StringUtils.defaultString(m.getUsername()), m.getLocalId());
-        if (existing > 0) {
-            List<CrmOffer> old = offerMapper.selectByWechat(StringUtils.defaultString(m.getServerId()),
-                    StringUtils.defaultString(m.getUsername()), m.getLocalId());
-            String ids = joinOfferIds(old);
-            stats.alreadyEntered++;
-            store.updateEntryOnly(m.getUsername(), m.getLocalId(), "SUCCESS",
-                    "已存在微信来源的crm_offer记录，幂等跳过", existing, ids, 0);
+    /** 同一发送人、相邻时间差不超过 gapSec 的消息组；引用消息单独收集为上下文。 */
+    private EntryGroup buildEntryGroup(WeChatMessage anchor, int gapSec) {
+        EntryGroup group = new EntryGroup();
+        group.members.add(anchor);
+        long anchorMs = parseTime(anchor.getCreateTime());
+        if (anchorMs <= 0) {
+            collectQuotes(group);
+            return group;
+        }
+        int windowSec = Math.max(300, Math.min(3600, gapSec * 20));
+        List<WeChatMessage> near = store.queryEntryNeighbors(anchor.getUsername(), anchor.getName(),
+                anchor.getSender(), fmtTime(anchorMs - windowSec * 1000L), fmtTime(anchorMs + windowSec * 1000L));
+        int idx = -1;
+        for (int i = 0; near != null && i < near.size(); i++) {
+            if (sameMessage(near.get(i), anchor)) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx < 0) {
+            collectQuotes(group);
+            return group;
+        }
+        List<WeChatMessage> chain = new ArrayList<>();
+        chain.add(near.get(idx));
+        long last = anchorMs;
+        for (int i = idx - 1; i >= 0; i--) {
+            long t = parseTime(near.get(i).getCreateTime());
+            if (t <= 0 || last - t > gapSec * 1000L) {
+                break;
+            }
+            chain.add(0, near.get(i));
+            last = t;
+        }
+        last = anchorMs;
+        for (int i = idx + 1; i < near.size(); i++) {
+            long t = parseTime(near.get(i).getCreateTime());
+            if (t <= 0 || t - last > gapSec * 1000L) {
+                break;
+            }
+            chain.add(near.get(i));
+            last = t;
+        }
+        group.members.clear();
+        group.members.addAll(chain);
+        collectQuotes(group);
+        return group;
+    }
+
+    private void collectQuotes(EntryGroup group) {
+        Set<Long> memberIds = new HashSet<>();
+        for (WeChatMessage m : group.members) {
+            memberIds.add(m.getLocalId());
+        }
+        Set<String> seen = new HashSet<>();
+        for (WeChatMessage m : group.members) {
+            addQuote(group, m.getRelatInq(), memberIds, seen);
+            addQuote(group, m.getRelatOffer(), memberIds, seen);
+        }
+        for (WeChatMessage m : group.members) {
+            String q = StringUtils.trimToEmpty(m.getQuote());
+            if (q.isEmpty() || q.equals(StringUtils.trimToEmpty(m.getContent()))) {
+                continue;
+            }
+            if (!seen.add("c:" + q)) {
+                continue;
+            }
+            group.quotes.add(new EntryQuote("", "引用", WeChatTextUtils.clip(q, 800)));
+        }
+    }
+
+    private void addQuote(EntryGroup group, String json, Set<Long> memberIds, Set<String> seen) {
+        if (StringUtils.isBlank(json)) {
+            return;
+        }
+        try {
+            JsonNode n = jackson.readTree(json);
+            long id = n.path("id").asLong(0L);
+            String content = StringUtils.trimToEmpty(n.path("content").asText(""));
+            if (content.isEmpty() || (id > 0 && memberIds.contains(id))) {
+                return;
+            }
+            String idKey = id > 0 ? "id:" + id : "";
+            String contentKey = "c:" + content;
+            if ((!idKey.isEmpty() && seen.contains(idKey)) || seen.contains(contentKey)) {
+                return;
+            }
+            if (!idKey.isEmpty()) {
+                seen.add(idKey);
+            }
+            seen.add(contentKey);
+            group.quotes.add(new EntryQuote(id > 0 ? String.valueOf(id) : "",
+                    n.path("sender").asText(""), WeChatTextUtils.clip(content, 800)));
+        } catch (Exception e) {
+            log.debug("解析引用消息失败: {}", e.getMessage());
+        }
+    }
+
+    /** 引用原文放前面补全料号，连续消息按时间顺序放在后面，交给现有 AI 录入一次解析。 */
+    private String buildGroupContent(EntryGroup group) {
+        StringBuilder sb = new StringBuilder();
+        if (!group.quotes.isEmpty()) {
+            sb.append("【引用原消息，仅补全料号，不要单独输出为物料行】\n");
+            for (EntryQuote q : group.quotes) {
+                sb.append(StringUtils.defaultIfBlank(q.sender, "对方")).append(": ").append(q.content).append('\n');
+            }
+        }
+        sb.append("【本次连续消息】\n");
+        for (WeChatMessage m : group.members) {
+            String content = StringUtils.trimToEmpty(m.getContent());
+            if (content.isEmpty()) {
+                continue;
+            }
+            sb.append(StringUtils.defaultIfBlank(m.getSender(), "未知")).append(": ").append(content).append('\n');
+        }
+        return sb.toString().trim();
+    }
+
+    private WeChatMessage firstRetryableEntryMember(EntryGroup group, List<String> cats) {
+        for (WeChatMessage m : group.members) {
+            if (isEntryCandidate(m, cats) && isEntryRetryable(m)) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    private boolean isEntryCandidate(WeChatMessage m, List<String> cats) {
+        return m != null && m.getMsgCategory() != null
+                && cats.contains(m.getMsgCategory().toUpperCase())
+                && "SUCCESS".equalsIgnoreCase(StringUtils.trimToEmpty(m.getClassifyStatus()))
+                && ("LLM".equalsIgnoreCase(m.getCategorySource())
+                || "CACHE".equalsIgnoreCase(m.getCategorySource())
+                || "MANUAL".equalsIgnoreCase(m.getCategorySource()));
+    }
+
+    private boolean isEntryRetryable(WeChatMessage m) {
+        String status = StringUtils.trimToEmpty(m.getEntryStatus()).toUpperCase();
+        return status.isEmpty() || "PENDING".equals(status) || "FAILED".equals(status)
+                || "PROCESSING".equals(status);
+    }
+
+    private void enterGroup(EntryGroup group, WeChatMessage anchor, List<String> cats, EntryStats stats)
+            throws Exception {
+        List<WeChatMessage> entryMembers = new ArrayList<>();
+        for (WeChatMessage m : group.members) {
+            if (isEntryCandidate(m, cats)) {
+                entryMembers.add(m);
+            }
+        }
+        if (entryMembers.isEmpty()) {
+            stats.skipped++;
             return;
         }
 
-        PartyMatch party = partyService.resolve(m.getName());
+        // 组内任一消息已有 crm_offer，视为整组已经录入，避免补充消息重复生成报价行。
+        List<CrmOffer> existing = null;
+        WeChatMessage existingOwner = null;
+        for (WeChatMessage m : entryMembers) {
+            int count = offerMapper.countByWechat(StringUtils.defaultString(m.getServerId()),
+                    StringUtils.defaultString(m.getUsername()), m.getLocalId());
+            if (count > 0) {
+                existing = offerMapper.selectByWechat(StringUtils.defaultString(m.getServerId()),
+                        StringUtils.defaultString(m.getUsername()), m.getLocalId());
+                existingOwner = m;
+                break;
+            }
+        }
+        if (existing != null && !existing.isEmpty()) {
+            stats.alreadyEntered++;
+            String ids = joinOfferIds(existing);
+            String message = "聚合组已存在微信来源crm_offer(消息#" + existingOwner.getLocalId() + ")，幂等跳过";
+            for (WeChatMessage m : entryMembers) {
+                if (!isEntryRetryable(m)) {
+                    continue;
+                }
+                store.updateEntryOnly(m.getUsername(), m.getLocalId(), "SUCCESS", message,
+                        existing.size(), ids, 0);
+                if (!sameMessage(m, anchor)) {
+                    store.updateTaskState(m.getUsername(), m.getLocalId(), "SKIPPED",
+                            "MERGED_ENTRY:" + anchor.getLocalId());
+                }
+            }
+            return;
+        }
+
+        PartyMatch party = partyService.resolve(anchor.getName());
         if (party.isUnmappedOrAmbiguous()) {
-            stats.skipped++;
             String prefix = PartyMatch.UNMAPPED.equals(party.getStatus()) ? "群未映射" : "群映射冲突";
-            store.updateEntryOnly(m.getUsername(), m.getLocalId(), "SKIPPED",
-                    prefix + "：" + StringUtils.defaultString(party.getMessage()), 0, "", 0);
-            store.updateTaskState(m.getUsername(), m.getLocalId(), "PENDING", "UNMAPPED_CHAT");
+            markGroupSkipped(group, anchor, prefix + "：" + StringUtils.defaultString(party.getMessage()),
+                    "PENDING", "UNMAPPED_CHAT", stats);
             return;
         }
         if (!party.isOk()) {
-            stats.skipped++;
-            store.updateEntryOnly(m.getUsername(), m.getLocalId(), "SKIPPED",
-                    party.getStatus() + ": " + StringUtils.defaultString(party.getMessage()), 0, "", 0);
-            store.updateTaskState(m.getUsername(), m.getLocalId(), "MANUAL_REVIEW", party.getStatus());
+            markGroupSkipped(group, anchor, party.getStatus() + ": " + StringUtils.defaultString(party.getMessage()),
+                    "MANUAL_REVIEW", party.getStatus(), stats);
             return;
         }
 
-        boolean self = WeChatTextUtils.isSelf(m.getSender(), selfNames());
-        boolean offer = "OFFER".equalsIgnoreCase(m.getMsgCategory());
-        if (self && offer && !hasExternalCustomerInq(m)) {
-            stats.skipped++;
-            store.updateEntryOnly(m.getUsername(), m.getLocalId(), "SKIPPED",
-                    "我方外发OFFER无客户INQ，完全人工处理", 0, "", 0);
-            store.updateTaskState(m.getUsername(), m.getLocalId(), "SKIPPED", "SELF_OUTBOUND_ONLY");
+        boolean self = WeChatTextUtils.isSelf(anchor.getSender(), selfNames());
+        boolean offer = "OFFER".equalsIgnoreCase(anchor.getMsgCategory());
+        if (self && offer && !hasExternalCustomerInq(anchor)) {
+            markGroupSkipped(group, anchor, "我方外发OFFER无客户INQ，完全人工处理",
+                    "SKIPPED", "SELF_OUTBOUND_ONLY", stats);
             return;
         }
 
@@ -1015,17 +1181,21 @@ public class WeChatGatewayService {
             inqOfferType = "Offer";
         } else if (offer) {
             priceMode = CrmOfferPriceMode.COST_PLUS_PROFIT;
+            inqOfferType = "Offer";
         }
 
+        String content = buildGroupContent(group);
+        if (StringUtils.isBlank(content)) {
+            throw new IllegalStateException("物料内容不能为空");
+        }
         List<CrmOffer> saved = offerService.aiEntryOffersReturningAsSystem(
                 party.getSupplier().getSupplierCode(), party.getSupplier().getSupplierName(),
                 inqOfferType, party.getSupplier().getProfitRatio() != null
                         ? party.getSupplier().getProfitRatio()
                         : config.decimal("offerEntryProfitRatio", 2d),
-                StringUtils.defaultString(m.getContent()),
-                priceMode, config.str("offerEntryCreateBy", "wechat_auto"),
-                StringUtils.defaultString(m.getServerId()), StringUtils.defaultString(m.getUsername()),
-                m.getLocalId(), buildEntryRemark(m));
+                content, priceMode, config.str("offerEntryCreateBy", "wechat_auto"),
+                StringUtils.defaultString(anchor.getServerId()), StringUtils.defaultString(anchor.getUsername()),
+                anchor.getLocalId(), buildGroupRemark(group, anchor));
         if (saved == null || saved.isEmpty()) {
             throw new IllegalStateException("AI录入未生成任何crm_offer记录");
         }
@@ -1045,18 +1215,176 @@ public class WeChatGatewayService {
         } catch (Exception ce) {
             compareError = "；比价失败: " + safeMessage(ce);
             log.warn("微信AI录入后比价失败(不影响已入库记录): chat={} serverId={}",
-                    m.getName(), m.getServerId(), ce);
+                    anchor.getName(), anchor.getServerId(), ce);
         }
         String entryStatus = compareError.isEmpty() ? "SUCCESS" : "SUCCESS_WARN";
-        String entryMessage = "AI录入: " + saved.size() + "行; 比价: " + compareRows + "条" + compareError;
-        stats.enteredMessages++;
+        String entryMessage = "聚合录入[" + (group.members.size() + group.quotes.size()) + "条]: 消息#" + anchor.getLocalId()
+                + "; AI录入: " + saved.size() + "行; 比价: " + compareRows + "条" + compareError;
+        stats.enteredGroups++;
+        stats.enteredMessages += group.members.size() + group.quotes.size();
         stats.enteredOffers += saved.size();
-        store.updateEntryOnly(m.getUsername(), m.getLocalId(), entryStatus,
-                clipEntryMessage(entryMessage), saved.size(), joinOfferIds(saved), 0);
-        log.info("微信消息已录入crm_offer: chat={} sender={} serverId={} type={} priceMode={} 物料{}行 状态={}",
-                m.getName(), m.getSender(), m.getServerId(), inqOfferType, priceMode, saved.size(), entryStatus);
+        String offerIds = joinOfferIds(saved);
+        for (WeChatMessage m : entryMembers) {
+            if (!isEntryRetryable(m)) {
+                continue;
+            }
+            store.updateEntryOnly(m.getUsername(), m.getLocalId(), entryStatus,
+                    clipEntryMessage(entryMessage), saved.size(), offerIds, 0);
+            if (!sameMessage(m, anchor)) {
+                store.updateTaskState(m.getUsername(), m.getLocalId(), "SKIPPED",
+                        "MERGED_ENTRY:" + anchor.getLocalId());
+            }
+        }
+        log.info("微信消息已聚合录入crm_offer: chat={} sender={} 消息={} type={} priceMode={} 物料{}行 状态={}",
+                anchor.getName(), anchor.getSender(), group.localIds(), inqOfferType, priceMode, saved.size(), entryStatus);
     }
 
+    /**
+     * 群映射类跳过只锁定主消息，其余组员保持待录入；待群映射补齐后还能从组员继续重试，
+     * 不会因为整组置 SKIPPED 而永久丢失。
+     */
+    private void markGroupSkipped(EntryGroup group, WeChatMessage anchor, String entryMessage,
+                                  String anchorTaskStatus, String anchorTaskMessage, EntryStats stats) {
+        stats.skipped++;
+        store.updateEntryOnly(anchor.getUsername(), anchor.getLocalId(), "SKIPPED",
+                clipEntryMessage(entryMessage), 0, "", 0);
+        store.updateTaskState(anchor.getUsername(), anchor.getLocalId(), anchorTaskStatus, anchorTaskMessage);
+        log.warn("微信消息组录入业务跳过: chat={} sender={} 消息={} 原因={}",
+                anchor.getName(), anchor.getSender(), group.localIds(), entryMessage);
+    }
+
+    private void handleEntryFailure(EntryGroup group, WeChatMessage anchor, List<String> cats, Exception e,
+                                    EntryStats stats) {
+        String reason = safeMessage(e);
+        List<WeChatMessage> targets = new ArrayList<>();
+        for (WeChatMessage m : group.members) {
+            if (isEntryCandidate(m, cats) && isEntryRetryable(m)) {
+                targets.add(m);
+            }
+        }
+        if (isPermanentEntrySkip(e)) {
+            stats.skipped++;
+            for (WeChatMessage m : targets) {
+                store.updateEntryOnly(m.getUsername(), m.getLocalId(), "SKIPPED",
+                        clipEntryMessage("需人工处理: " + reason), 0, "", 0);
+                if (sameMessage(m, anchor)) {
+                    store.updateTaskState(m.getUsername(), m.getLocalId(), "MANUAL_REVIEW", "ENTRY_BUSINESS_SKIP");
+                } else {
+                    store.updateTaskState(m.getUsername(), m.getLocalId(), "SKIPPED",
+                            "MERGED_ENTRY:" + anchor.getLocalId());
+                }
+            }
+            log.warn("微信消息组录入业务跳过: chat={} sender={} 消息={} 原因={}",
+                    anchor.getName(), anchor.getSender(), group.localIds(), reason);
+            return;
+        }
+        int maxFail = Math.max(1, config.integer("offerEntryMaxFail", 3));
+        stats.failed++;
+        for (WeChatMessage m : targets) {
+            int failCnt = (m.getEntryFailCount() == null ? 0 : m.getEntryFailCount()) + 1;
+            boolean dead = failCnt >= maxFail;
+            store.updateEntryOnly(m.getUsername(), m.getLocalId(), dead ? "DEAD" : "FAILED",
+                    clipEntryMessage("AI录入失败(" + failCnt + "/" + maxFail + "): " + reason), 0, "", failCnt);
+            if (dead) {
+                store.updateTaskState(m.getUsername(), m.getLocalId(), "MANUAL_REVIEW",
+                        "录入连续失败，已停止自动重试");
+            }
+        }
+        log.warn("微信消息组AI录入失败: chat={} sender={} 消息={} 原因={}",
+                anchor.getName(), anchor.getSender(), group.localIds(), reason);
+    }
+
+    private String buildGroupRemark(EntryGroup group, WeChatMessage anchor) {
+        StringBuilder ids = new StringBuilder();
+        for (WeChatMessage m : group.members) {
+            if (ids.length() > 0) {
+                ids.append(',');
+            }
+            ids.append(m.getLocalId());
+        }
+        StringBuilder quoteIds = new StringBuilder();
+        for (EntryQuote q : group.quotes) {
+            if (StringUtils.isBlank(q.id)) {
+                continue;
+            }
+            if (quoteIds.length() > 0) {
+                quoteIds.append(',');
+            }
+            quoteIds.append(q.id);
+        }
+        String remark = buildEntryRemark(anchor) + "|聚合消息:" + ids
+                + (quoteIds.length() > 0 ? "|引用:" + quoteIds : "");
+        return remark.length() > 500 ? remark.substring(0, 500) : remark;
+    }
+
+    private static boolean sameMessage(WeChatMessage a, WeChatMessage b) {
+        return a != null && b != null && StringUtils.equals(a.getUsername(), b.getUsername())
+                && a.getLocalId() == b.getLocalId();
+    }
+
+    private static String msgKey(WeChatMessage m) {
+        return StringUtils.defaultString(m.getUsername()) + ":" + m.getLocalId();
+    }
+
+    private static long parseTime(String time) {
+        if (StringUtils.isBlank(time)) {
+            return 0L;
+        }
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(time.trim()).getTime();
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
+    private static final class EntryGroup {
+        private final List<WeChatMessage> members = new ArrayList<>();
+        private final List<EntryQuote> quotes = new ArrayList<>();
+
+        private List<String> keys() {
+            List<String> keys = new ArrayList<>();
+            for (WeChatMessage m : members) {
+                keys.add(msgKey(m));
+            }
+            return keys;
+        }
+
+        private String localIds() {
+            StringBuilder sb = new StringBuilder();
+            for (WeChatMessage m : members) {
+                if (sb.length() > 0) {
+                    sb.append(',');
+                }
+                sb.append(m.getLocalId());
+            }
+            return sb.toString();
+        }
+
+        /** 返回还需等待的秒数：组内最新消息未满 gapSec 时先不录入。 */
+        private int unsettledSec(int gapSec) {
+            long newest = 0L;
+            for (WeChatMessage m : members) {
+                newest = Math.max(newest, parseTime(m.getCreateTime()));
+            }
+            if (newest <= 0L) {
+                return 0;
+            }
+            long age = (System.currentTimeMillis() - newest) / 1000L;
+            return age < gapSec ? (int) (gapSec - age) : 0;
+        }
+    }
+
+    private static final class EntryQuote {
+        private final String id;
+        private final String sender;
+        private final String content;
+
+        private EntryQuote(String id, String sender, String content) {
+            this.id = id;
+            this.sender = sender;
+            this.content = content;
+        }
+    }
     private String joinOfferIds(List<CrmOffer> offers) {
         if (offers == null || offers.isEmpty()) {
             return "";
@@ -1086,11 +1414,13 @@ public class WeChatGatewayService {
     }
 
     private static final class EntryStats {
+        private int enteredGroups;
         private int enteredMessages;
         private int enteredOffers;
         private int alreadyEntered;
         private int failed;
         private int skipped;
+        private int deferred;
     }
 
     /** crm_offer 的来源备注，便于从报价记录反查微信原消息。 */
@@ -1107,6 +1437,8 @@ public class WeChatGatewayService {
         String msg = safeMessage(e);
         return msg.contains("未能从内容中识别出料号")
                 || msg.contains("物料内容不能为空")
+                || msg.contains("AI未从内容中识别出物料信息")
+                || msg.contains("未从内容中识别出有效的物料信息")
                 || msg.contains("供应商不存在")
                 || msg.contains("供应商信息不能为空");
     }
@@ -1136,11 +1468,13 @@ public class WeChatGatewayService {
         m.put("maxFail", analysisInt("offerEntryMaxFail", 3));
         m.put("selfNames", analysisStr("selfNames", ""));
         m.put("createBy", analysisStr("offerEntryCreateBy", "wechat_auto"));
-        int minAgeSec = Math.max(0, analysisInt("offerEntryMinAgeSec", 60));
+        int minAgeSec = Math.max(0, analysisInt("offerEntryMinAgeSec", 30));
+        int groupGapSec = Math.max(1, analysisInt("offerEntryGroupGapSec", 30));
         int maxAgeHours = Math.max(1, analysisInt("offerEntryMaxAgeHours", 24));
         m.put("minAgeSec", minAgeSec);
+        m.put("groupGapSec", groupGapSec);
         m.put("maxAgeHours", maxAgeHours);
-        m.put("aiFlow", "单次AI录入 -> 返回料号比价");
+        m.put("aiFlow", "同发送人连续消息聚合 -> 单次AI录入 -> 返回料号比价");
         m.put("entryStatusLegend",
                 "PENDING=待录入/可重试, PROCESSING=处理中, SUCCESS=成功, SUCCESS_WARN=已录入但比价告警, "
                         + "FAILED=可重试失败, DEAD=达到失败上限, SKIPPED=需人工确认, NOT_APPLICABLE=不参与录入");
@@ -1310,7 +1644,7 @@ public class WeChatGatewayService {
         if (StringUtils.isBlank(m.getRelatInq()) && StringUtils.isBlank(m.getRelatOffer())) {
             return false;
         }
-        int maxAgeMin = analysisInt("traceAlertMaxAgeMin", 1440);
+        int maxAgeMin = analysisInt("traceAlertMaxAgeMin", 360);
         if (!WeChatTextUtils.isRecent(m.getCreateTime(), maxAgeMin)) {
             log.info("历史TRACE不推送飞书(超过{}分钟): chat={} sender={} time={}",
                     maxAgeMin, m.getName(), m.getSender(), m.getCreateTime());
@@ -1392,7 +1726,7 @@ public class WeChatGatewayService {
             out.put("sent", 0);
             return out;
         }
-        int maxAgeMin = Math.max(1, analysisInt("traceAlertMaxAgeMin", 1440));
+        int maxAgeMin = Math.max(1, analysisInt("traceAlertMaxAgeMin", 360));
         int batch = Math.max(1, Math.min(500, analysisInt("traceAlertScanBatchSize", 50)));
         String since = fmtTime(System.currentTimeMillis() - maxAgeMin * 60_000L);
         List<WeChatMessage> rows = store.queryTraceAlerts(since, batch);

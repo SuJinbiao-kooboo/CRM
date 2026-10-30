@@ -337,6 +337,17 @@ public class WeChatMessageStore {
         }
     }
 
+    /** 查询同一会话、同一发送人在时间窗内的消息，用于把连续多条消息聚合成一次 AI 录入。 */
+    public List<WeChatMessage> queryEntryNeighbors(String username, String name, String sender,
+                                                   String from, String to) {
+        try {
+            return mapper.queryEntryNeighbors(username, name, sender, from, to);
+        } catch (Exception e) {
+            log.warn("查询聚合录入邻居消息失败: username={} name={} sender={}", username, name, sender, e);
+            return Collections.emptyList();
+        }
+    }
+
     /** 待录入消息统计：{cnt=条数, earliest=最早待录入消息时间}。 */
     public java.util.Map<String, Object> processableStats(List<String> categories, String since) {
         if (categories == null || categories.isEmpty()) {

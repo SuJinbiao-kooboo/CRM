@@ -170,7 +170,10 @@ OTHER 其他：寒暄、致谢、收到、OK、check、checking、稍等、单�
 | `classifyEnabled` / `classifyTriggerCount` / `classifyMaxIdleSec` | 自动分类开关及触发条件 |
 | `offerEntryMinAgeSec` | 录入前消息稳定等待秒数，默认 30；组内最新消息未满该时长时暂不录入 |
 | `offerEntryGroupGapSec` | 同一会话同一发送人连续消息的整组分类与录入聚合间隔，默认 30 秒 |
-| `traceAlertEnabled` / `traceAlertMaxAgeMin` / `traceAlertChatCooldownMin` | TRACE 飞书告警开关、消息年龄（默认 360 分钟，即 6 小时）、同群冷却 |
+| `traceAlertEnabled` | TRACE 飞书告警总开关，默认 `true`；关闭后定时补扫和即时告警均停止 |
+| `traceAlertMaxAgeMin` | TRACE 最大消息年龄，当前 `360` 分钟；按消息发送时间判断，超过 6 小时不告警 |
+| `traceAlertChatCooldownMin` | 同一聊天对象成功告警后的冷却，当前 `5` 分钟；冷却内其他 TRACE 跳过并持久标记，不再补发，`0` 表示关闭冷却 |
+| `traceAlertScanBatchSize` | 定时补扫单批上限，当前 `50` 条 |
 | `sys.ai.*` | AI 接口地址、密钥、模型和超时（系统参数设置） |
 
 列表分类下拉可人工修改分类；已进入录入或任务流程（PROCESSING/SUCCESS/SUCCESS_WARN/GENERATED）的消息不可修改。

@@ -56,10 +56,20 @@
               <li><b>30 秒规则来源</b>：该间隔来自字典 <code>wechat_analysis_config.offerEntryGroupGapSec</code>，默认 30 秒，可自行修改；不是代码写死。分类整组归并和录入消息聚合都读取同一个配置。配置位置：系统管理 → 字典管理 → 字典类型 <code>wechat_analysis_config</code>。</li>
               <li>买卖双向，不按“客户/供应商”身份直接判类；我方成员发送的待判消息固定为 OTHER/SELF，不调用 AI。</li>
               <li>我方历史消息在提示词中标记为 SELF-OTHER，仍作为业务上下文，可供后续外部消息关联 inq/offer。</li>
-              <li>TRACE 飞书告警要求该条 TRACE 已关联 INQ 或 OFFER；无关联的 TRACE 不告警。</li>
               <li>我方成员发送的消息固定为 OTHER，不调用 AI 分类；该名单由 <code>selfNames</code> 配置，默认 Eke,May,Jin,Jasmine。</li>
               <li><b>过滤顺序</b>：blackNames / pollIgnoreChats 命中 → 转黑表；whiteNames 非空时只分类白名单会话；selfNames 直接 OTHER；其余才调用 AI。</li>
               <li><b>人工改分类</b>：下拉修改会写入 MANUAL 来源，可正常参与后续录入和任务生成；已录入或已生成任务的消息会锁定，避免破坏已有记录。</li>
+            </ul>
+            <div class="help-title">TRACE 告警规则</div>
+            <ul>
+              <li><b>触发条件</b>：<code>traceAlertEnabled=true</code>；消息分类为 TRACE、来源为 LLM/CACHE/MANUAL；发送人不在 <code>selfNames</code>；并且已关联 INQ 或 OFFER。无关联的 TRACE 不告警。</li>
+              <li><b>6 小时时效</b>：只处理消息发送时间在 <code>traceAlertMaxAgeMin</code>（当前 360 分钟）内的 TRACE。超过 6 小时的历史消息即使尚未告警也会跳过。</li>
+              <li><b>同一条永久去重</b>：成功告警后写入 <code>trace_alerted_at</code>，后续扫描不再重复发送；发送失败写入 <code>trace_alert_error</code>，保留为候选并在下一轮补扫重试。</li>
+              <li><b>同会话 5 分钟冷却</b>：同一聊天对象成功告警后的 <code>traceAlertChatCooldownMin</code> 分钟（当前 5 分钟）内，其他 TRACE 不再发送飞书，并写入 <code>trace_alert_suppressed_at</code>；冷却结束后也不会补发这些被跳过的消息。配置为 0 表示关闭冷却。</li>
+              <li><b>补扫频率与批量</b>：定时任务默认每 30 秒执行一次，每次最多处理 <code>traceAlertScanBatchSize</code> 条（当前 50 条）；也可点击本页“TRACE补扫”手动触发。</li>
+              <li><b>配置位置</b>：系统管理 → 字典管理 → 字典类型 <code>wechat_analysis_config</code>，可修改 <code>traceAlertEnabled</code>、<code>traceAlertMaxAgeMin</code>、<code>traceAlertChatCooldownMin</code>、<code>traceAlertScanBatchSize</code>。</li>
+              <li><b>定时任务位置</b>：系统监控 → 定时任务 → 任务组 <code>WECHAT</code> → <code>微信自动化-TRACE预警</code>；可在此启停、修改 cron 和查看调度日志。</li>
+              <li><b>飞书机器人</b>：应用凭证位于 <code>ruoyi-admin/src/main/resources/application.yml</code> 的 <code>feishu.app-id</code>、<code>feishu.app-secret</code>；生产环境可用环境变量 <code>FEISHU_APP_SECRET</code> 注入密钥。</li>
             </ul>
             <div class="help-title">多消息聚合录入</div>
             <ul>

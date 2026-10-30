@@ -23,3 +23,7 @@ export function sendWechatTasks() {
 export function confirmWechatTaskNotSent(id) {
   return request({ url: '/crm/wechat-task/' + id + '/confirm-not-sent', method: 'post' })
 }
+
+export function delWechatTask(id) {
+  return request({ url: '/crm/wechat-task/' + id, method: 'delete' })
+}

@@ -572,6 +572,18 @@ public class WeChatOfferTaskService {
         throw new ServiceException("只有发送结果未知的任务需要人工确认未发送");
     }
 
+    /** 人工删除任务记录；不撤回已发送消息，也不回退来源消息的录入/任务状态。 */
+    public int deleteTask(Long id) {
+        if (id == null) {
+            throw new ServiceException("任务ID不能为空");
+        }
+        WeChatOfferTask task = taskMapper.selectTaskById(id);
+        if (task == null) {
+            throw new ServiceException("任务不存在：" + id);
+        }
+        return taskMapper.deleteTaskById(id);
+    }
+
     /** 扫描已审批任务，按任务类型和群名合并后发送。 */
     public synchronized Map<String, Object> sendOnce(boolean manual) {
         Map<String, Object> out = new LinkedHashMap<>();

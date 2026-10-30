@@ -347,6 +347,9 @@ public class WeChatLlmClassifier {
                 + "外部消息可以引用其编号作为inq/offer关联。");
         sb.append("\n外部消息只回复我方历史询问的料号/型号，也判OFFER并用inq关联该历史消息；"
                 + "外部针对具体INQ/OFFER追问包装、原装、新旧、交期、质保等，即使只有“Sealed box ?”这类短句，也判TRACE并填写关联编号。");
+        sb.append("\nINQ必须指向具体待询价的料号、型号、规格或品类；只是在打听对方历史成交价、问对方是否还收货/还做不做，"
+                + "且没有具体待询价对象的（如“多少钱拿的”“你们还收不”），判OTHER；"
+                + "若这类追问明确围绕前面某条具体INQ/OFFER推进条件，则判TRACE。");
         sb.append("\n示例：\n").append(StringUtils.isNotBlank(examples)
                 ? examples.trim() : DEFAULT_EXAMPLES);
         return sb.toString();
@@ -457,7 +460,7 @@ public class WeChatLlmClassifier {
 
     private static final String DEFAULT_SYSTEM_PROMPT =
             "你是微信询报价聊天分类器，只输出JSON数组，不解释。\n" +
-            "INQ=任一方询问/寻找具体货物的价格、库存、交期、数量或型号；我方问供应商也算。\n" +
+            "INQ=任一方询问/寻找具体货物（料号、型号、规格或品类）的价格、库存、交期、数量或能否供货；我方问供应商也算；没有具体询价对象的笼统问价或是否收货不算INQ。\n" +
             "OFFER=对某条INQ的报价/供货回应，或供应商主动报价，或直接回复对方询问的料号/型号；不要求同会话存在INQ，能关联时填inq。广告、广播不算。\n" +
             "TRACE=针对前面某条具体INQ/OFFER，由交易一方提出能直接推进业务的问题或明确答复：价格、库存、数量、交期、质保、包装、原装/全新、运费、付款、下单、PI、地址等；可以是问句，也可以是陈述，但必须结合上下文指向更早的具体INQ/OFFER。\n" +
             "OTHER=其他；纯确认（好/OK/check/稍等）、寒暄、致谢、系统消息、附件/名片、地址、内部说明、广告，以及只引用历史或泛泛提到offer但没有提出新问题、没有推进业务的陈述，均为OTHER。\n" +
@@ -479,5 +482,9 @@ public class WeChatLlmClassifier {
             "#27 [客户] this offer → {\"i\":27,\"cat\":\"OTHER\"}\n" +
             "#28 [客户] 是你们库存？ → {\"i\":28,\"cat\":\"OTHER\"}\n" +
             "#29 H [SELF-OTHER] [May] 你料号有吗\n#30 P [供应商] HMCGM4AHBRB → {\"i\":30,\"cat\":\"OFFER\",\"inq\":29}\n" +
-            "#31 H [INQ] [客户] And please check this model also\n#32 P [客户] Sealed box ? → {\"i\":32,\"cat\":\"TRACE\",\"inq\":31}";
+            "#31 H [INQ] [客户] And please check this model also\n#32 P [客户] Sealed box ? → {\"i\":32,\"cat\":\"TRACE\",\"inq\":31}\n" +
+            "#33 [客户] 多少钱拿的 → {\"i\":33,\"cat\":\"OTHER\"}\n" +
+            "#34 [客户] 你们还收不 → {\"i\":34,\"cat\":\"OTHER\"}\n" +
+            "#35 [客户] 2565X 有货吗 → {\"i\":35,\"cat\":\"INQ\"}\n" +
+            "#36 [客户] 多少钱 → {\"i\":36,\"cat\":\"TRACE\",\"inq\":35}";
 }

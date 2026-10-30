@@ -29,6 +29,49 @@
       <el-form-item>
         <el-button type="primary" icon="el-icon-search" size="mini" @click="handleQuery">搜索</el-button>
         <el-button icon="el-icon-refresh" size="mini" @click="resetQuery">重置</el-button>
+        <el-popover placement="bottom-start" width="720" trigger="hover" popper-class="wechat-help-popover">
+          <div class="wechat-help">
+            <div class="help-title">菜单按钮说明</div>
+            <ul>
+              <li><b>生成任务</b>：立即扫描已录入的消息（含未映射群异常），按料号生成“待审批”任务；未映射群会生成发送对象为空的 <code>UNMAPPED_CHAT</code> 异常任务，便于人工补齐。人工点击不受 <code>autoTaskGenerateEnabled=false</code> 限制。默认扫描最近 <code>msgRetentionDays=30</code> 天，单批 <code>taskGenerateBatchSize=20</code> 条。</li>
+              <li><b>发送扫描</b>：立即扫描并发送“已审批待发送”任务；人工点击不受 <code>autoSendEnabled=false</code> 限制，但当前微信登录账号必须是 <code>autoSendAccount</code>（默认 Eke），否则停止发送。</li>
+              <li><b>审批/编辑</b>：查看来源消息、OFFER 快照、关联 INQ、发送目标和发送预览，并修改任务状态、对外报价、发送内容和发送目标。</li>
+              <li><b>确认未发送</b>：仅当最近异常以 <code>GATEWAY_RESULT_UNKNOWN</code> 开头时出现；人工确认网关确实未发送后，任务恢复为“已审批待发送”，重试次数清零。</li>
+              <li><b>删除</b>：永久删除任务记录，不撤回已发送消息，也不回退来源消息的录入/任务状态。</li>
+              <li><b>仅异常</b>：只显示发送目标为空、群未映射（<code>UNMAPPED_CHAT</code>）的任务。</li>
+            </ul>
+            <div class="help-title">任务状态</div>
+            <ul>
+              <li><b>待审批</b>：任务已生成，不参与发送。</li>
+              <li><b>已审批待发送</b>：唯一允许发送扫描的状态；修改后未选择状态时保持原状态。</li>
+              <li><b>已审批已发送</b>：所有目标成功，或人工认定结束；系统不再自动发送。</li>
+              <li><b>无需处理</b>：驳回或业务确认不处理；仍可再次进入审批。</li>
+              <li>部分成功不新增独立状态，用“发送目标 x / 成功 y”、最近异常和发送次数表示；下一轮只补发失败目标。</li>
+            </ul>
+            <div class="help-title">审批与编辑</div>
+            <ul>
+              <li>打开“待审批”或“无需处理”任务时，状态默认“已审批待发送”；打开“已审批待发送/已审批已发送”任务时默认保持原状态。</li>
+              <li>可修改对外报价：改价且未手工修改发送内容时，系统按新价格重新生成该料号行片段。</li>
+              <li>可修改发送内容和发送目标；“已审批待发送”必须至少有一个发送目标。</li>
+              <li>保存后记录审批人、审批时间和非必填审批原因；最终文本按目标合并所有已审批任务，审批修改后的内容优先。</li>
+            </ul>
+            <div class="help-title">发送扫描细节</div>
+            <ul>
+              <li>只处理 <code>APPROVED_PENDING_SEND</code>、发送目标非空、发送次数小于 <code>taskSendMaxAttempts</code>（默认 3）且非结果未知的任务。</li>
+              <li>单次最多扫描 <code>taskSendScanBatchSize=200</code> 条，按 <code>taskSendBatchSize=20</code> 组分批发送；同一任务类型+同一群名合并为一条消息。</li>
+              <li>每个目标成功即写入成功清单；全部成功置“已审批已发送”；部分失败保留成功目标，下一轮只补发失败目标。</li>
+              <li>网关异常或结果未知时停止本轮并标记，需人工核实后点“确认未发送”，避免重复发送。</li>
+              <li>自动扫描由 <code>autoSendEnabled=true</code> 开启，间隔 <code>taskSendScanSec=30</code> 秒。</li>
+            </ul>
+            <div class="help-title">配置位置</div>
+            <ul>
+              <li>系统管理 → 字典管理 → 字典类型 <code>wechat_analysis_config</code>。</li>
+              <li><b>生成</b>：<code>autoTaskGenerateEnabled</code>、<code>taskGenerateScanSec</code>、<code>taskGenerateBatchSize</code>、<code>msgRetentionDays</code>。</li>
+              <li><b>发送</b>：<code>autoSendEnabled</code>、<code>taskSendScanSec</code>、<code>taskSendMaxAttempts</code>、<code>taskSendScanBatchSize</code>、<code>taskSendBatchSize</code>、<code>autoSendAccount</code>。</li>
+            </ul>
+          </div>
+          <el-button slot="reference" icon="el-icon-question" size="mini">说明</el-button>
+        </el-popover>
       </el-form-item>
     </el-form>
 
@@ -59,17 +102,18 @@
       <el-table-column label="异常" prop="lastError" min-width="150" show-overflow-tooltip>
         <template slot-scope="scope"><span class="text-danger">{{ scope.row.lastError || '-' }}</span></template>
       </el-table-column>
-      <el-table-column label="操作" width="190" fixed="right" align="center">
+      <el-table-column label="操作" width="235" fixed="right" align="center">
         <template slot-scope="scope">
-          <el-button type="text" size="mini" icon="el-icon-view" @click="openTask(scope.row.id)" v-hasPermi="['wechat:task:query']">详情/审批</el-button>
+          <el-button type="text" size="mini" icon="el-icon-edit-outline" @click="openTask(scope.row.id)" v-hasPermi="['wechat:task:query']">审批/编辑</el-button>
           <el-button v-if="isUnknownResult(scope.row)" type="text" size="mini" icon="el-icon-warning-outline" @click="confirmNotSent(scope.row)" v-hasPermi="['wechat:task:send']">确认未发送</el-button>
+          <el-button type="text" size="mini" icon="el-icon-delete" class="text-danger" @click="handleDelete(scope.row)" v-hasPermi="['wechat:task:remove']">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <pagination v-show="total > 0" :total="total" :page.sync="queryParams.pageNum" :limit.sync="queryParams.pageSize" @pagination="getList" />
 
-    <el-dialog :title="'任务 #' + form.id + ' 详情与审批'" :visible.sync="open" width="980px" append-to-body>
+    <el-dialog :title="'任务 #' + form.id + ' 审批与编辑'" :visible.sync="open" width="980px" append-to-body>
       <el-descriptions v-if="form.id" :column="2" border size="small" class="mb8">
         <el-descriptions-item label="创建时间">{{ form.createTime || '-' }}</el-descriptions-item>
         <el-descriptions-item label="来源对象">{{ form.oriTarget || '-' }}</el-descriptions-item>
@@ -144,7 +188,7 @@
 </template>
 
 <script>
-import { listWechatTasks, getWechatTask, approveWechatTask, generateWechatTasks, sendWechatTasks, confirmWechatTaskNotSent } from '@/api/crm/wechatTask'
+import { listWechatTasks, getWechatTask, approveWechatTask, generateWechatTasks, sendWechatTasks, confirmWechatTaskNotSent, delWechatTask } from '@/api/crm/wechatTask'
 
 export default {
   name: 'CrmWechatTask',
@@ -163,7 +207,7 @@ export default {
       statuses: [
         { value: 'PENDING_APPROVAL', label: '待审批' },
         { value: 'APPROVED_PENDING_SEND', label: '已审批待发送' },
-        { value: 'SENT', label: '已发送' },
+        { value: 'SENT', label: '已审批已发送' },
         { value: 'NO_ACTION', label: '无需处理' }
       ],
       taskTypes: [
@@ -228,6 +272,9 @@ export default {
       getWechatTask(id).then(res => {
         this.form = Object.assign({}, res.data || {})
         this.form.targets = (this.form.targets || []).map(item => Object.assign({}, item))
+        if (['PENDING_APPROVAL', 'NO_ACTION'].indexOf(String(this.form.handleStatus || '')) >= 0) {
+          this.form.handleStatus = 'APPROVED_PENDING_SEND'
+        }
         this.open = true
       })
     },
@@ -255,6 +302,14 @@ export default {
       this.$confirm('确认网关确实未发送，恢复该任务为待发送？', '风险确认', { type: 'warning' }).then(() => {
         return confirmWechatTaskNotSent(row.id).then(() => {
           this.$modal.msgSuccess('已恢复为待发送')
+          this.getList()
+        })
+      }).catch(() => {})
+    },
+    handleDelete(row) {
+      this.$confirm('确认删除任务 #' + row.id + '（' + (row.pnOriginal || '无料号') + '）？删除后不可恢复，不会撤回已发送消息，也不回退来源消息状态。', '删除任务', { type: 'warning', confirmButtonText: '确认删除' }).then(() => {
+        return delWechatTask(row.id).then(() => {
+          this.$modal.msgSuccess('任务已删除')
           this.getList()
         })
       }).catch(() => {})
@@ -298,4 +353,11 @@ export default {
 .text-danger { color: #f56c6c; }
 .text-muted { color: #909399; }
 .mr5 { margin-right: 5px; }
+.wechat-help-popover { line-height: 1.6; }
+.wechat-help { max-height: 70vh; overflow-y: auto; padding-right: 6px; font-size: 12px; color: #303133; }
+.wechat-help .help-title { margin: 10px 0 4px; color: #409eff; font-weight: 600; }
+.wechat-help .help-title:first-child { margin-top: 0; }
+.wechat-help ul { margin: 0; padding-left: 18px; }
+.wechat-help li { margin: 3px 0; }
+.wechat-help code { padding: 1px 4px; border-radius: 2px; background: #f5f7fa; color: #c7254e; }
 </style>

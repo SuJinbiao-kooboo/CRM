@@ -144,6 +144,10 @@
         WHERE id = #{id} AND handle_status = 'APPROVED_PENDING_SEND'
     </update>
 
+    <delete id="deleteTaskById">
+        DELETE FROM wechat_offer_task WHERE id = #{id}
+    </delete>
+
     <select id="selectSendCandidates" resultMap="WeChatOfferTaskResult">
         SELECT <include refid="TaskColumns"/> FROM wechat_offer_task
         WHERE handle_status = 'APPROVED_PENDING_SEND'

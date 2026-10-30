@@ -34,6 +34,8 @@ public interface WeChatOfferTaskMapper {
 
     int confirmNotSent(@Param("id") Long id);
 
+    int deleteTaskById(@Param("id") Long id);
+
     List<WeChatOfferTask> selectSendCandidates(@Param("maxAttempts") int maxAttempts,
                                                @Param("max") int max);
 

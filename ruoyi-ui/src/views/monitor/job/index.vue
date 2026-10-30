@@ -1,5 +1,9 @@
 <template>
   <div class="app-container">
+    <el-alert type="info" :closable="false" show-icon style="margin-bottom: 12px;">
+      <div>微信自动化任务组受本机 IPv4 白名单限制；白名单在“系统管理 → 参数设置 → wechat.scheduler.allowedIps”维护，未命中时任务自动跳过并记录 WARN 日志。</div>
+      <div>任务开关只控制调度是否触发；实际处理仍受“参数配置 → wechat_analysis_config”中的 pollEnabled、classifyEnabled、offerEntryEnabled、autoTaskGenerateEnabled、autoSendEnabled 等业务开关控制。</div>
+    </el-alert>
     <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" v-show="showSearch" label-width="68px">
       <el-form-item label="任务名称" prop="jobName">
         <el-input

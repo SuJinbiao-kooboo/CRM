@@ -39,7 +39,7 @@
             <ul>
               <li><b>自动分类</b>：关闭时只在勾选消息后手动分类；开启后由后端定时扫描未分类消息。</li>
               <li><b>拉取</b>：立即从微信本地库同步消息入库；聊天对象有值时只拉该会话，留空拉全部。</li>
-              <li><b>分类选中</b>：对勾选消息强制重新调用 AI 分类为 INQ/OFFER/TRACE/OTHER，单次最多 20 条；已录入或已生成任务的消息不会被覆盖。同一发送人连续补充消息会继承前一条类型，不会误判为 TRACE。</li>
+              <li><b>分类选中</b>：对勾选消息强制重新调用 AI 分类为 INQ/OFFER/TRACE/OTHER，单次最多 20 条；已录入或已生成任务的消息不会被覆盖。同一发送人连续补充消息按整组语义归并，INQ/OFFER 的前序误判会自动修正，不判 TRACE。</li>
               <li><b>录入选中</b>：对勾选消息执行 AI 录入和料号匹配；仅处理已成功分类的 INQ/OFFER。选中一条会自动扩展为同一发送人 30 秒内的连续消息组，并带上被引用的原文，整组只调用一次 AI 录入，已录入消息幂等跳过。</li>
               <li><b>重排选中</b>：把失败、跳过或达到重试上限的录入消息重新放回队列，不立即执行。</li>
               <li><b>TRACE补扫</b>：补扫近期已关联 INQ/OFFER 且尚未成功发送的 TRACE 飞书预警，已预警消息不重复发送。</li>
@@ -52,6 +52,8 @@
               <li><b>OFFER 报价</b>：对 INQ 的报价或供货回应，或供应商主动报价/价目表；外部只回复我方询问的料号、型号也按 OFFER 处理。</li>
               <li><b>TRACE 二次跟进</b>：围绕已有 INQ/OFFER 追问或确认包装、原装、新旧、COO、DC、质保、交期、数量、价格、下单等；不一定是疑问句，但必须有上下文指向。</li>
               <li><b>OTHER 其他</b>：寒暄、致谢、收到、OK、check、checking、稍等、纯表情、广告、系统消息，以及没有推进业务的陈述。</li>
+              <li><b>连续消息组</b>：同一发送人相邻消息间隔不超过 <code>offerEntryGroupGapSec</code> 时按整组判断：有明确询价且无供货条件时整组 INQ；有报价/库存/现货等供货信息且无明确询价问句时整组 OFFER。型号清单、数量、库存等补充消息会随整组修正，不再沿用第一条的误判。</li>
+              <li><b>30 秒规则来源</b>：该间隔来自字典 <code>wechat_analysis_config.offerEntryGroupGapSec</code>，默认 30 秒，可自行修改；不是代码写死。分类整组归并和录入消息聚合都读取同一个配置。配置位置：系统管理 → 字典管理 → 字典类型 <code>wechat_analysis_config</code>。</li>
               <li>买卖双向，不按“客户/供应商”身份直接判类；我方成员发送的待判消息固定为 OTHER/SELF，不调用 AI。</li>
               <li>我方历史消息在提示词中标记为 SELF-OTHER，仍作为业务上下文，可供后续外部消息关联 inq/offer。</li>
               <li>TRACE 飞书告警要求该条 TRACE 已关联 INQ 或 OFFER；无关联的 TRACE 不告警。</li>
@@ -74,7 +76,7 @@
               <li><b>whiteNames</b>：非空时只有名称完全匹配的聊天对象参与分类；<b>selfNames</b>：我方成员名单，默认 Eke,May,Jin,Jasmine。</li>
               <li><b>llmPromptBase / llmExamples</b>：系统提示词和示例；<b>aiContextWindow</b> 控制最近上下文条数，<b>llmBatchSize</b> 控制单批条数。</li>
               <li><b>classifyEnabled</b>：自动分类开关；<b>classifyTriggerCount</b>、<b>classifyMaxIdleSec</b>、<b>classifyBatchSize</b> 控制定时触发。</li>
-              <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息聚合间隔秒数（默认 30）。</li>
+              <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息的整组分类与录入聚合间隔秒数（默认 30）。</li>
               <li><b>traceAlertEnabled</b>：TRACE 告警开关；<b>traceAlertMaxAgeMin</b> 最大消息年龄（默认 360 分钟，即只告警最近 6 小时），<b>traceAlertChatCooldownMin</b> 同群冷却分钟数。</li>
               <li><b>AI 接口</b>：系统管理 → 参数设置中的 <code>sys.ai.enabled</code>、<code>sys.ai.base.url</code>、<code>sys.ai.api.key</code>、<code>sys.ai.model</code>。</li>
             </ul>

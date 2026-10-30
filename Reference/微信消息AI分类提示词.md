@@ -8,7 +8,7 @@
 - `selfNames` 发送人的消息在进入提示词前已由代码直接归类为 `OTHER`（`category_source=SELF`），不会调用 AI。
 - 历史 H 行中我方消息标记为 `[SELF-OTHER]`，仍作为业务上下文，可供外部消息关联 `inq/offer`。
 - TRACE 告警要求该条消息已关联 INQ 或 OFFER；分类时能确认关联必须填写编号。
-- 同一发送人短时间（默认 30 秒）内连续发送的补充消息继承前一条类型，不判 TRACE；录入时还会按 `offerEntryGroupGapSec` 再聚合一次，并带上引用原文。
+- 同一发送人短时间（`offerEntryGroupGapSec`，默认 30 秒，字典可调，不是代码写死）内连续发送的消息按整组判断，INQ/OFFER 都以前序及补充信息合成后的业务意图为准，不逐条沿用第一条，也不判 TRACE；录入时使用同一间隔再次聚合，并带上引用原文。
 
 ## llmPromptBase
 
@@ -37,7 +37,7 @@ OTHER 其他：寒暄、致谢、收到、OK、check、checking、稍等、单�
 12. INQ 必须指向具体待询价的料号、型号、规格或品类：本条或明确引用的上文必须能确定“问的是什么货”，并表达询价/找货意图。只是在打听对方历史成交价（如“多少钱拿的”）、问对方是否还收货/还做不做（如“你们还收不”“还收吗”）、寒暄闲聊，且没有具体待询价对象的，一律 OTHER；若这类追问明确围绕前面某条具体 INQ/OFFER 推进条件，则判 TRACE。
 
 【连续消息规则】
-13. 同一发送人在短时间内（默认30秒）连续发送多条消息时，按一个整体判断：后一条只补充前一条的料号、型号、规格、数量、价格、库存、交期、原装/新旧等信息的，继承前一条类型——前一条是 INQ 则补充消息也判 INQ；前一条是 OFFER 则补充消息也判 OFFER 并关联同一 INQ。此类补充不得判 TRACE。
+13. 同一发送人在短时间内（默认30秒）连续发送多条消息时，必须把整组当作一条业务消息判断，不能只沿用第一条子消息：先看整组是在找货/问价，还是报价/给出供货条件。组内出现 OFFER 且无明确询价问句时，前面被误判的型号清单、库存等补充也统一为 OFFER；组内出现 INQ 且无 OFFER 时，前序型号清单、数量等补充也统一为 INQ。此类连续补充不得判 TRACE。
 14. TRACE 只用于对已经存在的具体 INQ/OFFER 做二次了解或推进（可不含疑问句）；同一发送人紧接前一条补充信息的消息，不能因为前文有 INQ/OFFER 就判成 TRACE。
 
 【输出格式】
@@ -149,6 +149,13 @@ OTHER 其他：寒暄、致谢、收到、OK、check、checking、稍等、单�
 #1 P [Johnny] 18400USD
 #2 P [Johnny] 2weeks
 输出：[{"i":1,"cat":"OFFER","inq":0},{"i":2,"cat":"OFFER","inq":0}]
+
+示例21 同发送人连续组按整组判断
+#0 P [May] 5317
+#1 P [May] 10pcs 有货吗
+#2 P [供应商] 超微有这些
+#3 P [供应商] 都是国内库存
+输出：[{"i":0,"cat":"INQ"},{"i":1,"cat":"INQ"},{"i":2,"cat":"OFFER"},{"i":3,"cat":"OFFER"}]
 ```
 
 ## 特殊逻辑与配置
@@ -162,7 +169,7 @@ OTHER 其他：寒暄、致谢、收到、OK、check、checking、稍等、单�
 | `aiContextWindow` / `llmBatchSize` | 上下文条数与会话批次大小 |
 | `classifyEnabled` / `classifyTriggerCount` / `classifyMaxIdleSec` | 自动分类开关及触发条件 |
 | `offerEntryMinAgeSec` | 录入前消息稳定等待秒数，默认 30；组内最新消息未满该时长时暂不录入 |
-| `offerEntryGroupGapSec` | 同一会话同一发送人连续消息聚合间隔，默认 30 秒 |
+| `offerEntryGroupGapSec` | 同一会话同一发送人连续消息的整组分类与录入聚合间隔，默认 30 秒 |
 | `traceAlertEnabled` / `traceAlertMaxAgeMin` / `traceAlertChatCooldownMin` | TRACE 飞书告警开关、消息年龄（默认 360 分钟，即 6 小时）、同群冷却 |
 | `sys.ai.*` | AI 接口地址、密钥、模型和超时（系统参数设置） |
 

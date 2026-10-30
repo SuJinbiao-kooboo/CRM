@@ -42,6 +42,15 @@ public class WeChatLlmClassifier {
     private static final int EXAMPLES_MAX = 6000;
     private static final int CACHE_MAX = 50000;
 
+    private static final String INQ_GROUP_REASON = "AI:INQ 同发送人连续消息归并";
+    private static final String OFFER_GROUP_REASON = "AI:OFFER 同发送人连续消息归并";
+    private static final String[] SUPPLY_SIGNALS = {
+            "有这些", "都有", "库存", "现货", "可出", "可供", "供应", "available", "in stock", "stock"
+    };
+    private static final String[] INQUIRY_SIGNALS = {
+            "?", "？", "询价", "有货吗", "有吗", "多少钱", "什么价", "请报", "要报价", "报价给我", "rfq", "inq"
+    };
+
     private final ObjectMapper jackson = new ObjectMapper();
     private final Map<String, Classification> cache = new ConcurrentHashMap<>();
 
@@ -210,10 +219,126 @@ public class WeChatLlmClassifier {
                 out.put(idx, new Classification(cat, relatInq, relatOffer,
                         reason(cat, inq, offer)));
             }
+            normalizeSameSenderBusinessGroups(input, batchStart, out);
         } catch (Exception e) {
             log.warn("AI 分类响应解析失败: {}", e.toString());
         }
         return out;
+    }
+
+    /**
+     * 同一发送人短时间内连续发送的一组消息按整体归类，避免第一条子消息的误判污染后续补充消息。
+     * 明确询价与供货信号同时出现时保持 AI 结果，避免把真实的询价/报价往返强行合并。
+     */
+    private void normalizeSameSenderBusinessGroups(List<WeChatMessage> input, int batchStart,
+                                                   Map<Integer, Classification> out) {
+        if (input == null || input.isEmpty() || out == null || out.isEmpty()) {
+            return;
+        }
+        int gapSec = Math.max(1, cfgInt("offerEntryGroupGapSec", 30));
+        long maxGapMs = gapSec * 1000L;
+        int i = 0;
+        while (i < input.size()) {
+            int start = i;
+            int end = i;
+            while (end + 1 < input.size()
+                    && sameSender(input.get(end), input.get(end + 1))
+                    && input.get(end).getSortSeq() > 0
+                    && input.get(end + 1).getSortSeq() > 0
+                    && Math.abs(input.get(end + 1).getSortSeq() - input.get(end).getSortSeq()) <= maxGapMs) {
+                end++;
+            }
+            if (end >= batchStart) {
+                String groupCategory = groupCategory(input, out, start, end);
+                if (groupCategory != null) {
+                    normalizeGroup(input, batchStart, out, start, end, groupCategory);
+                }
+            }
+            i = end + 1;
+        }
+    }
+
+    private static String groupCategory(List<WeChatMessage> input, Map<Integer, Classification> out,
+                                        int start, int end) {
+        boolean hasInq = false;
+        boolean hasOffer = false;
+        boolean hasInquirySignal = false;
+        boolean hasSupplySignal = false;
+        for (int j = start; j <= end; j++) {
+            WeChatMessage m = input.get(j);
+            String category = categoryOf(out, m, j);
+            if ("INQ".equalsIgnoreCase(category)) {
+                hasInq = true;
+            } else if ("OFFER".equalsIgnoreCase(category)) {
+                hasOffer = true;
+            }
+            String text = StringUtils.lowerCase(StringUtils.defaultString(m.getContent()));
+            hasInquirySignal = hasInquirySignal || containsAny(text, INQUIRY_SIGNALS);
+            hasSupplySignal = hasSupplySignal || containsAny(text, SUPPLY_SIGNALS);
+        }
+        if (hasOffer && hasSupplySignal && !hasInquirySignal) {
+            return "OFFER";
+        }
+        if (hasInq && hasInquirySignal && !hasSupplySignal) {
+            return "INQ";
+        }
+        if (hasOffer && !hasInq) {
+            return "OFFER";
+        }
+        if (hasInq && !hasOffer) {
+            return "INQ";
+        }
+        return null;
+    }
+
+    private void normalizeGroup(List<WeChatMessage> input, int batchStart, Map<Integer, Classification> out,
+                                int start, int end, String groupCategory) {
+        boolean offer = "OFFER".equals(groupCategory);
+        String reason = offer ? OFFER_GROUP_REASON : INQ_GROUP_REASON;
+        for (int j = Math.max(start, batchStart); j <= end; j++) {
+            WeChatMessage m = input.get(j);
+            Classification old = out.get(j);
+            String relatInq = old == null || !offer ? null : old.relatInq;
+            if (offer && sameSenderRel(relatInq, m.getSender())) {
+                relatInq = null;
+            }
+            out.put(j, new Classification(groupCategory, relatInq, null, reason));
+        }
+    }
+
+    private static String categoryOf(Map<Integer, Classification> out, WeChatMessage m, int idx) {
+        Classification c = out.get(idx);
+        return c != null && StringUtils.isNotBlank(c.category) ? c.category : m.getMsgCategory();
+    }
+
+    private boolean sameSenderRel(String relatJson, String sender) {
+        if (StringUtils.isBlank(relatJson)) {
+            return false;
+        }
+        try {
+            return sameSender(jackson.readTree(relatJson).path("sender").asText(""), sender);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean sameSender(WeChatMessage a, WeChatMessage b) {
+        return a != null && b != null && sameSender(a.getSender(), b.getSender());
+    }
+
+    private static boolean sameSender(String a, String b) {
+        return StringUtils.equalsIgnoreCase(
+                StringUtils.deleteWhitespace(StringUtils.defaultString(a)),
+                StringUtils.deleteWhitespace(StringUtils.defaultString(b)));
+    }
+
+    private static boolean containsAny(String text, String[] signals) {
+        for (String signal : signals) {
+            if (text.contains(signal)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static WeChatMessage earlier(List<WeChatMessage> input, int current, int ref) {
@@ -466,8 +591,9 @@ public class WeChatLlmClassifier {
             "OTHER=其他；纯确认（好/OK/check/稍等）、寒暄、致谢、系统消息、附件/名片、地址、内部说明、广告，以及只引用历史或泛泛提到offer但没有提出新问题、没有推进业务的陈述，均为OTHER。\n" +
             "结合最近20条上下文，买卖双向，不按发送人定方向；待判P消息若来自我方成员(selfNames)则一律OTHER，不参与AI判断；"
             + "历史H行标记[SELF-OTHER]的我方消息仍是业务上下文，可按内容作为后续消息的inq/offer关联对象；拿不准输出OTHER。\n" +
-            "同一发送人短时间内连续多条消息按一个整体判断：后一条只补充料号、型号、规格、数量、价格、库存、交期、原装/新旧等信息时，"
-            + "继承前一条类型（前条INQ则补充也INQ，前条OFFER则补充也OFFER），不能判TRACE；TRACE只用于对已有具体INQ/OFFER做二次了解或推进。\n" +
+            "同一发送人短时间内连续多条消息必须按整组判断，不能只沿用第一条：整组在找货/问价且无OFFER时统一INQ；"
+            + "整组在报价/供货且无明确询价问句时统一OFFER，前序型号清单或库存补充也改判OFFER；"
+            + "连续补充不得判TRACE，TRACE只用于对已有具体INQ/OFFER做二次了解或推进。\n" +
             "输出每条P消息：i=消息编号，cat=INQ/OFFER/TRACE/OTHER，inq/offer=对应消息编号，无关联可省略。";
 
     private static final String DEFAULT_EXAMPLES =
@@ -492,5 +618,9 @@ public class WeChatLlmClassifier {
             "#37 [客户] Intel 6346 33片有货吗？ → {\"i\":37,\"cat\":\"INQ\"}\n" +
             "#38 [客户] 有货吗（同一人紧接着补充） → {\"i\":38,\"cat\":\"INQ\"}\n" +
             "#39 H [SELF-OTHER] [May] inq: RTX Pro 6000 Workstation 40Pcs\n#40 P [供应商] 18400USD → {\"i\":40,\"cat\":\"OFFER\",\"inq\":39}\n" +
-            "#41 P [供应商] 2weeks（上一条报价的交期补充） → {\"i\":41,\"cat\":\"OFFER\",\"inq\":39}";
+            "#41 P [供应商] 2weeks（上一条报价的交期补充） → {\"i\":41,\"cat\":\"OFFER\",\"inq\":39}\n" +
+            "#50 P [May] 5317\n#51 P [May] 10pcs 有货吗\n" +
+            "#52 P [供应商] 超微有这些\n#53 P [供应商] 都是国内库存\n" +
+            "→ 同发送人连续组：#50/#51 都INQ，#52/#53 都OFFER："
+            + "[{\"i\":50,\"cat\":\"INQ\"},{\"i\":51,\"cat\":\"INQ\"},{\"i\":52,\"cat\":\"OFFER\"},{\"i\":53,\"cat\":\"OFFER\"}]";
 }

@@ -12,6 +12,8 @@ import com.ruoyi.crm.domain.CrmSupplier;
 
 public interface CrmSupplierMapper {
     List<CrmSupplierVO> selectSupplierListJoined(CrmSupplier supplier);
+    /** 采购群和销售群均为空的供应商，供定时预警和页面检查使用。 */
+    List<CrmSupplier> selectSuppliersWithoutGroups(CrmSupplier supplier);
     CrmSupplier selectSupplierById(Long id);
     /** 按编码查询供应商（AI录入/批量导入提交时的数据权限校验用） */
     CrmSupplier selectSupplierByCode(@Param("supplierCode") String supplierCode);

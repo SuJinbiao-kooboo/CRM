@@ -46,6 +46,11 @@ export function listSupplierSimple(query) {
   return request({ url: '/crm/supplier/simpleList', method: 'get', params: query })
 }
 
+// 检查启用供应商的采购群、销售群是否均为空
+export function checkSupplierGroups() {
+  return request({ url: '/crm/supplier/without-groups', method: 'get' })
+}
+
 // 跟进人选择数据源：当前系统启用用户（存登录名userName，显示昵称nickName）
 export function listSupplierUsers(query) {
   return request({ url: '/crm/supplier/userOptions', method: 'get', params: query })

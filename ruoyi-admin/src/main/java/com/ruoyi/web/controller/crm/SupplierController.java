@@ -42,6 +42,13 @@ public class SupplierController extends BaseController {
         return getDataTable(list);
     }
 
+    /** 检查启用供应商的采购群、销售群是否均为空；结果供页面复制和人工补齐。 */
+    @PreAuthorize("@ss.hasPermi('crm:supplier:list')")
+    @GetMapping("/without-groups")
+    public AjaxResult withoutGroups() {
+        return AjaxResult.success(supplierService.selectSuppliersWithoutGroups(new CrmSupplier()));
+    }
+
     @PreAuthorize("@ss.hasPermi('crm:supplier:list')")
     @GetMapping("/simpleList")
     public TableDataInfo simpleList(CrmSupplier supplier) {

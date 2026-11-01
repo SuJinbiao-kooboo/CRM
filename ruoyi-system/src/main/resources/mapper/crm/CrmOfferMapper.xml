@@ -131,6 +131,20 @@
         order by m.create_time asc, o.id asc
     </select>
 
+    <!-- 客户INQ直接回复：最近配置自然日内的有效Offer，双向前缀匹配料号，优先最低USD报价 -->
+    <select id="selectReplyOffers" resultMap="CrmOfferMap">
+        select <include refid="Base_Column_List"/> from crm_offer
+        where status = 1
+          and inq_offer_type = 'Offer'
+          and price_offer is not null and price_offer &gt; 0
+          and coalesce(stock_date, create_time) &gt;= #{since}
+          and coalesce(stock_date, create_time) &lt;= now()
+          and pn_normalized is not null and pn_normalized &lt;&gt; ''
+          and (pn_normalized like #{pattern} escape '!'
+               or #{pn} like concat(replace(replace(replace(pn_normalized,'!','!!'),'%','!%'),'_','!_'), '%') escape '!')
+        order by price_offer asc, coalesce(stock_date, create_time) desc, id desc
+    </select>
+
     <select id="selectPriceHistoryByPn" resultMap="CrmOfferMap">
         select <include refid="Base_Column_List"/> from crm_offer
         where status=1 and price_offer is not null and price_offer &gt; 0

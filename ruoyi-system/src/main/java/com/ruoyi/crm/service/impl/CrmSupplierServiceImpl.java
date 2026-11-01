@@ -42,6 +42,13 @@ public class CrmSupplierServiceImpl implements ICrmSupplierService {
     }
 
     @Override
+    public List<CrmSupplier> selectSuppliersWithoutGroups(CrmSupplier supplier) {
+        CrmSupplier query = supplier == null ? new CrmSupplier() : supplier;
+        applyPermFilter(query);
+        return supplierMapper.selectSuppliersWithoutGroups(query);
+    }
+
+    @Override
     public List<CrmSupplier> selectSupplierOptions(CrmSupplier supplier) {
         applyPermFilter(supplier);
         return supplierMapper.selectSupplierOptions(supplier);

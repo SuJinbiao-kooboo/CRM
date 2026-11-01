@@ -214,20 +214,33 @@ public class WeChatOfferTaskService {
                 addReason(manualReasons, "MISSING_PN");
                 continue;
             }
-            Set<String> directions = partyService.directionTokens(offer.getProductType(), offer.getProductBrand());
-            if (directions.isEmpty()) {
-                addReason(manualReasons, "UNKNOWN_PRODUCT_TYPE");
-                continue;
-            }
             if (externalInquiry) {
-                List<CrmSupplier> suppliers = partyService.directionTargets(offer.getProductType(),
-                        offer.getProductBrand(), "sales", party.getSupplier().getId());
-                List<WeChatTaskTarget> targets = targets(suppliers, "sales", message.getName());
-                if (targets.isEmpty()) {
-                    skips.add(pn + ":NO_TARGET");
-                    continue;
+                int taskResult;
+                if (isCooperationAtLeastB(party.getSupplier())) {
+                    Set<String> directions = partyService.directionTokens(offer.getProductType(), offer.getProductBrand());
+                    if (directions.isEmpty()) {
+                        addReason(manualReasons, "UNKNOWN_PRODUCT_TYPE");
+                        continue;
+                    }
+                    List<CrmSupplier> suppliers = partyService.directionTargets(offer.getProductType(),
+                            offer.getProductBrand(), "sales", party.getSupplier().getId());
+                    List<WeChatTaskTarget> targets = targets(suppliers, "sales", message.getName());
+                    if (targets.isEmpty()) {
+                        skips.add(pn + ":NO_TARGET");
+                        continue;
+                    }
+                    taskResult = createTask(message, offer, TASK_SUPPLIER_INQUIRY, targets, null, "供应商询价");
+                } else {
+                    CrmOffer replyOffer = findSystemReplyOffer(offer);
+                    List<WeChatTaskTarget> targets = Collections.singletonList(new WeChatTaskTarget(
+                            message.getName(), party.getSupplier().getSupplierCode(), party.getSupplier().getSupplierName()));
+                    String sendContent = replyOffer == null ? noStockLine(offer) : systemReplyLine(offer, replyOffer);
+                    String remark = replyOffer == null ? "客户回复No stock" : "客户回复系统报价";
+                    taskResult = createTask(message, offer, TASK_CUSTOMER_REPLY, targets,
+                            offerSnapshot(message, offer), remark, sendContent,
+                            replyOffer == null ? null : replyOffer.getPriceOffer(),
+                            systemReplySnapshot(offer, replyOffer));
                 }
-                int taskResult = createTask(message, offer, TASK_SUPPLIER_INQUIRY, targets, null, "供应商询价");
                 if (taskResult == TASK_INSERTED) {
                     result.created++;
                 }
@@ -235,6 +248,11 @@ public class WeChatOfferTaskService {
                     result.handled++;
                 }
             } else if (externalOffer) {
+                Set<String> directions = partyService.directionTokens(offer.getProductType(), offer.getProductBrand());
+                if (directions.isEmpty()) {
+                    addReason(manualReasons, "UNKNOWN_PRODUCT_TYPE");
+                    continue;
+                }
                 if (!hasUsdOfferPrice(offer)) {
                     addReason(manualReasons, "NO_PRICE");
                     continue;
@@ -330,6 +348,12 @@ public class WeChatOfferTaskService {
 
     private int createTask(WeChatMessage message, CrmOffer offer, String taskType,
                            List<WeChatTaskTarget> targets, String matchedJson, String remark) throws Exception {
+        return createTask(message, offer, taskType, targets, matchedJson, remark, null, null, null);
+    }
+
+    private int createTask(WeChatMessage message, CrmOffer offer, String taskType,
+                           List<WeChatTaskTarget> targets, String matchedJson, String remark,
+                           String sendContent, Double offerPrice, String offerJson) throws Exception {
         if (targets == null || targets.isEmpty()) {
             return TASK_NOT_CREATED;
         }
@@ -342,12 +366,13 @@ public class WeChatOfferTaskService {
         task.setSpec(offer.getSpec());
         task.setQty(offer.getQuantity());
         task.setOriPrice(offer.getPriceCost());
-        task.setOfferPrice(offer.getPriceOffer());
+        task.setOfferPrice(offerPrice == null ? offer.getPriceOffer() : offerPrice);
         task.setSendTarget(jackson.writeValueAsString(targets));
         task.setSendTargetSuccess("[]");
-        task.setSendContent(columnLine(offer, !TASK_SUPPLIER_INQUIRY.equals(taskType)));
+        task.setSendContent(StringUtils.isNotBlank(sendContent)
+                ? sendContent : columnLine(offer, !TASK_SUPPLIER_INQUIRY.equals(taskType)));
         task.setMatchedInqJson(matchedJson);
-        task.setOfferJson(offerSnapshot(message, offer));
+        task.setOfferJson(StringUtils.isNotBlank(offerJson) ? offerJson : offerSnapshot(message, offer));
         task.setRemark(remark);
         if (taskMapper.insertTaskIgnore(task) > 0) {
             return TASK_INSERTED;
@@ -376,14 +401,7 @@ public class WeChatOfferTaskService {
 
     private MatchResult matchCustomers(WeChatMessage source, CrmSupplier sourceSupplier, CrmOffer offer) {
         MatchResult result = new MatchResult();
-        int days = config.matchDayNo();
-        Calendar calendar = Calendar.getInstance();
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-        calendar.add(Calendar.DAY_OF_MONTH, -(days - 1));
-        String since = fmtTime(calendar.getTimeInMillis());
+        String since = matchSince();
         List<CrmOffer> candidates = offerMapper.selectMatchingInq(PnUtils.normalize(offer.getProductCode()),
                 since, PnUtils.escapeLikePrefix(offer.getProductCode()));
         if (candidates == null || candidates.isEmpty()) {
@@ -436,6 +454,82 @@ public class WeChatOfferTaskService {
             log.warn("匹配客户INQ快照序列化失败: {}", e.getMessage());
         }
         return result;
+    }
+
+    /** 合作等级包含 S/A/B 时按高等级客户处理；为空或 C/D/E 时直接使用系统Offer回复。 */
+    private boolean isCooperationAtLeastB(CrmSupplier supplier) {
+        if (supplier == null || StringUtils.isBlank(supplier.getCooperationLevel())) {
+            return false;
+        }
+        for (String level : supplier.getCooperationLevel().split("[,，/;；\\s]+")) {
+            String value = StringUtils.upperCase(StringUtils.trimToEmpty(level));
+            if ("S".equals(value) || "A".equals(value) || "B".equals(value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 系统Offer回退：窗口默认2个自然日（昨天00:00至今），由 inqMatchDayNo 配置。 */
+    private CrmOffer findSystemReplyOffer(CrmOffer inquiry) {
+        List<CrmOffer> offers = offerMapper.selectReplyOffers(PnUtils.normalize(inquiry.getProductCode()),
+                matchSince(), PnUtils.escapeLikePrefix(inquiry.getProductCode()));
+        if (offers == null) {
+            return null;
+        }
+        for (CrmOffer offer : offers) {
+            if (hasUsdOfferPrice(offer) && PnUtils.prefixMatch(inquiry.getProductCode(), offer.getProductCode())) {
+                return offer;
+            }
+        }
+        return null;
+    }
+
+    private String matchSince() {
+        int days = config.matchDayNo();
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        calendar.add(Calendar.DAY_OF_MONTH, -(days - 1));
+        return fmtTime(calendar.getTimeInMillis());
+    }
+
+    private String systemReplyLine(CrmOffer inquiry, CrmOffer replyOffer) {
+        OfferTextLine line = new OfferTextLine();
+        line.setPartNumber(inquiry.getProductCode());
+        line.setQuantity(inquiry.getQuantity() != null ? inquiry.getQuantity() : replyOffer.getQuantity());
+        line.setPrice(replyOffer.getPriceOffer());
+        return OfferTextFormatter.formatRow(line, true, Collections.<String>emptyList());
+    }
+
+    private String noStockLine(CrmOffer inquiry) {
+        String quantity = inquiry.getQuantity() == null ? "" : inquiry.getQuantity() + "pcs";
+        return StringUtils.defaultString(inquiry.getProductCode()) + "\t" + quantity + "\tNo stock";
+    }
+
+    private String systemReplySnapshot(CrmOffer inquiry, CrmOffer replyOffer) {
+        try {
+            Map<String, Object> snapshot = new LinkedHashMap<>();
+            snapshot.put("inquiryOfferId", inquiry.getId());
+            snapshot.put("pn", inquiry.getProductCode());
+            snapshot.put("quantity", inquiry.getQuantity());
+            snapshot.put("noStock", replyOffer == null);
+            if (replyOffer != null) {
+                snapshot.put("replyOfferId", replyOffer.getId());
+                snapshot.put("supplierCode", replyOffer.getSupplierCode());
+                snapshot.put("replyPn", replyOffer.getProductCode());
+                snapshot.put("priceOffer", replyOffer.getPriceOffer());
+                snapshot.put("priceUnit", replyOffer.getPriceUnit());
+                snapshot.put("availableQuantity", replyOffer.getQuantity());
+                snapshot.put("stockDate", replyOffer.getStockDate());
+                snapshot.put("deliveryTime", replyOffer.getDeliveryTime());
+            }
+            return jackson.writeValueAsString(snapshot);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private boolean isAdvantage(String pn) {

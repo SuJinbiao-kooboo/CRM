@@ -7,8 +7,8 @@
       <el-form-item label="消息内容" prop="keyword">
         <el-input v-model="queryParams.keyword" placeholder="正文或异常原因" clearable style="width:180px" @keyup.enter.native="handleQuery" />
       </el-form-item>
-      <el-form-item label="分类" prop="msgCategory">
-        <el-select v-model="queryParams.msgCategory" clearable placeholder="全部" style="width:110px">
+      <el-form-item label="分类" prop="msgCategories">
+        <el-select v-model="queryParams.msgCategories" multiple collapse-tags clearable placeholder="全部" style="width:180px">
           <el-option v-for="item in categories" :key="item" :label="item" :value="item" />
         </el-select>
       </el-form-item>
@@ -384,7 +384,7 @@ export default {
       classifyStatuses: ['PENDING', 'PROCESSING', 'SUCCESS', 'FAILED', 'SKIPPED'],
       entryStatuses: ['NOT_APPLICABLE', 'PENDING', 'PROCESSING', 'SUCCESS', 'SUCCESS_WARN', 'FAILED', 'DEAD', 'SKIPPED'],
       taskStatuses: ['PENDING', 'PROCESSING', 'GENERATED', 'SKIPPED', 'MANUAL_REVIEW', 'FAILED'],
-      queryParams: { pageNum: 1, pageSize: 20, name: undefined, keyword: undefined, msgCategory: undefined, classifyStatus: undefined, entryStatus: undefined, taskStatus: undefined, beginTime: undefined, endTime: undefined }
+      queryParams: { pageNum: 1, pageSize: 20, name: undefined, keyword: undefined, msgCategories: [], classifyStatus: undefined, entryStatus: undefined, taskStatus: undefined, beginTime: undefined, endTime: undefined }
     }
   },
   created() {
@@ -410,6 +410,7 @@ export default {
     getList() {
       this.loading = true
       const query = Object.assign({}, this.queryParams)
+      query.msgCategories = (this.queryParams.msgCategories || []).join(',')
       if (this.dateRange && this.dateRange.length === 2) {
         query.beginTime = this.dateRange[0] + ' 00:00:00'
         query.endTime = this.dateRange[1] + ' 23:59:59'
@@ -448,6 +449,7 @@ export default {
     },
     resetQuery() {
       this.resetForm('queryForm')
+      this.queryParams.msgCategories = []
       this.dateRange = this.last30Days()
       this.handleQuery()
     },

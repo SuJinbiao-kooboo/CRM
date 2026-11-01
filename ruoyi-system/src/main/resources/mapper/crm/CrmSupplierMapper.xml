@@ -202,6 +202,21 @@
         select <include refid="Base_Column_List"/> from crm_supplier s where s.id = #{id}
     </select>
 
+    <!-- 启用供应商中采购群和销售群均为空的记录：页面检查与定时飞书告警共用 -->
+    <select id="selectSuppliersWithoutGroups" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultMap="CrmSupplierBaseMap">
+        select <include refid="Base_Column_List"/>
+        from crm_supplier s
+        <where>
+            (s.purchase_group is null or trim(s.purchase_group) = '')
+            and (s.sales_group is null or trim(s.sales_group) = '')
+            and s.status = 1
+            <if test="params != null and params['permUserName'] != null and params['permUserName'] != ''">
+                and find_in_set(#{params.permUserName}, s.follow_up_by) > 0
+            </if>
+        </where>
+        order by s.supplier_code asc, s.supplier_name asc
+    </select>
+
     <!-- 按编码查询供应商（AI录入/批量导入提交时的数据权限校验用） -->
     <select id="selectSupplierByCode" resultMap="CrmSupplierBaseMap">
         select <include refid="Base_Column_List"/> from crm_supplier s where s.supplier_code = #{supplierCode} limit 1
@@ -327,7 +342,7 @@
 
     <select id="selectAllForWeChat" resultMap="CrmSupplierBaseMap">
         select id, supplier_code, supplier_name, supplier_short_name, supplier_alias, brands,
-               cooperation_direction, sales_group, purchase_group, status, profit_ratio
+               cooperation_level, cooperation_direction, sales_group, purchase_group, status, profit_ratio
         from crm_supplier
         order by id asc
     </select>

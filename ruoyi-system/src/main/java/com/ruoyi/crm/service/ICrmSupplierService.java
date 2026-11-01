@@ -8,6 +8,8 @@ import com.ruoyi.crm.domain.dto.CrmSupplierVO;
 
 public interface ICrmSupplierService {
     List<CrmSupplierVO> selectSupplierListJoined(CrmSupplier supplier);
+    /** 查询采购群和销售群均为空的启用供应商（页面检查与定时告警共用）。 */
+    List<CrmSupplier> selectSuppliersWithoutGroups(CrmSupplier supplier);
     CrmSupplier selectSupplierById(Long id);
     /** 按编码查询供应商并校验数据权限：非管理员/超级管理员仅能操作跟进人包含自己的供应商（AI录入/批量导入提交时校验） */
     CrmSupplier selectAuthorizedSupplierByCode(String supplierCode);

@@ -31,6 +31,9 @@ public class WeChatMessage {
     @JsonProperty("msg_category")
     private String msgCategory;
 
+    /** 查询条件：分类多选，英文逗号分隔（不落库） */
+    private String msgCategories;
+
     /** 分类来源：LLM=大模型分类 / CACHE=缓存命中 / FILTER=会话过滤 */
     @JsonProperty("category_source")
     private String categorySource;

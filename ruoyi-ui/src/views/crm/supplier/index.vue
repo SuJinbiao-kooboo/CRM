@@ -239,6 +239,9 @@
       <el-col :span="1.5">
         <el-button type="info" plain icon="el-icon-message" size="mini" @click="openSubscriptions" v-hasPermi="['crm:supplier:list']">Offer邮箱</el-button>
       </el-col>
+      <el-col :span="1.5">
+        <el-button type="warning" plain icon="el-icon-warning-outline" size="mini" :loading="groupCheckLoading" @click="handleCheckSupplierGroups" v-hasPermi="['crm:supplier:list']">检查群配置</el-button>
+      </el-col>
     </el-row>
 
     <!-- :key=columnVersion：列顺序/显隐变化时强制重建表格，规避 element-ui 动态列调整后整列内容空白/错位的渲染不同步问题 -->
@@ -301,6 +304,17 @@
     </el-table>
 
     <pagination v-show="total>0" :total="total" :page.sync="queryParams.pageNum" :limit.sync="queryParams.pageSize" :page-sizes="[10,20,50,100,200,300,500]" layout="total, sizes, prev, pager, next, jumper" @pagination="getList" />
+
+    <el-dialog title="供应商群配置检查" :visible.sync="groupCheckOpen" width="720px" append-to-body>
+      <div class="group-check-summary" :class="{ 'is-empty': groupCheckCount === 0 }">
+        {{ groupCheckCount > 0 ? '发现 ' + groupCheckCount + ' 家启用供应商的采购群和销售群均为空，结果已自动复制。' : '全部启用供应商的采购群和销售群均已配置。' }}
+      </div>
+      <el-input ref="groupCheckText" v-model="groupCheckText" type="textarea" :rows="16" readonly />
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" icon="el-icon-document-copy" @click="copyGroupCheckResult">再次复制</el-button>
+        <el-button @click="groupCheckOpen = false">关 闭</el-button>
+      </div>
+    </el-dialog>
 
     <!-- 自定义列弹窗：控制列表字段显示/隐藏与顺序（改动即时生效并持久化到 localStorage） -->
     <el-dialog title="自定义列" :visible.sync="columnDialogOpen" width="480px" append-to-body>
@@ -694,7 +708,7 @@
 </template>
 
 <script>
-import { listSupplier, getSupplier, addSupplier, updateSupplier, updateSupplierContact, updateSupplierFollowUp, delSupplier, getSupplierDetail, delSupplierAttachment, listSupplierUsers } from '@/api/crm/supplier'
+import { listSupplier, getSupplier, addSupplier, updateSupplier, updateSupplierContact, updateSupplierFollowUp, delSupplier, getSupplierDetail, delSupplierAttachment, listSupplierUsers, checkSupplierGroups } from '@/api/crm/supplier'
 import request from '@/utils/request'
 import { listSubscription, addSubscriptions, updateSubscriptionStatus, deleteSubscriptions } from '@/api/crm/subscription'
 import { getDicts } from '@/api/system/dict/data'
@@ -832,7 +846,11 @@ export default {
       subAddOpen: false,
       subEmails: '',
       subSaving: false,
-      subResult: null
+      subResult: null,
+      groupCheckLoading: false,
+      groupCheckOpen: false,
+      groupCheckCount: 0,
+      groupCheckText: ''
     }
   },
   computed: {
@@ -1232,6 +1250,62 @@ export default {
         this.loadSubscriptions()
       }).catch(() => {})
     }
+    ,handleCheckSupplierGroups() {
+      this.groupCheckLoading = true
+      checkSupplierGroups().then(res => {
+        const rows = Array.isArray(res.data) ? res.data : []
+        this.groupCheckCount = rows.length
+        this.groupCheckText = rows.length
+          ? rows.map(row => (row.supplierCode || '-') + ' ' + (row.supplierName || '-')).join('\n')
+          : '全部启用供应商的采购群和销售群均已配置。'
+        this.groupCheckOpen = true
+        return this.copyToClipboard(this.groupCheckText)
+      }).then(ok => {
+        if (ok) {
+          this.$modal.msgSuccess('检查完成，结果已复制到剪贴板')
+        } else {
+          this.$modal.msgWarning('检查完成，但浏览器未能自动复制，请在弹窗中手动复制')
+        }
+      }).catch(err => {
+        this.$modal.msgError((err && err.msg) || '检查群配置失败')
+      }).finally(() => { this.groupCheckLoading = false })
+    }
+    ,copyGroupCheckResult() {
+      this.copyToClipboard(this.groupCheckText).then(ok => {
+        if (ok) {
+          this.$modal.msgSuccess('已复制到剪贴板')
+        } else {
+          this.$nextTick(() => {
+            const input = this.$refs.groupCheckText
+            if (input && input.select) input.select()
+          })
+          this.$modal.msgWarning('自动复制失败，请手动全选复制')
+        }
+      })
+    }
+    ,copyToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        const timeout = new Promise(resolve => setTimeout(() => resolve(false), 3000))
+        return Promise.race([
+          navigator.clipboard.writeText(text).then(() => true).catch(() => false),
+          timeout
+        ]).then(ok => ok ? true : this.fallbackCopy(text))
+      }
+      return Promise.resolve(this.fallbackCopy(text))
+    }
+    ,fallbackCopy(text) {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.focus()
+      ta.select()
+      let ok = false
+      try { ok = document.execCommand('copy') } catch (e) { ok = false }
+      document.body.removeChild(ta)
+      return ok
+    }
     ,remoteUsers(query) {
       this.userLoading = true
       listSupplierUsers({ keyword: query }).then(res => {
@@ -1259,6 +1333,8 @@ export default {
 .sub-toolbar { margin-bottom: 10px; }
 .sub-fail { color: #e6a23c; font-size: 12px; margin-bottom: 10px; word-break: break-all; }
 .sub-tip { color: #909399; font-size: 12px; margin: 0 0 8px; }
+.group-check-summary { margin-bottom: 10px; color: #e6a23c; font-size: 13px; }
+.group-check-summary.is-empty { color: #67c23a; }
 .preview-content { max-height: 70vh; overflow: auto; padding: 4px; }
 .preview-content >>> table { border-collapse: collapse; }
 .preview-content >>> td, .preview-content >>> th { border: 1px solid #dcdfe6; padding: 4px 8px; white-space: nowrap; }

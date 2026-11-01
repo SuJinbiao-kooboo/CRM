@@ -48,6 +48,14 @@
               <li><b>无需处理</b>：驳回或业务确认不处理；仍可再次进入审批。</li>
               <li>部分成功不新增独立状态，用“发送目标 x / 成功 y”、最近异常和发送次数表示；下一轮只补发失败目标。</li>
             </ul>
+            <div class="help-title">INQ 分流规则</div>
+            <ul>
+              <li>外部客户发来 INQ 时，系统先读取聊天对象对应供应商档案的“合作等级”（<code>crm_supplier.cooperation_level</code>）。</li>
+              <li>合作等级包含 <b>S / A / B</b>：按产品方向查找其他启用供应商，向有销售群的供应商生成“供应商询价”任务。</li>
+              <li>合作等级为 <b>C / D / E 或为空</b>：不向其他供应商询价，直接按料号查询系统内有效 Offer；有记录生成“客户回复”任务并带入系统报价，无记录生成内容为 <code>No stock</code> 的“客户回复”任务。</li>
+              <li>系统 Offer 只取有效状态、Offer 类型、报价大于 0 且币种为 USD（或空）的记录，料号按双向前缀匹配，优先最低价、同价取最新；有效期默认最近 2 个自然日（昨天 00:00 至当前），由字典 <code>wechat_analysis_config</code> 的 <code>inqMatchDayNo=2</code> 控制。</li>
+              <li>低等级客户的回复目标固定为当前客户会话；生成的供应商询价、客户回复任务仍为“待审批”，不会自动发送。</li>
+            </ul>
             <div class="help-title">审批与编辑</div>
             <ul>
               <li>打开“待审批”或“无需处理”任务时，状态默认“已审批待发送”；打开“已审批待发送/已审批已发送”任务时默认保持原状态。</li>
@@ -68,6 +76,7 @@
               <li>系统管理 → 字典管理 → 字典类型 <code>wechat_analysis_config</code>。</li>
               <li><b>生成</b>：<code>autoTaskGenerateEnabled</code>、<code>taskGenerateScanSec</code>、<code>taskGenerateBatchSize</code>、<code>msgRetentionDays</code>。</li>
               <li><b>发送</b>：<code>autoSendEnabled</code>、<code>taskSendScanSec</code>、<code>taskSendMaxAttempts</code>、<code>taskSendScanBatchSize</code>、<code>taskSendBatchSize</code>、<code>autoSendAccount</code>。</li>
+              <li><b>INQ 直接回复</b>：<code>inqMatchDayNo</code>，默认 2，表示昨天 00:00 至当前；该窗口同时用于客户 INQ 与供应商 OFFER 的关联。</li>
             </ul>
           </div>
           <el-button slot="reference" icon="el-icon-question" size="mini">说明</el-button>

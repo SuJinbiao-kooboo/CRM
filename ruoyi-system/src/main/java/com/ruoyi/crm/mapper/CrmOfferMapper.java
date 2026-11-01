@@ -12,6 +12,9 @@ public interface CrmOfferMapper {
     /** 双向前缀匹配外部客户 INQ（时间窗口按消息发送时间）。 */
     List<CrmOffer> selectMatchingInq(@Param("pn") String pn, @Param("since") String since,
                                      @Param("pattern") String pattern);
+    /** 客户 INQ 直接回复：查询时间窗口内有效、有价格的 USD Offer，按价格和日期择优。 */
+    List<CrmOffer> selectReplyOffers(@Param("pn") String pn, @Param("since") String since,
+                                     @Param("pattern") String pattern);
     /** 同料号全部有效报价历史，供统一好价格算法使用。 */
     List<CrmOffer> selectPriceHistoryByPn(@Param("pn") String pn);
     /**

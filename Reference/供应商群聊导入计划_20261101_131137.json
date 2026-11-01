@@ -1,0 +1,4366 @@
+{
+  "stats": {
+    "first_groups": 121,
+    "first_suppliers": 93,
+    "second_groups": 157,
+    "second_existing": 5,
+    "second_new": 142,
+    "skipped": 15,
+    "contacts_inserted": 520,
+    "contacts_updated": 7,
+    "internal_skipped": 784,
+    "missing_groups": 1
+  },
+  "suppliers": [
+    {
+      "code": "VC0820022",
+      "name": "Ma Labs",
+      "kind": "existing",
+      "groups": [
+        "Ma Labs M&E order group HKM01"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Ma Labs M&E order group HKM01",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820025",
+      "name": "VASTOM Technology (HK) Co., Ltd",
+      "kind": "existing",
+      "groups": [
+        "M&E - VASTOM订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "M&E - VASTOM订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 6,
+      "new_contact_count": 5,
+      "updated_contact_count": 1
+    },
+    {
+      "code": "VC0820036",
+      "name": "Mempire",
+      "kind": "existing",
+      "groups": [
+        "Mempire M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Mempire M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820064",
+      "name": "SYNO Distribution Limited",
+      "kind": "existing",
+      "groups": [
+        "SYNO M&E采购群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "SYNO M&E采购群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820125",
+      "name": "Star Seed Technologies ME FZE",
+      "kind": "existing",
+      "groups": [
+        "Star Seed M&E"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Star Seed M&E",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 1,
+      "updated_contact_count": 1
+    },
+    {
+      "code": "VC0820199",
+      "name": "Taurus Europe BV",
+      "kind": "existing",
+      "groups": [
+        "Taurus PF订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Taurus PF订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820254",
+      "name": "芯通科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "芯通科技 VIP 群",
+        "芯通 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "芯通科技 VIP 群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "芯通 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820268",
+      "name": "SANFAN TECHNOLOGY LIMITED",
+      "kind": "existing",
+      "groups": [
+        "科创邦达亦钟人订单群",
+        "科创邦达亦钟人VIP订单群",
+        "Sanfan CPU订单群",
+        "Sanfan M&E订单群",
+        "华数 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "科创邦达亦钟人订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "科创邦达亦钟人VIP订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "Sanfan CPU订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "Sanfan M&E订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "华数 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 9,
+      "new_contact_count": 9,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820375",
+      "name": "Rand",
+      "kind": "existing",
+      "groups": [
+        "M&E Rand销售群",
+        "Rand M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "M&E Rand销售群",
+          "purpose": "销售群"
+        },
+        {
+          "group": "Rand M&E订单群",
+          "purpose": "采购群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820409",
+      "name": "CENTURY TECH SYSTEM PTE.LTD",
+      "kind": "existing",
+      "groups": [
+        "Century tech M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Century tech M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820418",
+      "name": "ASTREON COMPUTERS L.L.C",
+      "kind": "existing",
+      "groups": [
+        "Astreon M&E"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Astreon M&E",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 1,
+      "updated_contact_count": 1
+    },
+    {
+      "code": "VC0820420",
+      "name": "Shield Solutions DWC-LLC",
+      "kind": "existing",
+      "groups": [
+        "Shield Solution M&E",
+        "Shield Solution M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Shield Solution M&E",
+          "purpose": "共用群"
+        },
+        {
+          "group": "Shield Solution M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820421",
+      "name": "Linkview Enterprises Limited",
+      "kind": "existing",
+      "groups": [
+        "M&E Linkview销售群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "M&E Linkview销售群",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820451",
+      "name": "Yotron",
+      "kind": "existing",
+      "groups": [
+        "Yotron M&E订单群(三星SSD RAM IC)"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Yotron M&E订单群(三星SSD RAM IC)",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820498",
+      "name": "迪天嘉业",
+      "kind": "existing",
+      "groups": [
+        "迪天嘉业 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "迪天嘉业 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820528",
+      "name": "深圳市智控物联科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "Netzone M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Netzone M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820566",
+      "name": "Doglas",
+      "kind": "existing",
+      "groups": [
+        "香港亦鐘人集團 & Doglas"
+      ],
+      "purpose_entries": [
+        {
+          "group": "香港亦鐘人集團 & Doglas",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820595",
+      "name": "TOP GREAT TECHNOLOGY (HK) CO., LIMITED",
+      "kind": "existing",
+      "groups": [
+        "Topgreatek M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Topgreatek M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 5,
+      "new_contact_count": 5,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820596",
+      "name": "SMOOTH ROUTE INTERNATIONAL TRADING CO., LIMITED",
+      "kind": "existing",
+      "groups": [
+        "Smoothroute M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Smoothroute M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820685",
+      "name": "UHOP TECH CO., LIMITED",
+      "kind": "existing",
+      "groups": [
+        "Uhop 亦钟人订单采购群",
+        "Uhop M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Uhop 亦钟人订单采购群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "Uhop M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 6,
+      "new_contact_count": 6,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820690",
+      "name": "深圳市赛特恩电子有限公司",
+      "kind": "existing",
+      "groups": [
+        "M&E-STES订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "M&E-STES订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 12,
+      "new_contact_count": 12,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820696",
+      "name": "杭州易成讯创电子科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "亦钟人杭州易成讯创销售群",
+        "易成讯创 亦钟人订单群",
+        "易成vip订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人杭州易成讯创销售群",
+          "purpose": "销售群"
+        },
+        {
+          "group": "易成讯创 亦钟人订单群",
+          "purpose": "采购群"
+        },
+        {
+          "group": "易成vip订单群",
+          "purpose": "采购群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820800",
+      "name": "融核（上海）科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "Grandtec M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Grandtec M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820852",
+      "name": "深圳福达瑞星科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "福达瑞星 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "福达瑞星 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820943",
+      "name": "FINOVY CLOUD HK LIMITED",
+      "kind": "existing",
+      "groups": [
+        "征途和Finovy订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "征途和Finovy订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 5,
+      "new_contact_count": 4,
+      "updated_contact_count": 1
+    },
+    {
+      "code": "VC0821698",
+      "name": "Fasty Asia Limited",
+      "kind": "existing",
+      "groups": [
+        "FASTY ASIA M&E亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "FASTY ASIA M&E亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0824313",
+      "name": "Alpha Plus",
+      "kind": "existing",
+      "groups": [
+        "Alpha plus M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Alpha plus M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0902453",
+      "name": "Stellar",
+      "kind": "existing",
+      "groups": [
+        "Stellar M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Stellar M&E订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "Stellar M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0902515",
+      "name": "广东深芯智联电子科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "深芯智联 M&E 订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "深芯智联 M&E 订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0902556",
+      "name": "Summits",
+      "kind": "existing",
+      "groups": [
+        "Summits M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Summits M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0902947",
+      "name": "百田国际（香港）有限公司",
+      "kind": "existing",
+      "groups": [
+        "世纪红日 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "世纪红日 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0903062",
+      "name": "Acepak",
+      "kind": "existing",
+      "groups": [
+        "Acepak M&E订单群",
+        "ACEPAK M&E VIP订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Acepak M&E订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "ACEPAK M&E VIP订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0907782",
+      "name": "Yesline",
+      "kind": "existing",
+      "groups": [
+        "Yesline M&E订单群(HDD SSD)"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Yesline M&E订单群(HDD SSD)",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0915152",
+      "name": "旭日山峰",
+      "kind": "existing",
+      "groups": [
+        "亦钟人 香港旭日山峰WD订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人 香港旭日山峰WD订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0923806",
+      "name": "Genfaith",
+      "kind": "existing",
+      "groups": [
+        "Genfaith M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Genfaith M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0930493",
+      "name": "Apextech",
+      "kind": "existing",
+      "groups": [
+        "M&E Apextechit销售群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "M&E Apextechit销售群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1009448",
+      "name": "至美恒昌",
+      "kind": "existing",
+      "groups": [
+        "至美恒昌 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "至美恒昌 亦钟人订单群",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1012606",
+      "name": "NewPower",
+      "kind": "existing",
+      "groups": [
+        "M&E Newpower采购群",
+        "Newpower M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "M&E Newpower采购群",
+          "purpose": "采购群"
+        },
+        {
+          "group": "Newpower M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1014130",
+      "name": "香港泰耘-上海",
+      "kind": "existing",
+      "groups": [
+        "香港亦锺人-香港泰耘-外单"
+      ],
+      "purpose_entries": [
+        {
+          "group": "香港亦锺人-香港泰耘-外单",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1015388",
+      "name": "umccoy",
+      "kind": "existing",
+      "groups": [
+        "umccoy和M&E订单群",
+        "Umccoy M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "umccoy和M&E订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "Umccoy M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1015882",
+      "name": "Converge",
+      "kind": "existing",
+      "groups": [
+        "Converge M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Converge M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1016060",
+      "name": "Miworks",
+      "kind": "existing",
+      "groups": [
+        "Miworks M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Miworks M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1021002",
+      "name": "星宏伟业",
+      "kind": "existing",
+      "groups": [
+        "星宏伟业 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "星宏伟业 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1028022",
+      "name": "shunyi",
+      "kind": "existing",
+      "groups": [
+        "Shunyi M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Shunyi M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820161",
+      "name": "SGC",
+      "kind": "existing",
+      "groups": [
+        "SGC/HK M&EGroup订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "SGC/HK M&EGroup订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820334",
+      "name": "深圳市海贝利科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "亦钟人海贝利订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人海贝利订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820482",
+      "name": "GlobeServe Tech International Co., Ltd.",
+      "kind": "existing",
+      "groups": [
+        "GST & 亦钟人销售群",
+        "GST M&E vip订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "GST & 亦钟人销售群",
+          "purpose": "销售群"
+        },
+        {
+          "group": "GST M&E vip订单群",
+          "purpose": "采购群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820571",
+      "name": "华泰易",
+      "kind": "existing",
+      "groups": [
+        "華泰易 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "華泰易 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820793",
+      "name": "E2K Semiconductor Pte Ltd",
+      "kind": "existing",
+      "groups": [
+        "E2K GPU CPU信息分享",
+        "E2K-M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "E2K GPU CPU信息分享",
+          "purpose": "共用群"
+        },
+        {
+          "group": "E2K-M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 7,
+      "new_contact_count": 7,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820928",
+      "name": "鑫昊翔",
+      "kind": "existing",
+      "groups": [
+        "鑫昊翔 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "鑫昊翔 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 5,
+      "new_contact_count": 5,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820980",
+      "name": "芯力量",
+      "kind": "existing",
+      "groups": [
+        "芯力量 亦钟人服务器CPU订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "芯力量 亦钟人服务器CPU订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0901423",
+      "name": "北京算通达科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "北京意算通达 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "北京意算通达 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0902511",
+      "name": "上海纪冠网络科技有限公司/冠服云",
+      "kind": "existing",
+      "groups": [
+        "冠服云 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "冠服云 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0923880",
+      "name": "兴博能",
+      "kind": "existing",
+      "groups": [
+        "兴博能 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "兴博能 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1012517",
+      "name": "WCT",
+      "kind": "existing",
+      "groups": [
+        "WCT M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "WCT M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1020154",
+      "name": "双捷/广州众之佳",
+      "kind": "existing",
+      "groups": [
+        "亦钟人 众之佳VIP订单群",
+        "双捷 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人 众之佳VIP订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "双捷 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1020349",
+      "name": "VIA ELECTRONICS (HK)LIMITED",
+      "kind": "existing",
+      "groups": [
+        "Via electronic M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Via electronic M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1022260",
+      "name": "中青宝",
+      "kind": "existing",
+      "groups": [
+        "中青宝 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "中青宝 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1026082",
+      "name": "沃伦斯/Kennel",
+      "kind": "existing",
+      "groups": [
+        "沃伦斯 亦钟人 CPU GPU订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "沃伦斯 亦钟人 CPU GPU订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1030341",
+      "name": "盛信达",
+      "kind": "existing",
+      "groups": [
+        "盛信达亦钟人订单群(金士顿SSD RAM)"
+      ],
+      "purpose_entries": [
+        {
+          "group": "盛信达亦钟人订单群(金士顿SSD RAM)",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820675",
+      "name": "NX Electronics Limited",
+      "kind": "existing",
+      "groups": [
+        "NXE M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "NXE M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820005",
+      "name": "香港彼富國際有限公司",
+      "kind": "existing",
+      "groups": [
+        "彼富 亦钟人 订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "彼富 亦钟人 订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820080",
+      "name": "广州宇强电脑科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "诚誉及M&E服务器CPU订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "诚誉及M&E服务器CPU订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820111",
+      "name": "深圳市星能计算机有限公司",
+      "kind": "existing",
+      "groups": [
+        "新群星能亦钟人VIP订单群",
+        "星能 亦钟人"
+      ],
+      "purpose_entries": [
+        {
+          "group": "新群星能亦钟人VIP订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "星能 亦钟人",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820171",
+      "name": "Beijing Supercloud Technology Co.,Ltd",
+      "kind": "existing",
+      "groups": [
+        "超云 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "超云 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 5,
+      "new_contact_count": 5,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820172",
+      "name": "广东宝德自强计算机有限公司",
+      "kind": "existing",
+      "groups": [
+        "宝德 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "宝德 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820274",
+      "name": "AMAX Information Technologies (Suzhou) Co., Ltd.",
+      "kind": "existing",
+      "groups": [
+        "超集 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "超集 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 7,
+      "new_contact_count": 7,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820293",
+      "name": "朴赛计算机(上海)有限公司",
+      "kind": "existing",
+      "groups": [
+        "朴赛亦钟人vip订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "朴赛亦钟人vip订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820299",
+      "name": "闪电",
+      "kind": "existing",
+      "groups": [
+        "闪电 亦钟人商务群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "闪电 亦钟人商务群",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820336",
+      "name": "Ex-Channel Group Limited",
+      "kind": "existing",
+      "groups": [
+        "宝通 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "宝通 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820500",
+      "name": "富强",
+      "kind": "existing",
+      "groups": [
+        "富强 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "富强 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820642",
+      "name": "港星禾電子科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "May 星禾 SSD GPU"
+      ],
+      "purpose_entries": [
+        {
+          "group": "May 星禾 SSD GPU",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820698",
+      "name": "广州华储电子科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "广州华储&香港亦钟人订单群",
+        "华储亦钟人售后群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "广州华储&香港亦钟人订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "华储亦钟人售后群",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 13,
+      "new_contact_count": 13,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820739",
+      "name": "HONCH INTERNATIONAL LIMITED",
+      "kind": "existing",
+      "groups": [
+        "鸿启-亦钟人下单群",
+        "亦钟人-鸿启销售群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "鸿启-亦钟人下单群",
+          "purpose": "采购群"
+        },
+        {
+          "group": "亦钟人-鸿启销售群",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 6,
+      "new_contact_count": 6,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820768",
+      "name": "上海珑京信息科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "珑京科技亦钟人订单群rmb"
+      ],
+      "purpose_entries": [
+        {
+          "group": "珑京科技亦钟人订单群rmb",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820818",
+      "name": "融科联创（天津）信息技术有限公司",
+      "kind": "existing",
+      "groups": [
+        "亦钟人-融科采购群",
+        "亦钟人融科销售群",
+        "VIPM&E-融科对料"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人-融科采购群",
+          "purpose": "采购群"
+        },
+        {
+          "group": "亦钟人融科销售群",
+          "purpose": "销售群"
+        },
+        {
+          "group": "VIPM&E-融科对料",
+          "purpose": "采购群"
+        }
+      ],
+      "candidate_count": 6,
+      "new_contact_count": 6,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820897",
+      "name": "JOINT-HARVEST INTERNATION HOLDINGS LIMITED",
+      "kind": "existing",
+      "groups": [
+        "亦钟人赞禾vip订单群",
+        "赞禾 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人赞禾vip订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "赞禾 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820905",
+      "name": "新欣科技有限公司THRIVE TECHNOLOGYCO.,LIMITED",
+      "kind": "existing",
+      "groups": [
+        "新欣 亦钟人vip群",
+        "亦钟人-新欣vip订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "新欣 亦钟人vip群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "亦钟人-新欣vip订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 8,
+      "new_contact_count": 8,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820965",
+      "name": "深圳市鼎算智能科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "鼎算vip订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "鼎算vip订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 0,
+      "updated_contact_count": 1
+    },
+    {
+      "code": "VC0825225",
+      "name": "铭冠",
+      "kind": "existing",
+      "groups": [
+        "亦钟人---铭冠采购订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人---铭冠采购订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0828560",
+      "name": "北纳",
+      "kind": "existing",
+      "groups": [
+        "北纳 亦钟人订单群(SSD RAM GPU HDD)"
+      ],
+      "purpose_entries": [
+        {
+          "group": "北纳 亦钟人订单群(SSD RAM GPU HDD)",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0902355",
+      "name": "HK SAGECONNECT TECHNOLOGY CO.LTD/星湧",
+      "kind": "existing",
+      "groups": [
+        "香港星湧集圕 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "香港星湧集圕 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0902697",
+      "name": "深圳市厚兴科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "厚兴 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "厚兴 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 2,
+      "updated_contact_count": 1
+    },
+    {
+      "code": "VC0907820",
+      "name": "晔凯",
+      "kind": "existing",
+      "groups": [
+        "晔凯 亦钟人订单群",
+        "亦钟人晔凯 订单群ssd"
+      ],
+      "purpose_entries": [
+        {
+          "group": "晔凯 亦钟人订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "晔凯 亦钟人订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "亦钟人晔凯 订单群ssd",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0914841",
+      "name": "华科",
+      "kind": "existing",
+      "groups": [
+        "华科 M&E CPU Seagate等",
+        "亦钟人华科订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "华科 M&E CPU Seagate等",
+          "purpose": "共用群"
+        },
+        {
+          "group": "亦钟人华科订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1008899",
+      "name": "安博",
+      "kind": "existing",
+      "groups": [
+        "安博 亦钟人订单群",
+        "亦钟人安博销售群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "安博 亦钟人订单群",
+          "purpose": "采购群"
+        },
+        {
+          "group": "亦钟人安博销售群",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1009409",
+      "name": "威星科技实业有限公司",
+      "kind": "existing",
+      "groups": [
+        "威星 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "威星 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1020397",
+      "name": "星淼",
+      "kind": "existing",
+      "groups": [
+        "星淼 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "星淼 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1021462",
+      "name": "香港众源电子",
+      "kind": "existing",
+      "groups": [
+        "香港众源 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "香港众源 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1023509",
+      "name": "弘兴",
+      "kind": "existing",
+      "groups": [
+        "弘兴 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "弘兴 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1026120",
+      "name": "九联科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "九联 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "九联 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820881",
+      "name": "英捷讯",
+      "kind": "existing",
+      "groups": [
+        "亦钟人&英捷迅操作群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人&英捷迅操作群",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820153",
+      "name": "TUNG-D INTERNATIONAL DEVELOPMENT LIMITED",
+      "kind": "existing",
+      "groups": [
+        "TONG D ME仓库沟通"
+      ],
+      "purpose_entries": [
+        {
+          "group": "TONG D ME仓库沟通",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820841",
+      "name": "云仲存储",
+      "kind": "existing",
+      "groups": [
+        "3D M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "3D M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1013386",
+      "name": "顺屿",
+      "kind": "existing",
+      "groups": [
+        "顺屹 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "顺屹 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0917682",
+      "name": "大湾电子",
+      "kind": "existing",
+      "groups": [
+        "Greater Bay M&E"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Greater Bay M&E",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820266",
+      "name": "迈驰",
+      "kind": "existing",
+      "groups": [
+        "Match M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Match M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC0820231",
+      "name": "深圳市鑫浩科技有限公司",
+      "kind": "existing",
+      "groups": [
+        "Xinhao M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Xinhao M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 3,
+      "updated_contact_count": 1
+    },
+    {
+      "code": "VC1031167",
+      "name": "安富利",
+      "kind": "new",
+      "groups": [
+        "安富利亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "安富利亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031168",
+      "name": "安擎",
+      "kind": "new",
+      "groups": [
+        "安擎 亦钟人订单群",
+        "安擎 亦钟人配件销售对接群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "安擎 亦钟人订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "安擎 亦钟人配件销售对接群",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031185",
+      "name": "柏泽",
+      "kind": "new",
+      "groups": [
+        "柏泽 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "柏泽 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031171",
+      "name": "宝澜",
+      "kind": "new",
+      "groups": [
+        "宝澜 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "宝澜 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031152",
+      "name": "北岑国际贸易",
+      "kind": "new",
+      "groups": [
+        "北岑国际贸易 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "北岑国际贸易 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031151",
+      "name": "北京百望金瑞",
+      "kind": "new",
+      "groups": [
+        "北京百望金瑞 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "北京百望金瑞 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031150",
+      "name": "北京华威未来",
+      "kind": "new",
+      "groups": [
+        "北京华威未来 亦钟人 订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "北京华威未来 亦钟人 订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031146",
+      "name": "倍联德",
+      "kind": "new",
+      "groups": [
+        "倍联德 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "倍联德 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031178",
+      "name": "必至",
+      "kind": "new",
+      "groups": [
+        "必至亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "必至亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031157",
+      "name": "博源",
+      "kind": "new",
+      "groups": [
+        "博源 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "博源 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031197",
+      "name": "畅快算",
+      "kind": "new",
+      "groups": [
+        "畅快算 亦钟人对接群GPU RAM SS"
+      ],
+      "purpose_entries": [
+        {
+          "group": "畅快算 亦钟人对接群GPU RAM SS",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031211",
+      "name": "超擎数智",
+      "kind": "new",
+      "groups": [
+        "超擎数智 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "超擎数智 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031212",
+      "name": "超越",
+      "kind": "new",
+      "groups": [
+        "超越M&E合作群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "超越M&E合作群",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031158",
+      "name": "同泰怡",
+      "kind": "new",
+      "groups": [
+        "陈总亦钟人订单群",
+        "同泰怡 亦钟人 显卡需求对接群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "陈总亦钟人订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "同泰怡 亦钟人 显卡需求对接群",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031204",
+      "name": "程翔芯云",
+      "kind": "new",
+      "groups": [
+        "程翔芯云 亦钟人 GPU订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "程翔芯云 亦钟人 GPU订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031227",
+      "name": "驰诚",
+      "kind": "new",
+      "groups": [
+        "驰诚 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "驰诚 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031149",
+      "name": "创驰",
+      "kind": "new",
+      "groups": [
+        "创驰亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "创驰亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031214",
+      "name": "迪天寰宇",
+      "kind": "new",
+      "groups": [
+        "迪天寰宇 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "迪天寰宇 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031176",
+      "name": "广州晨晔",
+      "kind": "new",
+      "groups": [
+        "广州晨晔 亦钟人订单群HDD"
+      ],
+      "purpose_entries": [
+        {
+          "group": "广州晨晔 亦钟人订单群HDD",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031175",
+      "name": "广州恒发",
+      "kind": "new",
+      "groups": [
+        "广州恒发 亦钟人订单群HDD"
+      ],
+      "purpose_entries": [
+        {
+          "group": "广州恒发 亦钟人订单群HDD",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031177",
+      "name": "广州智聪",
+      "kind": "new",
+      "groups": [
+        "广州智聪 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "广州智聪 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031200",
+      "name": "硅积电",
+      "kind": "new",
+      "groups": [
+        "硅积电 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "硅积电 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031184",
+      "name": "杭州冰原",
+      "kind": "new",
+      "groups": [
+        "杭州冰原-亦钟人"
+      ],
+      "purpose_entries": [
+        {
+          "group": "杭州冰原-亦钟人",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031181",
+      "name": "恒联",
+      "kind": "new",
+      "groups": [
+        "恒联 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "恒联 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031182",
+      "name": "恒芯",
+      "kind": "new",
+      "groups": [
+        "恒芯 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "恒芯 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031169",
+      "name": "宏创盛安",
+      "kind": "new",
+      "groups": [
+        "宏创盛安 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "宏创盛安 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031170",
+      "name": "宏郎祥发",
+      "kind": "new",
+      "groups": [
+        "宏郎祥发 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "宏郎祥发 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031228",
+      "name": "鸿擎智算",
+      "kind": "new",
+      "groups": [
+        "鸿擎智算 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "鸿擎智算 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031229",
+      "name": "鸿通智算",
+      "kind": "new",
+      "groups": [
+        "鸿通智算—-亦钟人 订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "鸿通智算—-亦钟人 订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031153",
+      "name": "华硕",
+      "kind": "new",
+      "groups": [
+        "华硕亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "华硕亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031154",
+      "name": "华讯",
+      "kind": "new",
+      "groups": [
+        "华讯 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "华讯 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031188",
+      "name": "汇力",
+      "kind": "new",
+      "groups": [
+        "汇力 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "汇力 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031144",
+      "name": "佳业万通",
+      "kind": "new",
+      "groups": [
+        "佳业万通 亦钟人订单群hdd"
+      ],
+      "purpose_entries": [
+        {
+          "group": "佳业万通 亦钟人订单群hdd",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031161",
+      "name": "嘉伟亿",
+      "kind": "new",
+      "groups": [
+        "嘉伟亿 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "嘉伟亿 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031217",
+      "name": "金宏源",
+      "kind": "new",
+      "groups": [
+        "金宏源 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "金宏源 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031141",
+      "name": "九锦智算",
+      "kind": "new",
+      "groups": [
+        "九锦智算 亦钟人订单群GPU"
+      ],
+      "purpose_entries": [
+        {
+          "group": "九锦智算 亦钟人订单群GPU",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031202",
+      "name": "科美迅",
+      "kind": "new",
+      "groups": [
+        "科美迅 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "科美迅 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031173",
+      "name": "宽恒",
+      "kind": "new",
+      "groups": [
+        "宽恒 亦钟人订单群",
+        "宽恒 亦钟人订单群gpu cpu拆机内存"
+      ],
+      "purpose_entries": [
+        {
+          "group": "宽恒 亦钟人订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "宽恒 亦钟人订单群gpu cpu拆机内存",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031210",
+      "name": "蓝海鲸跃",
+      "kind": "new",
+      "groups": [
+        "蓝海鲸跃 亦钟人订单群gpu ram"
+      ],
+      "purpose_entries": [
+        {
+          "group": "蓝海鲸跃 亦钟人订单群gpu ram",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031205",
+      "name": "立讯精密",
+      "kind": "new",
+      "groups": [
+        "立讯精密 亦钟人IT配件对接群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "立讯精密 亦钟人IT配件对接群",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031206",
+      "name": "联创万通",
+      "kind": "new",
+      "groups": [
+        "联创万通 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "联创万通 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031207",
+      "name": "联科",
+      "kind": "new",
+      "groups": [
+        "联科 亦钟人销售订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "联科 亦钟人销售订单群",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031194",
+      "name": "灵犀智算",
+      "kind": "new",
+      "groups": [
+        "灵犀智算 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "灵犀智算 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031193",
+      "name": "清云长辉",
+      "kind": "new",
+      "groups": [
+        "清云长辉 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "清云长辉 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031172",
+      "name": "容天",
+      "kind": "new",
+      "groups": [
+        "容天&亦钟人IT硬件对接群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "容天&亦钟人IT硬件对接群",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031137",
+      "name": "上海晋源",
+      "kind": "new",
+      "groups": [
+        "上海晋源 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "上海晋源 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031192",
+      "name": "深圳贝琪维芯",
+      "kind": "new",
+      "groups": [
+        "深圳贝琪维芯 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "深圳贝琪维芯 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031191",
+      "name": "深圳九恒",
+      "kind": "new",
+      "groups": [
+        "深圳九恒 M&E 订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "深圳九恒 M&E 订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031179",
+      "name": "思腾合力",
+      "kind": "new",
+      "groups": [
+        "思腾合力 亦钟人订单群",
+        "思腾亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "思腾合力 亦钟人订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "思腾亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031162",
+      "name": "四通",
+      "kind": "new",
+      "groups": [
+        "四通 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "四通 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031215",
+      "name": "速亿兴",
+      "kind": "new",
+      "groups": [
+        "速亿兴 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "速亿兴 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031183",
+      "name": "拓普龙",
+      "kind": "new",
+      "groups": [
+        "拓普龙亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "拓普龙亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031165",
+      "name": "天翱",
+      "kind": "new",
+      "groups": [
+        "天翱亦钟人订单群",
+        "亦钟人 天翱订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "天翱亦钟人订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "天翱亦钟人订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "亦钟人 天翱订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 5,
+      "new_contact_count": 5,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031159",
+      "name": "同袍存储",
+      "kind": "new",
+      "groups": [
+        "同袍存储 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "同袍存储 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 5,
+      "new_contact_count": 5,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031164",
+      "name": "图灵",
+      "kind": "new",
+      "groups": [
+        "图灵 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "图灵 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031163",
+      "name": "图云",
+      "kind": "new",
+      "groups": [
+        "图云 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "图云 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031166",
+      "name": "威尔创新",
+      "kind": "new",
+      "groups": [
+        "威尔创新 亦钟人 订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "威尔创新 亦钟人 订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031143",
+      "name": "伟达智算",
+      "kind": "new",
+      "groups": [
+        "伟达智算 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "伟达智算 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031189",
+      "name": "沃时",
+      "kind": "new",
+      "groups": [
+        "沃时亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "沃时亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031222",
+      "name": "香港北宸Borixon",
+      "kind": "new",
+      "groups": [
+        "香港北宸Borixon M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "香港北宸Borixon M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031223",
+      "name": "香港启帆",
+      "kind": "new",
+      "groups": [
+        "香港启帆亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "香港启帆亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031226",
+      "name": "香港时创意",
+      "kind": "new",
+      "groups": [
+        "香港时创意 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "香港时创意 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031225",
+      "name": "香港悠悠",
+      "kind": "new",
+      "groups": [
+        "香港悠悠 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "香港悠悠 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031220",
+      "name": "霄擎",
+      "kind": "new",
+      "groups": [
+        "霄擎亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "霄擎亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031208",
+      "name": "芯沧海",
+      "kind": "new",
+      "groups": [
+        "芯沧海 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "芯沧海 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031209",
+      "name": "芯泽通",
+      "kind": "new",
+      "groups": [
+        "芯泽通 亦钟人订单群(CPU SSD HDD)"
+      ],
+      "purpose_entries": [
+        {
+          "group": "芯泽通 亦钟人订单群(CPU SSD HDD)",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031219",
+      "name": "雅琪",
+      "kind": "new",
+      "groups": [
+        "雅琪亦钟人网卡交换机订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "雅琪亦钟人网卡交换机订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031199",
+      "name": "研惠通",
+      "kind": "new",
+      "groups": [
+        "研惠通亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "研惠通亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031180",
+      "name": "怡英嘉美",
+      "kind": "new",
+      "groups": [
+        "怡英嘉美 亦钟人订单群拆新RAM CPU"
+      ],
+      "purpose_entries": [
+        {
+          "group": "怡英嘉美 亦钟人订单群拆新RAM CPU",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031218",
+      "name": "鑫迪斯",
+      "kind": "new",
+      "groups": [
+        "亦钟人 鑫迪斯订单群rmb"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人 鑫迪斯订单群rmb",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031174",
+      "name": "展创振华",
+      "kind": "new",
+      "groups": [
+        "亦钟人 展创振华销售群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人 展创振华销售群",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031216",
+      "name": "郑州一方服务器",
+      "kind": "new",
+      "groups": [
+        "亦钟人 张总solidigm对接群RMB"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人 张总solidigm对接群RMB",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031196",
+      "name": "琛百惠",
+      "kind": "new",
+      "groups": [
+        "亦钟人琛百惠销售群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人琛百惠销售群",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031148",
+      "name": "创见",
+      "kind": "new",
+      "groups": [
+        "亦钟人创见 订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人创见 订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031203",
+      "name": "科通",
+      "kind": "new",
+      "groups": [
+        "亦钟人科通订单群 Intel CPU网卡"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人科通订单群 Intel CPU网卡",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031221",
+      "name": "青易达",
+      "kind": "new",
+      "groups": [
+        "亦钟人青易达订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人青易达订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031190",
+      "name": "深博",
+      "kind": "new",
+      "groups": [
+        "亦钟人深博订单群rmb"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人深博订单群rmb",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031201",
+      "name": "神码",
+      "kind": "new",
+      "groups": [
+        "亦钟人神码销售群思得SSD,东芝nas"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人神码销售群思得SSD,东芝nas",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031224",
+      "name": "香港德晟达",
+      "kind": "new",
+      "groups": [
+        "亦钟人香港德晟达订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人香港德晟达订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031145",
+      "name": "信达盟",
+      "kind": "new",
+      "groups": [
+        "亦钟人信达盟订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人信达盟订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031186",
+      "name": "正信实业",
+      "kind": "new",
+      "groups": [
+        "亦钟人正信实业订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人正信实业订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031142",
+      "name": "众晟云",
+      "kind": "new",
+      "groups": [
+        "亦钟人众晟云订单群网卡硬盘内存"
+      ],
+      "purpose_entries": [
+        {
+          "group": "亦钟人众晟云订单群网卡硬盘内存",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031198",
+      "name": "益晟",
+      "kind": "new",
+      "groups": [
+        "益晟 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "益晟 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031195",
+      "name": "燚通科技",
+      "kind": "new",
+      "groups": [
+        "燚通科技 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "燚通科技 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031147",
+      "name": "元启智算",
+      "kind": "new",
+      "groups": [
+        "元启智算 亦钟人订单群ram ssd"
+      ],
+      "purpose_entries": [
+        {
+          "group": "元启智算 亦钟人订单群ram ssd",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031213",
+      "name": "远信",
+      "kind": "new",
+      "groups": [
+        "远信 亦钟人商务群",
+        "远信 亦钟人offer群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "远信 亦钟人商务群",
+          "purpose": "待定"
+        },
+        {
+          "group": "远信 亦钟人offer群",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 6,
+      "new_contact_count": 6,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031187",
+      "name": "正阳恒卓",
+      "kind": "new",
+      "groups": [
+        "正阳恒卓 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "正阳恒卓 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 0,
+      "new_contact_count": 0,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031138",
+      "name": "中佳辉",
+      "kind": "new",
+      "groups": [
+        "中佳辉 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "中佳辉 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031140",
+      "name": "中科新远",
+      "kind": "new",
+      "groups": [
+        "中科新远 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "中科新远 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031139",
+      "name": "中科云达",
+      "kind": "new",
+      "groups": [
+        "中科云达 亦钟人 订单外贸群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "中科云达 亦钟人 订单外贸群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031155",
+      "name": "卓为恒天",
+      "kind": "new",
+      "groups": [
+        "卓为恒天 亦钟人"
+      ],
+      "purpose_entries": [
+        {
+          "group": "卓为恒天 亦钟人",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 6,
+      "new_contact_count": 6,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031156",
+      "name": "卓云",
+      "kind": "new",
+      "groups": [
+        "卓云 亦钟人 内存 GPU CPU拆订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "卓云 亦钟人 内存 GPU CPU拆订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031160",
+      "name": "咨钛",
+      "kind": "new",
+      "groups": [
+        "咨钛 亦钟人订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "咨钛 亦钟人订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031088",
+      "name": "AISO",
+      "kind": "new",
+      "groups": [
+        "AISO M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "AISO M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031089",
+      "name": "Aleks",
+      "kind": "new",
+      "groups": [
+        "Aleks M&E order group (SMC NV)"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Aleks M&E order group (SMC NV)",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031090",
+      "name": "AMD显卡",
+      "kind": "new",
+      "groups": [
+        "AMD显卡 亦钟人对接群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "AMD显卡 亦钟人对接群",
+          "purpose": "待定"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031091",
+      "name": "Anastasiia",
+      "kind": "new",
+      "groups": [
+        "Anastasiia M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Anastasiia M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031092",
+      "name": "Arbitech",
+      "kind": "new",
+      "groups": [
+        "Arbitech M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Arbitech M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031093",
+      "name": "Atlas LLC",
+      "kind": "new",
+      "groups": [
+        "Atlas LLC M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Atlas LLC M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031094",
+      "name": "AVP",
+      "kind": "new",
+      "groups": [
+        "AVP M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "AVP M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031095",
+      "name": "AWM",
+      "kind": "new",
+      "groups": [
+        "AWM order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "AWM order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031096",
+      "name": "Axisplus",
+      "kind": "new",
+      "groups": [
+        "Axisplus M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Axisplus M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031097",
+      "name": "Baina",
+      "kind": "new",
+      "groups": [
+        "Baina M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Baina M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031098",
+      "name": "bent-way",
+      "kind": "new",
+      "groups": [
+        "bent-way M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "bent-way M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031099",
+      "name": "BGT Ventures",
+      "kind": "new",
+      "groups": [
+        "BGT Ventures M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "BGT Ventures M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031100",
+      "name": "bocodo",
+      "kind": "new",
+      "groups": [
+        "bocodo M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "bocodo M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031101",
+      "name": "Bulargus",
+      "kind": "new",
+      "groups": [
+        "Bulargus M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Bulargus M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031102",
+      "name": "cohonest",
+      "kind": "new",
+      "groups": [
+        "cohonest-M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "cohonest-M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031132",
+      "name": "VSTL",
+      "kind": "new",
+      "groups": [
+        "CPU SSD VSTL M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "CPU SSD VSTL M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 6,
+      "new_contact_count": 6,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031103",
+      "name": "Donly",
+      "kind": "new",
+      "groups": [
+        "Donly M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Donly M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031104",
+      "name": "Ecore",
+      "kind": "new",
+      "groups": [
+        "Ecore M&E订单群RAM SSD"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Ecore M&E订单群RAM SSD",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031105",
+      "name": "Elect idea",
+      "kind": "new",
+      "groups": [
+        "Elect idea M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Elect idea M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031106",
+      "name": "Global Chip",
+      "kind": "new",
+      "groups": [
+        "Global Chip M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Global Chip M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031107",
+      "name": "Golden flash",
+      "kind": "new",
+      "groups": [
+        "Golden flash M&E订单群",
+        "M&E Golden flash销售群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Golden flash M&E订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "M&E Golden flash销售群",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031108",
+      "name": "GROWTH MOBILITY",
+      "kind": "new",
+      "groups": [
+        "GROWTH MOBILITY M&E 拆机内存订单"
+      ],
+      "purpose_entries": [
+        {
+          "group": "GROWTH MOBILITY M&E 拆机内存订单",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031109",
+      "name": "HK Estore",
+      "kind": "new",
+      "groups": [
+        "HK Estore M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "HK Estore M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031110",
+      "name": "Incus Tech",
+      "kind": "new",
+      "groups": [
+        "Incus Tech M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Incus Tech M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031111",
+      "name": "Irvine",
+      "kind": "new",
+      "groups": [
+        "Irvine M&E order group订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Irvine M&E order group订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031112",
+      "name": "KERNEL",
+      "kind": "new",
+      "groups": [
+        "KERNEL M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "KERNEL M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031113",
+      "name": "Kingbox",
+      "kind": "new",
+      "groups": [
+        "Kingbox M&E VIP订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Kingbox M&E VIP订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031114",
+      "name": "kingston sandisk",
+      "kind": "new",
+      "groups": [
+        "kingston sandisk order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "kingston sandisk order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031115",
+      "name": "KST",
+      "kind": "new",
+      "groups": [
+        "KST M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "KST M&E订单群",
+          "purpose": "共用群"
+        },
+        {
+          "group": "KST M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031116",
+      "name": "KY Enterprises",
+      "kind": "new",
+      "groups": [
+        "KY Enterprises M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "KY Enterprises M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031117",
+      "name": "Ledmax",
+      "kind": "new",
+      "groups": [
+        "Ledmax M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Ledmax M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031118",
+      "name": "leee wei",
+      "kind": "new",
+      "groups": [
+        "leee wei m&e订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "leee wei m&e订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031119",
+      "name": "MAGICUBE",
+      "kind": "new",
+      "groups": [
+        "M&E MAGICUBE销售群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "M&E MAGICUBE销售群",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031129",
+      "name": "Techbuyer",
+      "kind": "new",
+      "groups": [
+        "M&E Techbuyer销售群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "M&E Techbuyer销售群",
+          "purpose": "销售群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031134",
+      "name": "WPG",
+      "kind": "new",
+      "groups": [
+        "M&E WPG订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "M&E WPG订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031120",
+      "name": "Netcore",
+      "kind": "new",
+      "groups": [
+        "Netcore M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Netcore M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031121",
+      "name": "Novus",
+      "kind": "new",
+      "groups": [
+        "Novus M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Novus M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031122",
+      "name": "OCS Distribution",
+      "kind": "new",
+      "groups": [
+        "OCS Distribution M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "OCS Distribution M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031123",
+      "name": "Ranjin",
+      "kind": "new",
+      "groups": [
+        "Ranjin M&E订单群ssd ram"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Ranjin M&E订单群ssd ram",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031124",
+      "name": "Rebound",
+      "kind": "new",
+      "groups": [
+        "Rebound M&E",
+        "Rebound M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Rebound M&E",
+          "purpose": "待定"
+        },
+        {
+          "group": "Rebound M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031125",
+      "name": "SNC ITAD",
+      "kind": "new",
+      "groups": [
+        "SNC ITAD M&E订单群(HDD/SSD+CPU/GPU/RAM)"
+      ],
+      "purpose_entries": [
+        {
+          "group": "SNC ITAD M&E订单群(HDD/SSD+CPU/GPU/RAM)",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031126",
+      "name": "SSF",
+      "kind": "new",
+      "groups": [
+        "SSF M&E采购订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "SSF M&E采购订单群",
+          "purpose": "采购群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031127",
+      "name": "STARCOMM",
+      "kind": "new",
+      "groups": [
+        "STARCOMM M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "STARCOMM M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 3,
+      "new_contact_count": 3,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031128",
+      "name": "Tech Planing",
+      "kind": "new",
+      "groups": [
+        "Tech Planing M&E订单群 CPU 配件"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Tech Planing M&E订单群 CPU 配件",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031130",
+      "name": "Telemove",
+      "kind": "new",
+      "groups": [
+        "Telemove M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Telemove M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031131",
+      "name": "Vodanet",
+      "kind": "new",
+      "groups": [
+        "Vodanet M&E order group"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Vodanet M&E order group",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031133",
+      "name": "Whalekom",
+      "kind": "new",
+      "groups": [
+        "Whalekom M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "Whalekom M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 1,
+      "new_contact_count": 1,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031135",
+      "name": "yidr",
+      "kind": "new",
+      "groups": [
+        "yidr m&e订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "yidr m&e订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 2,
+      "new_contact_count": 2,
+      "updated_contact_count": 0
+    },
+    {
+      "code": "VC1031136",
+      "name": "ZIT",
+      "kind": "new",
+      "groups": [
+        "ZIT-M&E订单群"
+      ],
+      "purpose_entries": [
+        {
+          "group": "ZIT-M&E订单群",
+          "purpose": "共用群"
+        }
+      ],
+      "candidate_count": 4,
+      "new_contact_count": 4,
+      "updated_contact_count": 0
+    }
+  ],
+  "skipped": [
+    {
+      "tab": "未匹配业务群",
+      "group": "1131代帐-.亦钟人电子科技(平安已授权 )",
+      "reason": "按业务范围跳过：非供应商群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "空中云汇 香港亦钟人集团",
+      "reason": "按业务范围跳过：非供应商群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "网易售后沟通 O6259300 深圳市亦钟人电子科技有限公司meelectronic.hzqiye.",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "亦钟人 昆明心存储对接群",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "亦钟人/征途香港公司事务群",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "亦钟人20楼",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "亦钟人内部群",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "亦钟人内部offer群",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "亦钟人小新人培训",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "亦钟人紫光数码专营店rmb",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "DD M&E行情交流",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "Link enterprise M&E VIP order group",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "M&E order group",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "M&E Squad",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    },
+    {
+      "tab": "未匹配业务群",
+      "group": "XT亦钟人沟通人",
+      "reason": "按业务范围跳过：内部/财税/收款/通用群"
+    }
+  ],
+  "missing_groups": [
+    {
+      "tab": "审核表",
+      "group": "星能 亦钟人",
+      "wxid": "56030818034@chatroom"
+    }
+  ]
+}

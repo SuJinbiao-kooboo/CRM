@@ -146,23 +146,30 @@ public class WeChatOfferTaskService {
                     generatedMessages++;
                 }
                 generatedTasks += result.created;
+                String taskStatus;
+                String failureReason = "";
                 if (result.manual) {
                     manualMessages++;
-                    messageStore.updateTaskState(message.getUsername(), message.getLocalId(),
-                            "MANUAL_REVIEW", result.message);
+                    taskStatus = "MANUAL_REVIEW";
+                    failureReason = taskFailureReason(result.message);
                 } else if (result.handled > 0) {
-                    messageStore.updateTaskState(message.getUsername(), message.getLocalId(),
-                            "GENERATED", result.message);
+                    taskStatus = "GENERATED";
                 } else {
                     skippedMessages++;
-                    messageStore.updateTaskState(message.getUsername(), message.getLocalId(),
-                            "SKIPPED", result.message);
+                    taskStatus = "SKIPPED";
+                    if (!"SELF_OUTBOUND_ONLY".equals(result.message)) {
+                        failureReason = taskFailureReason(result.message);
+                    }
                 }
+                messageStore.updateTaskState(message.getUsername(), message.getLocalId(),
+                        taskStatus, result.message, failureReason);
             } catch (Exception e) {
                 failedMessages++;
                 log.error("任务生成失败: chat={} localId={}", message.getName(), message.getLocalId(), e);
+                String failureReason = clip("任务生成失败：" + StringUtils.defaultIfBlank(
+                        e.getMessage(), e.getClass().getSimpleName()), 1000);
                 messageStore.updateTaskState(message.getUsername(), message.getLocalId(), "FAILED",
-                        clip("任务生成失败：" + e.getMessage(), 1000));
+                        failureReason, failureReason);
             }
         }
         out.put("scanned", rows.size());
@@ -297,6 +304,10 @@ public class WeChatOfferTaskService {
             result.message = result.handled > 0 ? "TASKS_CREATED" : "NO_TARGET";
         }
         return result;
+    }
+
+    private String taskFailureReason(String message) {
+        return clip(StringUtils.defaultIfBlank(message, "任务未生成（未返回原因）"), 1000);
     }
 
     private List<CrmOffer> loadEnteredOffers(WeChatMessage message) {

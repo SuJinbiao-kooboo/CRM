@@ -431,8 +431,13 @@ public class WeChatMessageStore {
     }
 
     public void updateTaskState(String username, long localId, String taskStatus, String taskMessage) {
+        updateTaskState(username, localId, taskStatus, taskMessage, "");
+    }
+
+    public void updateTaskState(String username, long localId, String taskStatus, String taskMessage,
+                                String taskFailureReason) {
         try {
-            mapper.updateTaskState(username, localId, taskStatus, taskMessage);
+            mapper.updateTaskState(username, localId, taskStatus, taskMessage, taskFailureReason);
         } catch (Exception e) {
             log.warn("消息任务状态回写失败: username={} localId={}", username, localId, e);
         }

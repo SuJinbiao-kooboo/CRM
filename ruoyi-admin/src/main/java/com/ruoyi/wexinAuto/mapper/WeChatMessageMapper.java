@@ -88,7 +88,8 @@ public interface WeChatMessageMapper {
                            @Param("timeoutSec") int timeoutSec);
 
     int updateTaskState(@Param("username") String username, @Param("localId") long localId,
-                        @Param("taskStatus") String taskStatus, @Param("taskMessage") String taskMessage);
+                        @Param("taskStatus") String taskStatus, @Param("taskMessage") String taskMessage,
+                        @Param("taskFailureReason") String taskFailureReason);
 
     int markTraceAlerted(@Param("username") String username, @Param("localId") long localId);
 

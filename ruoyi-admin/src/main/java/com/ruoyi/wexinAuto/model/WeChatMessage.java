@@ -93,6 +93,10 @@ public class WeChatMessage {
     @JsonProperty("task_message")
     private String taskMessage;
 
+    /** 任务生成失败原因；成功生成或按规则无需生成时为空 */
+    @JsonProperty("task_failure_reason")
+    private String taskFailureReason;
+
     /** TRACE 飞书预警成功时间，用于数据库级去重 */
     @JsonProperty("trace_alerted_at")
     private String traceAlertedAt;

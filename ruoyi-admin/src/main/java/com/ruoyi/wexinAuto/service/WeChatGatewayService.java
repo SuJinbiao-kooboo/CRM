@@ -1248,7 +1248,9 @@ public class WeChatGatewayService {
         stats.skipped++;
         store.updateEntryOnly(anchor.getUsername(), anchor.getLocalId(), "SKIPPED",
                 clipEntryMessage(entryMessage), 0, "", 0);
-        store.updateTaskState(anchor.getUsername(), anchor.getLocalId(), anchorTaskStatus, anchorTaskMessage);
+        String failureReason = "MANUAL_REVIEW".equals(anchorTaskStatus) ? clipEntryMessage(entryMessage) : "";
+        store.updateTaskState(anchor.getUsername(), anchor.getLocalId(), anchorTaskStatus,
+                anchorTaskMessage, failureReason);
         log.warn("微信消息组录入业务跳过: chat={} sender={} 消息={} 原因={}",
                 anchor.getName(), anchor.getSender(), group.localIds(), entryMessage);
     }
@@ -1268,7 +1270,8 @@ public class WeChatGatewayService {
                 store.updateEntryOnly(m.getUsername(), m.getLocalId(), "SKIPPED",
                         clipEntryMessage("需人工处理: " + reason), 0, "", 0);
                 if (sameMessage(m, anchor)) {
-                    store.updateTaskState(m.getUsername(), m.getLocalId(), "MANUAL_REVIEW", "ENTRY_BUSINESS_SKIP");
+                    store.updateTaskState(m.getUsername(), m.getLocalId(), "MANUAL_REVIEW", "ENTRY_BUSINESS_SKIP",
+                            clipEntryMessage("AI录入业务跳过：" + reason));
                 } else {
                     store.updateTaskState(m.getUsername(), m.getLocalId(), "SKIPPED",
                             "MERGED_ENTRY:" + anchor.getLocalId());
@@ -1287,7 +1290,8 @@ public class WeChatGatewayService {
                     clipEntryMessage("AI录入失败(" + failCnt + "/" + maxFail + "): " + reason), 0, "", failCnt);
             if (dead) {
                 store.updateTaskState(m.getUsername(), m.getLocalId(), "MANUAL_REVIEW",
-                        "录入连续失败，已停止自动重试");
+                        "录入连续失败，已停止自动重试",
+                        clipEntryMessage("AI录入连续失败(" + failCnt + "/" + maxFail + ")：" + reason));
             }
         }
         log.warn("微信消息组AI录入失败: chat={} sender={} 消息={} 原因={}",

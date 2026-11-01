@@ -43,6 +43,7 @@ CALL add_wechat_automation_column('wechat_message', 'entry_at', "DATETIME NULL C
 CALL add_wechat_automation_column('wechat_message', 'task_status', "VARCHAR(24) NULL DEFAULT 'PENDING' COMMENT '任务生成状态:PENDING/PROCESSING/GENERATED/MANUAL_REVIEW/SKIPPED/FAILED'");
 CALL add_wechat_automation_column('wechat_message', 'task_at', "DATETIME NULL COMMENT '任务状态更新时间'");
 CALL add_wechat_automation_column('wechat_message', 'task_message', "VARCHAR(1000) NOT NULL DEFAULT '' COMMENT '任务生成结果/异常原因'");
+CALL add_wechat_automation_column('wechat_message', 'task_failure_reason', "VARCHAR(1000) NOT NULL DEFAULT '' COMMENT '任务生成失败原因；成功生成或无需生成时为空'");
 CALL add_wechat_automation_column('wechat_message', 'trace_alerted_at', "DATETIME NULL COMMENT 'TRACE飞书预警成功时间'");
 CALL add_wechat_automation_column('wechat_message', 'trace_alert_error', "VARCHAR(1000) NULL COMMENT 'TRACE预警失败原因'");
 CALL add_wechat_automation_column('wechat_message', 'trace_alert_suppressed_at', "DATETIME NULL COMMENT 'TRACE预警因同会话冷却跳过的时间，不再补发'");

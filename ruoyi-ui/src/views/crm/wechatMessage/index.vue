@@ -185,7 +185,12 @@
       <el-table-column label="任务状态" width="118" align="center">
         <template slot-scope="scope">
           <el-tag size="mini" :type="statusType(scope.row.taskStatus)">{{ scope.row.taskStatus || '-' }}</el-tag>
-          <el-tooltip v-if="scope.row.taskMessage" :content="scope.row.taskMessage" placement="top"><i class="el-icon-warning-outline" /></el-tooltip>
+          <el-tooltip v-if="scope.row.taskFailureReason" :content="scope.row.taskFailureReason" placement="top">
+            <i class="el-icon-error text-danger button-help-icon" />
+          </el-tooltip>
+          <el-tooltip v-else-if="scope.row.taskMessage" :content="scope.row.taskMessage" placement="top">
+            <i class="el-icon-warning-outline" />
+          </el-tooltip>
         </template>
       </el-table-column>
       <el-table-column label="TRACE预警" width="135" align="center">
@@ -219,6 +224,9 @@
           <el-col :span="12"><el-form-item label="录入状态">{{ detail.entryStatus }}</el-form-item></el-col>
           <el-col :span="12"><el-form-item label="任务状态">{{ detail.taskStatus }}</el-form-item></el-col>
         </el-row>
+        <el-form-item v-if="detail.taskFailureReason" label="任务失败原因">
+          <div class="detail-text text-danger">{{ detail.taskFailureReason }}</div>
+        </el-form-item>
         <el-form-item label="正文"><div class="detail-text">{{ displayContent(detail) }}</div></el-form-item>
         <el-form-item v-if="detail.quote" label="引用内容">
           <div class="quote-box">
@@ -325,6 +333,7 @@ const MESSAGE_FIELD_ALIASES = {
   task_status: 'taskStatus',
   task_at: 'taskAt',
   task_message: 'taskMessage',
+  task_failure_reason: 'taskFailureReason',
   trace_alerted_at: 'traceAlertedAt',
   trace_alert_error: 'traceAlertError',
   trace_alert_suppressed_at: 'traceAlertSuppressedAt',

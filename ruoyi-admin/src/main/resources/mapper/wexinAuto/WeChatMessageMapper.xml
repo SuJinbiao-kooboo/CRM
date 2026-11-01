@@ -35,6 +35,7 @@
         <result property="taskStatus" column="task_status"/>
         <result property="taskAt" column="task_at"/>
         <result property="taskMessage" column="task_message"/>
+        <result property="taskFailureReason" column="task_failure_reason"/>
         <result property="traceAlertedAt" column="trace_alerted_at"/>
         <result property="traceAlertError" column="trace_alert_error"/>
         <result property="traceAlertSuppressedAt" column="trace_alert_suppressed_at"/>
@@ -45,7 +46,8 @@
         media_path, create_time, sort_seq, md5, msg_category, category_source, category_reason, status,
         relat_inq, relat_offer, entry_fail_count, classify_status, classify_at, classify_fail_count,
         entry_status, entry_message, entry_offer_count, entry_offer_ids, entry_at,
-        task_status, task_at, task_message, trace_alerted_at, trace_alert_error, trace_alert_suppressed_at
+        task_status, task_at, task_message, task_failure_reason,
+        trace_alerted_at, trace_alert_error, trace_alert_suppressed_at
     </sql>
 
     <insert id="batchUpsert">
@@ -112,7 +114,8 @@
             entry_at = NOW(),
             task_status = CASE WHEN #{m.msgCategory} IN ('INQ','OFFER') THEN 'PENDING' ELSE 'SKIPPED' END,
             task_at = NOW(),
-            task_message = CASE WHEN #{m.msgCategory} IN ('INQ','OFFER') THEN '' ELSE 'NOT_ROUTABLE' END
+            task_message = CASE WHEN #{m.msgCategory} IN ('INQ','OFFER') THEN '' ELSE 'NOT_ROUTABLE' END,
+            task_failure_reason = ''
         WHERE username = #{m.username} AND local_id = #{m.localId}
           AND classify_status IN ('PENDING','PROCESSING','FAILED')
     </update>
@@ -134,6 +137,7 @@
             task_status = CASE WHEN #{category} IN ('INQ','OFFER') THEN 'PENDING' ELSE 'SKIPPED' END,
             task_at = NOW(),
             task_message = CASE WHEN #{category} IN ('INQ','OFFER') THEN '' ELSE 'NOT_ROUTABLE' END,
+            task_failure_reason = '',
             trace_alerted_at = NULL,
             trace_alert_error = NULL,
             trace_alert_suppressed_at = NULL
@@ -156,7 +160,8 @@
             entry_message = #{reason},
             task_status = 'SKIPPED',
             task_at = NOW(),
-            task_message = 'FILTER'
+            task_message = 'FILTER',
+            task_failure_reason = ''
         WHERE username = #{m.username} AND local_id = #{m.localId}
     </update>
 
@@ -197,7 +202,8 @@
             entry_message = #{reason},
             task_status = 'SKIPPED',
             task_at = NOW(),
-            task_message = 'NOT_ROUTABLE'
+            task_message = 'NOT_ROUTABLE',
+            task_failure_reason = ''
         WHERE username = #{username} AND local_id = #{localId}
           AND classify_status IN ('PENDING','PROCESSING','FAILED')
     </update>
@@ -339,7 +345,8 @@
     <update id="requeueEntry">
         UPDATE wechat_message
         SET entry_status = 'PENDING', entry_message = '人工重新入队', entry_fail_count = 0,
-            status = 1, entry_at = NOW(), task_status = 'PENDING', task_message = '', task_at = NOW()
+            status = 1, entry_at = NOW(), task_status = 'PENDING', task_message = '',
+            task_failure_reason = '', task_at = NOW()
         WHERE classify_status = 'SUCCESS'
           AND category_source IN ('LLM','CACHE','MANUAL')
           AND msg_category IN ('INQ','OFFER')
@@ -350,7 +357,8 @@
     <update id="requeueEntryKeys">
         UPDATE wechat_message
         SET entry_status = 'PENDING', entry_message = '人工重新入队', entry_fail_count = 0,
-            status = 1, entry_at = NOW(), task_status = 'PENDING', task_message = '', task_at = NOW()
+            status = 1, entry_at = NOW(), task_status = 'PENDING', task_message = '',
+            task_failure_reason = '', task_at = NOW()
         WHERE classify_status = 'SUCCESS'
           AND category_source IN ('LLM','CACHE','MANUAL')
           AND msg_category IN ('INQ','OFFER')
@@ -381,7 +389,9 @@
     </select>
 
     <update id="markTaskProcessing">
-        UPDATE wechat_message SET task_status = 'PROCESSING', task_message = '任务生成处理中', task_at = NOW()
+        UPDATE wechat_message
+        SET task_status = 'PROCESSING', task_message = '任务生成处理中',
+            task_failure_reason = '', task_at = NOW()
         WHERE username = #{username} AND local_id = #{localId}
           AND (
               (entry_status IN ('SUCCESS','SUCCESS_WARN') AND task_status IN ('PENDING','FAILED'))
@@ -394,7 +404,9 @@
     </update>
 
     <update id="updateTaskState">
-        UPDATE wechat_message SET task_status = #{taskStatus}, task_message = #{taskMessage}, task_at = NOW()
+        UPDATE wechat_message
+        SET task_status = #{taskStatus}, task_message = #{taskMessage},
+            task_failure_reason = COALESCE(#{taskFailureReason}, task_failure_reason), task_at = NOW()
         WHERE username = #{username} AND local_id = #{localId}
     </update>
 
@@ -438,7 +450,8 @@
                   OR name LIKE CONCAT('%', #{keyword}, '%')
                   OR sender LIKE CONCAT('%', #{keyword}, '%')
                   OR entry_message LIKE CONCAT('%', #{keyword}, '%')
-                  OR task_message LIKE CONCAT('%', #{keyword}, '%'))
+                  OR task_message LIKE CONCAT('%', #{keyword}, '%')
+                  OR task_failure_reason LIKE CONCAT('%', #{keyword}, '%'))
             </if>
         </where>
         ORDER BY create_time DESC, id DESC

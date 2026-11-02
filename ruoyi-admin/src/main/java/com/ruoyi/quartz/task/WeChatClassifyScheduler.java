@@ -59,11 +59,7 @@ public class WeChatClassifyScheduler {
 
     /** 已分类INQ/OFFER自动录入crm_offer：默认每 10 秒检查一次，实际间隔由字典 offerEntryScanSec 控制。 */
     public void scanOfferEntry() {
-        try {
-            gateway.offerEntryOnce(null);
-        } catch (Exception e) {
-            log.error("定时录入INQ/OFFER失败", e);
-        }
+        gateway.offerEntryOnce(null);
     }
 
     /** 任务生成扫描：默认每 10 秒检查一次，实际间隔由 taskGenerateScanSec 控制。 */

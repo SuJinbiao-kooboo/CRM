@@ -86,7 +86,9 @@
               <li><b>whiteNames</b>：非空时只有名称完全匹配的聊天对象参与分类；<b>selfNames</b>：我方成员名单，默认 Eke,May,Jin,Jasmine。</li>
               <li><b>llmPromptBase / llmExamples</b>：系统提示词和示例；<b>aiContextWindow</b> 控制最近上下文条数，<b>llmBatchSize</b> 控制单批条数。</li>
               <li><b>classifyEnabled</b>：自动分类开关；<b>classifyTriggerCount</b>、<b>classifyMaxIdleSec</b>、<b>classifyBatchSize</b> 控制定时触发。</li>
-              <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息的整组分类与录入聚合间隔秒数（默认 30）。</li>
+              <li><b>offerEntryEnabled</b>：INQ/OFFER 自动录入总开关。关闭时“微信自动化-INQ/OFFER录入”定时任务不会查询待录入消息；开启后按 <b>offerEntryScanSec</b> 扫描、每批最多 <b>offerEntryBatchSize</b> 条，并按消息时间从早到晚排队。</li>
+              <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息的整组分类与录入聚合间隔秒数（默认 30）；<b>offerEntryMaxAgeHours</b>：自动录入最大回溯小时数。</li>
+              <li><b>录入异常排查</b>：待录入查询失败会写入“系统监控 → 调度日志”的异常信息；单条消息的 AI 录入失败原因见列表的“录入状态/结果”。</li>
               <li><b>traceAlertEnabled</b>：TRACE 告警开关；<b>traceAlertMaxAgeMin</b> 最大消息年龄（默认 360 分钟，即只告警最近 6 小时），<b>traceAlertChatCooldownMin</b> 同群冷却分钟数。</li>
               <li><b>AI 接口</b>：系统管理 → 参数设置中的 <code>sys.ai.enabled</code>、<code>sys.ai.base.url</code>、<code>sys.ai.api.key</code>、<code>sys.ai.model</code>。</li>
             </ul>
@@ -117,6 +119,7 @@
     </el-row>
 
     <el-alert v-if="statsText" :title="statsText" type="info" :closable="false" show-icon class="mb8" />
+    <el-alert v-if="entryNoticeText" :title="entryNoticeText" :type="entryNoticeType" :closable="false" show-icon class="mb8" />
 
     <el-table ref="messageTable" v-loading="loading" :data="messageList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="46" />
@@ -370,6 +373,8 @@ export default {
       selected: [],
       dateRange: [],
       statsText: '',
+      entryNoticeText: '',
+      entryNoticeType: 'warning',
       detailOpen: false,
       detail: {},
       detailMediaUrl: '',
@@ -453,9 +458,28 @@ export default {
         const data = res.data || {}
         const poll = data.poll || {}
         const entry = data.entry || {}
+        const pending = Number(entry.pendingCnt || 0)
+        const batchSize = Number(entry.batchSize || 0)
+        const scanSec = Number(entry.scanSec || 0)
         this.autoClassifyEnabled = !!poll.classifyEnabled
-        this.statsText = (poll.classifyEnabled ? '自动分类已开启' : '自动分类已关闭') + '，未分类 ' + (poll.unclassifiedCnt || 0) + ' 条，待录入 ' + (entry.pendingCnt || 0) + ' 条，最近拉取 ' + (poll.lastRunAt || '-')
-      }).catch(() => {})
+        this.statsText = (poll.classifyEnabled ? '自动分类已开启' : '自动分类已关闭') + '，' +
+          (entry.enabled ? '自动录入已开启' : '自动录入已关闭') + '，未分类 ' + (poll.unclassifiedCnt || 0) +
+          ' 条，待录入 ' + pending + ' 条，最近拉取 ' + (poll.lastRunAt || '-')
+        this.entryNoticeType = entry.enabled ? 'info' : 'warning'
+        if (!entry.enabled) {
+          this.entryNoticeText = '自动录入定时任务未执行：offerEntryEnabled=false' +
+            (pending > 0 ? '，当前 ' + pending + ' 条已分类 INQ/OFFER 不会自动录入' : '') +
+            '。配置位置：系统管理 → 字典管理 → wechat_analysis_config。'
+        } else if (pending > 0) {
+          this.entryNoticeText = '自动录入已开启：待录入 ' + pending + ' 条；每 ' + scanSec +
+            ' 秒扫描一次，每批最多 ' + batchSize + ' 条，按消息时间从早到晚处理。'
+        } else {
+          this.entryNoticeText = ''
+        }
+      }).catch(error => {
+        this.entryNoticeType = 'error'
+        this.entryNoticeText = '微信自动化状态读取失败：' + (error.message || '未知错误')
+      })
     },
     handleQuery() {
       this.queryParams.pageNum = 1

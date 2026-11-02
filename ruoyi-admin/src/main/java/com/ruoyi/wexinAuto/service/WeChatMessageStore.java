@@ -1,5 +1,6 @@
 package com.ruoyi.wexinAuto.service;
 
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.wexinAuto.mapper.WeChatMessageMapper;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
 import lombok.extern.slf4j.Slf4j;
@@ -334,7 +335,7 @@ public class WeChatMessageStore {
                     Math.max(30, timeoutSec));
         } catch (Exception e) {
             log.error("查询待录入消息失败", e);
-            return java.util.Collections.emptyList();
+            throw new ServiceException("查询待录入消息失败：" + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
         }
     }
 

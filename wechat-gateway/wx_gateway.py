@@ -146,10 +146,14 @@ def load_ctx(db):
         "nicks": db.nickname_map(),
     }
 
-def resolve_sender(ctx, m):
+def resolve_sender(ctx, m, session_user="", session_name=""):
     sid = m.get("sender_id")
-    if sid == 2:
+    if sid in (2, "2"):
         return ctx["self_name"]
+    # 单聊只有“我方”和“聊天对象”两种发送人。微信库里的 real_sender_id
+    # 偶尔会指向其它联系人，不能用于单聊；否则联系人 A 的会话会显示成 B。
+    if session_user and not session_user.endswith("@chatroom"):
+        return session_name or ctx["nicks"].get(session_user, session_user)
     su = sender_from_prefix(m.get("content"))
     if su:
         return ctx["nicks"].get(su, su)
@@ -600,7 +604,7 @@ def row_to_json(db, ctx, m, media, name):
         "local_id": m["local_id"],
         "server_id": server_id,
         "type": mtype,
-        "sender": resolve_sender(ctx, m),
+        "sender": resolve_sender(ctx, m, session_uid, session_name),
         "content": content,
         "quote": quote,
         "quote_kind": quote_kind,

@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /** 微信消息持久化：正常会话写主表，排除会话写黑表；主表按保留天数定时清理。 */
 @Slf4j
@@ -441,6 +442,24 @@ public class WeChatMessageStore {
         } catch (Exception e) {
             log.warn("消息任务状态回写失败: username={} localId={}", username, localId, e);
         }
+    }
+
+    /** 任务生成页诊断统计；查询失败时返回空 Map，不阻断人工扫描。 */
+    public Map<String, Object> taskGenerateStats(String since, String chat, int timeoutSec) {
+        try {
+            return mapper.selectTaskGenerateStats(since, chat, Math.max(30, timeoutSec));
+        } catch (Exception e) {
+            log.error("查询任务生成诊断统计失败", e);
+            return Collections.emptyMap();
+        }
+    }
+
+    /** 删除任务后按来源消息回退任务生成状态，不改变分类和 AI 录入结果。 */
+    public int resetTaskState(List<String> keys) {
+        if (keys == null || keys.isEmpty()) {
+            return 0;
+        }
+        return mapper.resetTaskStateByKeys(keys);
     }
 
     public boolean markTraceAlerted(String username, long localId) {

@@ -33,11 +33,16 @@
           <div class="wechat-help">
             <div class="help-title">菜单按钮说明</div>
             <ul>
-              <li><b>生成任务</b>：立即扫描已录入的消息（含未映射群异常），按料号生成“待审批”任务；未映射群会生成发送对象为空的 <code>UNMAPPED_CHAT</code> 异常任务，便于人工补齐。人工点击不受 <code>autoTaskGenerateEnabled=false</code> 限制。默认扫描最近 <code>msgRetentionDays=30</code> 天，单批 <code>taskGenerateBatchSize=20</code> 条。</li>
+              <li><b>生成任务</b>：立即扫描消息并生成“待审批”任务；点击后弹窗会显示本次扫描对象、起止时间、单批上限、全部必要条件、阶段统计和实际扫描数量。人工点击不受 <code>autoTaskGenerateEnabled=false</code> 限制。</li>
+              <li><b>生成时间范围</b>：按消息 <code>create_time</code> 计算，从当前时刻向前滚动 <code>msgRetentionDays</code> 天（默认 30 天），不是只扫描今天；弹窗中的“开始时间/结束时间”就是本次实际 SQL 条件。</li>
+              <li><b>生成必要条件</b>：分类成功且来源为 LLM/CACHE/MANUAL、分类为 INQ/OFFER；AI 录入必须为 <code>SUCCESS/SUCCESS_WARN</code>，任务状态为 <code>PENDING/FAILED</code>，或属于群未映射/群映射冲突的特殊跳过、任务处理超时。单次最多领取 <code>taskGenerateBatchSize=20</code> 条。</li>
+              <li><b>为什么 task_status=PENDING 仍扫描 0 条</b>：<code>task_status=PENDING</code> 只表示“尚未生成任务”，还需 <code>entry_status</code> 已录入成功。若录入仍为 <code>PENDING</code>，消息会停留在等待 AI 录入阶段，不会进入任务生成；生成结果弹窗会单独显示该数量。</li>
+              <li><b>任务失败原因</b>：位于微信消息列表“任务失败原因”列及消息详情中，只有任务生成失败、转人工或异常跳过时才有值；尚未生成任务的 <code>PENDING</code> 消息为空是正常现象。</li>
               <li><b>发送扫描</b>：立即扫描并发送“已审批待发送”任务；人工点击不受 <code>autoSendEnabled=false</code> 限制，但当前微信登录账号必须是 <code>autoSendAccount</code>（默认 Eke），否则停止发送。</li>
               <li><b>审批/编辑</b>：查看来源消息、OFFER 快照、关联 INQ、发送目标和发送预览，并修改任务状态、对外报价、发送内容和发送目标。</li>
+              <li><b>批量审批</b>：勾选列表多行后点击，只审批当前为 <code>PENDING_APPROVAL</code> 的任务；其他状态会跳过，失败数量在结果提示中返回。</li>
               <li><b>确认未发送</b>：仅当最近异常以 <code>GATEWAY_RESULT_UNKNOWN</code> 开头时出现；人工确认网关确实未发送后，任务恢复为“已审批待发送”，重试次数清零。</li>
-              <li><b>删除</b>：永久删除任务记录，不撤回已发送消息，也不回退来源消息的录入/任务状态。</li>
+              <li><b>删除/批量删除</b>：删除任务时弹窗选择“是否回退数据”。选“否”只删除任务；选“是”会把来源微信消息的 <code>task_status</code> 重置为 <code>PENDING</code>，便于重新生成，但不会改变分类、AI 录入和已生成的 OFFER。</li>
               <li><b>仅异常</b>：只显示发送目标为空、群未映射（<code>UNMAPPED_CHAT</code>）的任务。</li>
             </ul>
             <div class="help-title">任务状态</div>
@@ -87,10 +92,14 @@
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5"><el-button type="primary" plain icon="el-icon-magic-stick" size="mini" :loading="generating" @click="handleGenerate" v-hasPermi="['wechat:task:generate']">生成任务</el-button></el-col>
       <el-col :span="1.5"><el-button type="success" plain icon="el-icon-s-promotion" size="mini" :loading="sending" @click="handleSend" v-hasPermi="['wechat:task:send']">发送扫描</el-button></el-col>
+      <el-col :span="1.5"><el-button type="warning" plain icon="el-icon-check" size="mini" :disabled="selectedRows.length === 0" @click="handleBatchApprove" v-hasPermi="['wechat:task:approve']">批量审批</el-button></el-col>
+      <el-col :span="1.5"><el-button type="danger" plain icon="el-icon-delete" size="mini" :disabled="selectedRows.length === 0" @click="openDeleteDialog(null)" v-hasPermi="['wechat:task:remove']">批量删除</el-button></el-col>
+      <span v-if="selectedRows.length" class="selection-tip">已选择 {{ selectedRows.length }} 条</span>
       <right-toolbar :showSearch.sync="showSearch" @queryTable="getList" />
     </el-row>
 
-    <el-table v-loading="loading" :data="taskList">
+    <el-table v-loading="loading" :data="taskList" @selection-change="handleSelectionChange">
+      <el-table-column type="selection" width="46" align="center" />
       <el-table-column label="创建时间" prop="createTime" width="158" />
       <el-table-column label="来源对象" prop="oriTarget" min-width="160" show-overflow-tooltip />
       <el-table-column label="来源分类" prop="sourceCategory" width="90" align="center" />
@@ -113,14 +122,58 @@
       </el-table-column>
       <el-table-column label="操作" width="235" fixed="right" align="center">
         <template slot-scope="scope">
-          <el-button type="text" size="mini" icon="el-icon-edit-outline" @click="openTask(scope.row.id)" v-hasPermi="['wechat:task:query']">审批/编辑</el-button>
+          <el-button type="text" size="mini" icon="el-icon-edit-outline" @click="openTask(scope.row.id)" v-hasPermi="['wechat:task:query']">审批</el-button>
           <el-button v-if="isUnknownResult(scope.row)" type="text" size="mini" icon="el-icon-warning-outline" @click="confirmNotSent(scope.row)" v-hasPermi="['wechat:task:send']">确认未发送</el-button>
-          <el-button type="text" size="mini" icon="el-icon-delete" class="text-danger" @click="handleDelete(scope.row)" v-hasPermi="['wechat:task:remove']">删除</el-button>
+          <el-button type="text" size="mini" icon="el-icon-delete" class="text-danger" @click="openDeleteDialog(scope.row)" v-hasPermi="['wechat:task:remove']">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <pagination v-show="total > 0" :total="total" :page.sync="queryParams.pageNum" :limit.sync="queryParams.pageSize" @pagination="getList" />
+
+    <el-dialog title="任务生成扫描结果" :visible.sync="generateResultOpen" width="860px" append-to-body>
+      <el-alert v-if="generateResult.message" :title="generateResult.message" type="info" :closable="false" show-icon />
+      <el-alert v-if="generateResult.statsAvailable === false" title="阶段诊断统计查询失败，请查看后端日志；本次扫描结果仍以实际扫描数量为准。" type="error" :closable="false" show-icon class="mt10" />
+      <el-descriptions :column="2" border size="small" class="mt10">
+        <el-descriptions-item label="扫描方式">{{ generateResult.mode === 'MANUAL' ? '人工点击' : '定时扫描' }}</el-descriptions-item>
+        <el-descriptions-item label="扫描对象">{{ generateResult.chatScope || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="开始时间">{{ generateResult.since || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="结束时间">{{ generateResult.until || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="时间窗口">最近 {{ generateResult.retentionDays == null ? '-' : generateResult.retentionDays }} 天（滚动窗口）</el-descriptions-item>
+        <el-descriptions-item label="单批上限">{{ generateResult.batchSize == null ? '-' : generateResult.batchSize }} 条</el-descriptions-item>
+        <el-descriptions-item label="扫描前符合条件">{{ statValue('readyToGenerate') }} 条</el-descriptions-item>
+        <el-descriptions-item label="本次实际扫描">{{ generateResult.scanned == null ? 0 : generateResult.scanned }} 条</el-descriptions-item>
+        <el-descriptions-item label="生成消息">{{ generateResult.generatedMessages == null ? 0 : generateResult.generatedMessages }} 条</el-descriptions-item>
+        <el-descriptions-item label="生成任务">{{ generateResult.generatedTasks == null ? 0 : generateResult.generatedTasks }} 条</el-descriptions-item>
+        <el-descriptions-item label="跳过消息">{{ generateResult.skippedMessages == null ? 0 : generateResult.skippedMessages }} 条</el-descriptions-item>
+        <el-descriptions-item label="失败消息">{{ generateResult.failedMessages == null ? 0 : generateResult.failedMessages }} 条</el-descriptions-item>
+      </el-descriptions>
+      <div class="dialog-section-title">阶段诊断</div>
+      <el-table :data="generateDiagnostics" size="mini" border>
+        <el-table-column label="阶段" prop="label" width="250" />
+        <el-table-column label="消息数" prop="value" width="100" align="right" />
+        <el-table-column label="说明" prop="hint" min-width="360" show-overflow-tooltip />
+      </el-table>
+      <div class="dialog-section-title">本次扫描条件</div>
+      <ul class="condition-list">
+        <li v-for="item in (generateResult.conditions || [])" :key="item">{{ item }}</li>
+      </ul>
+      <div slot="footer" class="dialog-footer"><el-button type="primary" @click="generateResultOpen = false">知道了</el-button></div>
+    </el-dialog>
+
+    <el-dialog title="删除询报价任务" :visible.sync="deleteDialogOpen" width="620px" append-to-body>
+      <el-alert :title="'将删除 ' + deleteRows.length + ' 条任务；本操作不会撤回已经发送到微信的消息。'" type="warning" :closable="false" show-icon />
+      <div class="delete-question">是否回退数据？</div>
+      <el-radio-group v-model="deleteRevertSource">
+        <el-radio label="0">否：仅删除任务，来源微信消息状态保持不变</el-radio>
+        <el-radio label="1">是：删除后把来源微信消息的任务生成状态重置为 PENDING，便于重新生成</el-radio>
+      </el-radio-group>
+      <el-alert v-if="deleteRevertSource === '1'" title="回退只重置 task_status，不改分类、AI 录入状态和已生成 OFFER。若同一来源消息仍有其他任务，重新生成时会被现有任务去重。" type="info" :closable="false" show-icon class="mt10" />
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="deleteDialogOpen = false">取消</el-button>
+        <el-button type="danger" :loading="deleteSubmitting" @click="submitDelete">确认删除</el-button>
+      </div>
+    </el-dialog>
 
     <el-dialog :title="'任务 #' + form.id + ' 审批与编辑'" :visible.sync="open" width="980px" append-to-body>
       <el-descriptions v-if="form.id" :column="2" border size="small" class="mb8">
@@ -197,7 +250,7 @@
 </template>
 
 <script>
-import { listWechatTasks, getWechatTask, approveWechatTask, generateWechatTasks, sendWechatTasks, confirmWechatTaskNotSent, delWechatTask } from '@/api/crm/wechatTask'
+import { listWechatTasks, getWechatTask, approveWechatTask, batchApproveWechatTasks, batchRemoveWechatTasks, generateWechatTasks, sendWechatTasks, confirmWechatTaskNotSent } from '@/api/crm/wechatTask'
 
 export default {
   name: 'CrmWechatTask',
@@ -210,9 +263,16 @@ export default {
       showSearch: true,
       total: 0,
       taskList: [],
+      selectedRows: [],
       dateRange: [],
       open: false,
       form: {},
+      generateResultOpen: false,
+      generateResult: {},
+      deleteDialogOpen: false,
+      deleteSubmitting: false,
+      deleteRevertSource: '0',
+      deleteRows: [],
       statuses: [
         { value: 'PENDING_APPROVAL', label: '待审批' },
         { value: 'APPROVED_PENDING_SEND', label: '已审批待发送' },
@@ -226,6 +286,26 @@ export default {
         { value: 'UNMAPPED_CHAT', label: '未映射异常' }
       ],
       queryParams: { pageNum: 1, pageSize: 20, pnKeyword: undefined, oriTarget: undefined, queryKeyword: undefined, taskType: undefined, handleStatus: undefined, exceptionOnly: false, beginTime: undefined, endTime: undefined }
+    }
+  },
+  computed: {
+    generateDiagnostics() {
+      const stats = this.generateResult.stats || {}
+      return [
+        { key: 'classifiedTotal', label: '窗口内已分类 INQ/OFFER', hint: '通过分类、分类来源和消息时间条件' },
+        { key: 'taskPending', label: '任务状态为 PENDING', hint: '仅代表尚未生成任务，不等于已满足生成条件' },
+        { key: 'taskEntryPending', label: '其中：等待 AI 录入', hint: 'entry_status=PENDING，不会进入任务生成' },
+        { key: 'taskEntryProcessing', label: '其中：AI 录入处理中', hint: 'entry_status=PROCESSING' },
+        { key: 'taskEntryFailed', label: '其中：AI 录入失败/终止', hint: 'entry_status=FAILED/DEAD' },
+        { key: 'taskEntrySkipped', label: '其中：AI 录入异常跳过', hint: 'entry_status=SKIPPED' },
+        { key: 'entryReady', label: '其中：已录入且待生成', hint: 'entry_status=SUCCESS/SUCCESS_WARN 且 task_status=PENDING' },
+        { key: 'readyToGenerate', label: '扫描前符合生成条件', hint: '含群映射异常和任务处理超时，尚未受单批上限影响' },
+        { key: 'taskGenerated', label: '已生成任务', hint: 'task_status=GENERATED' },
+        { key: 'taskManualReview', label: '转人工复核', hint: 'task_status=MANUAL_REVIEW' },
+        { key: 'taskSkipped', label: '生成跳过', hint: 'task_status=SKIPPED' },
+        { key: 'taskFailed', label: '生成失败', hint: 'task_status=FAILED' },
+        { key: 'taskFailureRecorded', label: '已记录任务失败原因', hint: 'task_failure_reason 非空' }
+      ].map(item => Object.assign(item, { value: stats[item.key] == null ? 0 : stats[item.key] }))
     }
   },
   created() {
@@ -261,12 +341,20 @@ export default {
       this.queryParams.exceptionOnly = false
       this.handleQuery()
     },
+    handleSelectionChange(rows) {
+      this.selectedRows = rows || []
+    },
     handleGenerate() {
       this.generating = true
       generateWechatTasks({}).then(res => {
-        this.$modal.msgSuccess((res.data && res.data.message) || '任务生成完成')
+        this.generateResult = res.data || {}
+        this.generateResultOpen = true
         this.getList()
       }).finally(() => { this.generating = false })
+    },
+    statValue(key) {
+      const stats = this.generateResult.stats || {}
+      return stats[key] == null ? 0 : stats[key]
     },
     handleSend() {
       this.$confirm('确认扫描并发送所有已审批任务？', '提示', { type: 'warning' }).then(() => {
@@ -315,13 +403,46 @@ export default {
         })
       }).catch(() => {})
     },
-    handleDelete(row) {
-      this.$confirm('确认删除任务 #' + row.id + '（' + (row.pnOriginal || '无料号') + '）？删除后不可恢复，不会撤回已发送消息，也不回退来源消息状态。', '删除任务', { type: 'warning', confirmButtonText: '确认删除' }).then(() => {
-        return delWechatTask(row.id).then(() => {
-          this.$modal.msgSuccess('任务已删除')
+    handleBatchApprove() {
+      const pending = this.selectedRows.filter(item => item.handleStatus === 'PENDING_APPROVAL')
+      if (pending.length === 0) {
+        this.$modal.msgWarning('所选任务中没有“待审批”任务')
+        return
+      }
+      const skipped = this.selectedRows.length - pending.length
+      this.$confirm('已选择 ' + this.selectedRows.length + ' 条，其中待审批 ' + pending.length + ' 条' +
+        (skipped > 0 ? '，其他 ' + skipped + ' 条将跳过' : '') + '。确认批量审批？', '批量审批', { type: 'warning' }).then(() => {
+        return batchApproveWechatTasks({ ids: pending.map(item => item.id), approvalReason: '列表批量审批' }).then(res => {
+          const data = res.data || {}
+          if (data.failed > 0 && data.errors && data.errors.length) {
+            this.$modal.msgWarning(data.message + '；' + data.errors[0])
+          } else {
+            this.$modal.msgSuccess(data.message || '批量审批完成')
+          }
           this.getList()
         })
       }).catch(() => {})
+    },
+    openDeleteDialog(row) {
+      this.deleteRows = row ? [row] : (this.selectedRows || []).slice()
+      if (this.deleteRows.length === 0) {
+        this.$modal.msgWarning('请先选择要删除的任务')
+        return
+      }
+      this.deleteRevertSource = '0'
+      this.deleteDialogOpen = true
+    },
+    submitDelete() {
+      if (this.deleteRows.length === 0) return
+      this.deleteSubmitting = true
+      batchRemoveWechatTasks({
+        ids: this.deleteRows.map(item => item.id),
+        revertSource: this.deleteRevertSource === '1'
+      }).then(res => {
+        this.$modal.msgSuccess((res.data && res.data.message) || '任务已删除')
+        this.deleteDialogOpen = false
+        this.getList()
+      }).finally(() => { this.deleteSubmitting = false })
     },
     isUnknownResult(row) {
       return String(row.lastError || '').indexOf('GATEWAY_RESULT_UNKNOWN') === 0
@@ -362,6 +483,11 @@ export default {
 .text-danger { color: #f56c6c; }
 .text-muted { color: #909399; }
 .mr5 { margin-right: 5px; }
+.mt10 { margin-top: 10px; }
+.selection-tip { margin-left: 10px; line-height: 28px; color: #909399; font-size: 12px; }
+.dialog-section-title { margin: 16px 0 8px; font-weight: 600; color: #303133; }
+.condition-list { margin: 0; padding-left: 22px; color: #606266; line-height: 1.8; }
+.delete-question { margin: 18px 0 10px; font-weight: 600; }
 .wechat-help-popover { line-height: 1.6; }
 .wechat-help { max-height: 70vh; overflow-y: auto; padding-right: 6px; font-size: 12px; color: #303133; }
 .wechat-help .help-title { margin: 10px 0 4px; color: #409eff; font-weight: 600; }

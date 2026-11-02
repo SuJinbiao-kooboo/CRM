@@ -7,6 +7,7 @@ import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.wexinAuto.model.WeChatOfferTask;
+import com.ruoyi.wexinAuto.model.WeChatTaskBatchRequest;
 import com.ruoyi.wexinAuto.service.WeChatOfferTaskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -56,6 +57,13 @@ public class CrmWeChatTaskController extends BaseController {
         return toAjax(taskService.approve(form));
     }
 
+    @PreAuthorize("@ss.hasPermi('wechat:task:approve')")
+    @Log(title = "微信询报价任务批量审批", businessType = BusinessType.UPDATE)
+    @PostMapping("/batch-approve")
+    public AjaxResult batchApprove(@RequestBody WeChatTaskBatchRequest form) {
+        return success(taskService.batchApprove(form.getIds(), form.getApprovalReason()));
+    }
+
     @PreAuthorize("@ss.hasPermi('wechat:task:generate')")
     @Log(title = "微信询报价任务生成", businessType = BusinessType.UPDATE)
     @PostMapping("/generate")
@@ -83,5 +91,12 @@ public class CrmWeChatTaskController extends BaseController {
     @DeleteMapping("/{id}")
     public AjaxResult remove(@PathVariable Long id) {
         return toAjax(taskService.deleteTask(id));
+    }
+
+    @PreAuthorize("@ss.hasPermi('wechat:task:remove')")
+    @Log(title = "微信询报价任务批量删除", businessType = BusinessType.DELETE)
+    @PostMapping("/batch-remove")
+    public AjaxResult batchRemove(@RequestBody WeChatTaskBatchRequest form) {
+        return success(taskService.batchRemove(form.getIds(), Boolean.TRUE.equals(form.getRevertSource())));
     }
 }

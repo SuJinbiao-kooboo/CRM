@@ -193,6 +193,12 @@
           </el-tooltip>
         </template>
       </el-table-column>
+      <el-table-column label="任务失败原因" min-width="180" show-overflow-tooltip>
+        <template slot-scope="scope">
+          <span v-if="scope.row.taskFailureReason" class="text-danger">{{ scope.row.taskFailureReason }}</span>
+          <span v-else class="text-muted">-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="TRACE预警" width="135" align="center">
         <template slot-scope="scope">
           <span v-if="scope.row.traceAlertedAt">{{ scope.row.traceAlertedAt }}</span>

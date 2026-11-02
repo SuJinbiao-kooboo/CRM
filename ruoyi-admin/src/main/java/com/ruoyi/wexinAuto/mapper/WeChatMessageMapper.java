@@ -4,6 +4,7 @@ import com.ruoyi.wexinAuto.model.WeChatMessage;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 微信消息表 Mapper。分类、录入、任务生成使用各自独立状态，旧 status 仅保留兼容。
@@ -90,6 +91,12 @@ public interface WeChatMessageMapper {
     int updateTaskState(@Param("username") String username, @Param("localId") long localId,
                         @Param("taskStatus") String taskStatus, @Param("taskMessage") String taskMessage,
                         @Param("taskFailureReason") String taskFailureReason);
+
+    Map<String, Object> selectTaskGenerateStats(@Param("since") String since,
+                                                @Param("chat") String chat,
+                                                @Param("timeoutSec") int timeoutSec);
+
+    int resetTaskStateByKeys(@Param("keys") List<String> keys);
 
     int markTraceAlerted(@Param("username") String username, @Param("localId") long localId);
 

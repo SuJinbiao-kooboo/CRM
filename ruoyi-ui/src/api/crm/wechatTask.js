@@ -12,6 +12,10 @@ export function approveWechatTask(id, data) {
   return request({ url: '/crm/wechat-task/' + id + '/approve', method: 'post', data: data })
 }
 
+export function batchApproveWechatTasks(data) {
+  return request({ url: '/crm/wechat-task/batch-approve', method: 'post', data: data })
+}
+
 export function generateWechatTasks(data) {
   return request({ url: '/crm/wechat-task/generate', method: 'post', data: data, timeout: 480000 })
 }
@@ -26,4 +30,8 @@ export function confirmWechatTaskNotSent(id) {
 
 export function delWechatTask(id) {
   return request({ url: '/crm/wechat-task/' + id, method: 'delete' })
+}
+
+export function batchRemoveWechatTasks(data) {
+  return request({ url: '/crm/wechat-task/batch-remove', method: 'post', data: data })
 }

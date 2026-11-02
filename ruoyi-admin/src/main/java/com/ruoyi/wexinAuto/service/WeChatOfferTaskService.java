@@ -24,10 +24,12 @@ import com.ruoyi.wexinAuto.model.WeChatTaskPreview;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
@@ -114,10 +116,30 @@ public class WeChatOfferTaskService {
         boolean enabled = config.bool("autoTaskGenerateEnabled", false);
         boolean manual = force || StringUtils.isNotBlank(chat);
         out.put("enabled", enabled);
+        out.put("mode", manual ? "MANUAL" : "SCHEDULED");
         if (!enabled && !manual) {
             out.put("message", "任务生成已关闭(autoTaskGenerateEnabled=false)");
             return out;
         }
+        int batch = Math.max(1, Math.min(100, config.integer("taskGenerateBatchSize", 20)));
+        int retention = Math.max(1, config.integer("msgRetentionDays", 30));
+        int timeout = Math.max(30, config.integer("processingTimeoutSec", 600));
+        long now = System.currentTimeMillis();
+        String since = fmtTime(now - retention * 86400000L);
+        String until = fmtTime(now);
+        String chatScope = StringUtils.isBlank(chat) ? "全部聊天对象" : "指定聊天对象：" + chat;
+        out.put("chatScope", chatScope);
+        out.put("retentionDays", retention);
+        out.put("batchSize", batch);
+        out.put("since", since);
+        out.put("until", until);
+        out.put("conditions", Arrays.asList(
+                "消息分类成功：classify_status=SUCCESS，来源为 LLM/CACHE/MANUAL，分类为 INQ 或 OFFER",
+                "消息创建时间：create_time >= " + since + "（扫描截至 " + until + "，最近 " + retention + " 天滚动窗口）",
+                "AI 录入完成：entry_status=SUCCESS/SUCCESS_WARN，且 task_status=PENDING/FAILED",
+                "特殊异常：群未映射/群映射冲突且 entry_status=SKIPPED，或任务生成处理超时",
+                "排序后单次最多领取 " + batch + " 条（taskGenerateBatchSize）"
+        ));
         if (!manual) {
             long scanSec = Math.max(5, config.integer("taskGenerateScanSec", 60));
             if (lastGenerateAt > 0 && System.currentTimeMillis() - lastGenerateAt < scanSec * 1000L) {
@@ -126,10 +148,11 @@ public class WeChatOfferTaskService {
             }
             lastGenerateAt = System.currentTimeMillis();
         }
-        int batch = Math.max(1, Math.min(100, config.integer("taskGenerateBatchSize", 20)));
-        int retention = Math.max(1, config.integer("msgRetentionDays", 30));
-        int timeout = Math.max(30, config.integer("processingTimeoutSec", 600));
-        String since = fmtTime(System.currentTimeMillis() - retention * 86400000L);
+        Map<String, Object> rawStats = messageStore.taskGenerateStats(since, StringUtils.trimToNull(chat), timeout);
+        Map<String, Object> stats = normalizeGenerateStats(rawStats);
+        out.put("statsAvailable", !rawStats.isEmpty());
+        out.put("stats", stats);
+        out.put("candidateTotal", stats.get("readyToGenerate"));
         List<WeChatMessage> rows = messageStore.queryTaskCandidates(since, batch, StringUtils.trimToNull(chat), timeout);
         int generatedMessages = 0;
         int generatedTasks = 0;
@@ -178,8 +201,36 @@ public class WeChatOfferTaskService {
         out.put("manualMessages", manualMessages);
         out.put("skippedMessages", skippedMessages);
         out.put("failedMessages", failedMessages);
-        out.put("message", "任务生成完成：扫描 " + rows.size() + " 条，生成 " + generatedTasks + " 条任务");
+        long entryPending = longValue(stats.get("taskEntryPending"));
+        String summary = "任务生成完成：扫描前符合条件 " + stats.get("readyToGenerate") + " 条，本次扫描 "
+                + rows.size() + " 条，生成 " + generatedTasks + " 条任务";
+        if (entryPending > 0) {
+            summary += "；另有 " + entryPending + " 条已分类 INQ/OFFER 仍在等待 AI 录入(entry_status=PENDING)，尚未进入任务生成";
+        }
+        out.put("message", summary);
         return out;
+    }
+
+    private Map<String, Object> normalizeGenerateStats(Map<String, Object> raw) {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        String[] keys = {"classifiedTotal", "taskPending", "taskEntryPending", "taskEntryProcessing",
+                "taskEntryFailed", "taskEntrySkipped", "entryReady", "taskGenerated", "taskManualReview",
+                "taskSkipped", "taskFailed", "taskFailureRecorded", "readyToGenerate"};
+        for (String key : keys) {
+            stats.put(key, longValue(raw.get(key)));
+        }
+        return stats;
+    }
+
+    private long longValue(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        try {
+            return Long.parseLong(StringUtils.defaultString(value == null ? null : value.toString(), "0"));
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 
     private GenerationResult generateMessage(WeChatMessage message) throws Exception {
@@ -666,6 +717,55 @@ public class WeChatOfferTaskService {
         return taskMapper.updateApproval(form);
     }
 
+    /** 列表多选审批：仅处理待审批任务，其他状态跳过；逐条保留原发送目标和发送内容。 */
+    public Map<String, Object> batchApprove(List<Long> ids, String approvalReason) {
+        if (ids == null || ids.isEmpty()) {
+            throw new ServiceException("请选择要审批的任务");
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        List<String> errors = new ArrayList<>();
+        int approved = 0;
+        int skipped = 0;
+        int failed = 0;
+        Set<Long> uniqueIds = new LinkedHashSet<>(ids);
+        for (Long id : uniqueIds) {
+            if (id == null) {
+                continue;
+            }
+            WeChatOfferTask existing = taskMapper.selectTaskById(id);
+            if (existing == null) {
+                failed++;
+                errors.add("任务 #" + id + " 不存在");
+                continue;
+            }
+            if (!STATUS_PENDING_APPROVAL.equals(existing.getHandleStatus())) {
+                skipped++;
+                continue;
+            }
+            try {
+                WeChatOfferTask form = new WeChatOfferTask();
+                form.setId(id);
+                form.setHandleStatus(STATUS_APPROVED);
+                form.setApprovalReason(approvalReason);
+                if (approve(form) > 0) {
+                    approved++;
+                } else {
+                    failed++;
+                    errors.add("任务 #" + id + " 审批保存失败");
+                }
+            } catch (Exception e) {
+                failed++;
+                errors.add("任务 #" + id + "：" + StringUtils.defaultIfBlank(e.getMessage(), e.getClass().getSimpleName()));
+            }
+        }
+        out.put("approved", approved);
+        out.put("skipped", skipped);
+        out.put("failed", failed);
+        out.put("errors", errors);
+        out.put("message", "批量审批完成：成功 " + approved + " 条，跳过 " + skipped + " 条，失败 " + failed + " 条");
+        return out;
+    }
+
     public int confirmNotSent(Long id) {
         WeChatOfferTask task = taskMapper.selectTaskById(id);
         if (task == null) {
@@ -687,6 +787,46 @@ public class WeChatOfferTaskService {
             throw new ServiceException("任务不存在：" + id);
         }
         return taskMapper.deleteTaskById(id);
+    }
+
+    /** 批量删除任务；revertSource=true 时仅回退来源消息的任务生成状态，便于重新生成。 */
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> batchRemove(List<Long> ids, boolean revertSource) {
+        if (ids == null || ids.isEmpty()) {
+            throw new ServiceException("请选择要删除的任务");
+        }
+        Set<String> sourceKeys = new LinkedHashSet<>();
+        int deleted = 0;
+        int missing = 0;
+        for (Long id : new LinkedHashSet<>(ids)) {
+            if (id == null) {
+                continue;
+            }
+            WeChatOfferTask task = taskMapper.selectTaskById(id);
+            if (task == null) {
+                missing++;
+                continue;
+            }
+            if (task.getSourceLocalId() != null && StringUtils.isNotBlank(task.getSourceUsername())) {
+                sourceKeys.add(task.getSourceUsername() + ":" + task.getSourceLocalId());
+            }
+            deleted += taskMapper.deleteTaskById(id);
+        }
+        int reverted = revertSource ? messageStore.resetTaskState(new ArrayList<>(sourceKeys)) : 0;
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("deleted", deleted);
+        out.put("missing", missing);
+        out.put("reverted", reverted);
+        out.put("revertSource", revertSource);
+        String message = "批量删除完成：删除 " + deleted + " 条任务";
+        if (revertSource) {
+            message += "，已回退 " + reverted + " 条来源消息到 PENDING，可重新生成任务";
+        }
+        if (missing > 0) {
+            message += "，另有 " + missing + " 条任务已不存在";
+        }
+        out.put("message", message);
+        return out;
     }
 
     /** 扫描已审批任务，按任务类型和群名合并后发送。 */

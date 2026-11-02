@@ -410,6 +410,42 @@
         WHERE username = #{username} AND local_id = #{localId}
     </update>
 
+    <select id="selectTaskGenerateStats" resultType="java.util.LinkedHashMap">
+        SELECT
+            COUNT(*) AS classifiedTotal,
+            COALESCE(SUM(CASE WHEN task_status = 'PENDING' THEN 1 ELSE 0 END), 0) AS taskPending,
+            COALESCE(SUM(CASE WHEN task_status = 'PENDING' AND entry_status = 'PENDING' THEN 1 ELSE 0 END), 0) AS taskEntryPending,
+            COALESCE(SUM(CASE WHEN task_status = 'PENDING' AND entry_status = 'PROCESSING' THEN 1 ELSE 0 END), 0) AS taskEntryProcessing,
+            COALESCE(SUM(CASE WHEN task_status = 'PENDING' AND entry_status IN ('FAILED','DEAD') THEN 1 ELSE 0 END), 0) AS taskEntryFailed,
+            COALESCE(SUM(CASE WHEN task_status = 'PENDING' AND entry_status = 'SKIPPED' THEN 1 ELSE 0 END), 0) AS taskEntrySkipped,
+            COALESCE(SUM(CASE WHEN task_status = 'PENDING' AND entry_status IN ('SUCCESS','SUCCESS_WARN') THEN 1 ELSE 0 END), 0) AS entryReady,
+            COALESCE(SUM(CASE WHEN task_status = 'GENERATED' THEN 1 ELSE 0 END), 0) AS taskGenerated,
+            COALESCE(SUM(CASE WHEN task_status = 'MANUAL_REVIEW' THEN 1 ELSE 0 END), 0) AS taskManualReview,
+            COALESCE(SUM(CASE WHEN task_status = 'SKIPPED' THEN 1 ELSE 0 END), 0) AS taskSkipped,
+            COALESCE(SUM(CASE WHEN task_status = 'FAILED' THEN 1 ELSE 0 END), 0) AS taskFailed,
+            COALESCE(SUM(CASE WHEN task_failure_reason IS NOT NULL AND task_failure_reason &lt;&gt; '' THEN 1 ELSE 0 END), 0) AS taskFailureRecorded,
+            COALESCE(SUM(CASE WHEN (
+                (entry_status IN ('SUCCESS','SUCCESS_WARN') AND task_status IN ('PENDING','FAILED'))
+                OR (entry_status = 'SKIPPED' AND task_status IN ('PENDING','FAILED')
+                    AND (entry_message LIKE '群未映射%' OR entry_message LIKE '群映射冲突%'))
+                OR (task_status = 'PROCESSING' AND task_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND))
+            ) THEN 1 ELSE 0 END), 0) AS readyToGenerate
+        FROM wechat_message
+        WHERE classify_status = 'SUCCESS'
+          AND category_source IN ('LLM','CACHE','MANUAL')
+          AND msg_category IN ('INQ','OFFER')
+          AND create_time &gt;= #{since}
+          <if test="chat != null and chat != ''">AND name = #{chat}</if>
+    </select>
+
+    <update id="resetTaskStateByKeys">
+        UPDATE wechat_message
+        SET task_status = 'PENDING', task_message = '任务已删除，来源消息已回退待重新生成',
+            task_failure_reason = '', task_at = NOW()
+        WHERE CONCAT(username, ':', local_id) IN
+        <foreach collection="keys" item="key" open="(" separator="," close=")">#{key}</foreach>
+    </update>
+
     <update id="markTraceAlerted">
         UPDATE wechat_message SET trace_alerted_at = NOW(), trace_alert_error = NULL
         WHERE username = #{username} AND local_id = #{localId} AND trace_alerted_at IS NULL

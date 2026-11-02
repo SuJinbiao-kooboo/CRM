@@ -42,13 +42,13 @@ export function parseOffer(data) {
 }
 
 // AI智能录入：粘贴物料内容，后端调用DeepSeek整理后批量入库
-// timeout: 8分钟（480000ms，与后端DeepSeek调用超时sys.ai.timeout.ms默认值一致；必须不小于后端超时，否则前端先超时abort，Network面板显示canceled，但后端仍在执行会成功入库造成困惑）；silent: 错误提示由页面自行处理
+// timeout: 8分钟前端兜底；后端单次模型调用由sys.ai.timeout.ms控制（默认2分钟），非超时故障可能重试；silent: 错误提示由页面自行处理
 export function aiEntry(data) {
   return request({ url: '/crm/offer/aiEntry', method: 'post', data: data, timeout: 480000, silent: true })
 }
 
 // AI料号查询：粘贴物料内容，后端调用DeepSeek提取料号并查询最近1个月INQ/OFFER历史（组内按Offer日期倒排）
-// timeout: 8分钟（同aiEntry）；silent: 错误提示由页面自行处理
+// timeout: 8分钟前端兜底（同aiEntry）；silent: 错误提示由页面自行处理
 export function aiQuery(data) {
   return request({ url: '/crm/offer/aiQuery', method: 'post', data: data, timeout: 480000, silent: true })
 }

@@ -5,6 +5,8 @@ import com.ruoyi.wexinAuto.service.WeChatOfferTaskService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 /**
  * 微信自动化调度：拉取、分类、录入、任务生成、发送、TRACE 和清理各自独立扫描。
  * 扫描间隔统一从 wechat_analysis_config 读取，单执行器运行。
@@ -59,7 +61,16 @@ public class WeChatClassifyScheduler {
 
     /** 已分类INQ/OFFER自动录入crm_offer：默认每 10 秒检查一次，实际间隔由字典 offerEntryScanSec 控制。 */
     public void scanOfferEntry() {
-        gateway.offerEntryOnce(null);
+        try {
+            Map<String, Object> result = gateway.offerEntryOnce(null);
+            if (Boolean.TRUE.equals(result.get("running"))) {
+                log.info("微信INQ/OFFER自动录入跳过: {}", result.get("message"));
+            } else if (result.containsKey("scanned")) {
+                log.info("微信INQ/OFFER自动录入完成: {}", result.get("message"));
+            }
+        } catch (Exception e) {
+            log.error("定时INQ/OFFER自动录入失败", e);
+        }
     }
 
     /** 任务生成扫描：默认每 10 秒检查一次，实际间隔由 taskGenerateScanSec 控制。 */

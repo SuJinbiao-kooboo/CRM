@@ -1002,7 +1002,7 @@ export default {
           this.$modal.msgWarning('本次录入的料号近1个月内没有相同物料的报价记录');
         }
       }).catch(err => {
-        // AI录入为长耗时请求（最长8分钟，与后端sys.ai.timeout.ms一致），错误提示在此分类给出：超时/连接失败/业务错误
+        // AI录入为长耗时请求，前端最多等待8分钟兜底；后端单次模型调用超时由sys.ai.timeout.ms控制（默认2分钟）
         const e = err || {};
         const msg = String(e.message || '');
         if (e.code === 'ECONNABORTED' || msg.includes('timeout')) {

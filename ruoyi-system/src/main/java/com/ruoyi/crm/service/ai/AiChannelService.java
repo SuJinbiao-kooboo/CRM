@@ -79,8 +79,8 @@ public class AiChannelService {
     private static final int DEFAULT_FAIL_THRESHOLD = 3;
     /** 默认主渠道恢复探测间隔（秒） */
     private static final int DEFAULT_BACKUP_CHECK_SEC = 300;
-    /** 默认调用超时（毫秒）：8分钟，需与前端 axios 超时、nginx proxy_read_timeout 匹配 */
-    private static final int DEFAULT_TIMEOUT_MS = 8 * 60 * 1000;
+    /** 默认调用超时（毫秒）：2分钟；避免单次模型卡住长时间占用自动任务队列 */
+    private static final int DEFAULT_TIMEOUT_MS = 2 * 60 * 1000;
     /** 默认告警冷却（秒） */
     private static final int DEFAULT_ALERT_COOLDOWN_SEC = 600;
 
@@ -201,6 +201,11 @@ public class AiChannelService {
                 } catch (Exception e) {
                     lastError = e.toString();
                     log.warn("AI接口调用异常({}, 第{}次): {}", channel.get("name"), attempt, lastError);
+                    if (isTimeout(e)) {
+                        // 超时通常说明上游连接已卡死，继续重试只会成倍拉长任务占用时间
+                        log.warn("AI接口调用超时({})，停止本渠道重试", channel.get("name"));
+                        break;
+                    }
                 }
             }
             boolean wasBackup = "BACKUP".equals(channel.get("name"));
@@ -425,6 +430,18 @@ public class AiChannelService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    /** 判断调用异常链中是否包含网络超时。 */
+    private boolean isTimeout(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof java.net.SocketTimeoutException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private String config(String key, String def) {

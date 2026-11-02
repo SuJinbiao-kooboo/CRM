@@ -154,6 +154,7 @@
       <el-table-column label="来源表名" align="center" prop="sheetName" min-width="300" show-overflow-tooltip />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template slot-scope="scope">
+          <el-button size="mini" type="text" icon="el-icon-view" @click="handleDetail(scope.row)" v-hasPermi="['crm:offer:query']">详情</el-button>
           <el-button size="mini" type="text" icon="el-icon-edit" @click="handleUpdate(scope.row)" v-hasPermi="['crm:offer:edit']">修改</el-button>
           <el-button size="mini" type="text" icon="el-icon-delete" @click="handleDelete(scope.row)" v-hasPermi="['crm:offer:remove']">删除</el-button>
         </template>
@@ -260,6 +261,53 @@
       <div slot="footer" class="dialog-footer">
         <el-button type="primary" @click="submitForm">确 定</el-button>
         <el-button @click="cancel">取 消</el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog title="Offer详情" :visible.sync="detailOpen" width="960px" append-to-body>
+      <el-descriptions :column="2" border size="small" class="offer-detail">
+        <el-descriptions-item label="数据库 ID">{{ detailText(offerDetail.id) }}</el-descriptions-item>
+        <el-descriptions-item label="状态">
+          <el-tag v-if="offerDetail.status === 0" type="info">无效</el-tag>
+          <el-tag v-else-if="offerDetail.status === 1" type="success">有效</el-tag>
+          <span v-else>{{ detailText(offerDetail.status) }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="产品编码">{{ detailText(offerDetail.productCode) }}</el-descriptions-item>
+        <el-descriptions-item label="标准化料号">{{ detailText(offerDetail.pnNormalized) }}</el-descriptions-item>
+        <el-descriptions-item label="供应商编码">{{ detailText(offerDetail.supplierCode) }}</el-descriptions-item>
+        <el-descriptions-item label="供应商名称">{{ detailText(offerDetail.supplierName) }}</el-descriptions-item>
+        <el-descriptions-item label="品牌">{{ detailText(offerDetail.productBrand) }}</el-descriptions-item>
+        <el-descriptions-item label="产品类型">{{ detailText(offerDetail.productType) }}</el-descriptions-item>
+        <el-descriptions-item label="产品明细编号">{{ detailText(offerDetail.productDetailCode) }}</el-descriptions-item>
+        <el-descriptions-item label="询报价类型">{{ detailText(offerDetail.inqOfferType) }}</el-descriptions-item>
+        <el-descriptions-item label="成本">{{ detailText(offerDetail.priceCost) }}</el-descriptions-item>
+        <el-descriptions-item label="报价">{{ detailText(offerDetail.priceOffer) }}</el-descriptions-item>
+        <el-descriptions-item label="价格单位">{{ detailText(offerDetail.priceUnit) }}</el-descriptions-item>
+        <el-descriptions-item label="数量">{{ detailText(offerDetail.quantity) }}</el-descriptions-item>
+        <el-descriptions-item label="MOQ数量">{{ detailText(offerDetail.moqQuantity) }}</el-descriptions-item>
+        <el-descriptions-item label="DC">{{ detailText(offerDetail.dc) }}</el-descriptions-item>
+        <el-descriptions-item label="规格">{{ detailText(offerDetail.spec) }}</el-descriptions-item>
+        <el-descriptions-item label="COO产地">{{ detailText(offerDetail.coo) }}</el-descriptions-item>
+        <el-descriptions-item label="交货时间">{{ detailText(offerDetail.deliveryTime) }}</el-descriptions-item>
+        <el-descriptions-item label="质保详情">{{ detailText(offerDetail.warrantyDetail) }}</el-descriptions-item>
+        <el-descriptions-item label="库存日期">{{ offerDetail.stockDate ? parseTime(offerDetail.stockDate) : '-' }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ offerDetail.createTime ? parseTime(offerDetail.createTime) : '-' }}</el-descriptions-item>
+        <el-descriptions-item label="创建人">{{ detailText(offerDetail.createBy) }}</el-descriptions-item>
+        <el-descriptions-item label="更新时间">{{ offerDetail.updateTime ? parseTime(offerDetail.updateTime) : '-' }}</el-descriptions-item>
+        <el-descriptions-item label="更新人">{{ detailText(offerDetail.updateBy) }}</el-descriptions-item>
+        <el-descriptions-item label="标签1">{{ detailText(offerDetail.tagsFirst) }}</el-descriptions-item>
+        <el-descriptions-item label="标签2">{{ detailText(offerDetail.tagsSecond) }}</el-descriptions-item>
+        <el-descriptions-item label="标签3">{{ detailText(offerDetail.tagsThird) }}</el-descriptions-item>
+        <el-descriptions-item label="标签4">{{ detailText(offerDetail.tagsSi) }}</el-descriptions-item>
+        <el-descriptions-item label="微信来源消息server_id" :span="2">{{ detailText(offerDetail.wechatServerId) }}</el-descriptions-item>
+        <el-descriptions-item label="微信会话标识">{{ detailText(offerDetail.wechatUsername) }}</el-descriptions-item>
+        <el-descriptions-item label="微信消息local_id">{{ detailText(offerDetail.wechatLocalId) }}</el-descriptions-item>
+        <el-descriptions-item label="产品详情" :span="2">{{ detailText(offerDetail.productDetail) }}</el-descriptions-item>
+        <el-descriptions-item label="来源表名" :span="2">{{ detailText(offerDetail.sheetName) }}</el-descriptions-item>
+        <el-descriptions-item label="备注" :span="2" class="detail-remark">{{ detailText(offerDetail.remark) }}</el-descriptions-item>
+      </el-descriptions>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="detailOpen=false">关 闭</el-button>
       </div>
     </el-dialog>
 
@@ -727,6 +775,8 @@ export default {
       multiple: true,
       title: '',
       open: false,
+      detailOpen: false,
+      offerDetail: {},
       openImportDialog: false,
       openAiEntryDialog: false,
       aiEntryLoading: false,
@@ -882,6 +932,16 @@ export default {
     remoteSupplierQuery(query) { listSupplierOptions({ supplierName: query, pageNum: 1, pageSize: 20 }).then(res => { this.supplierOptionsQuery = res.data }) },
     onSupplierChange(val) { if (val) { this.form.supplierCode = val.supplierCode; this.form.supplierName = val.supplierName; this.formSupplier = val } },
     handleAdd() { this.resetFormData(); this.formSupplier = null; this.open = true; this.title = '新增Offer' },
+    handleDetail(row) {
+      if (!row || !row.id) { this.$modal.msgError('该记录缺少ID，无法查看详情'); return }
+      getOffer(row.id).then(res => {
+        this.offerDetail = res.data || {};
+        this.detailOpen = true;
+      });
+    },
+    detailText(value) {
+      return value === null || value === undefined || value === '' ? '-' : value;
+    },
     /** 编辑Offer：回显全部字段；供应商下拉直接显示编码（库里只存编码，不再查名称展示） */
     handleUpdate(row) {
       const id = row.id || this.ids[0];
@@ -1576,6 +1636,7 @@ export default {
 /* 复制工具栏（AI录入比价/AI查询共用）：天数单选、额外字段复选框、一键复制按钮右对齐排列 */
 .copy-toolbar { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-bottom: 10px }
 .copy-extra-fields { display: inline-flex; align-items: center }
+.offer-detail .detail-remark { white-space: pre-wrap; word-break: break-all }
 /* AI录入/AI查询弹窗移动端自适应 */
 @media (max-width: 768px) {
   .offer-ai-dialog { margin: 2vh auto 24px !important; width: 96% !important }

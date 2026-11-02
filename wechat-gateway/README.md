@@ -450,6 +450,7 @@ mysql -uroot -p 你的库名 < C:\Project\RuoYi-Vue\sql\wechat_semantics_v5.sql
 | offerEntryRequireRelatInq | true | OFFER 自动录入前必须关联对向 INQ（买卖任一方均可为 INQ） |
 | offerEntryRequireOfferPrice | true | OFFER 自动录入前必须有可解析正价格 |
 | offerEntryMinAgeSec | 60 | 分类后至少等待秒数，让后续上下文完整后再录入 |
+| offerEntryQuoteLinkSec | 1800 | 同一发送人回复同一条引用消息时，补充消息的聚合窗口秒数；用于合并“先报价、后补料号/数量”的多条消息 |
 | offerEntryMaxAgeHours | 24 | 自动录入最大回溯小时数，超期历史需人工重新入队 |
 
 ---
@@ -476,6 +477,7 @@ wechat_message(status=1, msg_category∈INQ,OFFER, 最近24小时, 分类后≥6
 - 供应商编码必须先在字典配好（`offerEntrySupplierCode` 默认值，或 `offerEntrySupplierMap`
   逐会话映射 `会话名=供应商编码`，多个用英文逗号分隔）；未命中供应商的消息标 `SKIPPED`，不写库。
 - 自动录入门禁不再看发送方：INQ 可由任一方发出；OFFER 必须有 AI 指向的对向 INQ，且发送人不同。
+- 录入聚合同时支持同发送人短间隔消息和同引用消息的补充回复（`offerEntryQuoteLinkSec`，默认 30 分钟）；AI 返回空料号时拒绝入库，避免拆成多条无法匹配的空料号 Offer。有货无价的 OFFER 仍按既有规则录入并转人工处理。
 - 方向映射：我方外发 OFFER → `Offer` 并加利润；外部供应商向我方 OFFER → `Inq`（采购报价，不加价）；
   我方给供应商 INQ、客户向我方 INQ → `Inq`。
 - `SKIPPED` 表示需人工确认（无料号、无供应商、语义不足等）；`FAILED` 自动重试，`DEAD` 达上限；

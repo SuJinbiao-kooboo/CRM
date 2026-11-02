@@ -54,6 +54,7 @@
               <li><b>TRACE 二次跟进</b>：围绕已有 INQ/OFFER 追问或确认包装、原装、新旧、COO、DC、质保、交期、数量、价格、下单等；不一定是疑问句，但必须有上下文指向。</li>
               <li><b>OTHER 其他</b>：寒暄、致谢、收到、OK、check、checking、稍等、纯表情、广告、系统消息，以及没有推进业务的陈述。</li>
               <li><b>连续消息组</b>：同一发送人相邻消息间隔不超过 <code>offerEntryGroupGapSec</code> 时按整组判断：有明确询价且无供货条件时整组 INQ；有报价/库存/现货等供货信息且无明确询价问句时整组 OFFER。型号清单、数量、库存等补充消息会随整组修正，不再沿用第一条的误判。</li>
+              <li><b>引用补充合并</b>：同一发送人针对同一条消息的补充回复，即使超过 30 秒，也会在 <code>offerEntryQuoteLinkSec</code>（默认 1800 秒）内合并后一次录入，避免“一条有价格无料号、一条有料号无价格”。</li>
               <li><b>30 秒规则来源</b>：该间隔来自字典 <code>wechat_analysis_config.offerEntryGroupGapSec</code>，默认 30 秒，可自行修改；不是代码写死。分类整组归并和录入消息聚合都读取同一个配置。配置位置：系统管理 → 字典管理 → 字典类型 <code>wechat_analysis_config</code>。</li>
               <li>买卖双向，不按“客户/供应商”身份直接判类；我方成员发送的待判消息固定为 OTHER/SELF，不调用 AI。</li>
               <li>我方历史消息在提示词中标记为 SELF-OTHER，仍作为业务上下文，可供后续外部消息关联 inq/offer。</li>
@@ -74,10 +75,11 @@
             </ul>
             <div class="help-title">多消息聚合录入</div>
             <ul>
-              <li><b>聚合范围</b>：同一会话 + 同一发送人，相邻消息时间差不超过 <code>offerEntryGroupGapSec</code>（默认 30 秒）时视为一组；不同发送人、不同会话不会合并。</li>
+              <li><b>聚合范围</b>：同一会话 + 同一发送人，相邻消息时间差不超过 <code>offerEntryGroupGapSec</code>（默认 30 秒）时视为一组；回复同一条引用消息的补充内容，在 <code>offerEntryQuoteLinkSec</code>（默认 1800 秒）内也会并入同组；不同发送人、不同会话不会合并。</li>
               <li><b>等待稳定</b>：组内最新一条消息距今不足 <code>offerEntryMinAgeSec</code>（默认 30 秒）时先不录入，避免报价/交期还在继续补充；返回结果里的“等待补充”即此情况。</li>
               <li><b>引用原文</b>：消息的 <code>relat_inq</code>、<code>relat_offer</code> 或 <code>quote</code> 指向的原消息会作为料号上下文一并交给 AI；例如 Johnny 回复 18400USD 并补充 2weeks，会连同被引用的 May 的 INQ 一起解析。</li>
               <li><b>一次录入</b>：整组只调用一次 AI 录入。组内除主消息外的 INQ/OFFER 也会标记录入成功，但任务状态记为 <code>SKIPPED</code>（MERGED_ENTRY），避免重复生成任务。</li>
+              <li><b>空料号拦截</b>：AI 返回的物料行没有料号时不入库，并写入需人工处理的录入原因，避免生成无法匹配、无法生成任务的空料号报价记录。</li>
               <li><b>例子</b>：539167（Intel 6346 有货吗）+ 539168（紧接着补充）合并为一个 INQ；539379（被引用的询价）+ 543397（18400USD）+ 543398（2weeks）合并为一个 OFFER。</li>
             </ul>
             <div class="help-title">配置位置</div>
@@ -88,7 +90,7 @@
               <li><b>llmPromptBase / llmExamples</b>：系统提示词和示例；<b>aiContextWindow</b> 控制最近上下文条数，<b>llmBatchSize</b> 控制单批条数。</li>
               <li><b>classifyEnabled</b>：自动分类开关；<b>classifyTriggerCount</b>、<b>classifyMaxIdleSec</b>、<b>classifyBatchSize</b> 控制定时触发。</li>
               <li><b>offerEntryEnabled</b>：INQ/OFFER 自动录入总开关。关闭时“微信自动化-INQ/OFFER录入”定时任务不会查询待录入消息；开启后按 <b>offerEntryScanSec</b> 扫描、每批最多 <b>offerEntryBatchSize</b> 条，并按消息时间从早到晚排队。</li>
-              <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息的整组分类与录入聚合间隔秒数（默认 30）；<b>offerEntryMaxAgeHours</b>：自动录入最大回溯小时数。</li>
+              <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息的整组分类与录入聚合间隔秒数（默认 30）；<b>offerEntryQuoteLinkSec</b>：同一引用消息的补充回复聚合窗口秒数（默认 1800）；<b>offerEntryMaxAgeHours</b>：自动录入最大回溯小时数。</li>
               <li><b>录入异常排查</b>：待录入查询失败会写入“系统监控 → 调度日志”的异常信息；单条消息的 AI 录入失败原因见列表的“录入状态/结果”。</li>
               <li><b>traceAlertEnabled</b>：TRACE 告警开关；<b>traceAlertMaxAgeMin</b> 最大消息年龄（默认 360 分钟，即只告警最近 6 小时），<b>traceAlertChatCooldownMin</b> 同群冷却分钟数。</li>
               <li><b>AI 接口</b>：系统管理 → 参数设置中的 <code>sys.ai.enabled</code>、<code>sys.ai.base.url</code>、<code>sys.ai.api.key</code>、<code>sys.ai.model</code>。</li>

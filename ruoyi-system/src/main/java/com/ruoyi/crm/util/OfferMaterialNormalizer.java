@@ -8,6 +8,11 @@ import java.util.regex.Pattern;
 /** Offer 物料解析结果归一化：AI 负责理解文本，本类只处理能确定判断的型号格式。 */
 public final class OfferMaterialNormalizer {
 
+    private static final String NVIDIA_RTX_5090_STANDARD = "RTX 5090 32G";
+    private static final String NVIDIA_PRO_6000_SE_STANDARD = "PRO 6000 SE 96G";
+    private static final String NVIDIA_PRO_6000_WS_STANDARD = "PRO 6000 WS 96G";
+    private static final String NVIDIA_PRO_6000_STANDARD = "PRO 6000";
+
     private static final Pattern AMD_EPYC_PAIR = Pattern.compile(
             "(?i)\\bEPYC\\s*([0-9]{4}[A-Z0-9]*)\\s*/\\s*(100-[0-9A-Z-]+)\\b");
     private static final Pattern AMD_EPYC_PART = Pattern.compile(
@@ -77,14 +82,15 @@ public final class OfferMaterialNormalizer {
         }
         if (NVIDIA_RTX_5090_TOKEN.matcher(normalized).matches()
                 || NVIDIA_5090_BARE_TOKEN.matcher(normalized).matches()) {
-            return "RTX509032G";
+            return NVIDIA_RTX_5090_STANDARD;
         }
         Matcher nvidiaPro6000 = NVIDIA_PRO_6000_TOKEN.matcher(normalized);
         if (nvidiaPro6000.matches() && nvidiaPro6000.group(1) != null) {
-            return isServerEditionToken(nvidiaPro6000.group(1)) ? "PRO6000SE96G" : "PRO6000WS96G";
+            return isServerEditionToken(nvidiaPro6000.group(1))
+                    ? NVIDIA_PRO_6000_SE_STANDARD : NVIDIA_PRO_6000_WS_STANDARD;
         }
         if (NVIDIA_PRO_6000_BARE_TOKEN.matcher(normalized).matches()) {
-            return "PRO6000";
+            return NVIDIA_PRO_6000_STANDARD;
         }
         return normalized;
     }
@@ -128,10 +134,10 @@ public final class OfferMaterialNormalizer {
         if (nvidiaPn != null) {
             String aiModel = model;
             pn = nvidiaPn;
-            if ("RTX509032G".equals(nvidiaPn)) {
+            if (NVIDIA_RTX_5090_STANDARD.equals(nvidiaPn)) {
                 model = "RTX 5090";
                 spec = ensureCapacity(spec, "32");
-            } else if ("PRO6000SE96G".equals(nvidiaPn)) {
+            } else if (NVIDIA_PRO_6000_SE_STANDARD.equals(nvidiaPn)) {
                 model = "RTX PRO 6000 SE";
                 spec = ensureCapacity(spec, "96");
             } else {
@@ -150,7 +156,7 @@ public final class OfferMaterialNormalizer {
             }
         } else if (isNvidiaContext(combined, type)
                 && NVIDIA_PRO_6000_BARE_TOKEN.matcher(pn).matches()) {
-            pn = "PRO6000";
+            pn = NVIDIA_PRO_6000_STANDARD;
         }
 
         String samsungSeries = detectSamsungSeries(combined, pn);
@@ -238,10 +244,11 @@ public final class OfferMaterialNormalizer {
         if (!isNvidiaContext(combined, type)) {
             return null;
         }
-        if (pn.startsWith("RTX509032G") || NVIDIA_RTX_5090_ANY.matcher(combined).find()) {
-            return "RTX509032G";
+        String compactPn = pn.replace(" ", "");
+        if (compactPn.startsWith("RTX509032G") || NVIDIA_RTX_5090_ANY.matcher(combined).find()) {
+            return NVIDIA_RTX_5090_STANDARD;
         }
-        if (!pn.startsWith("PRO6000") && !NVIDIA_PRO_6000_ANY.matcher(combined).find()) {
+        if (!compactPn.startsWith("PRO6000") && !NVIDIA_PRO_6000_ANY.matcher(combined).find()) {
             return null;
         }
         String upper = combined.toUpperCase(Locale.ROOT);
@@ -249,14 +256,14 @@ public final class OfferMaterialNormalizer {
                 || upper.contains("MAXQ")) {
             return null;
         }
-        boolean server = pn.startsWith("PRO6000SE96G") || NVIDIA_SERVER_MARK.matcher(combined).find();
-        boolean workstation = pn.startsWith("PRO6000WS96G")
+        boolean server = compactPn.startsWith("PRO6000SE96G") || NVIDIA_SERVER_MARK.matcher(combined).find();
+        boolean workstation = compactPn.startsWith("PRO6000WS96G")
                 || NVIDIA_WORKSTATION_MARK.matcher(combined).find();
         if (server && !workstation) {
-            return "PRO6000SE96G";
+            return NVIDIA_PRO_6000_SE_STANDARD;
         }
         if (workstation && !server) {
-            return "PRO6000WS96G";
+            return NVIDIA_PRO_6000_WS_STANDARD;
         }
         return null;
     }

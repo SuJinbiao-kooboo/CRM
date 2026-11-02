@@ -879,6 +879,7 @@ public class WeChatGatewayService {
             int batch = Math.max(1, Math.min(100, config.integer("offerEntryBatchSize", 5)));
             int minAgeSec = Math.max(0, config.integer("offerEntryMinAgeSec", 30));
             int groupGapSec = Math.max(1, config.integer("offerEntryGroupGapSec", 30));
+            int quoteLinkSec = Math.max(groupGapSec, config.integer("offerEntryQuoteLinkSec", 1800));
             int maxAgeHours = Math.max(1, config.integer("offerEntryMaxAgeHours", 24));
             int timeout = Math.max(30, config.integer("processingTimeoutSec", 600));
             String since = fmtTime(System.currentTimeMillis() - maxAgeHours * 3600_000L);
@@ -888,6 +889,7 @@ public class WeChatGatewayService {
             out.put("maxAgeHours", maxAgeHours);
             out.put("minAgeSec", minAgeSec);
             out.put("groupGapSec", groupGapSec);
+            out.put("quoteLinkSec", quoteLinkSec);
             EntryStats stats = processEntryRows(rows, cats);
             lastEntryProcessed = rows.size();
             return entryResult(out, stats, rows.size());
@@ -989,7 +991,8 @@ public class WeChatGatewayService {
             collectQuotes(group);
             return group;
         }
-        int windowSec = Math.max(300, Math.min(3600, gapSec * 20));
+        int quoteLinkSec = Math.max(gapSec, config.integer("offerEntryQuoteLinkSec", 1800));
+        int windowSec = Math.max(300, Math.min(21600, quoteLinkSec));
         List<WeChatMessage> near = store.queryEntryNeighbors(anchor.getUsername(), anchor.getName(),
                 anchor.getSender(), fmtTime(anchorMs - windowSec * 1000L), fmtTime(anchorMs + windowSec * 1000L));
         int idx = -1;
@@ -1026,7 +1029,111 @@ public class WeChatGatewayService {
         group.members.clear();
         group.members.addAll(chain);
         collectQuotes(group);
+        expandBySharedQuotes(group, near, gapSec * 1000L);
+        collectQuotes(group);
+        group.members.sort(Comparator.comparingLong((WeChatMessage message) -> parseTime(message.getCreateTime()))
+                .thenComparingLong(WeChatMessage::getLocalId));
         return group;
+    }
+
+    /**
+     * 同一发送人对同一条引用消息的后续补充，不受 offerEntryGroupGapSec 的短间隔限制。
+     * 例如先报“1010美金”，58 秒后再补“有240个 / WUH... / DC26”，同引用消息应交给 AI 一次解析。
+     */
+    private void expandBySharedQuotes(EntryGroup group, List<WeChatMessage> near, long gapMs) {
+        if (near == null || near.isEmpty()) {
+            return;
+        }
+        boolean changed;
+        do {
+            Set<Long> relationIds = collectRelationIds(group.members);
+            if (relationIds.isEmpty()) {
+                return;
+            }
+            changed = false;
+            for (int i = 0; i < near.size(); i++) {
+                WeChatMessage candidate = near.get(i);
+                if (containsMember(group, candidate) || !sharesRelation(candidate, relationIds)) {
+                    continue;
+                }
+                changed |= addContiguousMessages(group, near, i, gapMs);
+            }
+        } while (changed);
+    }
+
+    private Set<Long> collectRelationIds(List<WeChatMessage> messages) {
+        Set<Long> ids = new HashSet<>();
+        for (WeChatMessage message : messages) {
+            addRelationId(ids, message.getRelatInq());
+            addRelationId(ids, message.getRelatOffer());
+        }
+        return ids;
+    }
+
+    private void addRelationId(Set<Long> ids, String json) {
+        if (StringUtils.isBlank(json)) {
+            return;
+        }
+        try {
+            long id = jackson.readTree(json).path("id").asLong(0L);
+            if (id > 0L) {
+                ids.add(id);
+            }
+        } catch (Exception e) {
+            log.debug("解析消息引用ID失败: {}", e.getMessage());
+        }
+    }
+
+    private boolean sharesRelation(WeChatMessage message, Set<Long> relationIds) {
+        Set<Long> candidateIds = new HashSet<>();
+        addRelationId(candidateIds, message.getRelatInq());
+        addRelationId(candidateIds, message.getRelatOffer());
+        for (Long id : candidateIds) {
+            if (relationIds.contains(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean addContiguousMessages(EntryGroup group, List<WeChatMessage> near, int idx, long gapMs) {
+        boolean changed = addMember(group, near.get(idx));
+        long last = parseTime(near.get(idx).getCreateTime());
+        for (int i = idx - 1; i >= 0; i--) {
+            long time = parseTime(near.get(i).getCreateTime());
+            if (time <= 0L || last - time > gapMs) {
+                break;
+            }
+            changed |= addMember(group, near.get(i));
+            last = time;
+        }
+        last = parseTime(near.get(idx).getCreateTime());
+        for (int i = idx + 1; i < near.size(); i++) {
+            long time = parseTime(near.get(i).getCreateTime());
+            if (time <= 0L || time - last > gapMs) {
+                break;
+            }
+            changed |= addMember(group, near.get(i));
+            last = time;
+        }
+        return changed;
+    }
+
+    private static boolean addMember(EntryGroup group, WeChatMessage message) {
+        if (containsMember(group, message)) {
+            return false;
+        }
+        group.members.add(message);
+        return true;
+    }
+
+    private static boolean containsMember(EntryGroup group, WeChatMessage message) {
+        for (WeChatMessage member : group.members) {
+            if (sameMessage(member, message)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void collectQuotes(EntryGroup group) {
@@ -1578,6 +1685,7 @@ public class WeChatGatewayService {
     private boolean isPermanentEntrySkip(Exception e) {
         String msg = safeMessage(e);
         return msg.contains("未能从内容中识别出料号")
+                || msg.contains("未从内容中识别出有效料号")
                 || msg.contains("物料内容不能为空")
                 || msg.contains("AI未从内容中识别出物料信息")
                 || msg.contains("未从内容中识别出有效的物料信息")
@@ -1612,11 +1720,13 @@ public class WeChatGatewayService {
         m.put("createBy", analysisStr("offerEntryCreateBy", "wechat_auto"));
         int minAgeSec = Math.max(0, analysisInt("offerEntryMinAgeSec", 30));
         int groupGapSec = Math.max(1, analysisInt("offerEntryGroupGapSec", 30));
+        int quoteLinkSec = Math.max(groupGapSec, analysisInt("offerEntryQuoteLinkSec", 1800));
         int maxAgeHours = Math.max(1, analysisInt("offerEntryMaxAgeHours", 24));
         m.put("minAgeSec", minAgeSec);
         m.put("groupGapSec", groupGapSec);
+        m.put("quoteLinkSec", quoteLinkSec);
         m.put("maxAgeHours", maxAgeHours);
-        m.put("aiFlow", "同发送人连续消息聚合 -> 单次AI录入 -> 返回料号比价");
+        m.put("aiFlow", "同发送人连续消息 + 同引用补充消息聚合 -> 单次AI录入 -> 返回料号比价");
         m.put("entryStatusLegend",
                 "PENDING=待录入/可重试, PROCESSING=处理中, SUCCESS=成功, SUCCESS_WARN=已录入但比价告警, "
                         + "FAILED=可重试失败, DEAD=达到失败上限, SKIPPED=需人工确认, NOT_APPLICABLE=不参与录入");

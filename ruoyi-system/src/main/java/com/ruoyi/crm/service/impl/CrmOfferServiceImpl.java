@@ -440,9 +440,17 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         String sheetName = "AI_" + new SimpleDateFormat("yyyyMMddHHmm").format(now) + "_" + supplierCode + "_" + userName;
 
         List<CrmOffer> saved = new ArrayList<>();
+        boolean sawPartNumber = false;
         for (Map<String, Object> item : items) {
+            String partNumber = str(item.get("partNumber"));
+            if (partNumber.isEmpty()) {
+                continue;
+            }
+            sawPartNumber = true;
+            Object price = item.get("price");
+            Double cost = price instanceof Number ? ((Number) price).doubleValue() : null;
             CrmOffer offer = new CrmOffer();
-            offer.setProductCode(str(item.get("partNumber")));
+            offer.setProductCode(partNumber);
             offer.setProductBrand(str(item.get("brand")));
             offer.setProductDetailCode(str(item.get("model")));
             String aiDetail = str(item.get("productDetail"));
@@ -455,8 +463,6 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             offer.setProductType(str(item.get("productType")));
             Object qty = item.get("quantity");
             offer.setQuantity(qty instanceof Number ? ((Number) qty).intValue() : null);
-            Object price = item.get("price");
-            Double cost = price instanceof Number ? ((Number) price).doubleValue() : null;
             String currency = normalizeCurrency(str(item.get("currency")));
             boolean usd = "USD".equals(currency);
             if (priceMode == CrmOfferPriceMode.AS_IS) {
@@ -494,6 +500,12 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             if (offerMapper.insertOffer(offer) > 0) {
                 saved.add(offer);
             }
+        }
+        if (saved.isEmpty()) {
+            if (!sawPartNumber) {
+                throw new ServiceException("AI未从内容中识别出有效料号，未录入");
+            }
+            throw new ServiceException("AI未从内容中识别出有效物料，未录入");
         }
         return saved;
     }

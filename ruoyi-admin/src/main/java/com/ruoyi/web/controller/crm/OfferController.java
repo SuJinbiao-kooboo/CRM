@@ -114,7 +114,35 @@ public class OfferController extends BaseController {
                 days = 2;
             }
         }
-        return AjaxResult.success(offerService.priceAdvantageBatch(partNumbers, days));
+        Double threshold = parseThreshold(body == null ? null : body.get("threshold"));
+        return AjaxResult.success(offerService.priceAdvantageBatch(partNumbers, days, threshold));
+    }
+
+    /** 保存价格优势阈值：复制 Offer、AI 查询和定时好价推送共用同一系统参数。 */
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @PostMapping("/priceAdvantageThreshold")
+    public AjaxResult savePriceAdvantageThreshold(@RequestBody Map<String, Object> body) {
+        Double threshold = parseThreshold(body == null ? null : body.get("threshold"));
+        if (threshold == null) {
+            throw new ServiceException("价格优势阈值不能为空");
+        }
+        offerService.savePriceAdvantageThreshold(threshold);
+        return AjaxResult.success("阈值已保存", threshold);
+    }
+
+    private Double parseThreshold(Object value) {
+        if (value == null || String.valueOf(value).trim().isEmpty()) {
+            return null;
+        }
+        try {
+            double threshold = Double.parseDouble(String.valueOf(value).trim());
+            if (Double.isNaN(threshold) || Double.isInfinite(threshold)) {
+                throw new NumberFormatException();
+            }
+            return threshold;
+        } catch (NumberFormatException e) {
+            throw new ServiceException("价格优势阈值必须是有效数字");
+        }
     }
 
         /**

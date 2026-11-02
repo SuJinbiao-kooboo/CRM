@@ -89,6 +89,15 @@ public interface ICrmOfferService {
 
     /** 批量判断料号在最近 days 个自然日内是否具备价格优势（同一后端算法）。 */
     Map<String, Boolean> priceAdvantageBatch(List<String> partNumbers, int days);
+
+    /** 使用指定阈值批量判断价格优势；threshold 为空时读取系统参数。 */
+    Map<String, Boolean> priceAdvantageBatch(List<String> partNumbers, int days, Double threshold);
+
+    /** 读取价格优势阈值（USD），配置缺失或非法时返回默认值 15。 */
+    double getPriceAdvantageThreshold();
+
+    /** 保存价格优势阈值（USD）到系统参数，供页面和定时推送共同使用。 */
+    void savePriceAdvantageThreshold(double threshold);
     /** 批量失效：把指定id的Offer置为无效（status=0） */
     int invalidateOffers(List<Long> ids);
 }

@@ -344,7 +344,7 @@
       <div class="copy-toolbar">
         <span class="adv-threshold-wrap">
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
-          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" disabled />
+          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" title="修改后自动保存并重新勾选" @change="onPriceAdvThresholdChange" />
         </span>
         <span style="color:#909399; font-size:12px">最近天数:</span>
         <el-button size="mini" icon="el-icon-minus" circle :disabled="Number(copyRecentDays) <= 1" @click="changeCopyRecentDays(-1)" />
@@ -370,6 +370,7 @@
       <div v-for="(group, gi) in aiQueryGroups" :key="gi" class="ai-query-group">
         <div class="ai-query-part-number">
           <span>{{ group.partNumber }}（{{ (group.offers || []).length }}条记录）</span>
+          <el-tag v-if="group.cpu" size="mini" type="warning" style="margin-left:8px">CPU默认全选</el-tag>
           <el-checkbox v-model="group.checked" style="margin-left: 10px" @change="onGroupCheckedChange">复制</el-checkbox>
         </div>
         <div v-if="!group.offers || group.offers.length === 0" class="ai-query-empty">最近1个月无INQ/OFFER记录</div>
@@ -414,7 +415,7 @@
       <div class="copy-toolbar">
         <span class="adv-threshold-wrap">
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
-          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" disabled />
+          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" title="修改后自动保存并重新勾选" @change="onPriceAdvThresholdChange" />
         </span>
         <span style="color:#909399; font-size:12px">最近天数:</span>
         <el-button size="mini" icon="el-icon-minus" circle :disabled="Number(copyRecentDays) <= 1" @click="changeCopyRecentDays(-1)" />
@@ -435,6 +436,7 @@
       <div v-for="(group, gi) in aiCompareGroups" :key="gi" class="ai-query-group">
         <div class="ai-query-part-number">
           <span>{{ group.partNumber }}（{{ (group.offers || []).length }}条记录）</span>
+          <el-tag v-if="group.cpu" size="mini" type="warning" style="margin-left:8px">CPU默认全选</el-tag>
           <el-checkbox v-model="group.checked" style="margin-left: 10px" @change="onGroupCheckedChange">复制</el-checkbox>
         </div>
         <el-table :data="group.offers" size="mini" border :row-style="groupRowStyle">
@@ -477,7 +479,7 @@
       <div class="copy-toolbar">
         <span class="adv-threshold-wrap">
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
-          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" disabled />
+          <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" title="修改后自动保存并重新勾选" @change="onPriceAdvThresholdChange" />
         </span>
         <span style="color:#909399; font-size:12px">最近天数:</span>
         <el-button size="mini" icon="el-icon-minus" circle :disabled="Number(copyRecentDays) <= 1" @click="changeCopyRecentDays(-1)" />
@@ -495,12 +497,13 @@
         <el-button size="mini" type="success" icon="el-icon-download" :disabled="todayCopyGroups.length === 0" @click="downloadOfferExcel(todayCopyGroups)">下载</el-button>
         <el-button size="mini" icon="el-icon-document-copy" v-clipboard="todayCopyCopyText" v-clipboard:success="onCopyOk" :disabled="todayCopyGroups.length === 0">一键复制全部信息</el-button>
       </div>
-      <div style="color:#909399; font-size:12px; margin-bottom:8px">最近{{ copyRecentDays }}天去重后共 {{ todayCopyGroups.length }} 个料号，满足价格优势（区间最好价 ≤ 上两次报价最低价 - 阈值）的料号已自动勾选</div>
+      <div style="color:#909399; font-size:12px; margin-bottom:8px">最近{{ copyRecentDays }}天去重后共 {{ todayCopyGroups.length }} 个料号；满足价格优势（区间最好价 ≤ 上两次报价最低价 - 阈值）及CPU类型的料号已自动勾选</div>
       <div v-if="todayCopyLoading" style="color:#909399; text-align:center; padding: 30px 0">加载中，请稍候...</div>
       <div v-if="todayCopyGroups.length === 0 && !todayCopyLoading" style="color:#909399; text-align:center; padding: 30px 0">最近{{ copyRecentDays }}天暂无Offer记录</div>
       <div v-for="(group, gi) in todayCopyGroups" :key="gi" class="ai-query-group">
         <div class="ai-query-part-number">
           <span>{{ group.partNumber }}（{{ (group.offers || []).length }}条记录）</span>
+          <el-tag v-if="group.cpu" size="mini" type="warning" style="margin-left:8px">CPU默认全选</el-tag>
           <el-checkbox v-model="group.checked" style="margin-left: 10px" @change="onGroupCheckedChange">复制</el-checkbox>
         </div>
         <div v-if="!group.offers || group.offers.length === 0" class="ai-query-empty">最近1个月无INQ/OFFER记录</div>
@@ -700,7 +703,7 @@
 </template>
 
 <script>
-import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, invalidateOffers, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, fetchTodayCopyGroups, getSupplierNameDetail, copyAiQueryOffers, downloadOfferTemplate, priceAdvantageBatch } from '@/api/crm/offer'
+import { listOffer, getOffer, addOffer, updateOffer, importOffer, batchEditOffer, delOffer, invalidateOffers, parseOffer, sendOffer, listEmailResults, aiEntry, aiQuery, fetchTodayCopyGroups, getSupplierNameDetail, copyAiQueryOffers, downloadOfferTemplate, priceAdvantageBatch, savePriceAdvantageThreshold } from '@/api/crm/offer'
 import { listSupplierOptions, listSupplier, listSupplierSimple } from '@/api/crm/supplier'
 import { getDicts } from '@/api/system/dict/data'
 import { getConfigKey } from '@/api/system/config'
@@ -743,7 +746,7 @@ export default {
       // 复制工具栏状态（AI录入比价/AI查询共用）：最近天数（1=当天/2=最近两天/3=最近三天，默认1天）、勾选的额外字段（默认都不勾选）、加载中
       copyRecentDays: 2,
       copyExtraFields: [],
-      // 价格优势阈值（单位USD）：默认15，优先读取系统参数 offer.price.advantage.threshold
+      // 价格优势阈值（单位USD）：默认15，优先读取系统参数 offer.price.advantage.threshold；页面可修改并自动保存
       priceAdvThreshold: 15,
       aiCopyLoading: false,
       // 复制Offer（当日料号比价）弹窗状态：加载中、分组结果（与AI查询相同结构）、待复制文本、复制失败兜底文本
@@ -1026,6 +1029,24 @@ export default {
         }
       }).catch(() => {})
     },
+    /** 修改价格优势阈值：立即按新阈值重算勾选，并保存到系统参数供定时任务复用 */
+    onPriceAdvThresholdChange(value) {
+      const threshold = Number(value);
+      if (value === null || value === '' || !isFinite(threshold)) {
+        this.priceAdvThreshold = 15;
+        this.$modal.msgWarning('价格优势阈值无效，已恢复为15 USD');
+        this.autoSelectAdvantage();
+        return;
+      }
+      this.priceAdvThreshold = threshold;
+      this.autoSelectAdvantage();
+      savePriceAdvantageThreshold(threshold).then(() => {
+        this.$modal.msgSuccess('价格优势阈值已保存为 ' + threshold + ' USD');
+      }).catch(err => {
+        const e = err || {};
+        this.$modal.msgError(e.msg || e.message || '价格优势阈值保存失败');
+      });
+    },
     /** 全选：勾选全部料号复制框（AI查询/AI录入比价/复制Offer共用），便于一键复制全部 */
     selectAllAdvantage() {
       const groups = this.allCompareGroups();
@@ -1046,17 +1067,23 @@ export default {
     allCompareGroups() {
       return (this.aiQueryGroups || []).concat(this.aiCompareGroups || [], this.todayCopyGroups || []);
     },
-    /** 依据价格优势阈值自动勾选AI查询/AI录入比价/复制Offer中的料号 */
+    /** 依据价格优势阈值自动勾选AI查询/AI录入比价/复制Offer中的料号；CPU料号默认全选 */
     autoSelectAdvantage() {
       const groups = this.allCompareGroups();
       if (groups.length === 0) return;
       const partNumbers = [...new Set(groups.map(g => g.partNumber).filter(Boolean))];
       const days = Math.max(1, Math.floor(Number(this.copyRecentDays)) || 2);
-      priceAdvantageBatch(partNumbers, days).then(res => {
+      const threshold = Number(this.priceAdvThreshold);
+      priceAdvantageBatch(partNumbers, days, isFinite(threshold) ? threshold : 15).then(res => {
         const result = res.data || {};
-        groups.forEach(g => this.$set(g, 'checked', result[String(g.partNumber || '').trim().toUpperCase()] === true));
+        groups.forEach(g => {
+          const key = String(g.partNumber || '').trim().toUpperCase();
+          this.$set(g, 'checked', g.cpu === true || result[key] === true);
+        });
+        this.onGroupCheckedChange();
       }).catch(() => {
-        groups.forEach(g => this.$set(g, 'checked', false));
+        groups.forEach(g => this.$set(g, 'checked', g.cpu === true));
+        this.onGroupCheckedChange();
       });
     },
     /** 提交AI料号查询：AI提取完整料号后查询最近1个月INQ/OFFER历史记录（组内按Offer日期倒排） */
@@ -1096,6 +1123,10 @@ export default {
       const dayKeys = this.recentDayKeys();
       (groups || []).forEach(g => {
         const offers = g.offers || [];
+        if (g.cpu === undefined) {
+          const typedOffer = offers.find(o => String(o.productType || '').trim() !== '');
+          g.cpu = typedOffer ? this.isCpuProductType(typedOffer.productType) : false;
+        }
         let bestIndex = -1, bestPrice = null;
         offers.forEach((o, i) => {
           // 仅最近3天内的记录参与最低价比较，范围外的行不参与
@@ -1108,6 +1139,10 @@ export default {
         offers.forEach((o, i) => { o.bgColor = i === bestIndex ? 'rgb(217,236,255)' : '' });
       });
       return groups || []
+    },
+    /** 产品类型包含CPU（兼容逗号、斜杠等复合类型） */
+    isCpuProductType(productType) {
+      return String(productType || '').split(/[,，/、;；\s]+/).some(value => value.trim().toUpperCase() === 'CPU')
     },
     /** 最近3天的日期键（第1个=今天、第2个=昨天、第3个=前天），格式 yyyy-MM-dd，
      *  与后端Offer日期前10位（yyyy-MM-dd）一致，按字符串比较避免时区/解析差异 */

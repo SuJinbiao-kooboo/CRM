@@ -48,6 +48,9 @@ import com.ruoyi.system.service.ISysConfigService;
 @Slf4j
 public class CrmOfferServiceImpl implements ICrmOfferService {
 
+    private static final String PRICE_ADVANTAGE_THRESHOLD_KEY = "offer.price.advantage.threshold";
+    private static final double DEFAULT_PRICE_ADVANTAGE_THRESHOLD = 15d;
+
     @Autowired
     private CrmOfferMapper offerMapper;
 
@@ -573,6 +576,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 m.put("productDetail", o.getProductDetail());
                 offerList.add(m);
             }
+            group.put("cpu", isCpuGroup(entry.getValue()));
             group.put("offers", offerList);
             result.add(group);
         }
@@ -719,19 +723,24 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
      */
     @Override
     public Map<String, Boolean> priceAdvantageBatch(List<String> partNumbers, int days) {
+        return priceAdvantageBatch(partNumbers, days, null);
+    }
+
+    /**
+     * 批量判断料号价格优势，Offer 页面与微信任务共用。
+     * 窗口为最近 N 个自然日；窗口内最低 price_offer 比窗口开始前最近两条有效报价的最低价低至少阈值时命中。
+     * threshold 为空时读取系统参数 offer.price.advantage.threshold。
+     */
+    @Override
+    public Map<String, Boolean> priceAdvantageBatch(List<String> partNumbers, int days, Double threshold) {
         Map<String, Boolean> result = new LinkedHashMap<>();
         if (partNumbers == null || partNumbers.isEmpty()) {
             return result;
         }
         int windowDays = Math.max(1, Math.min(999, days));
-        double threshold = 15d;
-        try {
-            String configured = sysConfigService.selectConfigByKey("offer.price.advantage.threshold");
-            if (configured != null && !configured.trim().isEmpty()) {
-                threshold = Double.parseDouble(configured.trim());
-            }
-        } catch (Exception e) {
-            log.warn("读取价格优势阈值失败，使用默认值15: {}", e.getMessage());
+        double effectiveThreshold = threshold == null ? getPriceAdvantageThreshold() : threshold;
+        if (Double.isNaN(effectiveThreshold) || Double.isInfinite(effectiveThreshold)) {
+            throw new ServiceException("价格优势阈值必须是有效数字");
         }
         String todayKey = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
         Calendar calendar = Calendar.getInstance();
@@ -771,11 +780,64 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             if (!windowPrices.isEmpty() && beforeWindow.size() >= 2) {
                 double windowBest = Collections.min(windowPrices);
                 double baseline = Math.min(beforeWindow.get(0).getPriceOffer(), beforeWindow.get(1).getPriceOffer());
-                advantage = baseline - windowBest >= threshold;
+                advantage = baseline - windowBest >= effectiveThreshold;
             }
             result.put(pn, advantage);
         }
         return result;
+    }
+
+    @Override
+    public double getPriceAdvantageThreshold() {
+        try {
+            String configured = sysConfigService.selectConfigByKey(PRICE_ADVANTAGE_THRESHOLD_KEY);
+            if (configured != null && !configured.trim().isEmpty()) {
+                double value = Double.parseDouble(configured.trim());
+                if (!Double.isNaN(value) && !Double.isInfinite(value)) {
+                    return value;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("读取价格优势阈值失败，使用默认值{}: {}", DEFAULT_PRICE_ADVANTAGE_THRESHOLD, e.getMessage());
+        }
+        return DEFAULT_PRICE_ADVANTAGE_THRESHOLD;
+    }
+
+    @Override
+    public void savePriceAdvantageThreshold(double threshold) {
+        if (Double.isNaN(threshold) || Double.isInfinite(threshold)) {
+            throw new ServiceException("价格优势阈值必须是有效数字");
+        }
+        String value = BigDecimal.valueOf(threshold).stripTrailingZeros().toPlainString();
+        if (sysConfigService.updateConfigByKey(PRICE_ADVANTAGE_THRESHOLD_KEY, value) <= 0) {
+            throw new ServiceException("保存价格优势阈值失败");
+        }
+    }
+
+    /** 分组内存在 CPU 类型报价时，复制 Offer 默认选中该料号。 */
+    private boolean isCpuGroup(List<CrmOffer> offers) {
+        if (offers == null) {
+            return false;
+        }
+        for (CrmOffer offer : offers) {
+            String productType = offer.getProductType();
+            if (productType != null && !productType.trim().isEmpty()) {
+                return isCpuProductType(productType);
+            }
+        }
+        return false;
+    }
+
+    private boolean isCpuProductType(String productType) {
+        if (productType == null) {
+            return false;
+        }
+        for (String value : productType.split("[,，/、;；\\s]+")) {
+            if ("CPU".equalsIgnoreCase(value.trim())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 复制去重key：品牌+料号（同品牌下相同料号视为同一物料） */

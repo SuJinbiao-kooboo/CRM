@@ -32,6 +32,7 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -1097,6 +1098,129 @@ public class WeChatGatewayService {
         return sb.toString().trim();
     }
 
+    /**
+     * 自动录入 Offer 后，按“复制 Offer”的自动勾选规则推送飞书待跟进：
+     * CPU 料号全部选中，其他料号沿用价格优势阈值。分别发送报价与聊天记录两条消息。
+     */
+    private String notifyOfferFollowUp(EntryGroup group, WeChatMessage anchor, List<CrmOffer> saved,
+                                       String supplierName) {
+        if (!"OFFER".equalsIgnoreCase(StringUtils.trimToEmpty(anchor.getMsgCategory()))) {
+            return "";
+        }
+        LinkedHashSet<String> savedPartNumbers = new LinkedHashSet<>();
+        Set<String> cpuPartNumbers = new HashSet<>();
+        for (CrmOffer row : saved) {
+            if (row == null || StringUtils.isBlank(row.getProductCode())) {
+                continue;
+            }
+            String partNumber = row.getProductCode().trim().toUpperCase(Locale.ROOT);
+            savedPartNumbers.add(partNumber);
+            if (isCpuProductType(row.getProductType())) {
+                cpuPartNumbers.add(partNumber);
+            }
+        }
+        if (savedPartNumbers.isEmpty()) {
+            return "";
+        }
+        try {
+            int days = 2;
+            Map<String, Boolean> advantage = offerService.priceAdvantageBatch(
+                    new ArrayList<>(savedPartNumbers), days);
+            List<String> selectedPartNumbers = new ArrayList<>();
+            for (String partNumber : savedPartNumbers) {
+                if (cpuPartNumbers.contains(partNumber)
+                        || Boolean.TRUE.equals(advantage.get(partNumber))) {
+                    selectedPartNumbers.add(partNumber);
+                }
+            }
+            if (selectedPartNumbers.isEmpty()) {
+                log.info("微信自动录入Offer未达到待跟进条件: chat={} localId={} 料号={}",
+                        anchor.getName(), anchor.getLocalId(), savedPartNumbers);
+                return "";
+            }
+
+            String quoteText = offerService.buildAiQueryCopyText(
+                    selectedPartNumbers, days, Collections.<String>emptyList());
+            String threshold = BigDecimal.valueOf(offerService.getPriceAdvantageThreshold())
+                    .stripTrailingZeros().toPlainString();
+            StringBuilder quoteDetail = new StringBuilder();
+            quoteDetail.append("【好价报价 Offer】\n")
+                    .append("会话: ").append(StringUtils.defaultString(anchor.getName())).append('\n')
+                    .append("供应商: ").append(StringUtils.defaultString(supplierName)).append('\n')
+                    .append("微信消息ID: ").append(anchor.getLocalId()).append('\n')
+                    .append("自动录入Offer ID: ").append(joinOfferIds(saved)).append('\n')
+                    .append("价格优势阈值: ").append(threshold).append(" USD\n")
+                    .append("选择规则: CPU料号默认全部选中；其他料号仅推送达到阈值的料号，每个料号取最近")
+                    .append(days).append("天最低Offer。\n")
+                    .append("本次待跟进料号: ").append(selectedPartNumbers.size()).append(" 个\n\n")
+                    .append(clipFeishuText(quoteText, 16000));
+
+            String eventBase = "OFFER_FOLLOW_UP|" + StringUtils.defaultString(anchor.getUsername())
+                    + "|" + anchor.getLocalId();
+            boolean quoteSent = aiChannelService.alert(eventBase + "|QUOTE", "Offer待跟进", quoteDetail.toString());
+            String chatDetail = "【相关聊天记录】\n" + buildFollowUpChatHistory(group, anchor);
+            boolean chatSent = aiChannelService.alert(eventBase + "|CHAT", "Offer待跟进",
+                    clipFeishuText(chatDetail, 16000));
+            if (!quoteSent || !chatSent) {
+                log.warn("微信自动录入Offer飞书待跟进推送未全部成功: chat={} localId={} quoteSent={} chatSent={}",
+                        anchor.getName(), anchor.getLocalId(), quoteSent, chatSent);
+                return "；Offer待跟进飞书推送失败(报价" + (quoteSent ? "成功" : "失败")
+                        + "/聊天记录" + (chatSent ? "成功" : "失败") + ")";
+            }
+            log.info("微信自动录入Offer已推送飞书待跟进: chat={} localId={} 料号={}",
+                    anchor.getName(), anchor.getLocalId(), selectedPartNumbers);
+            return "";
+        } catch (Exception e) {
+            log.warn("微信自动录入Offer待跟进推送异常(不影响已入库Offer): chat={} localId={}",
+                    anchor.getName(), anchor.getLocalId(), e);
+            return "；Offer待跟进飞书推送异常: " + safeMessage(e);
+        }
+    }
+
+    /** 飞书跟进消息中的聊天记录：引用原文在前，本次连续消息按时间顺序在后。 */
+    private String buildFollowUpChatHistory(EntryGroup group, WeChatMessage anchor) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("会话: ").append(StringUtils.defaultString(anchor.getName())).append('\n')
+                .append("分类: ").append(StringUtils.defaultString(anchor.getMsgCategory())).append('\n')
+                .append("消息ID: ").append(group.localIds()).append('\n');
+        if (!group.quotes.isEmpty()) {
+            sb.append("\n【引用原消息】\n");
+            for (EntryQuote quote : group.quotes) {
+                sb.append(StringUtils.isNotBlank(quote.id) ? "#" + quote.id + " " : "")
+                        .append(StringUtils.defaultIfBlank(quote.sender, "对方")).append(": ")
+                        .append(quote.content).append('\n');
+            }
+        }
+        sb.append("\n【本次连续消息】\n");
+        for (WeChatMessage message : group.members) {
+            sb.append(StringUtils.defaultIfBlank(message.getSender(), "未知"))
+                    .append(" [").append(StringUtils.defaultString(message.getCreateTime())).append("]")
+                    .append(" #").append(message.getLocalId()).append(": ")
+                    .append(clipFeishuText(StringUtils.trimToEmpty(message.getContent()), 3000))
+                    .append('\n');
+        }
+        return sb.toString().trim();
+    }
+
+    /** 判断当前 Offer 是否属于 CPU；与复制 Offer 的 CPU 默认勾选口径一致。 */
+    private boolean isCpuProductType(String productType) {
+        if (StringUtils.isBlank(productType)) {
+            return false;
+        }
+        for (String value : productType.split("[,，/、;；\\s]+")) {
+            if ("CPU".equalsIgnoreCase(value.trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 飞书文本上限保护，保留原始换行，避免报价/聊天记录被压成一行。 */
+    private String clipFeishuText(String text, int max) {
+        String value = StringUtils.trimToEmpty(text);
+        return value.length() <= max ? value : value.substring(0, max) + "…";
+    }
+
     private WeChatMessage firstRetryableEntryMember(EntryGroup group, List<String> cats) {
         for (WeChatMessage m : group.members) {
             if (isEntryCandidate(m, cats) && isEntryRetryable(m)) {
@@ -1229,9 +1353,11 @@ public class WeChatGatewayService {
             log.warn("微信AI录入后比价失败(不影响已入库记录): chat={} serverId={}",
                     anchor.getName(), anchor.getServerId(), ce);
         }
-        String entryStatus = compareError.isEmpty() ? "SUCCESS" : "SUCCESS_WARN";
+        String followUpError = notifyOfferFollowUp(group, anchor, saved,
+                party.getSupplier().getSupplierName());
+        String entryStatus = compareError.isEmpty() && followUpError.isEmpty() ? "SUCCESS" : "SUCCESS_WARN";
         String entryMessage = "聚合录入[" + (group.members.size() + group.quotes.size()) + "条]: 消息#" + anchor.getLocalId()
-                + "; AI录入: " + saved.size() + "行; 比价: " + compareRows + "条" + compareError;
+                + "; AI录入: " + saved.size() + "行; 比价: " + compareRows + "条" + compareError + followUpError;
         stats.enteredGroups++;
         stats.enteredMessages += group.members.size() + group.quotes.size();
         stats.enteredOffers += saved.size();

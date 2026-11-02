@@ -50,6 +50,16 @@ public class WeChatLlmClassifier {
     private static final String[] INQUIRY_SIGNALS = {
             "?", "？", "询价", "有货吗", "有吗", "多少钱", "什么价", "请报", "要报价", "报价给我", "rfq", "inq"
     };
+    private static final String[] OFFER_TO_US_ASKS = {
+            "要不要", "需不需要", "有没有需要", "有兴趣"
+    };
+    private static final String[] OFFER_TO_US_VERBS = {
+            "你要", "您要", "你需要", "您需要", "需要", "还要"
+    };
+    private static final String[] OFFER_OBJECT_HINTS = {
+            "这个", "这些", "那个", "那批", "这款", "那款", "内存", "硬盘", "固态", "显卡",
+            "服务器", "cpu", "gpu", "ssd", "hdd", "ddr"
+    };
 
     private final ObjectMapper jackson = new ObjectMapper();
     private final Map<String, Classification> cache = new ConcurrentHashMap<>();
@@ -258,12 +268,13 @@ public class WeChatLlmClassifier {
         }
     }
 
-    private static String groupCategory(List<WeChatMessage> input, Map<Integer, Classification> out,
-                                        int start, int end) {
+    private String groupCategory(List<WeChatMessage> input, Map<Integer, Classification> out,
+                                 int start, int end) {
         boolean hasInq = false;
         boolean hasOffer = false;
         boolean hasInquirySignal = false;
         boolean hasSupplySignal = false;
+        boolean askWhetherWeNeed = false;
         for (int j = start; j <= end; j++) {
             WeChatMessage m = input.get(j);
             String category = categoryOf(out, m, j);
@@ -275,6 +286,10 @@ public class WeChatLlmClassifier {
             String text = StringUtils.lowerCase(StringUtils.defaultString(m.getContent()));
             hasInquirySignal = hasInquirySignal || containsAny(text, INQUIRY_SIGNALS);
             hasSupplySignal = hasSupplySignal || containsAny(text, SUPPLY_SIGNALS);
+            askWhetherWeNeed = askWhetherWeNeed || asksWhetherWeNeed(m);
+        }
+        if (askWhetherWeNeed) {
+            return "OFFER";
         }
         if (hasOffer && hasSupplySignal && !hasInquirySignal) {
             return "OFFER";
@@ -289,6 +304,42 @@ public class WeChatLlmClassifier {
             return "INQ";
         }
         return null;
+    }
+
+    /**
+     * 外部发送人询问“你要/需要某型号吗”或“这个还要吗”，是在向我方供货，不是向我方询价。
+     * 这里只做明确的询问式供货兜底；普通问价仍交给 AI 判断。
+     */
+    private boolean asksWhetherWeNeed(WeChatMessage m) {
+        if (m == null || WeChatTextUtils.isSelf(m.getSender(), selfNames())) {
+            return false;
+        }
+        String text = StringUtils.lowerCase(StringUtils.trimToEmpty(m.getContent()));
+        if (containsAny(text, OFFER_TO_US_ASKS)) {
+            return true;
+        }
+        if (!isQuestion(text)) {
+            return false;
+        }
+        if (!containsAny(text, OFFER_TO_US_VERBS)) {
+            return false;
+        }
+        return containsProductToken(text) || containsAny(text, OFFER_OBJECT_HINTS);
+    }
+
+    private static boolean isQuestion(String text) {
+        return text.contains("?") || text.contains("？")
+                || text.endsWith("吗") || text.endsWith("嘛") || text.endsWith("么");
+    }
+
+    private static boolean containsProductToken(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+                return true;
+            }
+        }
+        return containsAny(text, OFFER_OBJECT_HINTS);
     }
 
     private void normalizeGroup(List<WeChatMessage> input, int batchStart, Map<Integer, Classification> out,
@@ -475,6 +526,8 @@ public class WeChatLlmClassifier {
         sb.append("\nINQ必须指向具体待询价的料号、型号、规格或品类；只是在打听对方历史成交价、问对方是否还收货/还做不做，"
                 + "且没有具体待询价对象的（如“多少钱拿的”“你们还收不”），判OTHER；"
                 + "若这类追问明确围绕前面某条具体INQ/OFFER推进条件，则判TRACE。");
+        sb.append("\n外部非我方发送人询问我方“你要/需要/还要/要不要某型号或数量吗”，是在向我方供货，判OFFER，"
+                + "不能因为带问号判INQ；同一发送人紧接着补充品牌、库存或数量的消息，整组统一判OFFER。");
         sb.append("\n示例：\n").append(StringUtils.isNotBlank(examples)
                 ? examples.trim() : DEFAULT_EXAMPLES);
         return sb.toString();
@@ -613,6 +666,7 @@ public class WeChatLlmClassifier {
             "#31 H [INQ] [客户] And please check this model also\n#32 P [客户] Sealed box ? → {\"i\":32,\"cat\":\"TRACE\",\"inq\":31}\n" +
             "#33 [客户] 多少钱拿的 → {\"i\":33,\"cat\":\"OTHER\"}\n" +
             "#34 [客户] 你们还收不 → {\"i\":34,\"cat\":\"OTHER\"}\n" +
+            "#66 [供应商] 你要128G6400吗\n#67 [供应商] 三星的 → {\"i\":66,\"cat\":\"OFFER\"},{\"i\":67,\"cat\":\"OFFER\"}\n" +
             "#35 [客户] 2565X 有货吗 → {\"i\":35,\"cat\":\"INQ\"}\n" +
             "#36 [客户] 多少钱 → {\"i\":36,\"cat\":\"TRACE\",\"inq\":35}\n" +
             "#37 [客户] Intel 6346 33片有货吗？ → {\"i\":37,\"cat\":\"INQ\"}\n" +

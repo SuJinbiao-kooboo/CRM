@@ -38,6 +38,7 @@
             <div class="help-title">菜单按钮说明</div>
             <ul>
               <li><b>自动分类</b>：关闭时只在勾选消息后手动分类；开启后由后端定时扫描未分类消息。</li>
+              <li><b>自动录入</b>：关闭时仅在勾选消息后手动录入；开启后由“微信自动化-INQ/OFFER录入”定时任务按配置扫描并调用 AI 录入。</li>
               <li><b>拉取</b>：立即从微信本地库同步消息入库；聊天对象有值时只拉该会话，留空拉全部。</li>
               <li><b>分类选中</b>：对勾选消息强制重新调用 AI 分类为 INQ/OFFER/TRACE/OTHER，单次最多 20 条；已录入或已生成任务的消息不会被覆盖。同一发送人连续补充消息按整组语义归并，INQ/OFFER 的前序误判会自动修正，不判 TRACE。</li>
               <li><b>录入选中</b>：对勾选消息执行 AI 录入和料号匹配；仅处理已成功分类的 INQ/OFFER。选中一条会自动扩展为同一发送人 30 秒内的连续消息组，并带上被引用的原文，整组只调用一次 AI 录入，已录入消息幂等跳过。</li>
@@ -108,6 +109,10 @@
       <el-col :span="3" class="auto-classify-switch">
         <span class="auto-classify-label">自动分类</span>
         <el-switch v-model="autoClassifyEnabled" :disabled="autoClassifySaving" active-color="#13ce66" v-hasPermi="['wechat:message:classify']" @change="handleAutoClassifyChange" />
+      </el-col>
+      <el-col :span="3" class="auto-classify-switch">
+        <span class="auto-classify-label">自动录入</span>
+        <el-switch v-model="autoEntryEnabled" :disabled="autoEntrySaving" active-color="#13ce66" v-hasPermi="['wechat:message:entry']" @change="handleAutoEntryChange" />
       </el-col>
       <el-col :span="1.5"><el-button type="primary" plain icon="el-icon-download" size="mini" :loading="polling" @click="handlePoll" v-hasPermi="['wechat:message:poll']">拉取</el-button></el-col>
       <el-col :span="1.5"><el-button type="warning" plain icon="el-icon-magic-stick" size="mini" :loading="classifying" @click="handleClassifySelected" v-hasPermi="['wechat:message:classify']">分类选中</el-button></el-col>
@@ -322,7 +327,7 @@
 <script>
 import { saveAs } from 'file-saver'
 import * as XLSX from 'xlsx'
-import { listWechatMessages, getWechatMessageStats, getWechatMedia, getWechatQuoteInfo, getWechatQuoteMedia, runWechatClassify, updateWechatMessageCategory, setWechatClassifyConfig, clearWechatClassifyCache, scanWechatTrace, runWechatEntry, requeueWechatEntry, runWechatPoll } from '@/api/crm/wechatMessage'
+import { listWechatMessages, getWechatMessageStats, getWechatMedia, getWechatQuoteInfo, getWechatQuoteMedia, runWechatClassify, updateWechatMessageCategory, setWechatClassifyConfig, clearWechatClassifyCache, scanWechatTrace, setWechatEntryConfig, runWechatEntry, requeueWechatEntry, runWechatPoll } from '@/api/crm/wechatMessage'
 
 const DOCUMENT_EXTS = ['pdf', 'xls', 'xlsx', 'csv', 'txt', 'md', 'json', 'xml', 'log', 'doc', 'docx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
 const TEXT_EXTS = ['txt', 'md', 'json', 'xml', 'log']
@@ -366,6 +371,8 @@ export default {
       classifying: false,
       autoClassifyEnabled: false,
       autoClassifySaving: false,
+      autoEntryEnabled: false,
+      autoEntrySaving: false,
       entering: false,
       showSearch: true,
       total: 0,
@@ -462,6 +469,7 @@ export default {
         const batchSize = Number(entry.batchSize || 0)
         const scanSec = Number(entry.scanSec || 0)
         this.autoClassifyEnabled = !!poll.classifyEnabled
+        this.autoEntryEnabled = !!entry.enabled
         this.statsText = (poll.classifyEnabled ? '自动分类已开启' : '自动分类已关闭') + '，' +
           (entry.enabled ? '自动录入已开启' : '自动录入已关闭') + '，未分类 ' + (poll.unclassifiedCnt || 0) +
           ' 条，待录入 ' + pending + ' 条，最近拉取 ' + (poll.lastRunAt || '-')
@@ -556,6 +564,18 @@ export default {
       }).catch(() => {
         this.autoClassifyEnabled = !target
       }).finally(() => { this.autoClassifySaving = false })
+    },
+    handleAutoEntryChange(enabled) {
+      const target = !!enabled
+      this.autoEntrySaving = true
+      setWechatEntryConfig(target).then(res => {
+        const data = res.data || {}
+        this.autoEntryEnabled = typeof data.autoEnabled === 'boolean' ? data.autoEnabled : target
+        this.$modal.msgSuccess(data.message || (target ? '自动录入已开启' : '自动录入已关闭'))
+        this.loadStats()
+      }).catch(() => {
+        this.autoEntryEnabled = !target
+      }).finally(() => { this.autoEntrySaving = false })
     },
     handleEntrySelected() {
       if (!this.requireSelection()) return

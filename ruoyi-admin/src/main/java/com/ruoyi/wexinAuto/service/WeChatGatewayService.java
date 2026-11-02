@@ -482,13 +482,25 @@ public class WeChatGatewayService {
 
     /** 更新自动分类总开关；写入 wechat_analysis_config.classifyEnabled 并立即刷新字典缓存。 */
     public Map<String, Object> updateClassifyEnabled(boolean enabled) {
+        return updateAnalysisSwitch("classifyEnabled", enabled, 129L,
+                "自动分类已开启", "自动分类已关闭，仅保留手动分类");
+    }
+
+    /** 更新 INQ/OFFER 自动录入总开关；写入 wechat_analysis_config.offerEntryEnabled。 */
+    public Map<String, Object> updateOfferEntryEnabled(boolean enabled) {
+        return updateAnalysisSwitch("offerEntryEnabled", enabled, 110L,
+                "自动录入已开启", "自动录入已关闭，仅保留手动录入");
+    }
+
+    private Map<String, Object> updateAnalysisSwitch(String label, boolean enabled, Long defaultSort,
+                                                     String enabledMessage, String disabledMessage) {
         SysDictData query = new SysDictData();
         query.setDictType(ANALYSIS_DICT_TYPE);
         List<SysDictData> rows = dictDataService.selectDictDataList(query);
         SysDictData target = null;
         if (rows != null) {
             for (SysDictData row : rows) {
-                if ("classifyEnabled".equals(row.getDictLabel())) {
+                if (label.equals(row.getDictLabel())) {
                     target = row;
                     break;
                 }
@@ -498,9 +510,9 @@ public class WeChatGatewayService {
         if (target == null) {
             target = new SysDictData();
             target.setDictType(ANALYSIS_DICT_TYPE);
-            target.setDictLabel("classifyEnabled");
+            target.setDictLabel(label);
             target.setDictValue(value);
-            target.setDictSort(129L);
+            target.setDictSort(defaultSort);
             target.setStatus("0");
             target.setCreateBy(SecurityUtils.getUsername());
             dictDataService.insertDictData(target);
@@ -511,7 +523,7 @@ public class WeChatGatewayService {
         }
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("autoEnabled", enabled);
-        out.put("message", enabled ? "自动分类已开启" : "自动分类已关闭，仅保留手动分类");
+        out.put("message", enabled ? enabledMessage : disabledMessage);
         return out;
     }
 

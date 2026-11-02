@@ -233,6 +233,21 @@ public class CrmWeChatMessageController extends BaseController {
         return success(gateway.offerEntryStatus());
     }
 
+    /** 自动录入总开关：关闭时定时任务只保留手动录入。 */
+    @PreAuthorize("@ss.hasPermi('wechat:message:entry')")
+    @Log(title = "微信自动录入开关", businessType = BusinessType.UPDATE)
+    @PostMapping("/entry/config")
+    public AjaxResult updateEntryConfig(@RequestBody(required = false) Map<String, Object> body) {
+        if (body == null || !body.containsKey("enabled")) {
+            return error("缺少enabled参数");
+        }
+        String value = String.valueOf(body.get("enabled"));
+        if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
+            return error("enabled只能为true或false");
+        }
+        return success(gateway.updateOfferEntryEnabled(Boolean.parseBoolean(value)));
+    }
+
     /** 人工触发录入；带消息键时绕过消息年龄窗口，但仍执行分类来源、群映射和方向校验。 */
     @PreAuthorize("@ss.hasPermi('wechat:message:entry')")
     @Log(title = "微信消息AI录入", businessType = BusinessType.UPDATE)

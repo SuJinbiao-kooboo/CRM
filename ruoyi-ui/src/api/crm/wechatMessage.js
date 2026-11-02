@@ -63,6 +63,10 @@ export function getWechatEntryStatus() {
   return request({ url: '/crm/wechat-message/entry/status', method: 'get' })
 }
 
+export function setWechatEntryConfig(enabled) {
+  return request({ url: '/crm/wechat-message/entry/config', method: 'post', data: { enabled: enabled } })
+}
+
 export function runWechatEntry(data) {
   return request({ url: '/crm/wechat-message/entry/run', method: 'post', data: data, timeout: 480000 })
 }

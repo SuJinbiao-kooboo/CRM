@@ -1031,74 +1031,55 @@ public class WeChatGatewayService {
         collectQuotes(group);
         expandBySharedQuotes(group, near, gapSec * 1000L);
         collectQuotes(group);
-        collectCrossSenderContext(group, anchor, gapSec);
+        collectRecentEntryContext(group, anchor);
         group.members.sort(Comparator.comparingLong((WeChatMessage message) -> parseTime(message.getCreateTime()))
                 .thenComparingLong(WeChatMessage::getLocalId));
         return group;
     }
 
     /**
-     * 供应商只回复“2800，2450”这类纯价格时，把同一会话紧邻上一条另一方消息作为料号上下文。
-     * 该消息只用于补全料号/数量，不并入录入组，不改变原消息的录入状态。
+     * 纯价格 OFFER 没有料号时，读取与分类一致的 aiContextWindow（默认最近 20 条）会话历史，
+     * 交给 AI 结合上下文匹配料号。历史消息只作为上下文，不并入录入组，也不改变自身录入状态。
      */
-    private void collectCrossSenderContext(EntryGroup group, WeChatMessage anchor, int gapSec) {
+    private void collectRecentEntryContext(EntryGroup group, WeChatMessage anchor) {
         if (anchor == null || !"OFFER".equalsIgnoreCase(StringUtils.trimToEmpty(anchor.getMsgCategory()))
                 || !group.quotes.isEmpty() || !isPriceOnlyContent(group.members)) {
             return;
         }
-        long earliestMs = 0L;
+        int contextWindow = Math.max(20, Math.min(100, config.integer("aiContextWindow", 20)));
+        long beforeSortSeq = Long.MAX_VALUE;
         for (WeChatMessage member : group.members) {
-            long time = parseTime(member.getCreateTime());
-            if (time > 0L && (earliestMs == 0L || time < earliestMs)) {
-                earliestMs = time;
+            long seq = member == null ? 0L : member.getSortSeq();
+            if (seq > 0L && seq < beforeSortSeq) {
+                beforeSortSeq = seq;
             }
         }
-        if (earliestMs <= 0L) {
+        if (beforeSortSeq == Long.MAX_VALUE) {
             return;
         }
-        List<WeChatMessage> prior = store.queryEntryNeighbors(anchor.getUsername(), anchor.getName(), null,
-                fmtTime(earliestMs - gapSec * 1000L), fmtTime(earliestMs - 1L));
-        if (prior == null || prior.isEmpty()) {
+        List<WeChatMessage> recent = store.queryEntryContext(anchor.getUsername(), beforeSortSeq, contextWindow);
+        if (recent == null || recent.isEmpty()) {
             return;
-        }
-        int end = -1;
-        for (int i = prior.size() - 1; i >= 0; i--) {
-            WeChatMessage candidate = prior.get(i);
-            if (candidate == null || containsMember(group, candidate)
-                    || WeChatTextUtils.sameName(anchor.getSender(), candidate.getSender())
-                    || !isUsableEntryContext(candidate)) {
-                continue;
-            }
-            end = i;
-            break;
-        }
-        if (end < 0) {
-            return;
-        }
-        List<WeChatMessage> context = new ArrayList<>();
-        context.add(prior.get(end));
-        String contextSender = prior.get(end).getSender();
-        long nextTime = parseTime(prior.get(end).getCreateTime());
-        for (int i = end - 1; i >= 0; i--) {
-            WeChatMessage candidate = prior.get(i);
-            long time = candidate == null ? 0L : parseTime(candidate.getCreateTime());
-            if (candidate == null || !StringUtils.equals(contextSender, candidate.getSender())
-                    || time <= 0L || nextTime - time > gapSec * 1000L
-                    || !isUsableEntryContext(candidate)) {
-                break;
-            }
-            context.add(0, candidate);
-            nextTime = time;
         }
         Set<String> seen = new HashSet<>();
         for (EntryQuote quote : group.quotes) {
+            if (StringUtils.isNotBlank(quote.id)) {
+                seen.add("id:" + quote.id);
+            }
             seen.add("c:" + quote.content);
         }
-        for (WeChatMessage candidate : context) {
-            String content = WeChatTextUtils.clip(candidate.getContent(), 800);
-            if (StringUtils.isBlank(content) || !seen.add("c:" + content)) {
+        for (WeChatMessage candidate : recent) {
+            if (candidate == null || containsMember(group, candidate) || !isUsableEntryContext(candidate)) {
                 continue;
             }
+            String content = WeChatTextUtils.clip(candidate.getContent(), 800);
+            String idKey = "id:" + candidate.getLocalId();
+            String contentKey = "c:" + content;
+            if (StringUtils.isBlank(content) || seen.contains(idKey) || seen.contains(contentKey)) {
+                continue;
+            }
+            seen.add(idKey);
+            seen.add(contentKey);
             group.quotes.add(new EntryQuote(String.valueOf(candidate.getLocalId()),
                     StringUtils.defaultString(candidate.getSender()), content));
         }
@@ -1127,7 +1108,7 @@ public class WeChatGatewayService {
     private boolean isUsableEntryContext(WeChatMessage message) {
         String content = StringUtils.trimToEmpty(message == null ? null : message.getContent());
         return !content.isEmpty() && !NON_TEXT_ONLY.matcher(content).matches()
-                && !content.startsWith("<") && !content.matches("(?is)^[好收到谢谢okchecking\\s,.，。!！?？]+$");
+                && !content.startsWith("<");
     }
 
     /**
@@ -1279,12 +1260,13 @@ public class WeChatGatewayService {
         }
     }
 
-    /** 引用/跨发送人上下文放前面补全料号，连续消息按时间顺序放在后面，交给现有 AI 录入一次解析。 */
+    /** 引用/会话上下文放前面补全料号，连续消息按时间顺序放在后面，交给现有 AI 录入一次解析。 */
     private String buildGroupContent(EntryGroup group) {
         StringBuilder sb = new StringBuilder();
         if (!group.quotes.isEmpty()) {
-            sb.append("【引用或紧邻上下文，仅用于补全料号/数量，不要单独输出为物料行；")
-                    .append("当前消息只有价格时，按上下文中料号的顺序与价格一一对应；")
+            sb.append("【引用或最近会话上下文，仅用于补全料号/数量，不要单独输出为物料行；")
+                    .append("优先采用距离本次价格最近、且料号数量与价格数量匹配的料号清单，更早历史仅辅助判断，不得拿无关旧料号配对；")
+                    .append("当前消息只有价格时按该料号顺序与价格一一对应，历史中的其他报价不要重复输出；")
                     .append("价格数量少于上下文料号时，只为有价格对应的料号生成物料行，绝不为没有价格对应的料号补造物料行】\n");
             for (EntryQuote q : group.quotes) {
                 sb.append(StringUtils.defaultIfBlank(q.sender, "对方")).append(": ").append(q.content).append('\n');
@@ -1822,7 +1804,8 @@ public class WeChatGatewayService {
         m.put("groupGapSec", groupGapSec);
         m.put("quoteLinkSec", quoteLinkSec);
         m.put("maxAgeHours", maxAgeHours);
-        m.put("aiFlow", "同发送人连续消息 + 同引用补充消息聚合；纯价格OFFER补带上一条另一方料号上下文 -> 单次AI录入 -> 返回料号比价");
+        m.put("contextWindow", Math.max(20, Math.min(100, analysisInt("aiContextWindow", 20))));
+        m.put("aiFlow", "同发送人连续消息 + 同引用补充消息聚合；纯价格OFFER补带最近 aiContextWindow 条会话上下文 -> 单次AI录入 -> 返回料号比价");
         m.put("entryStatusLegend",
                 "PENDING=待录入/可重试, PROCESSING=处理中, SUCCESS=成功, SUCCESS_WARN=已录入但比价告警, "
                         + "FAILED=可重试失败, DEAD=达到失败上限, SKIPPED=需人工确认, NOT_APPLICABLE=不参与录入");

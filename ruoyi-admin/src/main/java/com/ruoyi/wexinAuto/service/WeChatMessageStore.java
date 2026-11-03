@@ -350,6 +350,16 @@ public class WeChatMessageStore {
         }
     }
 
+    /** 查询同会话在指定排序位之前的最近 max 条消息，供纯价格 OFFER 使用与分类一致的上下文窗口。 */
+    public List<WeChatMessage> queryEntryContext(String username, long beforeSortSeq, int max) {
+        try {
+            return mapper.queryEntryContext(username, beforeSortSeq, Math.max(1, max));
+        } catch (Exception e) {
+            log.warn("查询录入上下文失败: username={} beforeSortSeq={}", username, beforeSortSeq, e);
+            return Collections.emptyList();
+        }
+    }
+
     /** 待录入消息统计：{cnt=条数, earliest=最早待录入消息时间}。 */
     public java.util.Map<String, Object> processableStats(List<String> categories, String since) {
         if (categories == null || categories.isEmpty()) {

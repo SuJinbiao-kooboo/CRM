@@ -57,6 +57,10 @@ public interface WeChatMessageMapper {
                                             @Param("sender") String sender, @Param("from") String from,
                                             @Param("to") String to);
 
+    List<WeChatMessage> queryEntryContext(@Param("username") String username,
+                                          @Param("beforeSortSeq") long beforeSortSeq,
+                                          @Param("max") int max);
+
     java.util.Map<String, Object> processableStats(@Param("categories") List<String> categories,
                                                     @Param("since") String since);
 

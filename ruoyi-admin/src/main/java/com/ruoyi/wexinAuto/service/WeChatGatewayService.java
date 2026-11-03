@@ -1031,9 +1031,103 @@ public class WeChatGatewayService {
         collectQuotes(group);
         expandBySharedQuotes(group, near, gapSec * 1000L);
         collectQuotes(group);
+        collectCrossSenderContext(group, anchor, gapSec);
         group.members.sort(Comparator.comparingLong((WeChatMessage message) -> parseTime(message.getCreateTime()))
                 .thenComparingLong(WeChatMessage::getLocalId));
         return group;
+    }
+
+    /**
+     * 供应商只回复“2800，2450”这类纯价格时，把同一会话紧邻上一条另一方消息作为料号上下文。
+     * 该消息只用于补全料号/数量，不并入录入组，不改变原消息的录入状态。
+     */
+    private void collectCrossSenderContext(EntryGroup group, WeChatMessage anchor, int gapSec) {
+        if (anchor == null || !"OFFER".equalsIgnoreCase(StringUtils.trimToEmpty(anchor.getMsgCategory()))
+                || !group.quotes.isEmpty() || !isPriceOnlyContent(group.members)) {
+            return;
+        }
+        long earliestMs = 0L;
+        for (WeChatMessage member : group.members) {
+            long time = parseTime(member.getCreateTime());
+            if (time > 0L && (earliestMs == 0L || time < earliestMs)) {
+                earliestMs = time;
+            }
+        }
+        if (earliestMs <= 0L) {
+            return;
+        }
+        List<WeChatMessage> prior = store.queryEntryNeighbors(anchor.getUsername(), anchor.getName(), null,
+                fmtTime(earliestMs - gapSec * 1000L), fmtTime(earliestMs - 1L));
+        if (prior == null || prior.isEmpty()) {
+            return;
+        }
+        int end = -1;
+        for (int i = prior.size() - 1; i >= 0; i--) {
+            WeChatMessage candidate = prior.get(i);
+            if (candidate == null || containsMember(group, candidate)
+                    || WeChatTextUtils.sameName(anchor.getSender(), candidate.getSender())
+                    || !isUsableEntryContext(candidate)) {
+                continue;
+            }
+            end = i;
+            break;
+        }
+        if (end < 0) {
+            return;
+        }
+        List<WeChatMessage> context = new ArrayList<>();
+        context.add(prior.get(end));
+        String contextSender = prior.get(end).getSender();
+        long nextTime = parseTime(prior.get(end).getCreateTime());
+        for (int i = end - 1; i >= 0; i--) {
+            WeChatMessage candidate = prior.get(i);
+            long time = candidate == null ? 0L : parseTime(candidate.getCreateTime());
+            if (candidate == null || !StringUtils.equals(contextSender, candidate.getSender())
+                    || time <= 0L || nextTime - time > gapSec * 1000L
+                    || !isUsableEntryContext(candidate)) {
+                break;
+            }
+            context.add(0, candidate);
+            nextTime = time;
+        }
+        Set<String> seen = new HashSet<>();
+        for (EntryQuote quote : group.quotes) {
+            seen.add("c:" + quote.content);
+        }
+        for (WeChatMessage candidate : context) {
+            String content = WeChatTextUtils.clip(candidate.getContent(), 800);
+            if (StringUtils.isBlank(content) || !seen.add("c:" + content)) {
+                continue;
+            }
+            group.quotes.add(new EntryQuote(String.valueOf(candidate.getLocalId()),
+                    StringUtils.defaultString(candidate.getSender()), content));
+        }
+    }
+
+    /** 当前 OFFER 组是否只有价格/数量和币种，没有可识别料号。 */
+    private boolean isPriceOnlyContent(List<WeChatMessage> members) {
+        StringBuilder text = new StringBuilder();
+        for (WeChatMessage member : members) {
+            String content = StringUtils.trimToEmpty(member.getContent());
+            if (!content.isEmpty()) {
+                text.append(' ').append(content);
+            }
+        }
+        if (!text.toString().matches("(?s).*\\d.*")) {
+            return false;
+        }
+        String rest = text.toString()
+                .replaceAll("(?i)@[^\\s,，;；]+", " ")
+                .replaceAll("(?i)USD|RMB|CNY|EUR|HKD|US\\$", " ")
+                .replace("美元", " ").replace("美金", " ").replace("人民币", " ").replace("元", " ")
+                .replaceAll("[0-9\\s.,，;；/、|\\-—–:：$¥￥€]", "");
+        return rest.trim().isEmpty();
+    }
+
+    private boolean isUsableEntryContext(WeChatMessage message) {
+        String content = StringUtils.trimToEmpty(message == null ? null : message.getContent());
+        return !content.isEmpty() && !NON_TEXT_ONLY.matcher(content).matches()
+                && !content.startsWith("<") && !content.matches("(?is)^[好收到谢谢okchecking\\s,.，。!！?？]+$");
     }
 
     /**
@@ -1185,11 +1279,13 @@ public class WeChatGatewayService {
         }
     }
 
-    /** 引用原文放前面补全料号，连续消息按时间顺序放在后面，交给现有 AI 录入一次解析。 */
+    /** 引用/跨发送人上下文放前面补全料号，连续消息按时间顺序放在后面，交给现有 AI 录入一次解析。 */
     private String buildGroupContent(EntryGroup group) {
         StringBuilder sb = new StringBuilder();
         if (!group.quotes.isEmpty()) {
-            sb.append("【引用原消息，仅补全料号，不要单独输出为物料行】\n");
+            sb.append("【引用或紧邻上下文，仅用于补全料号/数量，不要单独输出为物料行；")
+                    .append("当前消息只有价格时，按上下文中料号的顺序与价格一一对应；")
+                    .append("价格数量少于上下文料号时，只为有价格对应的料号生成物料行，绝不为没有价格对应的料号补造物料行】\n");
             for (EntryQuote q : group.quotes) {
                 sb.append(StringUtils.defaultIfBlank(q.sender, "对方")).append(": ").append(q.content).append('\n');
             }
@@ -1726,7 +1822,7 @@ public class WeChatGatewayService {
         m.put("groupGapSec", groupGapSec);
         m.put("quoteLinkSec", quoteLinkSec);
         m.put("maxAgeHours", maxAgeHours);
-        m.put("aiFlow", "同发送人连续消息 + 同引用补充消息聚合 -> 单次AI录入 -> 返回料号比价");
+        m.put("aiFlow", "同发送人连续消息 + 同引用补充消息聚合；纯价格OFFER补带上一条另一方料号上下文 -> 单次AI录入 -> 返回料号比价");
         m.put("entryStatusLegend",
                 "PENDING=待录入/可重试, PROCESSING=处理中, SUCCESS=成功, SUCCESS_WARN=已录入但比价告警, "
                         + "FAILED=可重试失败, DEAD=达到失败上限, SKIPPED=需人工确认, NOT_APPLICABLE=不参与录入");

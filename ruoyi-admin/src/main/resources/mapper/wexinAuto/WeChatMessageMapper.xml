@@ -295,7 +295,8 @@
 
     <select id="queryEntryNeighbors" resultMap="WeChatMessageResult">
         SELECT <include refid="WeChatMessageColumns"/> FROM wechat_message
-        WHERE username = #{username} AND name = #{name} AND sender = #{sender}
+        WHERE username = #{username} AND name = #{name}
+          <if test="sender != null and sender != ''">AND sender = #{sender}</if>
           AND create_time &gt;= #{from} AND create_time &lt;= #{to}
         ORDER BY sort_seq ASC
     </select>

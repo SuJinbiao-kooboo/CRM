@@ -31,10 +31,12 @@ public class WeChatPartyService {
         if (name.isEmpty()) {
             return PartyMatch.of(PartyMatch.UNMAPPED, "群名为空，无法映射交易对手");
         }
+        String normalizedName = normalizeGroupName(name);
         List<CrmSupplier> matched = new ArrayList<>();
         Set<Long> seen = new LinkedHashSet<>();
         for (CrmSupplier supplier : supplierMapper.selectAllForWeChat()) {
-            if (groups(supplier.getSalesGroup()).contains(name) || groups(supplier.getPurchaseGroup()).contains(name)) {
+            if (containsGroup(supplier.getSalesGroup(), normalizedName)
+                    || containsGroup(supplier.getPurchaseGroup(), normalizedName)) {
                 if (supplier.getId() != null && seen.add(supplier.getId())) {
                     matched.add(supplier);
                 }
@@ -162,6 +164,22 @@ public class WeChatPartyService {
 
     public List<String> groups(String raw) {
         return split(raw);
+    }
+
+    /** 群名来自微信和供应商档案时可能夹带制表符、连续空格；匹配前统一折叠空白。 */
+    private boolean containsGroup(String raw, String normalizedName) {
+        for (String group : groups(raw)) {
+            if (normalizedName.equalsIgnoreCase(normalizeGroupName(group))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeGroupName(String raw) {
+        return StringUtils.trimToEmpty(raw)
+                .replace('\u00A0', ' ')
+                .replaceAll("\\s+", " ");
     }
 
     private List<String> split(String raw) {

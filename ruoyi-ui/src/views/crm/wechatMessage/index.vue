@@ -76,6 +76,7 @@
             <div class="help-title">多消息聚合录入</div>
             <ul>
               <li><b>聚合范围</b>：同一会话 + 同一发送人，相邻消息时间差不超过 <code>offerEntryGroupGapSec</code>（默认 30 秒）时视为一组；回复同一条引用消息的补充内容，在 <code>offerEntryQuoteLinkSec</code>（默认 1800 秒）内也会并入同组；不同发送人、不同会话不会合并。</li>
+              <li><b>群映射</b>：聊天对象名称与供应商档案的 <code>sales_group / purchase_group</code> 做精确匹配；匹配前会去除首尾空白、把制表符和连续空格折叠为一个空格，忽略英文大小写。名称内容不同（例如多了文字或符号）仍需在供应商档案补全群名。</li>
               <li><b>等待稳定</b>：组内最新一条消息距今不足 <code>offerEntryMinAgeSec</code>（默认 30 秒）时先不录入，避免报价/交期还在继续补充；返回结果里的“等待补充”即此情况。</li>
               <li><b>引用原文</b>：消息的 <code>relat_inq</code>、<code>relat_offer</code> 或 <code>quote</code> 指向的原消息会作为料号上下文一并交给 AI；例如 Johnny 回复 18400USD 并补充 2weeks，会连同被引用的 May 的 INQ 一起解析。</li>
               <li><b>一次录入</b>：整组只调用一次 AI 录入。组内除主消息外的 INQ/OFFER 也会标记录入成功，但任务状态记为 <code>SKIPPED</code>（MERGED_ENTRY），避免重复生成任务。</li>

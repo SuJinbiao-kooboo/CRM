@@ -101,7 +101,7 @@
             <if test="params != null and params['minQuantity'] != null">and quantity &gt;= #{params.minQuantity}</if>
             <if test="params != null and params['maxQuantity'] != null">and quantity &lt;= #{params.maxQuantity}</if>
         </where>
-        order by update_time desc
+        order by coalesce(stock_date, create_time) desc, id desc
     </select>
 
     <select id="selectOfferById" parameterType="long" resultMap="CrmOfferMap">

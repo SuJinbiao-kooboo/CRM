@@ -203,12 +203,19 @@
         order by coalesce(stock_date, create_time) desc, id desc
     </select>
 
-    <!-- 复制Offer（当日料号比价）：当日（创建时间>=今天0点）录入的Offer去重料号（大写），按料号升序 -->
+    <!-- 复制Offer（最近N天料号比价）：最近N天（创建时间口径）录入的Offer去重料号（大写），
+         可按产品类型（逗号分隔）过滤，按料号升序 -->
     <select id="selectTodayOfferedPartNumbers" resultType="string">
         select distinct upper(product_code) from crm_offer
         where create_time &gt;= date_sub(curdate(), interval (#{days} - 1) day)
         and inq_offer_type = 'Offer'
         and product_code is not null and product_code &lt;&gt; ''
+        <if test="productTypes != null and productTypes != ''">
+            and product_type in
+            <foreach collection="productTypes.split(',')" item="pt" separator="," open="(" close=")">
+                #{pt}
+            </foreach>
+        </if>
         order by upper(product_code)
     </select>
 

@@ -42,9 +42,10 @@ public interface CrmOfferMapper {
      */
     List<CrmOffer> selectRecentByPartNumbers(@Param("list") List<String> list);
     /**
-     * 复制Offer（当日料号比价）：查询当日（创建时间>=今天0点）录入的全部Offer去重料号（大写）
+     * 复制Offer（最近N天料号比价）：查询最近N天（创建时间口径）录入的Offer去重料号（大写），可按产品类型过滤
      */
-    List<String> selectTodayOfferedPartNumbers(@Param("days") int days);
+    List<String> selectTodayOfferedPartNumbers(@Param("days") int days,
+                                              @Param("productTypes") String productTypes);
     int insertOffer(CrmOffer offer);
     /**
      * 统计某条微信消息已录入的 Offer 行数（按来源关联字段精确匹配，供自动录入幂等判断）。

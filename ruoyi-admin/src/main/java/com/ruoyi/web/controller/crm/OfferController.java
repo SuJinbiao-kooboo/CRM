@@ -83,13 +83,22 @@ public class OfferController extends BaseController {
      *  重载解析会选中更具体的 success(String msg) 把文本塞进 msg 字段、data 为 null，前端取不到数据，
      *  必须用双参 success(String msg, Object data) 显式把文本放入 data */
     /**
-     * 复制Offer（当日料号比价）：取当日录入的全部Offer去重料号，按料号查询最近1个月历史，
+     * 复制Offer（最近N天料号比价）：取最近N天录入的Offer去重料号（可产品类型过滤），按料号查询最近1个月历史，
      * 返回与AI料号查询相同的分组结构（含供应商名称权限处理），前端按价格优势阈值自动勾选并复制
      */
     @PreAuthorize("@ss.hasPermi('crm:offer:list')")
     @GetMapping("/todayCopyGroups")
-    public AjaxResult todayCopyGroups(@RequestParam(defaultValue = "1") int days) {
-        return AjaxResult.success(offerService.todayCopyGroups(days));
+    public AjaxResult todayCopyGroups(@RequestParam(defaultValue = "1") int days,
+                                      @RequestParam(required = false) String productTypes) {
+        String types = null;
+        if (productTypes != null) {
+            types = Arrays.stream(productTypes.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .distinct()
+                    .collect(Collectors.joining(","));
+        }
+        return AjaxResult.success(offerService.todayCopyGroups(days, types));
     }
 
     /** 批量判断价格优势：前端与微信任务共用后端算法。 */

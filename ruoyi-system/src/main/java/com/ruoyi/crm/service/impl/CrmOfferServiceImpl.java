@@ -601,10 +601,16 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
      */
     @Override
     public List<Map<String, Object>> todayCopyGroups(int days) {
+        return todayCopyGroups(days, null);
+    }
+
+    @Override
+    public List<Map<String, Object>> todayCopyGroups(int days, String productTypes) {
         if (days < 1 || days > 365) {
             throw new ServiceException("最近天数范围应为1-365天");
         }
-        List<String> partNumbers = offerMapper.selectTodayOfferedPartNumbers(days);
+        String types = productTypes == null || productTypes.trim().isEmpty() ? null : productTypes.trim();
+        List<String> partNumbers = offerMapper.selectTodayOfferedPartNumbers(days, types);
         if (partNumbers == null || partNumbers.isEmpty()) {
             return new ArrayList<>();
         }

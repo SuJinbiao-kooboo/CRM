@@ -529,6 +529,11 @@
           <span style="color:#909399; font-size:12px">价格优势阈值(USD):</span>
           <el-input-number v-model="priceAdvThreshold" :min="-999999" :precision="0" :controls="false" size="mini" style="width:80px; margin-left:4px" title="修改后自动保存并重新勾选" @change="onPriceAdvThresholdChange" />
         </span>
+        <span style="color:#909399; font-size:12px">产品类型:</span>
+        <el-select v-model="copyProductTypes" multiple collapse-tags clearable size="mini" placeholder="全部类型"
+                   style="width:150px" @change="loadTodayCopyGroups">
+          <el-option v-for="d in dictProductType" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+        </el-select>
         <span style="color:#909399; font-size:12px">最近天数:</span>
         <el-button size="mini" icon="el-icon-minus" circle :disabled="Number(copyRecentDays) <= 1" @click="changeCopyRecentDays(-1)" />
         <el-input-number v-model="copyRecentDays" :min="1" :max="365" :precision="0" :controls="false" size="mini" style="width:70px; margin:0 2px" @change="onCopyRecentDaysChange" />
@@ -545,9 +550,9 @@
         <el-button size="mini" type="success" icon="el-icon-download" :disabled="todayCopyGroups.length === 0" @click="downloadOfferExcel(todayCopyGroups)">下载</el-button>
         <el-button size="mini" icon="el-icon-document-copy" v-clipboard="todayCopyCopyText" v-clipboard:success="onCopyOk" :disabled="todayCopyGroups.length === 0">一键复制全部信息</el-button>
       </div>
-      <div style="color:#909399; font-size:12px; margin-bottom:8px">最近{{ copyRecentDays }}天去重后共 {{ todayCopyGroups.length }} 个料号；满足价格优势（区间最好价 ≤ 上两次报价最低价 - 阈值）及CPU类型的料号已自动勾选</div>
+      <div style="color:#909399; font-size:12px; margin-bottom:8px">产品类型：{{ copyProductTypes.length ? copyProductTypes.join('、') : '全部' }}；最近{{ copyRecentDays }}天去重后共 {{ todayCopyGroups.length }} 个料号；满足价格优势（区间最好价 ≤ 上两次报价最低价 - 阈值）及CPU类型的料号已自动勾选</div>
       <div v-if="todayCopyLoading" style="color:#909399; text-align:center; padding: 30px 0">加载中，请稍候...</div>
-      <div v-if="todayCopyGroups.length === 0 && !todayCopyLoading" style="color:#909399; text-align:center; padding: 30px 0">最近{{ copyRecentDays }}天暂无Offer记录</div>
+      <div v-if="todayCopyGroups.length === 0 && !todayCopyLoading" style="color:#909399; text-align:center; padding: 30px 0">当前产品类型筛选下最近{{ copyRecentDays }}天暂无Offer记录</div>
       <div v-for="(group, gi) in todayCopyGroups" :key="gi" class="ai-query-group">
         <div class="ai-query-part-number">
           <span>{{ group.partNumber }}（{{ (group.offers || []).length }}条记录）</span>
@@ -796,6 +801,8 @@ export default {
       // 复制工具栏状态（AI录入比价/AI查询共用）：最近天数（1=当天/2=最近两天/3=最近三天，默认1天）、勾选的额外字段（默认都不勾选）、加载中
       copyRecentDays: 2,
       copyExtraFields: [],
+      // 复制Offer产品类型筛选（多选，空数组表示全部类型）
+      copyProductTypes: [],
       // 价格优势阈值（单位USD）：默认15，优先读取系统参数 offer.price.advantage.threshold；页面可修改并自动保存
       priceAdvThreshold: 15,
       aiCopyLoading: false,
@@ -1243,7 +1250,7 @@ export default {
     loadTodayCopyGroups() {
       this.todayCopyLoading = true;
       const days = this.copyRecentDays || 1;
-      fetchTodayCopyGroups(days).then(res => {
+      fetchTodayCopyGroups(days, this.copyProductTypes).then(res => {
         this.todayCopyGroups = this.decorateOfferGroups(res.data || []);
         // 依据价格优势阈值自动勾选
         this.autoSelectAdvantage();

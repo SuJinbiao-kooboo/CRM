@@ -67,8 +67,17 @@ export function getSupplierNameDetail(code) {
 
 // 复制Offer（最近N天料号比价）：后端取最近N天（1=当天0点起、2=昨天0点起、3=前天0点起）录入Offer的去重料号并按料号查近1个月历史，返回与AI查询相同的分组结构（前端按价格优势阈值自动勾选）
 // silent: 错误提示由页面自行处理；timeout: 30秒（纯数据库查询，无AI调用）
-export function fetchTodayCopyGroups(days) {
-  return request({ url: '/crm/offer/todayCopyGroups', params: { days: days || 1 }, method: 'get', timeout: 30000, silent: true })
+export function fetchTodayCopyGroups(days, productTypes) {
+  return request({
+    url: '/crm/offer/todayCopyGroups',
+    params: {
+      days: days || 1,
+      productTypes: productTypes && productTypes.length ? productTypes.join(',') : undefined
+    },
+    method: 'get',
+    timeout: 30000,
+    silent: true
+  })
 }
 
 // 批量判断价格优势：threshold 为空时由后端读取 offer.price.advantage.threshold

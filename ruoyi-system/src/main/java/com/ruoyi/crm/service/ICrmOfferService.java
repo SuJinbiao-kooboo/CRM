@@ -65,6 +65,11 @@ public interface ICrmOfferService {
      */
     List<Map<String, Object>> todayCopyGroups(int days);
 
+    /**
+     * 复制Offer（最近N天料号比价）：按产品类型（逗号分隔）过滤源Offer料号，productTypes为空表示全部类型
+     */
+    List<Map<String, Object>> todayCopyGroups(int days, String productTypes);
+
         /**
      * 供应商名称详情（点击列表供应商名称时实时查询）：先判数据权限，
      * 有权限（admin/manager角色）返回供应商表真实名称（查不到返回"未找到名称"），

@@ -26,6 +26,11 @@ public final class OfferMaterialNormalizer {
     private static final Pattern WD_MODEL = Pattern.compile("(?i)^W(?:UH|US|D)[A-Z0-9]{8,}$");
     private static final Pattern SAMSUNG_SERIES = Pattern.compile(
             "(?i)\\bPM\\s*-?\\s*(1653|1655|9A3|9A1|893A?|1743|983|883|863)\\b");
+    /** 紧凑报价行：6336Y---1480 / 6326--850，前面是 Intel/AMD CPU 短型号，后面是价格。 */
+    private static final Pattern CPU_COMPACT_QUOTE = Pattern.compile(
+            "^(\\d{4}[A-Z]{0,2})\\s*(?:-{2,}|—{2,}|–{2,}|：|:)\\s*(?:USD|CNY|RMB|\\$|¥|€)?\\s*"
+                    + "(\\d+(?:\\.\\d+)?)\\s*(?:USD|CNY|RMB)?$",
+            Pattern.CASE_INSENSITIVE);
     private static final Pattern CAPACITY_T = Pattern.compile(
             "(?i)(?<![A-Z0-9])(\\d+(?:\\.\\d+)?)\\s*T(?![A-Z0-9])");
     private static final Pattern CAPACITY_G = Pattern.compile(
@@ -75,6 +80,10 @@ public final class OfferMaterialNormalizer {
         Matcher amd = AMD_EPYC_PART.matcher(normalized);
         if (amd.matches()) {
             return amd.group(1).toUpperCase(Locale.ROOT);
+        }
+        Matcher cpuQuote = CPU_COMPACT_QUOTE.matcher(normalized);
+        if (cpuQuote.matches()) {
+            return cpuQuote.group(1).toUpperCase(Locale.ROOT);
         }
         Matcher wd = WD_PAIR.matcher(normalized);
         if (wd.matches()) {

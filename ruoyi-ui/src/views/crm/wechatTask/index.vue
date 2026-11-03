@@ -37,7 +37,7 @@
               <li><b>生成时间范围</b>：按消息 <code>create_time</code> 计算，从当前时刻向前滚动 <code>msgRetentionDays</code> 天（默认 30 天），不是只扫描今天；弹窗中的“开始时间/结束时间”就是本次实际 SQL 条件。</li>
               <li><b>生成必要条件</b>：分类成功且来源为 LLM/CACHE/MANUAL、分类为 INQ/OFFER；AI 录入必须为 <code>SUCCESS/SUCCESS_WARN</code>，任务状态为 <code>PENDING/FAILED</code>，或属于群未映射/群映射冲突的特殊跳过、任务处理超时。单次最多领取 <code>taskGenerateBatchSize=20</code> 条。</li>
               <li><b>为什么 task_status=PENDING 仍扫描 0 条</b>：<code>task_status=PENDING</code> 只表示“尚未生成任务”，还需 <code>entry_status</code> 已录入成功。若录入仍为 <code>PENDING</code>，消息会停留在等待 AI 录入阶段，不会进入任务生成；生成结果弹窗会单独显示该数量。</li>
-              <li><b>任务失败原因</b>：位于微信消息列表“任务失败原因”列及消息详情中，只有任务生成失败、转人工或异常跳过时才有值；尚未生成任务的 <code>PENDING</code> 消息为空是正常现象。</li>
+              <li><b>任务状态感叹号</b>：微信消息列表的任务状态旁会显示当前卡点；<code>PENDING</code> 会区分“待 AI 录入 / AI 录入处理中 / 已录入等待任务生成扫描”，失败、转人工或异常跳过则显示具体原因。数据库字段 <code>task_failure_reason</code> 只记录失败类原因，等待扫描的说明由页面按状态实时计算。</li>
               <li><b>发送扫描</b>：立即扫描并发送“已审批待发送”任务；人工点击不受 <code>autoSendEnabled=false</code> 限制，但当前微信登录账号必须是 <code>autoSendAccount</code>（默认 Eke），否则停止发送。</li>
               <li><b>审批/编辑</b>：查看来源消息、OFFER 快照、关联 INQ、发送目标和发送预览，并修改任务状态、对外报价、发送内容和发送目标。</li>
               <li><b>批量审批</b>：勾选列表多行后点击，只审批当前为 <code>PENDING_APPROVAL</code> 的任务；其他状态会跳过，失败数量在结果提示中返回。</li>

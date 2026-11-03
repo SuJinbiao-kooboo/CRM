@@ -144,6 +144,7 @@
           <el-descriptions-item label="风险等级">{{ detailData.riskLevel }}</el-descriptions-item>
           <el-descriptions-item label="付款条件">{{ detailData.paymentTerms }}</el-descriptions-item>
           <el-descriptions-item label="合作状态">{{ detailData.cooperationStatus }}</el-descriptions-item>
+          <el-descriptions-item label="利润率">{{ detailData.profitRatio == null ? '2' : detailData.profitRatio }}%</el-descriptions-item>
           <el-descriptions-item label="跟进人">{{ detailData.followUpByNames || detailData.followUpBy }}</el-descriptions-item>
           <el-descriptions-item label="状态">{{ detailData.status === 1 ? '正常' : '停用' }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ parseTime(detailData.createTime) }}</el-descriptions-item>
@@ -266,6 +267,7 @@
                 <el-option v-for="(lab, val) in col.selectOptions" :key="val" :label="lab" :value="Number(val)" />
               </el-select>
               <el-date-picker v-else-if="col.editType === 'datetime'" v-model="editValue" type="datetime" size="mini" placeholder="选择日期时间" format="yyyy-MM-dd HH:mm:ss" value-format="yyyy-MM-dd HH:mm:ss" @change="commitInlineSingle(scope.row, col)" @blur="exitEdit(scope.row, col)" />
+              <el-input-number v-else-if="col.editType === 'number'" v-model="editValue" :controls="false" :precision="2" :min="0" :max="100" size="mini" @change="commitInlineNumber(scope.row, col)" @blur="exitEdit(scope.row, col)" style="width: 100%" />
               <el-input v-else v-model="editValue" size="mini" @keyup.enter.native="commitInlineText(scope.row, col)" @blur="commitInlineText(scope.row, col)" />
             </template>
             <template v-else>
@@ -278,6 +280,7 @@
                     <span v-if="!(scope.row[col.arrProp] || []).length" class="cell-empty">-</span>
                   </template>
                   <span v-else-if="col.type === 'datetime'">{{ parseTime(scope.row[col.prop]) }}</span>
+                  <span v-else-if="col.editType === 'number'" class="inline-text">{{ scope.row[col.textProp || col.prop] == null ? 2 : scope.row[col.textProp || col.prop] }}%</span>
                   <span v-else class="inline-text">{{ scope.row[col.textProp || col.prop] }}</span>
                 </div>
                 <i class="el-icon-edit cell-edit-icon" title="编辑" @click.stop="enterEdit(scope.row, col)"></i>
@@ -460,6 +463,11 @@
               <el-select v-model="form.cooperationDirectionArr" multiple collapse-tags filterable placeholder="请选择合作方向">
                 <el-option v-for="d in dictCooperationDirection" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
               </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="利润率(%)" prop="profitRatio">
+              <el-input-number v-model="form.profitRatio" :controls="false" :precision="2" :min="0" :max="100" placeholder="默认2" style="width: 100%" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -736,6 +744,7 @@ const DEFAULT_COLUMNS = [
   { key: 'riskLevel', label: '风险等级', prop: 'riskLevel', width: 110, type: 'multiSelect', editType: 'multiSelect', arrProp: 'riskLevelArr', dict: 'dictRiskLevel' },
   { key: 'paymentTerms', label: '付款条件', prop: 'paymentTerms', width: 130, type: 'multiSelect', editType: 'multiSelect', arrProp: 'paymentTermsArr', dict: 'dictPaymentTerms' },
   { key: 'cooperationDirection', label: '合作方向', prop: 'cooperationDirection', width: 190, type: 'multiSelect', editType: 'multiSelect', arrProp: 'cooperationDirectionArr', dict: 'dictCooperationDirection' },
+  { key: 'profitRatio', label: '利润率(%)', prop: 'profitRatio', width: 110, type: 'plain', editType: 'number' },
   { key: 'salesGroup', label: '销售群', prop: 'salesGroup', width: 160, type: 'plain', editType: 'text' },
   { key: 'purchaseGroup', label: '采购群', prop: 'purchaseGroup', width: 160, type: 'plain', editType: 'text' },
   { key: 'cooperationStatus', label: '合作状态', prop: 'cooperationStatus', width: 140, type: 'statusSelect' },
@@ -830,7 +839,7 @@ export default {
       uploadHeaders: { Authorization: 'Bearer ' + getToken() },
       uploadFiles: [],
       queryParams: { pageNum: 1, pageSize: 10, supplierCode: '', supplierName: '', supplierAlias: '', contactName: '', cooperationStatus: '', supplierTypeArr: [], brandsArr: [], mainProductsArr: [], cooperationLevelArr: [], riskLevelArr: [], paymentTermsArr: [], params: {} },
-      form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], salesGroup: '', purchaseGroup: '', cooperationStatus: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
+      form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], profitRatio: 2, salesGroup: '', purchaseGroup: '', cooperationStatus: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
       dictSupplierType: [], dictMainProducts: [], dictCooperationLevel: [], dictRiskLevel: [], dictPaymentTerms: [], dictProductBrand: [], dictCooperationDirection: [], dictCooperationStatus: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       userOptions: [],
       userLoading: false,
@@ -994,7 +1003,7 @@ export default {
       this.download('/crm/supplier/export', { ids: this.ids }, `supplier_${new Date().getTime()}.xlsx`)
     },
     cancel() { this.open = false },
-    resetFormData() { this.form = { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], salesGroup: '', purchaseGroup: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] }; this.uploadFiles = [] },
+    resetFormData() { this.form = { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], profitRatio: 2, salesGroup: '', purchaseGroup: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] }; this.uploadFiles = [] },
     addContact() { this.form.contacts.push({ contactName: '', post: '', phone: '', email: '', isPrimary: 0 }) },
     removeContact(index) { this.form.contacts.splice(index, 1) },
     onUploadSuccess(resp, file) {
@@ -1178,6 +1187,22 @@ export default {
       if (String(next) !== String(prev)) {
         row[col.prop] = next
         this.saveInlineField(row, col, next, prev)
+      }
+      this.exitEdit()
+    }
+    ,commitInlineNumber(row, col) {
+      if (!row || !col || !this.isEditing(row, col)) return
+      const num = Number(this.editValue)
+      if (this.editValue === '' || this.editValue == null || isNaN(num) || num < 0 || num > 100) {
+        row[col.prop] = this.editingOriginal
+        this.$modal.msgWarning('利润率请输入0-100之间的数字')
+        this.exitEdit()
+        return
+      }
+      const prev = Number(this.editingOriginal)
+      if (num !== prev) {
+        row[col.prop] = num
+        this.saveInlineField(row, col, num, this.editingOriginal)
       }
       this.exitEdit()
     }

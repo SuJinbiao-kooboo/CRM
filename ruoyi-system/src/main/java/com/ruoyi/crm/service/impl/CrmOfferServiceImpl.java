@@ -428,10 +428,9 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         if (authorizedSupplier.getSupplierName() != null && !authorizedSupplier.getSupplierName().trim().isEmpty()) {
             supplierName = authorizedSupplier.getSupplierName();
         }
-        double ratio = profitRatio == null ? 2d : profitRatio.doubleValue();
-        if (authorizedSupplier.getProfitRatio() != null) {
-            ratio = authorizedSupplier.getProfitRatio();
-        }
+        // AI录入未显式传利润率时读取供应商默认值；页面手工修改传值时以页面为准。
+        double ratio = profitRatio != null ? profitRatio.doubleValue()
+                : (authorizedSupplier.getProfitRatio() != null ? authorizedSupplier.getProfitRatio() : 2d);
         // 调用AI把无规则文本整理为结构化物料列表（品牌/料号/型号/规格型号/数量/报价）
         List<Map<String, Object>> items = deepSeekAiService.parseMaterialContent(content);
 

@@ -311,7 +311,9 @@
     </select>
 
     <select id="selectSupplierOptions" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultType="com.ruoyi.crm.domain.CrmSupplier">
-        select min(s.id) as id, s.supplier_code as supplier_code, s.supplier_name as supplier_name, group_concat(distinct ifnull(s.supplier_alias, '') separator '/') as supplier_alias
+        select min(s.id) as id, s.supplier_code as supplier_code, s.supplier_name as supplier_name,
+               group_concat(distinct ifnull(s.supplier_alias, '') separator '/') as supplier_alias,
+               max(coalesce(s.profit_ratio, 2.00)) as profit_ratio
         from crm_supplier s
         <where>
             <!-- 支持按供应商编码、名称或别名模糊搜索（Offer页面供应商选择均显示编码，故编码需可搜） -->
@@ -327,7 +329,7 @@
     </select>
 
     <select id="selectSupplierSimpleList" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultMap="CrmSupplierBaseMap">
-        select id, supplier_code, supplier_name from crm_supplier
+        select id, supplier_code, supplier_name, profit_ratio from crm_supplier
         <where>
             <if test="params != null and params.keyword != null and params.keyword != ''">
                 and (supplier_code like concat('%', #{params.keyword}, '%') or supplier_name like concat('%', #{params.keyword}, '%'))

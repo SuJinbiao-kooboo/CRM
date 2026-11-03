@@ -373,7 +373,6 @@ public class OfferController extends BaseController {
         String inqOfferType = strOf(body.get("inqOfferType"));
         String content = strOf(body.get("content"));
         Double profitRatio = toDouble(body.get("profitRatio"));
-        if (profitRatio == null) profitRatio = 2d;
         // 录入并拿到本批成功入库的Offer（用于录入后近1个月同料号价格比较）
         List<CrmOffer> saved = offerService.aiEntryOffersReturning(supplierCode, supplierName, inqOfferType, profitRatio, content);
         List<String> partNumbers = saved.stream().map(CrmOffer::getProductCode).collect(Collectors.toList());

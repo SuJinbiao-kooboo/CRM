@@ -1741,6 +1741,15 @@ public class WeChatGatewayService {
         return m;
     }
 
+    /** 任务生成开关与扫描参数，供微信消息页解释 task_status=PENDING 的等待原因。 */
+    public Map<String, Object> taskGenerateStatus() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("enabled", analysisBool("autoTaskGenerateEnabled", false));
+        m.put("scanSec", analysisInt("taskGenerateScanSec", 60));
+        m.put("batchSize", analysisInt("taskGenerateBatchSize", 20));
+        return m;
+    }
+
     /** 人工确认后，把指定会话或全部 SKIPPED/FAILED/DEAD 的 INQ/OFFER 重新放入录入队列。 */
     public Map<String, Object> requeueOfferEntry(String chat) {
         String target = StringUtils.trimToNull(chat);

@@ -90,6 +90,7 @@
               <li><b>llmPromptBase / llmExamples</b>：系统提示词和示例；<b>aiContextWindow</b> 控制最近上下文条数，<b>llmBatchSize</b> 控制单批条数。</li>
               <li><b>classifyEnabled</b>：自动分类开关；<b>classifyTriggerCount</b>、<b>classifyMaxIdleSec</b>、<b>classifyBatchSize</b> 控制定时触发。</li>
               <li><b>offerEntryEnabled</b>：INQ/OFFER 自动录入总开关。关闭时“微信自动化-INQ/OFFER录入”定时任务不会查询待录入消息；开启后按 <b>offerEntryScanSec</b> 扫描、每批最多 <b>offerEntryBatchSize</b> 条，并按消息时间从早到晚排队。</li>
+              <li><b>autoTaskGenerateEnabled</b>：自动任务生成开关。关闭时消息录入成功后仍会保持 <code>task_status=PENDING</code>；任务状态旁的感叹号会显示该原因，可到“微信询报价任务”页面手动点击“生成任务”。</li>
               <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息的整组分类与录入聚合间隔秒数（默认 30）；<b>offerEntryQuoteLinkSec</b>：同一引用消息的补充回复聚合窗口秒数（默认 1800）；<b>offerEntryMaxAgeHours</b>：自动录入最大回溯小时数。</li>
               <li><b>录入异常排查</b>：待录入查询失败会写入“系统监控 → 调度日志”的异常信息；单条消息的 AI 录入失败原因见列表的“录入状态/结果”。</li>
               <li><b>traceAlertEnabled</b>：TRACE 告警开关；<b>traceAlertMaxAgeMin</b> 最大消息年龄（默认 360 分钟，即只告警最近 6 小时），<b>traceAlertChatCooldownMin</b> 同群冷却分钟数。</li>
@@ -196,11 +197,8 @@
       <el-table-column label="任务状态" width="118" align="center">
         <template slot-scope="scope">
           <el-tag size="mini" :type="statusType(scope.row.taskStatus)">{{ scope.row.taskStatus || '-' }}</el-tag>
-          <el-tooltip v-if="scope.row.taskFailureReason" :content="scope.row.taskFailureReason" placement="top">
-            <i class="el-icon-error text-danger button-help-icon" />
-          </el-tooltip>
-          <el-tooltip v-else-if="scope.row.taskMessage" :content="scope.row.taskMessage" placement="top">
-            <i class="el-icon-warning-outline" />
+          <el-tooltip v-if="taskStateReason(scope.row)" :content="taskStateReason(scope.row)" placement="top">
+            <i class="button-help-icon" :class="taskStateReasonDanger(scope.row) ? 'el-icon-error text-danger' : 'el-icon-warning-outline'" />
           </el-tooltip>
         </template>
       </el-table-column>
@@ -241,8 +239,8 @@
           <el-col :span="12"><el-form-item label="录入状态">{{ detail.entryStatus }}</el-form-item></el-col>
           <el-col :span="12"><el-form-item label="任务状态">{{ detail.taskStatus }}</el-form-item></el-col>
         </el-row>
-        <el-form-item v-if="detail.taskFailureReason" label="任务失败原因">
-          <div class="detail-text text-danger">{{ detail.taskFailureReason }}</div>
+        <el-form-item v-if="taskStateReason(detail)" :label="detail.taskStatus === 'PENDING' ? '任务待处理原因' : '任务处理说明'">
+          <div class="detail-text" :class="taskStateReasonDanger(detail) ? 'text-danger' : ''">{{ taskStateReason(detail) }}</div>
         </el-form-item>
         <el-form-item label="正文"><div class="detail-text">{{ displayContent(detail) }}</div></el-form-item>
         <el-form-item v-if="detail.quote" label="引用内容">
@@ -376,6 +374,7 @@ export default {
       autoClassifySaving: false,
       autoEntryEnabled: false,
       autoEntrySaving: false,
+      autoTaskGenerateEnabled: false,
       entering: false,
       showSearch: true,
       total: 0,
@@ -468,11 +467,13 @@ export default {
         const data = res.data || {}
         const poll = data.poll || {}
         const entry = data.entry || {}
+        const task = data.task || {}
         const pending = Number(entry.pendingCnt || 0)
         const batchSize = Number(entry.batchSize || 0)
         const scanSec = Number(entry.scanSec || 0)
         this.autoClassifyEnabled = !!poll.classifyEnabled
         this.autoEntryEnabled = !!entry.enabled
+        this.autoTaskGenerateEnabled = !!task.enabled
         this.statsText = (poll.classifyEnabled ? '自动分类已开启' : '自动分类已关闭') + '，' +
           (entry.enabled ? '自动录入已开启' : '自动录入已关闭') + '，未分类 ' + (poll.unclassifiedCnt || 0) +
           ' 条，待录入 ' + pending + ' 条，最近拉取 ' + (poll.lastRunAt || '-')
@@ -1093,6 +1094,35 @@ export default {
       if (status === 'FAILED' || status === 'DEAD' || status === 'MANUAL_REVIEW') return 'danger'
       if (status === 'PROCESSING') return 'warning'
       return 'info'
+    },
+    taskStateReason(row) {
+      if (!row) return ''
+      const category = String(row.msgCategory || '').toUpperCase()
+      if (category !== 'INQ' && category !== 'OFFER') return ''
+      const task = String(row.taskStatus || '').toUpperCase()
+      const entry = String(row.entryStatus || '').toUpperCase()
+      if (row.taskFailureReason) return row.taskFailureReason
+      if (task === 'PENDING') {
+        if (entry === 'PENDING') return '待 AI 录入：消息已分类为 ' + category + '，但 entry_status=PENDING，任务生成不会扫描。配置位置：wechat_analysis_config.offerEntryEnabled。'
+        if (entry === 'PROCESSING') return 'AI 录入处理中：entry_status=PROCESSING，录入完成后才会进入任务生成。'
+        if (entry === 'FAILED' || entry === 'DEAD') return 'AI 录入失败：' + (row.entryMessage || 'entry_status=' + entry + '，请在微信消息列表重新入队。')
+        if (entry === 'SKIPPED') return 'AI 录入已跳过：' + (row.entryMessage || '不满足自动录入条件，请检查群映射与录入配置。')
+        if (entry === 'SUCCESS' || entry === 'SUCCESS_WARN') {
+          return this.autoTaskGenerateEnabled
+            ? '已录入成功，等待任务生成扫描（task_status=PENDING，自动生成已开启）。'
+            : '已录入成功，但自动任务生成关闭（autoTaskGenerateEnabled=false），当前不会自动生成任务；请到“微信询报价任务”页面点击“生成任务”，或在 wechat_analysis_config 中开启自动任务生成。'
+        }
+        return row.taskMessage || '当前 task_status=PENDING，尚未进入任务生成；请检查 AI 录入状态。'
+      }
+      if (task === 'PROCESSING') return row.taskMessage || '任务生成处理中，领取超过 processingTimeoutSec 后可被重新扫描。'
+      if (task === 'FAILED' || task === 'MANUAL_REVIEW' || task === 'SKIPPED') {
+        return row.taskMessage || '任务未生成，请检查任务生成条件。'
+      }
+      return ''
+    },
+    taskStateReasonDanger(row) {
+      const task = String((row && row.taskStatus) || '').toUpperCase()
+      return task === 'FAILED' || task === 'MANUAL_REVIEW'
     }
   }
 }

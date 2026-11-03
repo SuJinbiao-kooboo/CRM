@@ -113,6 +113,9 @@ public class CrmSupplierServiceImpl implements ICrmSupplierService {
     @Override
     @Transactional
     public int insertSupplier(CrmSupplier supplier) {
+        if (supplier.getProfitRatio() == null) {
+            supplier.setProfitRatio(2d);
+        }
         // 供应商编号为空时自动生成（防泄密：编号不含供应商名称信息，统一使用VC+月日+随机3位规则）
         if (supplier.getSupplierCode() == null || supplier.getSupplierCode().trim().isEmpty()) {
             supplier.setSupplierCode(generateSupplierCode());

@@ -62,6 +62,7 @@ public class CrmWeChatMessageController extends BaseController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("poll", gateway.pollStatus());
         data.put("entry", gateway.offerEntryStatus());
+        data.put("task", gateway.taskGenerateStatus());
         return success(data);
     }
 

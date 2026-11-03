@@ -359,7 +359,7 @@
     <el-dialog title="AI智能录入" :visible.sync="openAiEntryDialog" width="700px" append-to-body>
       <el-form :model="aiEntryForm" label-width="120px">
         <el-form-item label="供应商">
-          <el-select v-model="aiSupplier" filterable remote reserve-keyword placeholder="请输入供应商编码、名称或别名搜索" :remote-method="remoteSupplier" value-key="supplierCode" style="width: 100%">
+          <el-select v-model="aiSupplier" filterable remote reserve-keyword placeholder="请输入供应商编码、名称或别名搜索" :remote-method="remoteSupplier" value-key="supplierCode" style="width: 100%" @change="handleAiSupplierChange">
             <el-option v-for="item in supplierOptions" :key="item.id" :label="item.supplierCode + (item.supplierName ? ' - ' + item.supplierName : '')" :value="item">
               <span style="float: left">{{ item.supplierCode }}</span>
               <span v-if="item.supplierName" style="float: right; color: #8492a6; font-size: 13px">{{ item.supplierName }}</span>
@@ -373,8 +373,8 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item label="利润比例(%)">
-          <el-input-number v-model="aiEntryForm.profitRatio" :controls="false" :precision="0" :min="1" :max="100" placeholder="1-100" style="width: 100%" />
-          <div style="color: #909399; font-size: 12px; line-height: 1.5">类型为Offer时必填（默认2%，可修改），报价价 = 供应商价格 × (1 + 利润比例/100)</div>
+          <el-input-number v-model="aiEntryForm.profitRatio" :controls="false" :precision="2" :min="0" :max="100" placeholder="默认读取供应商利润率" style="width: 100%" />
+          <div style="color: #909399; font-size: 12px; line-height: 1.5">选择供应商后自动带出该供应商的利润率，可手工修改；报价价 = 供应商价格 × (1 + 利润率/100)</div>
         </el-form-item>
         <el-form-item label="物料内容">
           <el-input type="textarea" v-model="aiEntryForm.content" :rows="10" placeholder="粘贴供应商的物料信息（品牌、料号、型号、规格、数量、报价等），AI将自动整理入库" />
@@ -1037,13 +1037,17 @@ export default {
     /** 打开AI智能录入弹窗（类型默认Offer，可切换Inq） */
     /** 打开AI智能录入弹窗：类型默认Offer，利润比例默认2%（可修改），供应商与内容每次重新选择 */
     openAiEntry() { this.aiSupplier = null; this.aiEntryForm = { inqOfferType: 'Offer', profitRatio: 2, content: '' }; this.openAiEntryDialog = true; this.remoteSupplier('') },
+    handleAiSupplierChange(supplier) {
+      const ratio = supplier && supplier.profitRatio != null ? Number(supplier.profitRatio) : 2
+      this.aiEntryForm.profitRatio = isNaN(ratio) ? 2 : ratio
+    },
     /** 提交AI智能录入：粘贴内容交给后端DeepSeek整理后批量入库 */
     submitAiEntry() {
       if (!this.aiSupplier) { this.$modal.msgError('请选择供应商'); return }
       if (!this.aiEntryForm.inqOfferType) { this.$modal.msgError('请选择类型'); return }
       if (!this.aiEntryForm.content || !this.aiEntryForm.content.trim()) { this.$modal.msgError('请粘贴物料内容'); return }
       const ratio = this.aiEntryForm.profitRatio;
-      if (this.aiEntryForm.inqOfferType === 'Offer' && (ratio == null || ratio < 1 || ratio > 100)) { this.$modal.msgError('类型为Offer时请输入1-100的利润比例'); return }
+      if (this.aiEntryForm.inqOfferType === 'Offer' && (ratio == null || ratio < 0 || ratio > 100)) { this.$modal.msgError('类型为Offer时请输入0-100的利润率'); return }
       this.aiEntryLoading = true;
       aiEntry({
         supplierCode: this.aiSupplier.supplierCode || '',

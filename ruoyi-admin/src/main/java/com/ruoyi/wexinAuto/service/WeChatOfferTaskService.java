@@ -1124,7 +1124,13 @@ public class WeChatOfferTaskService {
     }
 
     private void applyFailure(SendGroup group, String error) {
-        String value = clip(error, 1000);
+        String message = StringUtils.defaultIfBlank(error, "网关返回发送失败");
+        // 工控机操作微信时，网关可能在消息已经发出后因回读确认失败而返回非成功。
+        // 此时若继续自动重试，会造成同一条消息重复发送；统一标记为结果未知，交由人工确认。
+        String value = message.startsWith("GATEWAY_RESULT_UNKNOWN")
+                ? message
+                : "GATEWAY_RESULT_UNKNOWN: " + message;
+        value = clip(value + "；为避免重复发送已停止自动重试，请核实后确认未发送", 1000);
         for (WeChatOfferTask task : group.tasks) {
             taskMapper.updateSendResult(task.getId(), task.getSendTargetSuccess(),
                     STATUS_APPROVED, value, null);

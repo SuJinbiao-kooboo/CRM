@@ -39,7 +39,7 @@
               <li><b>生成必要条件</b>：分类成功且来源为 LLM/CACHE/MANUAL、分类为 INQ/OFFER；AI 录入必须为 <code>SUCCESS/SUCCESS_WARN</code>，任务状态为 <code>PENDING/FAILED</code>，或任务处理超时。群未映射/群映射冲突只会转人工复核，不再创建空料号异常任务。单次最多领取 <code>taskGenerateBatchSize=20</code> 条。</li>
               <li><b>为什么 task_status=PENDING 仍扫描 0 条</b>：<code>task_status=PENDING</code> 只表示“尚未生成任务”，还需 <code>entry_status</code> 已录入成功。若录入仍为 <code>PENDING</code>，消息会停留在等待 AI 录入阶段，不会进入任务生成；生成结果弹窗会单独显示该数量。</li>
               <li><b>任务状态感叹号</b>：微信消息列表的任务状态旁会显示当前卡点；<code>PENDING</code> 会区分“待 AI 录入 / AI 录入处理中 / 已录入等待任务生成扫描”，失败、转人工或异常跳过则显示具体原因。数据库字段 <code>task_failure_reason</code> 只记录失败类原因，等待扫描的说明由页面按状态实时计算。</li>
-              <li><b>发送扫描</b>：立即扫描并发送“已审批待发送”任务；人工点击不受 <code>autoSendEnabled=false</code> 限制，但当前微信登录账号必须是 <code>autoSendAccount</code>（默认 Eke），否则停止发送。</li>
+              <li><b>发送扫描</b>：立即扫描并发送“已审批待发送”任务；人工点击不受 <code>autoSendEnabled=false</code> 限制，但当前微信登录账号必须是 <code>autoSendAccount</code>（默认 Eke），否则停止发送。网关返回失败时一律按“结果未知”处理，不再自动重试，避免消息实际已发出后重复发送。</li>
               <li><b>自动发送开关</b>：开启后由定时任务持续扫描“已审批待发送”任务并发送；关闭后定时发送停止，“发送扫描”按钮仍可人工执行。</li>
               <li><b>审批/编辑</b>：查看来源消息、OFFER 快照、关联 INQ、发送目标和发送预览，并修改任务状态、对外报价、发送内容和发送目标。</li>
               <li><b>批量审批</b>：勾选列表多行后点击，只审批当前为 <code>PENDING_APPROVAL</code> 的任务；其他状态会跳过，失败数量在结果提示中返回。</li>
@@ -54,7 +54,7 @@
               <li><b>已审批待发送</b>：唯一允许发送扫描的状态；修改后未选择状态时保持原状态。</li>
               <li><b>已审批已发送</b>：所有目标成功，或人工认定结束；系统不再自动发送。</li>
               <li><b>无需处理</b>：驳回或业务确认不处理；仍可再次进入审批。</li>
-              <li>部分成功不新增独立状态，用“发送目标 x / 成功 y”、最近异常和发送次数表示；下一轮只补发失败目标。</li>
+              <li>部分成功不新增独立状态，用“发送目标 x / 成功 y”、最近异常和发送次数表示；失败目标按“结果未知”处理，核实未发送后可点“确认未发送”再人工重试。</li>
             </ul>
             <div class="help-title">INQ 分流规则</div>
             <ul>
@@ -75,8 +75,8 @@
             <ul>
               <li>只处理 <code>APPROVED_PENDING_SEND</code>、发送目标非空、发送次数小于 <code>taskSendMaxAttempts</code>（默认 3）且非结果未知的任务。</li>
               <li>单次最多扫描 <code>taskSendScanBatchSize=200</code> 条，按 <code>taskSendBatchSize=20</code> 组分批发送；同一任务类型+同一群名合并为一条消息。</li>
-              <li>每个目标成功即写入成功清单；全部成功置“已审批已发送”；部分失败保留成功目标，下一轮只补发失败目标。</li>
-              <li>网关异常或结果未知时停止本轮并标记，需人工核实后点“确认未发送”，避免重复发送。</li>
+              <li>每个目标成功即写入成功清单；全部成功置“已审批已发送”；失败目标保留在发送目标中，但统一标记 <code>GATEWAY_RESULT_UNKNOWN</code>，不会自动进入下一轮。</li>
+              <li>网关返回失败、异常或结果不完整时停止本轮并标记为结果未知，需人工核实确实未发送后点“确认未发送”，避免重复发送。</li>
               <li>自动扫描由 <code>autoSendEnabled=true</code> 开启，间隔 <code>taskSendScanSec=30</code> 秒。</li>
             </ul>
             <div class="help-title">配置位置</div>

@@ -53,6 +53,7 @@
               <li><b>OFFER 报价</b>：对 INQ 的报价或供货回应，或供应商主动报价/价目表；外部只回复我方询问的料号、型号也按 OFFER 处理。</li>
               <li><b>缺货/无库存</b>：“缺货、没货、无货、没有、no stock、out of stock、unavailable”等明确否定供货的消息由规则直接判为 OTHER，不调用 AI，也不录入 Offer；混合消息中无报价的缺货物料行也会在录入时剔除。</li>
               <li><b>TRACE 二次跟进</b>：围绕已有 INQ/OFFER 追问或确认包装、原装、新旧、COO、DC、质保、交期、数量、价格、下单等；不一定是疑问句，但必须有上下文指向。</li>
+              <li><b>TRACE 关联目标</b>：分类与关联目标识别共用 <code>aiContextWindow</code> 最近消息窗口（默认 20 条），由 AI 按料号、数量、价格和引用关系定位具体 INQ/OFFER，不默认关联最后一条。</li>
               <li><b>OTHER 其他</b>：寒暄、致谢、收到、OK、check、checking、稍等、纯表情、广告、系统消息，以及没有推进业务的陈述。</li>
               <li><b>连续消息组</b>：同一发送人相邻消息间隔不超过 <code>offerEntryGroupGapSec</code> 时按整组判断：有明确询价且无供货条件时整组 INQ；有报价/库存/现货等供货信息且无明确询价问句时整组 OFFER。型号清单、数量、库存等补充消息会随整组修正，不再沿用第一条的误判。</li>
               <li><b>引用补充合并</b>：同一发送人针对同一条消息的补充回复，即使超过 30 秒，也会在 <code>offerEntryQuoteLinkSec</code>（默认 1800 秒）内合并后一次录入，避免“一条有价格无料号、一条有料号无价格”。</li>
@@ -77,7 +78,7 @@
             <div class="help-title">多消息聚合录入</div>
             <ul>
               <li><b>聚合范围</b>：同一会话 + 同一发送人，相邻消息时间差不超过 <code>offerEntryGroupGapSec</code>（默认 30 秒）时视为一组；回复同一条引用消息的补充内容，在 <code>offerEntryQuoteLinkSec</code>（默认 1800 秒）内也会并入同组；不同发送人、不同会话不会并入同一组。</li>
-              <li><b>会话上下文补全</b>：OFFER 只有价格、没有料号时（例如对方单独回复“2800，2450”），会取同一会话最近 <code>aiContextWindow</code> 条消息（默认 20 条，与 AI 分类使用同一个配置）交给 AI 匹配料号，不再只看紧邻的一两条；上下文消息本身不生成物料行，也不改变自己的录入状态。</li>
+              <li><b>会话上下文补全</b>：OFFER 只有价格，或 INQ 只有数量、没有料号时（例如我方问数量后对方单独回复“20pcs”），会取同一会话最近 <code>aiContextWindow</code> 条消息（默认 20 条，与 AI 分类使用同一个配置）交给 AI 结合前文匹配料号，不再只看紧邻的一两条；上下文消息本身不生成物料行，也不改变自己的录入状态。</li>
               <li><b>群映射</b>：聊天对象名称与供应商档案的 <code>sales_group / purchase_group</code> 做精确匹配；匹配前会去除首尾空白、把制表符和连续空格折叠为一个空格，忽略英文大小写。名称内容不同（例如多了文字或符号）仍需在供应商档案补全群名。</li>
               <li><b>等待稳定</b>：组内最新一条消息距今不足 <code>offerEntryMinAgeSec</code>（默认 30 秒）时先不录入，避免报价/交期还在继续补充；返回结果里的“等待补充”即此情况。</li>
               <li><b>引用原文</b>：消息的 <code>relat_inq</code>、<code>relat_offer</code> 或 <code>quote</code> 指向的原消息会作为料号上下文一并交给 AI；例如 Johnny 回复 18400USD 并补充 2weeks，会连同被引用的 May 的 INQ 一起解析。</li>
@@ -95,7 +96,7 @@
               <li><b>classifyEnabled</b>：自动分类开关；<b>classifyTriggerCount</b>、<b>classifyMaxIdleSec</b>、<b>classifyBatchSize</b> 控制定时触发。</li>
               <li><b>offerEntryEnabled</b>：INQ/OFFER 自动录入总开关。关闭时“微信自动化-INQ/OFFER录入”定时任务不会查询待录入消息；开启后按 <b>offerEntryScanSec</b> 扫描、每批最多 <b>offerEntryBatchSize</b> 条，并按消息时间从早到晚排队。</li>
               <li><b>autoTaskGenerateEnabled</b>：自动任务生成开关。关闭时消息录入成功后仍会保持 <code>task_status=PENDING</code>；任务状态旁的感叹号会显示该原因，可到“微信询报价任务”页面手动点击“生成任务”。</li>
-              <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息的整组分类与录入聚合间隔秒数（默认 30）；<b>aiContextWindow</b>：纯价格 OFFER 录入和 AI 分类共同使用的最近消息条数（默认 20）；<b>offerEntryQuoteLinkSec</b>：同一引用消息的补充回复聚合窗口秒数（默认 1800）；<b>offerEntryMaxAgeHours</b>：自动录入最大回溯小时数。</li>
+              <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息的整组分类与录入聚合间隔秒数（默认 30）；<b>aiContextWindow</b>：纯价格 OFFER、纯数量 INQ 录入和 AI 分类共同使用的最近消息条数（默认 20）；<b>offerEntryQuoteLinkSec</b>：同一引用消息的补充回复聚合窗口秒数（默认 1800）；<b>offerEntryMaxAgeHours</b>：自动录入最大回溯小时数。</li>
               <li><b>录入异常排查</b>：待录入查询失败会写入“系统监控 → 调度日志”的异常信息；单条消息的 AI 录入失败原因见列表的“录入状态/结果”。</li>
               <li><b>traceAlertEnabled</b>：TRACE 告警开关；<b>traceAlertMaxAgeMin</b> 最大消息年龄（默认 360 分钟，即只告警最近 6 小时），<b>traceAlertChatCooldownMin</b> 同群冷却分钟数。</li>
               <li><b>AI 接口</b>：系统管理 → 参数设置中的 <code>sys.ai.enabled</code>、<code>sys.ai.base.url</code>、<code>sys.ai.api.key</code>、<code>sys.ai.model</code>。</li>

@@ -1047,12 +1047,17 @@ public class WeChatGatewayService {
     }
 
     /**
-     * 纯价格 OFFER 没有料号时，读取与分类一致的 aiContextWindow（默认最近 20 条）会话历史，
-     * 交给 AI 结合上下文匹配料号。历史消息只作为上下文，不并入录入组，也不改变自身录入状态。
+     * 纯价格 OFFER 或纯数量 INQ 没有料号时，读取与分类一致的 aiContextWindow（默认最近 20 条）
+     * 会话历史，交给 AI 结合上下文匹配料号。历史消息只作为上下文，不并入录入组，也不改变自身录入状态。
      */
     private void collectRecentEntryContext(EntryGroup group, WeChatMessage anchor) {
-        if (anchor == null || !"OFFER".equalsIgnoreCase(StringUtils.trimToEmpty(anchor.getMsgCategory()))
-                || !group.quotes.isEmpty() || !isPriceOnlyContent(group.members)) {
+        if (anchor == null || !group.quotes.isEmpty()) {
+            return;
+        }
+        String category = StringUtils.upperCase(StringUtils.trimToEmpty(anchor.getMsgCategory()));
+        boolean priceOnlyOffer = "OFFER".equals(category) && isPriceOnlyContent(group.members);
+        boolean quantityOnlyInq = "INQ".equals(category) && isQuantityOnlyContent(group.members);
+        if (!priceOnlyOffer && !quantityOnlyInq) {
             return;
         }
         int contextWindow = Math.max(20, Math.min(100, config.integer("aiContextWindow", 20)));
@@ -1111,6 +1116,27 @@ public class WeChatGatewayService {
                 .replaceAll("(?i)USD|RMB|CNY|EUR|HKD|US\\$", " ")
                 .replace("美元", " ").replace("美金", " ").replace("人民币", " ").replace("元", " ")
                 .replaceAll("[0-9\\s.,，;；/、|\\-—–:：$¥￥€]", "");
+        return rest.trim().isEmpty();
+    }
+
+    /** 当前 INQ 组是否只有数量，没有料号；例如对方在我方询问数量后单独回复“20pcs”。 */
+    private boolean isQuantityOnlyContent(List<WeChatMessage> members) {
+        StringBuilder text = new StringBuilder();
+        for (WeChatMessage member : members) {
+            String content = StringUtils.trimToEmpty(member.getContent());
+            if (!content.isEmpty()) {
+                text.append(' ').append(content);
+            }
+        }
+        String raw = text.toString();
+        if (!raw.matches("(?s).*\\d.*")) {
+            return false;
+        }
+        String rest = raw
+                .replaceAll("(?i)@[^\\s,，;；]+", " ")
+                .replaceAll("(?i)(?:需要|要|来|拿|订|订购|采购|买)?\\s*\\d+(?:\\.\\d+)?\\s*"
+                        + "(?:pcs?|pieces?|个|顆|颗|片|只|条|套|台|张)?", " ")
+                .replaceAll("[0-9\\s.,，;；/、|\\-—–:：$¥￥€?？!！]", "");
         return rest.trim().isEmpty();
     }
 
@@ -1276,6 +1302,7 @@ public class WeChatGatewayService {
             sb.append("【引用或最近会话上下文，仅用于补全料号/数量，不要单独输出为物料行；")
                     .append("优先采用距离本次价格最近、且料号数量与价格数量匹配的料号清单，更早历史仅辅助判断，不得拿无关旧料号配对；")
                     .append("当前消息只有价格时按该料号顺序与价格一一对应，历史中的其他报价不要重复输出；")
+                    .append("当前消息只有数量时，按最近上下文中的料号补全本次INQ数量，历史价格不得当成本次报价；")
                     .append("价格数量少于上下文料号时，只为有价格对应的料号生成物料行，绝不为没有价格对应的料号补造物料行】\n");
             for (EntryQuote q : group.quotes) {
                 sb.append(StringUtils.defaultIfBlank(q.sender, "对方")).append(": ").append(q.content).append('\n');
@@ -1824,7 +1851,7 @@ public class WeChatGatewayService {
         m.put("quoteLinkSec", quoteLinkSec);
         m.put("maxAgeHours", maxAgeHours);
         m.put("contextWindow", Math.max(20, Math.min(100, analysisInt("aiContextWindow", 20))));
-        m.put("aiFlow", "同发送人连续消息 + 同引用补充消息聚合；纯价格OFFER补带最近 aiContextWindow 条会话上下文 -> 单次AI录入 -> 返回料号比价");
+        m.put("aiFlow", "同发送人连续消息 + 同引用补充消息聚合；纯价格OFFER、纯数量INQ补带最近 aiContextWindow 条会话上下文 -> 单次AI录入 -> 返回料号比价");
         m.put("entryStatusLegend",
                 "PENDING=待录入/可重试, PROCESSING=处理中, SUCCESS=成功, SUCCESS_WARN=已录入但比价告警, "
                         + "FAILED=可重试失败, DEAD=达到失败上限, SKIPPED=需人工确认, NOT_APPLICABLE=不参与录入");

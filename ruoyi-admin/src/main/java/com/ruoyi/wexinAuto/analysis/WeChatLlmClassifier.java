@@ -220,6 +220,12 @@ public class WeChatLlmClassifier {
                         ? earlier(input, idx, item.path("inq").asInt(-1)) : null;
                 WeChatMessage offer = "TRACE".equals(cat)
                         ? earlier(input, idx, item.path("offer").asInt(-1)) : null;
+                if (!isBusinessRelation(inq)) {
+                    inq = null;
+                }
+                if (!isBusinessRelation(offer)) {
+                    offer = null;
+                }
                 // 模型已判定TRACE但漏填编号时，补最近一条INQ/OFFER作为关联，避免告警查询直接过滤。
                 if ("TRACE".equals(cat) && inq == null && offer == null) {
                     WeChatMessage anchor = latestBusinessAnchor(input, idx);
@@ -242,6 +248,16 @@ public class WeChatLlmClassifier {
             log.warn("AI 分类响应解析失败: {}", e.toString());
         }
         return out;
+    }
+
+    /** 关联目标必须来自本次输入的最近上下文，且是INQ/OFFER或我方业务原文，不能指向无关OTHER。 */
+    private boolean isBusinessRelation(WeChatMessage message) {
+        if (message == null) {
+            return false;
+        }
+        String category = StringUtils.trimToEmpty(message.getMsgCategory()).toUpperCase();
+        return "INQ".equals(category) || "OFFER".equals(category)
+                || WeChatTextUtils.isSelf(message.getSender(), selfNames());
     }
 
     /**
@@ -504,7 +520,9 @@ public class WeChatLlmClassifier {
         }
         sb.append("只输出JSON数组，每条P消息一项，例如：")
           .append("[{\"i\":").append(batchStart).append(",\"cat\":\"INQ\"}]")
-          .append("；OFFER能确认对应INQ时填inq编号，供应商主动报价可不填；TRACE尽量填对应的inq/offer编号。不要输出理由。");
+          .append("；OFFER能确认对应INQ时填inq编号，供应商主动报价可不填；"
+                  + "TRACE必须结合上面最近最多20条H历史和本批前序P消息，填写实际对应的inq/offer编号；"
+                  + "不能只取最近一条，也不能引用上下文外的消息。不要输出理由。");
         return sb.toString();
     }
 
@@ -536,6 +554,8 @@ public class WeChatLlmClassifier {
                 + "外部消息可以引用其编号作为inq/offer关联。");
         sb.append("\n外部消息只回复我方历史询问的料号/型号，也判OFFER并用inq关联该历史消息；"
                 + "外部针对具体INQ/OFFER追问包装、原装、新旧、交期、质保等，即使只有“Sealed box ?”这类短句，也判TRACE并填写关联编号。");
+        sb.append("\n判断TRACE时必须在最近20条上下文内定位真正对应的具体INQ/OFFER或我方业务原文，"
+                + "优先结合料号、数量、价格、引用关系选择语义最匹配的一条；不得按最新一条盲目关联。");
         sb.append("\nINQ必须指向具体待询价的料号、型号、规格或品类；只是在打听对方历史成交价、问对方是否还收货/还做不做，"
                 + "且没有具体待询价对象的（如“多少钱拿的”“你们还收不”），判OTHER；"
                 + "若这类追问明确围绕前面某条具体INQ/OFFER推进条件，则判TRACE。");

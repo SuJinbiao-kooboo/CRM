@@ -83,7 +83,8 @@
         LIMIT 1
     </select>
 
-    <insert id="insertTaskIgnore" parameterType="com.ruoyi.wexinAuto.model.WeChatOfferTask">
+    <insert id="insertTaskIgnore" parameterType="com.ruoyi.wexinAuto.model.WeChatOfferTask"
+            useGeneratedKeys="true" keyProperty="id">
         INSERT IGNORE INTO wechat_offer_task (
             source_username, source_local_id, source_server_id, source_message_time,
             source_category, task_type, send_type, ori_target, ori_msg, pn_original, pn_normalized,

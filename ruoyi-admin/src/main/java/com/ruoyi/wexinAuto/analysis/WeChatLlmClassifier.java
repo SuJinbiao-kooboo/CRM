@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.utils.DictUtils;
 import com.ruoyi.crm.service.ai.AiChannelService;
+import com.ruoyi.crm.util.OfferNoStockUtils;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -44,6 +45,7 @@ public class WeChatLlmClassifier {
 
     private static final String INQ_GROUP_REASON = "AI:INQ 同发送人连续消息归并";
     private static final String OFFER_GROUP_REASON = "AI:OFFER 同发送人连续消息归并";
+    private static final String NO_STOCK_REASON = "缺货/无库存响应，不生成Offer";
     private static final String[] SUPPLY_SIGNALS = {
             "有这些", "都有", "库存", "现货", "可出", "可供", "供应", "available", "in stock", "stock"
     };
@@ -77,6 +79,9 @@ public class WeChatLlmClassifier {
         if (applySelfRule(m)) {
             return true;
         }
+        if (applyNoStockRule(m)) {
+            return true;
+        }
         Classification c = m == null ? null : cache.get(cacheKey(m));
         if (c == null) {
             return false;
@@ -106,7 +111,7 @@ public class WeChatLlmClassifier {
         }
         List<WeChatMessage> aiPending = new ArrayList<>();
         for (WeChatMessage m : pending) {
-            if (!applySelfRule(m)) {
+            if (!applySelfRule(m) && !applyNoStockRule(m)) {
                 aiPending.add(m);
             }
         }
@@ -173,7 +178,9 @@ public class WeChatLlmClassifier {
             m.setCategoryReason(c.reason);
             m.setRelatInq(c.relatInq);
             m.setRelatOffer(c.relatOffer);
-            applySelfRule(m);
+            if (!applySelfRule(m)) {
+                applyNoStockRule(m);
+            }
         }
     }
 
@@ -230,6 +237,7 @@ public class WeChatLlmClassifier {
                         reason(cat, inq, offer)));
             }
             normalizeSameSenderBusinessGroups(input, batchStart, out);
+            applyNoStockClassifications(input, batchStart, out);
         } catch (Exception e) {
             log.warn("AI 分类响应解析失败: {}", e.toString());
         }
@@ -285,7 +293,8 @@ public class WeChatLlmClassifier {
             }
             String text = StringUtils.lowerCase(StringUtils.defaultString(m.getContent()));
             hasInquirySignal = hasInquirySignal || containsAny(text, INQUIRY_SIGNALS);
-            hasSupplySignal = hasSupplySignal || containsAny(text, SUPPLY_SIGNALS);
+            hasSupplySignal = hasSupplySignal
+                    || (!OfferNoStockUtils.isNoStockResponse(text) && containsAny(text, SUPPLY_SIGNALS));
             askWhetherWeNeed = askWhetherWeNeed || asksWhetherWeNeed(m);
         }
         if (askWhetherWeNeed) {
@@ -348,6 +357,10 @@ public class WeChatLlmClassifier {
         String reason = offer ? OFFER_GROUP_REASON : INQ_GROUP_REASON;
         for (int j = Math.max(start, batchStart); j <= end; j++) {
             WeChatMessage m = input.get(j);
+            if (OfferNoStockUtils.isNoStockResponse(m.getContent())) {
+                out.put(j, new Classification("OTHER", null, null, NO_STOCK_REASON));
+                continue;
+            }
             Classification old = out.get(j);
             String relatInq = old == null || !offer ? null : old.relatInq;
             if (offer && sameSenderRel(relatInq, m.getSender())) {
@@ -571,6 +584,28 @@ public class WeChatLlmClassifier {
         m.setRelatOffer(null);
         m.setCategoryReason("发送人属于 selfNames，直接分类为 OTHER，未调用 AI");
         return true;
+    }
+
+    /** 明确的缺货/无库存答复不进入 AI，也不属于 OFFER；缓存、定时和手工触发统一生效。 */
+    public boolean applyNoStockRule(WeChatMessage m) {
+        if (m == null || !OfferNoStockUtils.isNoStockResponse(m.getContent())) {
+            return false;
+        }
+        m.setMsgCategory("OTHER");
+        m.setCategorySource("FILTER");
+        m.setRelatInq(null);
+        m.setRelatOffer(null);
+        m.setCategoryReason(NO_STOCK_REASON);
+        return true;
+    }
+
+    private void applyNoStockClassifications(List<WeChatMessage> input, int batchStart,
+                                             Map<Integer, Classification> out) {
+        for (int j = Math.max(0, batchStart); j < input.size(); j++) {
+            if (OfferNoStockUtils.isNoStockResponse(input.get(j).getContent())) {
+                out.put(j, new Classification("OTHER", null, null, NO_STOCK_REASON));
+            }
+        }
     }
 
     private String cfg(String label, String def) {

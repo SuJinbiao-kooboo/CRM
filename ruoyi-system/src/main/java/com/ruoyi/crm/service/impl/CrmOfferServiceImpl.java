@@ -40,6 +40,7 @@ import com.ruoyi.crm.service.ICrmOfferService;
 import com.ruoyi.crm.service.ICrmSupplierService;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.crm.util.OfferMaterialNormalizer;
+import com.ruoyi.crm.util.OfferNoStockUtils;
 import com.ruoyi.crm.util.PnUtils;
 import com.ruoyi.crm.util.OfferTextFormatter;
 import com.ruoyi.system.service.ISysConfigService;
@@ -433,6 +434,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 : (authorizedSupplier.getProfitRatio() != null ? authorizedSupplier.getProfitRatio() : 2d);
         // 调用AI把无规则文本整理为结构化物料列表（品牌/料号/型号/规格型号/数量/报价）
         List<Map<String, Object>> items = deepSeekAiService.parseMaterialContent(content);
+        boolean filterNoStockRows = "Offer".equals(inqOfferType) && OfferNoStockUtils.mentionsNoStock(content);
 
         Date now = new Date();
         // 来源表名：AI+时间+供应商名+操作人，便于追溯录入批次
@@ -445,9 +447,16 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             if (partNumber.isEmpty()) {
                 continue;
             }
+            Double itemCost = item.get("price") instanceof Number
+                    ? ((Number) item.get("price")).doubleValue() : null;
+            String itemText = str(item.get("productDetail")) + " " + str(item.get("spec")) + " "
+                    + str(item.get("model"));
+            if (OfferNoStockUtils.mentionsNoStock(itemText)
+                    || (filterNoStockRows && (itemCost == null || itemCost <= 0))) {
+                continue;
+            }
             sawPartNumber = true;
-            Object price = item.get("price");
-            Double cost = price instanceof Number ? ((Number) price).doubleValue() : null;
+            Double cost = itemCost;
             CrmOffer offer = new CrmOffer();
             offer.setProductCode(partNumber);
             offer.setProductBrand(str(item.get("brand")));

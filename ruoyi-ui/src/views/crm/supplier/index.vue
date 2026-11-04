@@ -145,6 +145,7 @@
           <el-descriptions-item label="付款条件">{{ detailData.paymentTerms }}</el-descriptions-item>
           <el-descriptions-item label="合作状态">{{ detailData.cooperationStatus }}</el-descriptions-item>
           <el-descriptions-item label="利润率">{{ detailData.profitRatio == null ? '2' : detailData.profitRatio }}%</el-descriptions-item>
+          <el-descriptions-item label="自动审批">{{ detailData.autoApprove === 1 ? '开启' : '关闭' }}</el-descriptions-item>
           <el-descriptions-item label="跟进人">{{ detailData.followUpByNames || detailData.followUpBy }}</el-descriptions-item>
           <el-descriptions-item label="状态">{{ detailData.status === 1 ? '正常' : '停用' }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ parseTime(detailData.createTime) }}</el-descriptions-item>
@@ -275,6 +276,7 @@
               <template v-else>
                 <div class="cell-body" @click.stop="enterEdit(scope.row, col)">
                   <el-tag v-if="col.type === 'statusTag'" :type="scope.row[col.prop] === 1 ? 'success' : 'danger'">{{ scope.row[col.prop] === 1 ? '正常' : '停用' }}</el-tag>
+                  <el-tag v-else-if="col.type === 'booleanTag'" :type="scope.row[col.prop] === 1 ? 'success' : 'info'">{{ scope.row[col.prop] === 1 ? '开启' : '关闭' }}</el-tag>
                   <template v-else-if="col.editType === 'multiSelect'">
                     <el-tag v-for="(v, i) in (scope.row[col.arrProp] || [])" :key="i" size="mini" class="cell-tag">{{ labelOf(col, v) }}</el-tag>
                     <span v-if="!(scope.row[col.arrProp] || []).length" class="cell-empty">-</span>
@@ -293,6 +295,7 @@
             <el-option v-for="d in dictCooperationStatus" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
           </el-select>
           <el-tag v-else-if="col.type === 'statusTag'" :type="scope.row.status === 1 ? 'success' : 'danger'">{{ scope.row.status === 1 ? '正常' : '停用' }}</el-tag>
+          <el-tag v-else-if="col.type === 'booleanTag'" :type="scope.row[col.prop] === 1 ? 'success' : 'info'">{{ scope.row[col.prop] === 1 ? '开启' : '关闭' }}</el-tag>
           <span v-else class="cell-text-ellipsis" :title="String(scope.row[col.textProp || col.prop] || '')">{{ scope.row[col.textProp || col.prop] }}</span>
         </template>
       </el-table-column>
@@ -468,6 +471,12 @@
           <el-col :span="12">
             <el-form-item label="利润率(%)" prop="profitRatio">
               <el-input-number v-model="form.profitRatio" :controls="false" :precision="2" :min="0" :max="100" placeholder="默认2" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="自动审批" prop="autoApprove">
+              <el-switch v-model="form.autoApprove" :active-value="1" :inactive-value="0" />
+              <span style="color:#909399;font-size:12px;margin-left:8px;">任务所有发送目标均开启时生效</span>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -745,6 +754,7 @@ const DEFAULT_COLUMNS = [
   { key: 'paymentTerms', label: '付款条件', prop: 'paymentTerms', width: 130, type: 'multiSelect', editType: 'multiSelect', arrProp: 'paymentTermsArr', dict: 'dictPaymentTerms' },
   { key: 'cooperationDirection', label: '合作方向', prop: 'cooperationDirection', width: 190, type: 'multiSelect', editType: 'multiSelect', arrProp: 'cooperationDirectionArr', dict: 'dictCooperationDirection' },
   { key: 'profitRatio', label: '利润率(%)', prop: 'profitRatio', width: 110, type: 'plain', editType: 'number' },
+  { key: 'autoApprove', label: '自动审批', prop: 'autoApprove', width: 100, type: 'booleanTag', editType: 'select', selectOptions: { 1: '开启', 0: '关闭' } },
   { key: 'salesGroup', label: '销售群', prop: 'salesGroup', width: 160, type: 'plain', editType: 'text' },
   { key: 'purchaseGroup', label: '采购群', prop: 'purchaseGroup', width: 160, type: 'plain', editType: 'text' },
   { key: 'cooperationStatus', label: '合作状态', prop: 'cooperationStatus', width: 140, type: 'statusSelect' },
@@ -839,7 +849,7 @@ export default {
       uploadHeaders: { Authorization: 'Bearer ' + getToken() },
       uploadFiles: [],
       queryParams: { pageNum: 1, pageSize: 10, supplierCode: '', supplierName: '', supplierAlias: '', contactName: '', cooperationStatus: '', supplierTypeArr: [], brandsArr: [], mainProductsArr: [], cooperationLevelArr: [], riskLevelArr: [], paymentTermsArr: [], params: {} },
-      form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], profitRatio: 2, salesGroup: '', purchaseGroup: '', cooperationStatus: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
+      form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], profitRatio: 2, autoApprove: 0, salesGroup: '', purchaseGroup: '', cooperationStatus: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
       dictSupplierType: [], dictMainProducts: [], dictCooperationLevel: [], dictRiskLevel: [], dictPaymentTerms: [], dictProductBrand: [], dictCooperationDirection: [], dictCooperationStatus: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       userOptions: [],
       userLoading: false,
@@ -1003,7 +1013,7 @@ export default {
       this.download('/crm/supplier/export', { ids: this.ids }, `supplier_${new Date().getTime()}.xlsx`)
     },
     cancel() { this.open = false },
-    resetFormData() { this.form = { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], profitRatio: 2, salesGroup: '', purchaseGroup: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] }; this.uploadFiles = [] },
+    resetFormData() { this.form = { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], profitRatio: 2, autoApprove: 0, salesGroup: '', purchaseGroup: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] }; this.uploadFiles = [] },
     addContact() { this.form.contacts.push({ contactName: '', post: '', phone: '', email: '', isPrimary: 0 }) },
     removeContact(index) { this.form.contacts.splice(index, 1) },
     onUploadSuccess(resp, file) {
@@ -1162,7 +1172,7 @@ export default {
     }
     ,saveInlineField(row, col, next, prev) {
       const applyRevert = () => { row[col.prop] = prev; if (col.textProp) row[col.textProp] = this.stripHtml(prev) }
-      if (!next) { next = '' }
+      if (next === undefined || next === null) { next = '' }
       if (col.contactField) {
         if (!row.contactId) { applyRevert(); this.$modal.msgWarning('该供应商暂无联系人记录，请先用“修改”新增联系人'); return }
         return updateSupplierContact({ id: row.contactId, [col.prop]: next }).then(() => { this.$modal.msgSuccess('已更新') }).catch(err => { applyRevert(); this.$modal.msgError(err && err.msg ? err.msg : '更新失败') })

@@ -52,6 +52,9 @@ public class CrmSupplier extends BaseEntity {
     /** 报价利润率(%)：为空使用全局默认值 */
     @Excel(name = "利润比例")
     private Double profitRatio;
+    /** 微信询报价任务自动审批：1开启，0关闭 */
+    @Excel(name = "自动审批", readConverterExp = "1=开启,0=关闭")
+    private Integer autoApprove;
     @Excel(name = "营业执照号")
     private String businessLicense;
     @Excel(name = "税号")

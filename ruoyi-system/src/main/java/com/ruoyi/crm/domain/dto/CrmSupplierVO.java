@@ -50,6 +50,8 @@ public class CrmSupplierVO extends BaseEntity {
     private String cooperationStatus;
     @Excel(name = "利润比例")
     private Double profitRatio;
+    @Excel(name = "自动审批", readConverterExp = "1=开启,0=关闭")
+    private Integer autoApprove;
     @Excel(name = "营业执照号")
     private String businessLicense;
     @Excel(name = "税号")

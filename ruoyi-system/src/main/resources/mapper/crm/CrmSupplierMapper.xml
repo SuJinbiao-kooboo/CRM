@@ -22,6 +22,7 @@
         <result column="purchase_group" property="purchaseGroup" />
         <result column="cooperation_status" property="cooperationStatus" />
         <result column="profit_ratio" property="profitRatio" />
+        <result column="auto_approve" property="autoApprove" />
         <result column="business_license" property="businessLicense" />
         <result column="tax_number" property="taxNumber" />
         <result column="bank_info" property="bankInfo" />
@@ -81,6 +82,7 @@
         <result column="purchase_group" property="purchaseGroup" />
         <result column="cooperation_status" property="cooperationStatus" />
         <result column="profit_ratio" property="profitRatio" />
+        <result column="auto_approve" property="autoApprove" />
         <result column="business_license" property="businessLicense" />
         <result column="tax_number" property="taxNumber" />
         <result column="bank_info" property="bankInfo" />
@@ -109,7 +111,8 @@
     <sql id="Base_Column_List">
         s.id, s.supplier_code, s.supplier_name, s.supplier_short_name, s.supplier_alias, s.supplier_type, s.brands,
         s.country, s.address, s.website, s.main_products, s.cooperation_level, s.risk_level,
-        s.payment_terms, s.cooperation_direction, s.sales_group, s.purchase_group, s.cooperation_status, s.profit_ratio, s.business_license, s.tax_number, s.bank_info, s.bank_account, s.bill_to, s.ship_to,
+        s.payment_terms, s.cooperation_direction, s.sales_group, s.purchase_group, s.cooperation_status,
+        s.profit_ratio, s.auto_approve, s.business_license, s.tax_number, s.bank_info, s.bank_account, s.bill_to, s.ship_to,
         s.introduction, s.remark, s.remark_second, s.status, s.follow_up_by, s.create_by, s.create_time,
         s.update_by, s.update_time, s.tags_first, s.tags_second, s.tags_third, s.tags_si,
         s.last_follow_up_time, s.last_follow_up_result, s.next_follow_up_time, s.next_follow_up_goal
@@ -232,13 +235,13 @@
         insert into crm_supplier(
             supplier_code, supplier_name, supplier_short_name, supplier_alias, supplier_type, brands,
             country, address, website, main_products, cooperation_level, risk_level,
-            payment_terms, cooperation_direction, sales_group, purchase_group, cooperation_status, profit_ratio, business_license, tax_number, bank_info, bank_account, bill_to, ship_to,
+            payment_terms, cooperation_direction, sales_group, purchase_group, cooperation_status, profit_ratio, auto_approve, business_license, tax_number, bank_info, bank_account, bill_to, ship_to,
             introduction, remark, remark_second, status, follow_up_by, create_by, create_time,
             update_by, update_time, tags_first, tags_second, tags_third, tags_si
         ) values(
             #{supplierCode}, #{supplierName}, #{supplierShortName}, #{supplierAlias}, #{supplierType}, #{brands},
             #{country}, #{address}, #{website}, #{mainProducts}, #{cooperationLevel}, #{riskLevel},
-            #{paymentTerms}, #{cooperationDirection}, #{salesGroup}, #{purchaseGroup}, #{cooperationStatus}, #{profitRatio}, #{businessLicense}, #{taxNumber}, #{bankInfo}, #{bankAccount}, #{billTo}, #{shipTo},
+            #{paymentTerms}, #{cooperationDirection}, #{salesGroup}, #{purchaseGroup}, #{cooperationStatus}, #{profitRatio}, COALESCE(#{autoApprove}, 0), #{businessLicense}, #{taxNumber}, #{bankInfo}, #{bankAccount}, #{billTo}, #{shipTo},
             #{introduction}, #{remark}, #{remarkSecond}, #{status}, #{followUpBy}, #{createBy}, now(),
             #{updateBy}, now(), #{tagsFirst}, #{tagsSecond}, #{tagsThird}, #{tagsSi}
         )
@@ -265,6 +268,7 @@
             <if test="purchaseGroup != null">purchase_group = #{purchaseGroup},</if>
             <if test="cooperationStatus != null">cooperation_status = #{cooperationStatus},</if>
             <if test="profitRatio != null">profit_ratio = #{profitRatio},</if>
+            <if test="autoApprove != null">auto_approve = #{autoApprove},</if>
             <if test="businessLicense != null">business_license = #{businessLicense},</if>
             <if test="taxNumber != null">tax_number = #{taxNumber},</if>
             <if test="bankInfo != null">bank_info = #{bankInfo},</if>
@@ -313,7 +317,8 @@
     <select id="selectSupplierOptions" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultType="com.ruoyi.crm.domain.CrmSupplier">
         select min(s.id) as id, s.supplier_code as supplier_code, s.supplier_name as supplier_name,
                group_concat(distinct ifnull(s.supplier_alias, '') separator '/') as supplier_alias,
-               max(coalesce(s.profit_ratio, 2.00)) as profit_ratio
+               max(coalesce(s.profit_ratio, 2.00)) as profit_ratio,
+               min(coalesce(s.auto_approve, 0)) as auto_approve
         from crm_supplier s
         <where>
             <!-- 支持按供应商编码、名称或别名模糊搜索（Offer页面供应商选择均显示编码，故编码需可搜） -->
@@ -329,7 +334,7 @@
     </select>
 
     <select id="selectSupplierSimpleList" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultMap="CrmSupplierBaseMap">
-        select id, supplier_code, supplier_name, profit_ratio from crm_supplier
+        select id, supplier_code, supplier_name, profit_ratio, auto_approve from crm_supplier
         <where>
             <if test="params != null and params.keyword != null and params.keyword != ''">
                 and (supplier_code like concat('%', #{params.keyword}, '%') or supplier_name like concat('%', #{params.keyword}, '%'))
@@ -344,7 +349,7 @@
 
     <select id="selectAllForWeChat" resultMap="CrmSupplierBaseMap">
         select id, supplier_code, supplier_name, supplier_short_name, supplier_alias, brands,
-               cooperation_level, cooperation_direction, sales_group, purchase_group, status, profit_ratio
+               cooperation_level, cooperation_direction, sales_group, purchase_group, status, profit_ratio, auto_approve
         from crm_supplier
         order by id asc
     </select>

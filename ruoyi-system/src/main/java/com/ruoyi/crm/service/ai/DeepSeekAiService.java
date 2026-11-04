@@ -82,7 +82,8 @@ public class DeepSeekAiService {
             + "18. 接口类型必须写入spec：HDD/SSD写SATA、SAS、NVMe、PCIe及U.2、M.2、E1.S、E3.S等；RAM写DDR4/DDR5、ECC、RDIMM/LRDIMM/UDIMM等；无法确认的项省略，不得编造；"
             + "19. NVIDIA GeForce RTX 5090（包括5090、RTX5090、RTX 5090及风扇/涡轮/品牌/OC等描述）统一partNumber=RTX 5090 32G、model=RTX 5090、productType=GPU，spec补32GB GDDR7；5090D、RTX 5090D、5090D V2是不同型号，禁止套用；"
             + "20. NVIDIA RTX PRO 6000 Server Edition/服务器版统一partNumber=PRO 6000 SE 96G、model=RTX PRO 6000 SE；Workstation Edition/工作站版统一partNumber=PRO 6000 WS 96G、model=RTX PRO 6000 WS；两者productType=GPU，spec补96GB GDDR7；"
-            + "21. 只写PRO 6000且无法确认SE/WS时partNumber=PRO 6000，不得猜测版本；PRO6000D、PRO 6000D、MAX-Q/Max~Q是其他型号，保持原样；AMD Radeon Pro 6000不是NVIDIA，禁止套用；GPU料号统一用“系列 型号 版本 显存”空格分隔格式";
+            + "21. 只写PRO 6000且无法确认SE/WS时partNumber=PRO 6000，不得猜测版本；PRO6000D、PRO 6000D、MAX-Q/Max~Q是其他型号，保持原样；AMD Radeon Pro 6000不是NVIDIA，禁止套用；GPU料号统一用“系列 型号 版本 显存”空格分隔格式；"
+            + "22. 缺货、没货、无货、no stock、out of stock、unavailable等明确无库存/不可供货表达不是Offer，不得为对应物料生成行；同一消息只有其他物料有有效报价时，仅输出有报价的物料";
 
     /**
      * 调用 DeepSeek 接口，把无规则的物料文本整理为结构化物料列表

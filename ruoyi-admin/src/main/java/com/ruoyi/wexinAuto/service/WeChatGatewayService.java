@@ -7,6 +7,7 @@ import com.ruoyi.crm.domain.CrmOfferPriceMode;
 import com.ruoyi.crm.mapper.CrmOfferMapper;
 import com.ruoyi.crm.service.ai.AiChannelService;
 import com.ruoyi.crm.service.ICrmOfferService;
+import com.ruoyi.crm.util.OfferNoStockUtils;
 import com.ruoyi.wexinAuto.analysis.WeChatLlmClassifier;
 import com.ruoyi.wexinAuto.analysis.WeChatTextUtils;
 import com.ruoyi.wexinAuto.config.WeChatAutomationConfig;
@@ -956,6 +957,10 @@ public class WeChatGatewayService {
             if (m == null || handled.contains(msgKey(m))) {
                 continue;
             }
+            if (OfferNoStockUtils.isNoStockResponse(m.getContent())) {
+                markNoStockOnly(m, stats);
+                continue;
+            }
             EntryGroup group = buildEntryGroup(m, groupGapSec);
             handled.addAll(group.keys());
             WeChatMessage anchor = firstRetryableEntryMember(group, cats);
@@ -1014,7 +1019,9 @@ public class WeChatGatewayService {
             if (t <= 0 || last - t > gapSec * 1000L) {
                 break;
             }
-            chain.add(0, near.get(i));
+            if (!OfferNoStockUtils.isNoStockResponse(near.get(i).getContent())) {
+                chain.add(0, near.get(i));
+            }
             last = t;
         }
         last = anchorMs;
@@ -1023,7 +1030,9 @@ public class WeChatGatewayService {
             if (t <= 0 || t - last > gapSec * 1000L) {
                 break;
             }
-            chain.add(near.get(i));
+            if (!OfferNoStockUtils.isNoStockResponse(near.get(i).getContent())) {
+                chain.add(near.get(i));
+            }
             last = t;
         }
         group.members.clear();
@@ -1195,7 +1204,7 @@ public class WeChatGatewayService {
     }
 
     private static boolean addMember(EntryGroup group, WeChatMessage message) {
-        if (containsMember(group, message)) {
+        if (containsMember(group, message) || OfferNoStockUtils.isNoStockResponse(message.getContent())) {
             return false;
         }
         group.members.add(message);
@@ -1566,6 +1575,16 @@ public class WeChatGatewayService {
      * 群映射类跳过只锁定主消息，其余组员保持待录入；待群映射补齐后还能从组员继续重试，
      * 不会因为整组置 SKIPPED 而永久丢失。
      */
+    private void markNoStockOnly(WeChatMessage message, EntryStats stats) {
+        stats.skipped++;
+        String entryMessage = "缺货/无库存响应，不录入Offer";
+        store.updateEntryOnly(message.getUsername(), message.getLocalId(), "SKIPPED",
+                entryMessage, 0, "", 0);
+        store.updateTaskState(message.getUsername(), message.getLocalId(), "SKIPPED", "NO_STOCK", "");
+        log.info("微信消息为明确缺货响应，跳过Offer录入: chat={} sender={} localId={}",
+                message.getName(), message.getSender(), message.getLocalId());
+    }
+
     private void markGroupSkipped(EntryGroup group, WeChatMessage anchor, String entryMessage,
                                   String anchorTaskStatus, String anchorTaskMessage, EntryStats stats) {
         stats.skipped++;

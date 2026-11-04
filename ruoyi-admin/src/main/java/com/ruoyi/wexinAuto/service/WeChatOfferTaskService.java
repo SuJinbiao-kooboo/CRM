@@ -154,6 +154,8 @@ public class WeChatOfferTaskService {
         out.put("stats", stats);
         out.put("candidateTotal", stats.get("readyToGenerate"));
         List<WeChatMessage> rows = messageStore.queryTaskCandidates(since, batch, StringUtils.trimToNull(chat), timeout);
+        Map<String, Boolean> autoApproveBySupplierCode = loadAutoApproveSettings();
+        List<Long> autoApproveTaskIds = new ArrayList<>();
         int generatedMessages = 0;
         int generatedTasks = 0;
         int manualMessages = 0;
@@ -164,7 +166,7 @@ public class WeChatOfferTaskService {
                 continue;
             }
             try {
-                GenerationResult result = generateMessage(message);
+                GenerationResult result = generateMessage(message, autoApproveBySupplierCode, autoApproveTaskIds);
                 if (result.handled > 0) {
                     generatedMessages++;
                 }
@@ -201,9 +203,23 @@ public class WeChatOfferTaskService {
         out.put("manualMessages", manualMessages);
         out.put("skippedMessages", skippedMessages);
         out.put("failedMessages", failedMessages);
+        Map<String, Object> autoApproveResult = null;
+        if (!autoApproveTaskIds.isEmpty()) {
+            try {
+                autoApproveResult = batchApprove(autoApproveTaskIds, "供应商自动审批");
+                out.put("autoApprove", autoApproveResult);
+            } catch (Exception e) {
+                log.error("微信询报价任务自动审批失败: ids={}", autoApproveTaskIds, e);
+                out.put("autoApproveError", clip(StringUtils.defaultIfBlank(
+                        e.getMessage(), e.getClass().getSimpleName()), 1000));
+            }
+        }
         long entryPending = longValue(stats.get("taskEntryPending"));
         String summary = "任务生成完成：扫描前符合条件 " + stats.get("readyToGenerate") + " 条，本次扫描 "
                 + rows.size() + " 条，生成 " + generatedTasks + " 条任务";
+        if (autoApproveResult != null) {
+            summary += "；自动审批 " + autoApproveResult.get("approved") + " 条";
+        }
         if (entryPending > 0) {
             summary += "；另有 " + entryPending + " 条已分类 INQ/OFFER 仍在等待 AI 录入(entry_status=PENDING)，尚未进入任务生成";
         }
@@ -233,7 +249,9 @@ public class WeChatOfferTaskService {
         }
     }
 
-    private GenerationResult generateMessage(WeChatMessage message) throws Exception {
+    private GenerationResult generateMessage(WeChatMessage message,
+                                             Map<String, Boolean> autoApproveBySupplierCode,
+                                             List<Long> autoApproveTaskIds) throws Exception {
         GenerationResult result = new GenerationResult();
         PartyMatch party = partyService.resolve(message.getName());
         if (party.isUnmappedOrAmbiguous()) {
@@ -287,7 +305,8 @@ public class WeChatOfferTaskService {
                         skips.add(pn + ":NO_TARGET");
                         continue;
                     }
-                    taskResult = createTask(message, offer, TASK_SUPPLIER_INQUIRY, targets, null, "供应商询价");
+                    taskResult = createTask(message, offer, TASK_SUPPLIER_INQUIRY, targets, null, "供应商询价",
+                            autoApproveBySupplierCode, autoApproveTaskIds);
                 } else {
                     CrmOffer replyOffer = findSystemReplyOffer(offer);
                     List<WeChatTaskTarget> targets = Collections.singletonList(new WeChatTaskTarget(
@@ -297,7 +316,8 @@ public class WeChatOfferTaskService {
                     taskResult = createTask(message, offer, TASK_CUSTOMER_REPLY, targets,
                             offerSnapshot(message, offer), remark, sendContent,
                             replyOffer == null ? null : replyOffer.getPriceOffer(),
-                            systemReplySnapshot(offer, replyOffer));
+                            systemReplySnapshot(offer, replyOffer), autoApproveBySupplierCode,
+                            autoApproveTaskIds);
                 }
                 if (taskResult == TASK_INSERTED) {
                     result.created++;
@@ -317,7 +337,8 @@ public class WeChatOfferTaskService {
                 }
                 MatchResult match = matchCustomers(message, party.getSupplier(), offer);
                 if (!match.targets.isEmpty()) {
-                    int taskResult = createTask(message, offer, TASK_CUSTOMER_REPLY, match.targets, match.json, "客户回复");
+                    int taskResult = createTask(message, offer, TASK_CUSTOMER_REPLY, match.targets, match.json,
+                            "客户回复", autoApproveBySupplierCode, autoApproveTaskIds);
                     if (taskResult == TASK_INSERTED) {
                         result.created++;
                     }
@@ -333,7 +354,8 @@ public class WeChatOfferTaskService {
                     if (pushTargets.isEmpty()) {
                         skips.add(pn + ":NO_TARGET");
                     } else {
-                        int taskResult = createTask(message, offer, TASK_CUSTOMER_PUSH, pushTargets, null, "客户推送");
+                        int taskResult = createTask(message, offer, TASK_CUSTOMER_PUSH, pushTargets, null,
+                                "客户推送", autoApproveBySupplierCode, autoApproveTaskIds);
                         if (taskResult == TASK_INSERTED) {
                             result.created++;
                         }
@@ -409,13 +431,18 @@ public class WeChatOfferTaskService {
     }
 
     private int createTask(WeChatMessage message, CrmOffer offer, String taskType,
-                           List<WeChatTaskTarget> targets, String matchedJson, String remark) throws Exception {
-        return createTask(message, offer, taskType, targets, matchedJson, remark, null, null, null);
+                           List<WeChatTaskTarget> targets, String matchedJson, String remark,
+                           Map<String, Boolean> autoApproveBySupplierCode,
+                           List<Long> autoApproveTaskIds) throws Exception {
+        return createTask(message, offer, taskType, targets, matchedJson, remark, null, null, null,
+                autoApproveBySupplierCode, autoApproveTaskIds);
     }
 
     private int createTask(WeChatMessage message, CrmOffer offer, String taskType,
                            List<WeChatTaskTarget> targets, String matchedJson, String remark,
-                           String sendContent, Double offerPrice, String offerJson) throws Exception {
+                           String sendContent, Double offerPrice, String offerJson,
+                           Map<String, Boolean> autoApproveBySupplierCode,
+                           List<Long> autoApproveTaskIds) throws Exception {
         if (targets == null || targets.isEmpty()) {
             return TASK_NOT_CREATED;
         }
@@ -437,11 +464,48 @@ public class WeChatOfferTaskService {
         task.setOfferJson(StringUtils.isNotBlank(offerJson) ? offerJson : offerSnapshot(message, offer));
         task.setRemark(remark);
         if (taskMapper.insertTaskIgnore(task) > 0) {
+            if (task.getId() != null && allTargetsAutoApprove(targets, autoApproveBySupplierCode)) {
+                autoApproveTaskIds.add(task.getId());
+            }
             return TASK_INSERTED;
         }
         return taskMapper.selectByUnique(task.getSourceUsername(), task.getSourceLocalId(),
                 task.getTaskType(), task.getPnNormalized(), task.getSendType()) != null
                 ? TASK_EXISTS : TASK_NOT_CREATED;
+    }
+
+    /**
+     * 自动审批是任务级动作：仅当所有发送目标对应的供应商都开启自动审批时才整条自动审批，
+     * 任一目标未开启则保持待人工审批，避免把未确认的发送对象一并放行。
+     */
+    private boolean allTargetsAutoApprove(List<WeChatTaskTarget> targets,
+                                          Map<String, Boolean> autoApproveBySupplierCode) {
+        if (targets == null || targets.isEmpty()
+                || autoApproveBySupplierCode == null || autoApproveBySupplierCode.isEmpty()) {
+            return false;
+        }
+        for (WeChatTaskTarget target : targets) {
+            String code = target == null ? "" : StringUtils.trimToEmpty(target.getPartyCode());
+            if (code.isEmpty() || !Boolean.TRUE.equals(autoApproveBySupplierCode.get(code.toUpperCase(Locale.ROOT)))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Map<String, Boolean> loadAutoApproveSettings() {
+        Map<String, Boolean> settings = new HashMap<>();
+        try {
+            for (CrmSupplier supplier : supplierMapper.selectAllForWeChat()) {
+                if (supplier != null && StringUtils.isNotBlank(supplier.getSupplierCode())) {
+                    settings.put(StringUtils.upperCase(supplier.getSupplierCode()),
+                            supplier.getAutoApprove() != null && supplier.getAutoApprove() == 1);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("读取供应商自动审批配置失败，本次全部按人工审批处理: {}", e.getMessage());
+        }
+        return settings;
     }
 
     private WeChatOfferTask baseTask(WeChatMessage message) {
@@ -709,12 +773,23 @@ public class WeChatOfferTaskService {
         if (form.getSendContent() == null) {
             form.setSendContent(existing.getSendContent());
         }
+        String operator = currentOperator();
         form.setHandleStatus(status);
         form.setApprovalReason(clip(form.getApprovalReason(), 500));
-        form.setApprovedBy(SecurityUtils.getUsername());
+        form.setApprovedBy(operator);
         form.setApprovedAt(new Date());
-        form.setUpdateBy(SecurityUtils.getUsername());
+        form.setUpdateBy(operator);
         return taskMapper.updateApproval(form);
+    }
+
+    /** 定时任务无登录上下文时使用系统操作人；人工审批仍记录当前登录用户。 */
+    private String currentOperator() {
+        try {
+            String username = SecurityUtils.getUsername();
+            return StringUtils.defaultIfBlank(username, "wechat_auto");
+        } catch (Exception e) {
+            return "wechat_auto";
+        }
     }
 
     /** 列表多选审批：仅处理待审批任务，其他状态跳过；逐条保留原发送目标和发送内容。 */

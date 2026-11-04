@@ -33,7 +33,7 @@
           <div class="wechat-help">
             <div class="help-title">菜单按钮说明</div>
             <ul>
-              <li><b>生成任务</b>：立即扫描消息并生成“待审批”任务；点击后弹窗会显示本次扫描对象、起止时间、单批上限、全部必要条件、阶段统计和实际扫描数量。人工点击不受 <code>autoTaskGenerateEnabled=false</code> 限制。</li>
+              <li><b>生成任务</b>：立即扫描消息并生成任务；任务先按“待审批”写入，若发送目标对应的供应商均开启 <code>crm_supplier.auto_approve</code>，再调用批量审批流程转为“已审批待发送”。点击后弹窗会显示本次扫描对象、起止时间、单批上限、全部必要条件、阶段统计和实际扫描数量。人工点击不受 <code>autoTaskGenerateEnabled=false</code> 限制。</li>
               <li><b>生成时间范围</b>：按消息 <code>create_time</code> 计算，从当前时刻向前滚动 <code>msgRetentionDays</code> 天（默认 30 天），不是只扫描今天；弹窗中的“开始时间/结束时间”就是本次实际 SQL 条件。</li>
               <li><b>生成必要条件</b>：分类成功且来源为 LLM/CACHE/MANUAL、分类为 INQ/OFFER；AI 录入必须为 <code>SUCCESS/SUCCESS_WARN</code>，任务状态为 <code>PENDING/FAILED</code>，或属于群未映射/群映射冲突的特殊跳过、任务处理超时。单次最多领取 <code>taskGenerateBatchSize=20</code> 条。</li>
               <li><b>为什么 task_status=PENDING 仍扫描 0 条</b>：<code>task_status=PENDING</code> 只表示“尚未生成任务”，还需 <code>entry_status</code> 已录入成功。若录入仍为 <code>PENDING</code>，消息会停留在等待 AI 录入阶段，不会进入任务生成；生成结果弹窗会单独显示该数量。</li>
@@ -59,7 +59,7 @@
               <li>合作等级包含 <b>S / A / B</b>：按产品方向查找其他启用供应商，向有销售群的供应商生成“供应商询价”任务。</li>
               <li>合作等级为 <b>C / D / E 或为空</b>：不向其他供应商询价，直接按料号查询系统内有效 Offer；有记录生成“客户回复”任务并带入系统报价，无记录生成内容为 <code>No stock</code> 的“客户回复”任务。</li>
               <li>系统 Offer 只取有效状态、Offer 类型、报价大于 0 且币种为 USD（或空）的记录，料号按双向前缀匹配，优先最低价、同价取最新；有效期默认最近 2 个自然日（昨天 00:00 至当前），由字典 <code>wechat_analysis_config</code> 的 <code>inqMatchDayNo=2</code> 控制。</li>
-              <li>低等级客户的回复目标固定为当前客户会话；生成的供应商询价、客户回复任务仍为“待审批”，不会自动发送。</li>
+              <li>低等级客户的回复目标固定为当前客户会话；任务默认“待审批”，仅当所有发送目标对应的供应商都开启“自动审批”时，才会通过批量审批流程转为“已审批待发送”。</li>
             </ul>
             <div class="help-title">审批与编辑</div>
             <ul>

@@ -4,9 +4,6 @@
       <el-form-item label="产品编码" prop="productCode">
         <el-input v-model="queryParams.productCode" placeholder="请输入产品编码" clearable @keyup.enter.native="handleQuery" />
       </el-form-item>
-      <el-form-item label="来源表名" prop="sheetName">
-        <el-input v-model="queryParams.sheetName" placeholder="请输入来源表名" clearable @keyup.enter.native="handleQuery" />
-      </el-form-item>
       <el-form-item label="供应商">
         <el-select v-model="queryParams.supplierCodes" multiple collapse-tags filterable remote :remote-method="searchSupplier" :loading="supplierLoading" placeholder="请选择供应商编码" @focus="searchSupplier('')">
           <el-option v-for="item in supplierListOptions" :key="item.id" :label="item.supplierCode" :value="item.supplierCode">
@@ -65,21 +62,57 @@
           </el-select>
         </el-form-item>
       </template>
-      <el-form-item label="库存日期">
-        <el-date-picker v-model="stockDateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" size="mini" />
+      <el-form-item label="库存开始">
+        <el-date-picker v-model="stockDateStart" type="date" placeholder="开始日期" size="mini" style="width: 150px" />
+      </el-form-item>
+      <el-form-item label="库存结束">
+        <el-date-picker v-model="stockDateEnd" type="date" placeholder="结束日期" size="mini" style="width: 150px" />
       </el-form-item>
       <!-- 其余筛选条件移除，保留指定条件与日期范围 -->
       <el-form-item>
         <el-button type="primary" icon="el-icon-search" size="mini" @click="handleQuery">搜索</el-button>
         <el-button icon="el-icon-refresh" size="mini" @click="resetQuery">重置</el-button>
+        <el-popover placement="bottom-start" width="760" trigger="hover" popper-class="offer-help-popover">
+          <div class="offer-help">
+            <div class="help-title">AI录入</div>
+            <ul>
+              <li>选择供应商、Inq/Offer 类型并粘贴物料原文。AI 会识别完整料号、品牌、型号、规格、数量、价格、交期、DC 等字段，整理后写入当前 Offer 列表。</li>
+              <li>选择供应商后会自动带出该供应商档案 <code>profit_ratio</code> 的利润率，可手工修改；Offer 类型的对外报价按“供应商价格 × (1 + 利润率/100)”计算，Inq 不计算利润率。</li>
+              <li>录入成功后会弹出近 1 个月同料号的比价结果，可继续按阈值勾选并复制。</li>
+            </ul>
+            <div class="help-title">AI查询</div>
+            <ul>
+              <li>只查询，不新增或修改 Offer。粘贴客户/供应商的物料原文后，AI 先归一化料号，再按料号查询最近 1 个月的 INQ/OFFER 历史。</li>
+              <li>结果按料号分组展示，组内按 Offer 日期倒序；可勾选料号后复制或下载，适合报价前快速查历史最低价。</li>
+            </ul>
+            <div class="help-title">复制Offer</div>
+            <ul>
+              <li>先选择产品类型和“最近天数”，系统取该时间窗口内录入的 Offer，按料号去重并展示近 1 个月比价历史。</li>
+              <li>CPU 类型料号默认自动勾选；其他料号按价格优势阈值自动勾选。勾选仅决定复制范围，不会修改数据库中的 Offer。</li>
+              <li><b>一键复制Offer</b>：每个已勾选料号只取“最近天数”窗口内最低的一条 Offer（同价取日期更新的一条），按品牌分组输出，并带 <code>M&amp;E 日期 Offer：</code> 表头。</li>
+              <li><b>一键复制全部信息</b>：复制已勾选料号在近 1 个月内的全部比价明细，便于人工继续判断。</li>
+              <li><b>下载</b>：按与“一键复制Offer”相同的勾选料号和附加字段生成 Excel 模板文件。</li>
+            </ul>
+            <div class="help-title">附加字段与阈值</div>
+            <ul>
+              <li>勾选“供应商编号、详情、交期、DC、规格”后，会在一键复制和下载结果中追加对应列；不勾选则不输出该列。列顺序固定为 Supplier → Detail → Delivery → DC → Spec，与勾选先后无关，也不影响数据库数据。</li>
+              <li>价格优势判定：取“最近天数”窗口内该料号最低报价，与该窗口之前最近两次有效报价的最低价比较；低于基线至少“阈值”美元才会自动勾选。阈值越大，入选条件越严格。</li>
+              <li>价格优势阈值默认 15 USD，可在复制/AI查询弹窗内直接修改，修改后立即重新勾选并自动保存。配置地址：<b>系统管理 → 参数设置</b>，参数键 <code>offer.price.advantage.threshold</code>；微信好价推送、微信录入后的好价提醒也复用同一阈值。</li>
+              <li>AI 服务配置地址：<b>系统管理 → 参数设置</b>，参数键 <code>sys.ai.enabled</code>、<code>sys.ai.base.url</code>、<code>sys.ai.api.key</code>、<code>sys.ai.model</code>；请求超时由 <code>sys.ai.timeout.ms</code> 控制。AI 接口未配置或关闭时，AI录入/AI查询不可用。</li>
+            </ul>
+            <div class="help-title">列表筛选</div>
+            <ul>
+              <li>库存开始/库存结束分别选择，按 <code>stock_date</code> 的自然日包含边界筛选；页面首次打开和重置后默认“昨天 00:00 至今天 23:59:59”。</li>
+              <li>产品编码支持换行、逗号和空格分隔多个料号；供应商、品牌、产品类型支持多选。</li>
+            </ul>
+          </div>
+          <el-button slot="reference" icon="el-icon-question" size="mini">说明</el-button>
+        </el-popover>
       </el-form-item>
       <right-toolbar :showSearch.sync="showSearch" @queryTable="getList"></right-toolbar>
     </el-form>
 
     <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="el-icon-plus" size="mini" @click="handleAdd" v-hasPermi="['crm:offer:add']">新增</el-button>
-      </el-col>
       <el-col :span="1.5">
         <el-button type="primary" plain icon="el-icon-magic-stick" size="mini" @click="openAiEntry" v-hasPermi="['crm:offer:add']">AI录入</el-button>
         <el-button type="primary" plain icon="el-icon-aim" size="mini" @click="openAiQuery" v-hasPermi="['crm:offer:list']">AI查询</el-button>
@@ -95,16 +128,7 @@
         <el-button type="danger" plain icon="el-icon-delete" size="mini" :disabled="multiple" @click="handleDelete" v-hasPermi="['crm:offer:remove']">删除</el-button>
       </el-col>
       <el-col :span="1.5">
-        <el-button type="warning" plain icon="el-icon-download" size="mini" @click="handleExport" v-hasPermi="['crm:offer:export']">导出</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="el-icon-upload2" size="mini" @click="openImport" v-hasPermi="['crm:offer:import']">导入</el-button>
-      </el-col>
-      <el-col :span="1.5">
         <el-button type="success" plain icon="el-icon-edit-outline" size="mini" :disabled="multiple" @click="openBatchEdit" v-hasPermi="['crm:offer:batchEdit']">批量编辑</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="el-icon-plus" size="mini" @click="openBatchAdd" v-hasPermi="['crm:offer:add']">批量新增</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button type="primary" plain icon="el-icon-s-promotion" size="mini" @click="handleSendOffer" v-hasPermi="['crm:offer:list']">发送Offer</el-button>
@@ -823,7 +847,8 @@ export default {
       colMap: { productCode: 'A', productDetail: '', productDetailArr: [], priceCost: '', priceOffer: '', quantity: '', deliveryTime: '', remark: '', moqQuantity: '', warrantyDetail: '', dc: '' },
       queryParams: { pageNum: 1, pageSize: 10, productCode: undefined, supplierCodes: [], productBrandArr: [], productTypeArr: [], inqOfferType: undefined, status: undefined, tagsFirst: undefined, tagsSecond: undefined, tagsThird: undefined, tagsSi: undefined, params: {} },
       moreTags: false,
-      stockDateRange: [],
+      stockDateStart: undefined,
+      stockDateEnd: undefined,
       form: { id: undefined, supplierCode: '', supplierName: '', productCode: '', productDetailCode: '', productBrand: '', productBrandArr: [], stockDate: undefined, priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, productDetail: '', spec: '', coo: '', deliveryTime: '', remark: '', sheetName: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer', status: 1 },
       dictProductBrand: [], dictPriceUnit: [], dictProductType: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       importForm: { inqOfferType: 'Offer', profitRatio: 2 },
@@ -857,7 +882,7 @@ export default {
       ,sendOfferForm: { testSend: true, withPrice: false }
     }
   },
-  created() { this.getList(); this.loadDicts(); this.initPriceAdvThreshold() },
+  created() { this.resetStockDates(); this.getList(); this.loadDicts(); this.initPriceAdvThreshold() },
   watch: {
     aiQueryGroups: {
       deep: true,
@@ -873,8 +898,8 @@ export default {
       const qp = JSON.parse(JSON.stringify(this.queryParams));
       qp.params = qp.params || {};
 
-      qp.params.beginStockDate = this.stockDateRange && this.stockDateRange.length ? parseTime(this.stockDateRange[0], '{y}-{m}-{d}') : undefined;
-      qp.params.endStockDate = this.stockDateRange && this.stockDateRange.length ? parseTime(this.stockDateRange[1], '{y}-{m}-{d}') : undefined;
+      qp.params.beginStockDate = this.stockDateStart ? parseTime(this.stockDateStart, '{y}-{m}-{d}') : undefined;
+      qp.params.endStockDate = this.stockDateEnd ? parseTime(this.stockDateEnd, '{y}-{m}-{d}') : undefined;
 
       if (this.queryParams.supplierCodes && this.queryParams.supplierCodes.length > 0) {
         qp.params.supplierCodeList = this.queryParams.supplierCodes.join(',');
@@ -898,29 +923,7 @@ export default {
     /** 查询Offer列表 */
     getList() {
       this.loading = true;
-      const qp = JSON.parse(JSON.stringify(this.queryParams));
-      qp.params = qp.params || {};
-
-      qp.params.beginStockDate = this.stockDateRange && this.stockDateRange.length ? parseTime(this.stockDateRange[0], '{y}-{m}-{d}') : undefined;
-      qp.params.endStockDate = this.stockDateRange && this.stockDateRange.length ? parseTime(this.stockDateRange[1], '{y}-{m}-{d}') : undefined;
-
-      if (this.queryParams.supplierCodes && this.queryParams.supplierCodes.length > 0) {
-        qp.params["supplierCodeList"] = this.queryParams.supplierCodes.join(",");
-      }
-      if (this.queryParams.productBrandArr && this.queryParams.productBrandArr.length > 0) {
-        qp.params["productBrandList"] = this.queryParams.productBrandArr.join(",");
-      }
-      if (this.queryParams.productTypeArr && this.queryParams.productTypeArr.length > 0) {
-        qp.params["productTypeList"] = this.queryParams.productTypeArr.join(",");
-      }
-
-      if (this.queryParams.productCode) {
-        const codes = this.queryParams.productCode.split(/[\n, ]+/).map(s => s.trim()).filter(s => s.length > 0);
-        if (codes.length > 0) {
-          qp.params["productCodeList"] = codes.join(",");
-          qp.productCode = undefined;
-        }
-      }
+      const qp = this.getQueryParams();
 
       listOffer(qp).then(response => {
         this.offerList = response.rows;
@@ -933,7 +936,14 @@ export default {
       this.queryParams.pageNum = 1;
       this.getList();
     },
-    resetQuery() { this.stockDateRange = []; this.queryParams.supplierCodes = []; this.queryParams.productBrandArr = []; this.queryParams.productTypeArr = []; this.resetForm('queryForm'); this.handleQuery() },
+    /** 库存日期默认昨天至今天，重置时恢复该范围 */
+    resetStockDates() {
+      const end = new Date();
+      const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+      this.stockDateStart = start;
+      this.stockDateEnd = end;
+    },
+    resetQuery() { this.resetStockDates(); this.queryParams.supplierCodes = []; this.queryParams.productBrandArr = []; this.queryParams.productTypeArr = []; this.resetForm('queryForm'); this.handleQuery() },
     handleSelectionChange(selection) { this.ids = selection.map(item => item.id); this.single = selection.length != 1; this.multiple = !selection.length },
     remoteSupplier(query) { listSupplierOptions({ supplierName: query, pageNum: 1, pageSize: 20 }).then(res => { this.supplierOptions = res.data }) },
     remoteSupplierQuery(query) { listSupplierOptions({ supplierName: query, pageNum: 1, pageSize: 20 }).then(res => { this.supplierOptionsQuery = res.data }) },
@@ -1641,6 +1651,13 @@ export default {
 
 <style scoped>
 .form-header { font-size: 15px; color: #6379bb; border-bottom: 1px solid #ddd; margin: 8px 10px 25px 10px; padding-bottom: 5px }
+.offer-help-popover { line-height: 1.6; }
+.offer-help { max-height: 72vh; overflow-y: auto; padding-right: 6px; font-size: 12px; color: #303133; }
+.offer-help .help-title { margin: 10px 0 4px; color: #409eff; font-weight: 600; }
+.offer-help .help-title:first-child { margin-top: 0; }
+.offer-help ul { margin: 0; padding-left: 18px; }
+.offer-help li { margin: 3px 0; }
+.offer-help code { padding: 1px 4px; border-radius: 2px; background: #f5f7fa; color: #c7254e; }
 .ai-query-group { margin-bottom: 16px }
 .ai-query-part-number { font-weight: bold; font-size: 14px; color: #303133; background: #f0f2f5; padding: 6px 10px; border-radius: 4px 4px 0 0; border-left: 3px solid #1890ff }
 .ai-query-empty { color: #909399; padding: 8px 12px; border: 1px solid #ebeef5; border-top: none; border-radius: 0 0 4px 4px; font-size: 13px }

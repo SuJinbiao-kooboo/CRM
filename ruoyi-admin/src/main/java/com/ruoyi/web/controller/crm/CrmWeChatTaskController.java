@@ -43,6 +43,41 @@ public class CrmWeChatTaskController extends BaseController {
         return getDataTable(taskService.selectTaskList(query));
     }
 
+    /** 任务列表页自动生成、自动发送开关状态。 */
+    @PreAuthorize("@ss.hasPermi('wechat:task:list')")
+    @GetMapping("/config")
+    public AjaxResult config() {
+        return success(taskService.taskSwitches());
+    }
+
+    @PreAuthorize("@ss.hasPermi('wechat:task:generate')")
+    @Log(title = "微信询报价任务自动生成开关", businessType = BusinessType.UPDATE)
+    @PostMapping("/generate/config")
+    public AjaxResult updateGenerateConfig(@RequestBody(required = false) Map<String, Object> body) {
+        if (body == null || !body.containsKey("enabled")) {
+            return error("缺少enabled参数");
+        }
+        String value = String.valueOf(body.get("enabled"));
+        if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
+            return error("enabled只能为true或false");
+        }
+        return success(taskService.updateTaskGenerateEnabled(Boolean.parseBoolean(value)));
+    }
+
+    @PreAuthorize("@ss.hasPermi('wechat:task:send')")
+    @Log(title = "微信询报价任务自动发送开关", businessType = BusinessType.UPDATE)
+    @PostMapping("/send/config")
+    public AjaxResult updateSendConfig(@RequestBody(required = false) Map<String, Object> body) {
+        if (body == null || !body.containsKey("enabled")) {
+            return error("缺少enabled参数");
+        }
+        String value = String.valueOf(body.get("enabled"));
+        if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
+            return error("enabled只能为true或false");
+        }
+        return success(taskService.updateTaskSendEnabled(Boolean.parseBoolean(value)));
+    }
+
     @PreAuthorize("@ss.hasPermi('wechat:task:query')")
     @GetMapping("/{id}")
     public AjaxResult getInfo(@PathVariable Long id) {

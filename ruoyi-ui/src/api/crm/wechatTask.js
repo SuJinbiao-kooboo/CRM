@@ -8,6 +8,18 @@ export function getWechatTask(id) {
   return request({ url: '/crm/wechat-task/' + id, method: 'get' })
 }
 
+export function getWechatTaskConfig() {
+  return request({ url: '/crm/wechat-task/config', method: 'get' })
+}
+
+export function setWechatTaskGenerateConfig(enabled) {
+  return request({ url: '/crm/wechat-task/generate/config', method: 'post', data: { enabled: enabled } })
+}
+
+export function setWechatTaskSendConfig(enabled) {
+  return request({ url: '/crm/wechat-task/send/config', method: 'post', data: { enabled: enabled } })
+}
+
 export function approveWechatTask(id, data) {
   return request({ url: '/crm/wechat-task/' + id + '/approve', method: 'post', data: data })
 }

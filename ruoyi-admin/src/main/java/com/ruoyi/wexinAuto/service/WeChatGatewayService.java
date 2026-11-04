@@ -494,6 +494,18 @@ public class WeChatGatewayService {
                 "自动录入已开启", "自动录入已关闭，仅保留手动录入");
     }
 
+    /** 更新询报价任务自动生成开关；写入 wechat_analysis_config.autoTaskGenerateEnabled。 */
+    public Map<String, Object> updateTaskGenerateEnabled(boolean enabled) {
+        return updateAnalysisSwitch("autoTaskGenerateEnabled", enabled, 131L,
+                "任务自动生成已开启", "任务自动生成已关闭，仅允许人工生成任务");
+    }
+
+    /** 更新询报价任务自动发送开关；写入 wechat_analysis_config.autoSendEnabled。 */
+    public Map<String, Object> updateTaskSendEnabled(boolean enabled) {
+        return updateAnalysisSwitch("autoSendEnabled", enabled, 133L,
+                "任务自动发送已开启", "任务自动发送已关闭，仅允许人工发送扫描");
+    }
+
     private Map<String, Object> updateAnalysisSwitch(String label, boolean enabled, Long defaultSort,
                                                      String enabledMessage, String disabledMessage) {
         SysDictData query = new SysDictData();

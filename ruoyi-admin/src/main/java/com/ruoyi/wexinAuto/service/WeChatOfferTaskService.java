@@ -106,6 +106,26 @@ public class WeChatOfferTaskService {
         return task;
     }
 
+    /** 任务列表页的两个自动开关状态，配置统一存放在 wechat_analysis_config。 */
+    public Map<String, Object> taskSwitches() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("autoTaskGenerateEnabled", config.bool("autoTaskGenerateEnabled", false));
+        out.put("autoSendEnabled", config.bool("autoSendEnabled", false));
+        return out;
+    }
+
+    public Map<String, Object> updateTaskGenerateEnabled(boolean enabled) {
+        Map<String, Object> out = gateway.updateTaskGenerateEnabled(enabled);
+        out.put("autoTaskGenerateEnabled", enabled);
+        return out;
+    }
+
+    public Map<String, Object> updateTaskSendEnabled(boolean enabled) {
+        Map<String, Object> out = gateway.updateTaskSendEnabled(enabled);
+        out.put("autoSendEnabled", enabled);
+        return out;
+    }
+
     /** 扫描已完成录入的消息，按料号生成待审批任务。 */
     public synchronized Map<String, Object> generateOnce(String chat) {
         return generateOnce(chat, false);

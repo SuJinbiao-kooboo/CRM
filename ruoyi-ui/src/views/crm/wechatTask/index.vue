@@ -34,11 +34,13 @@
             <div class="help-title">菜单按钮说明</div>
             <ul>
               <li><b>生成任务</b>：立即扫描消息并生成任务；任务先按“待审批”写入，若发送目标对应的供应商均开启 <code>crm_supplier.auto_approve</code>，再调用批量审批流程转为“已审批待发送”。点击后弹窗会显示本次扫描对象、起止时间、单批上限、全部必要条件、阶段统计和实际扫描数量。人工点击不受 <code>autoTaskGenerateEnabled=false</code> 限制。</li>
+              <li><b>任务生成开关</b>：开启后由“微信自动化-INQ/OFFER任务生成”定时任务扫描并生成任务；关闭后定时任务不再生成，但“生成任务”按钮仍可人工执行。</li>
               <li><b>生成时间范围</b>：按消息 <code>create_time</code> 计算，从当前时刻向前滚动 <code>msgRetentionDays</code> 天（默认 30 天），不是只扫描今天；弹窗中的“开始时间/结束时间”就是本次实际 SQL 条件。</li>
               <li><b>生成必要条件</b>：分类成功且来源为 LLM/CACHE/MANUAL、分类为 INQ/OFFER；AI 录入必须为 <code>SUCCESS/SUCCESS_WARN</code>，任务状态为 <code>PENDING/FAILED</code>，或任务处理超时。群未映射/群映射冲突只会转人工复核，不再创建空料号异常任务。单次最多领取 <code>taskGenerateBatchSize=20</code> 条。</li>
               <li><b>为什么 task_status=PENDING 仍扫描 0 条</b>：<code>task_status=PENDING</code> 只表示“尚未生成任务”，还需 <code>entry_status</code> 已录入成功。若录入仍为 <code>PENDING</code>，消息会停留在等待 AI 录入阶段，不会进入任务生成；生成结果弹窗会单独显示该数量。</li>
               <li><b>任务状态感叹号</b>：微信消息列表的任务状态旁会显示当前卡点；<code>PENDING</code> 会区分“待 AI 录入 / AI 录入处理中 / 已录入等待任务生成扫描”，失败、转人工或异常跳过则显示具体原因。数据库字段 <code>task_failure_reason</code> 只记录失败类原因，等待扫描的说明由页面按状态实时计算。</li>
               <li><b>发送扫描</b>：立即扫描并发送“已审批待发送”任务；人工点击不受 <code>autoSendEnabled=false</code> 限制，但当前微信登录账号必须是 <code>autoSendAccount</code>（默认 Eke），否则停止发送。</li>
+              <li><b>自动发送开关</b>：开启后由定时任务持续扫描“已审批待发送”任务并发送；关闭后定时发送停止，“发送扫描”按钮仍可人工执行。</li>
               <li><b>审批/编辑</b>：查看来源消息、OFFER 快照、关联 INQ、发送目标和发送预览，并修改任务状态、对外报价、发送内容和发送目标。</li>
               <li><b>批量审批</b>：勾选列表多行后点击，只审批当前为 <code>PENDING_APPROVAL</code> 的任务；其他状态会跳过，失败数量在结果提示中返回。</li>
               <li><b>确认未发送</b>：仅当最近异常以 <code>GATEWAY_RESULT_UNKNOWN</code> 开头时出现；人工确认网关确实未发送后，任务恢复为“已审批待发送”，重试次数清零。</li>
@@ -91,6 +93,14 @@
     </el-form>
 
     <el-row :gutter="10" class="mb8">
+      <el-col :span="3" class="task-switch">
+        <span class="task-switch-label">任务生成</span>
+        <el-switch v-model="autoTaskGenerateEnabled" :disabled="taskSwitchesLoading || taskGenerateSaving" active-color="#13ce66" v-hasPermi="['wechat:task:generate']" @change="handleTaskGenerateChange" />
+      </el-col>
+      <el-col :span="3" class="task-switch">
+        <span class="task-switch-label">自动发送</span>
+        <el-switch v-model="autoSendEnabled" :disabled="taskSwitchesLoading || taskSendSaving" active-color="#13ce66" v-hasPermi="['wechat:task:send']" @change="handleTaskSendChange" />
+      </el-col>
       <el-col :span="1.5"><el-button type="primary" plain icon="el-icon-magic-stick" size="mini" :loading="generating" @click="handleGenerate" v-hasPermi="['wechat:task:generate']">生成任务</el-button></el-col>
       <el-col :span="1.5"><el-button type="success" plain icon="el-icon-s-promotion" size="mini" :loading="sending" @click="handleSend" v-hasPermi="['wechat:task:send']">发送扫描</el-button></el-col>
       <el-col :span="1.5"><el-button type="warning" plain icon="el-icon-check" size="mini" :disabled="selectedRows.length === 0" @click="handleBatchApprove" v-hasPermi="['wechat:task:approve']">批量审批</el-button></el-col>
@@ -253,7 +263,7 @@
 </template>
 
 <script>
-import { listWechatTasks, getWechatTask, approveWechatTask, batchApproveWechatTasks, batchRemoveWechatTasks, generateWechatTasks, sendWechatTasks, confirmWechatTaskNotSent } from '@/api/crm/wechatTask'
+import { listWechatTasks, getWechatTask, getWechatTaskConfig, setWechatTaskGenerateConfig, setWechatTaskSendConfig, approveWechatTask, batchApproveWechatTasks, batchRemoveWechatTasks, generateWechatTasks, sendWechatTasks, confirmWechatTaskNotSent } from '@/api/crm/wechatTask'
 
 export default {
   name: 'CrmWechatTask',
@@ -263,6 +273,11 @@ export default {
       saving: false,
       generating: false,
       sending: false,
+      autoTaskGenerateEnabled: false,
+      autoSendEnabled: false,
+      taskSwitchesLoading: false,
+      taskGenerateSaving: false,
+      taskSendSaving: false,
       showSearch: true,
       total: 0,
       taskList: [],
@@ -313,6 +328,7 @@ export default {
   },
   created() {
     this.dateRange = this.last30Days()
+    this.loadTaskSwitches()
     this.handleQuery()
   },
   methods: {
@@ -333,6 +349,36 @@ export default {
         this.taskList = res.rows || []
         this.total = res.total || 0
       }).finally(() => { this.loading = false })
+    },
+    loadTaskSwitches() {
+      this.taskSwitchesLoading = true
+      getWechatTaskConfig().then(res => {
+        const data = res.data || {}
+        this.autoTaskGenerateEnabled = !!data.autoTaskGenerateEnabled
+        this.autoSendEnabled = !!data.autoSendEnabled
+      }).finally(() => { this.taskSwitchesLoading = false })
+    },
+    handleTaskGenerateChange(enabled) {
+      const target = !!enabled
+      this.taskGenerateSaving = true
+      setWechatTaskGenerateConfig(target).then(res => {
+        const data = res.data || {}
+        this.autoTaskGenerateEnabled = typeof data.autoTaskGenerateEnabled === 'boolean' ? data.autoTaskGenerateEnabled : target
+        this.$modal.msgSuccess(data.message || (target ? '任务自动生成已开启' : '任务自动生成已关闭'))
+      }).catch(() => {
+        this.autoTaskGenerateEnabled = !target
+      }).finally(() => { this.taskGenerateSaving = false })
+    },
+    handleTaskSendChange(enabled) {
+      const target = !!enabled
+      this.taskSendSaving = true
+      setWechatTaskSendConfig(target).then(res => {
+        const data = res.data || {}
+        this.autoSendEnabled = typeof data.autoSendEnabled === 'boolean' ? data.autoSendEnabled : target
+        this.$modal.msgSuccess(data.message || (target ? '任务自动发送已开启' : '任务自动发送已关闭'))
+      }).catch(() => {
+        this.autoSendEnabled = !target
+      }).finally(() => { this.taskSendSaving = false })
     },
     handleQuery() {
       this.queryParams.pageNum = 1
@@ -488,6 +534,8 @@ export default {
 .mr5 { margin-right: 5px; }
 .mt10 { margin-top: 10px; }
 .selection-tip { margin-left: 10px; line-height: 28px; color: #909399; font-size: 12px; }
+.task-switch { line-height: 28px; white-space: nowrap; }
+.task-switch-label { margin-right: 6px; color: #606266; font-size: 13px; }
 .dialog-section-title { margin: 16px 0 8px; font-weight: 600; color: #303133; }
 .condition-list { margin: 0; padding-left: 22px; color: #606266; line-height: 1.8; }
 .delete-question { margin: 18px 0 10px; font-weight: 600; }

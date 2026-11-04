@@ -294,6 +294,12 @@
           <el-select v-else-if="col.type === 'statusSelect'" v-model="scope.row.cooperationStatus" placeholder="请选择" size="mini" @change="updateCooperationStatus(scope.row)">
             <el-option v-for="d in dictCooperationStatus" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
           </el-select>
+          <div v-else-if="col.type === 'autoApproveSwitch'" class="auto-approve-cell" :class="{ 'is-on': Number(scope.row[col.prop]) === 1 }" title="点击切换自动审批" @click.stop="toggleInlineAutoApprove(scope.row)">
+            <el-tooltip :content="Number(scope.row[col.prop]) === 1 ? '点击关闭自动审批' : '点击开启自动审批'" placement="top">
+              <el-switch :value="Number(scope.row[col.prop]) === 1" :disabled="!!scope.row.autoApproveSaving" active-color="#13ce66" @change="updateInlineAutoApprove(scope.row, $event)" @click.native.stop />
+            </el-tooltip>
+            <span class="auto-approve-label">{{ Number(scope.row[col.prop]) === 1 ? '开启' : '关闭' }}</span>
+          </div>
           <el-tag v-else-if="col.type === 'statusTag'" :type="scope.row.status === 1 ? 'success' : 'danger'">{{ scope.row.status === 1 ? '正常' : '停用' }}</el-tag>
           <el-tag v-else-if="col.type === 'booleanTag'" :type="scope.row[col.prop] === 1 ? 'success' : 'info'">{{ scope.row[col.prop] === 1 ? '开启' : '关闭' }}</el-tag>
           <span v-else class="cell-text-ellipsis" :title="String(scope.row[col.textProp || col.prop] || '')">{{ scope.row[col.textProp || col.prop] }}</span>
@@ -754,7 +760,7 @@ const DEFAULT_COLUMNS = [
   { key: 'paymentTerms', label: '付款条件', prop: 'paymentTerms', width: 130, type: 'multiSelect', editType: 'multiSelect', arrProp: 'paymentTermsArr', dict: 'dictPaymentTerms' },
   { key: 'cooperationDirection', label: '合作方向', prop: 'cooperationDirection', width: 190, type: 'multiSelect', editType: 'multiSelect', arrProp: 'cooperationDirectionArr', dict: 'dictCooperationDirection' },
   { key: 'profitRatio', label: '利润率(%)', prop: 'profitRatio', width: 110, type: 'plain', editType: 'number' },
-  { key: 'autoApprove', label: '自动审批', prop: 'autoApprove', width: 100, type: 'booleanTag', editType: 'select', selectOptions: { 1: '开启', 0: '关闭' } },
+  { key: 'autoApprove', label: '自动审批', prop: 'autoApprove', width: 115, type: 'autoApproveSwitch' },
   { key: 'salesGroup', label: '销售群', prop: 'salesGroup', width: 160, type: 'plain', editType: 'text' },
   { key: 'purchaseGroup', label: '采购群', prop: 'purchaseGroup', width: 160, type: 'plain', editType: 'text' },
   { key: 'cooperationStatus', label: '合作状态', prop: 'cooperationStatus', width: 140, type: 'statusSelect' },
@@ -1141,6 +1147,26 @@ export default {
       const data = { id: row.id, cooperationStatus: row.cooperationStatus }
       updateSupplier(data).then(() => { this.$modal.msgSuccess('合作状态已更新') }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '更新失败') })
     }
+    ,updateInlineAutoApprove(row, enabled) {
+      if (!row || row.id == null || row.autoApproveSaving) return
+      const prev = Number(row.autoApprove) === 1 ? 1 : 0
+      const next = enabled ? 1 : 0
+      if (next === prev) return
+      this.$set(row, 'autoApproveSaving', true)
+      row.autoApprove = next
+      updateSupplier({ id: row.id, autoApprove: next }).then(() => {
+        this.$modal.msgSuccess(next === 1 ? '自动审批已开启' : '自动审批已关闭')
+      }).catch(err => {
+        row.autoApprove = prev
+        this.$modal.msgError(err && err.msg ? err.msg : '自动审批更新失败')
+      }).finally(() => {
+        this.$set(row, 'autoApproveSaving', false)
+      })
+    }
+    ,toggleInlineAutoApprove(row) {
+      if (!row || row.id == null || row.autoApproveSaving) return
+      this.updateInlineAutoApprove(row, Number(row.autoApprove) !== 1)
+    }
     ,isEditable(col) { return !!(col && col.editType) }
     ,isEditing(row, col) { return !!this.editingCells[this.cellKey(row, col)] }
     ,cellKey(row, col) { return (row ? row.id : '') + '__' + (col ? col.prop : '') }
@@ -1362,6 +1388,10 @@ export default {
 
 <style scoped>
 .inlinetext-cell { position: relative; }
+.auto-approve-cell { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 94px; min-height: 30px; padding: 2px 8px; border-radius: 15px; cursor: pointer; user-select: none; transition: background-color .2s; }
+.auto-approve-cell:hover { background: #f5f7fa; }
+.auto-approve-label { color: #606266; font-size: 12px; }
+.auto-approve-cell.is-on .auto-approve-label { color: #13ce66; }
 .inline-text-wrap { position: relative; min-height: 22px; padding-right: 16px; cursor: pointer; }
 .inline-text { word-break: break-all; }
 .multiselect-cell { position: relative; min-height: 24px; text-align: left; padding-right: 16px; }

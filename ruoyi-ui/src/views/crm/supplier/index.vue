@@ -264,7 +264,7 @@
               <el-select v-else-if="col.editType === 'userMulti'" v-model="scope.row[col.arrProp]" multiple filterable remote reserve-keyword size="mini" placeholder="请选择跟进人" :remote-method="remoteUsers" :loading="userLoading" @focus="remoteUsers('')" @change="commitInlineUserMulti(scope.row, col)" @blur="exitEdit(scope.row, col)">
                 <el-option v-for="u in userOptions" :key="u.userId" :label="u.nickName" :value="u.userName" />
               </el-select>
-              <el-select v-else-if="col.editType === 'select'" v-model="editValue" size="mini" placeholder="请选择" @change="commitInlineSingle(scope.row, col)" @blur="exitEdit(scope.row, col)">
+              <el-select v-else-if="col.editType === 'select'" v-model="scope.row[col.prop]" size="mini" placeholder="请选择" @change="commitInlineSelect(scope.row, col, $event)" @blur="exitEdit(scope.row, col)">
                 <el-option v-for="(lab, val) in col.selectOptions" :key="val" :label="lab" :value="Number(val)" />
               </el-select>
               <el-date-picker v-else-if="col.editType === 'datetime'" v-model="editValue" type="datetime" size="mini" placeholder="选择日期时间" format="yyyy-MM-dd HH:mm:ss" value-format="yyyy-MM-dd HH:mm:ss" @change="commitInlineSingle(scope.row, col)" @blur="exitEdit(scope.row, col)" />
@@ -1196,6 +1196,14 @@ export default {
       const prev = this.editingOriginal == null ? '' : this.editingOriginal
       if (String(next) !== String(prev)) {
         row[col.prop] = next
+        this.saveInlineField(row, col, next, prev)
+      }
+      this.exitEdit()
+    }
+    ,commitInlineSelect(row, col, next) {
+      if (!row || !col) return
+      const prev = this.editingOriginal == null ? '' : this.editingOriginal
+      if (String(next) !== String(prev)) {
         this.saveInlineField(row, col, next, prev)
       }
       this.exitEdit()

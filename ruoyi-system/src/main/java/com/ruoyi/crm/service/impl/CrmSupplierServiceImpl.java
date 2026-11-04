@@ -144,14 +144,17 @@ public class CrmSupplierServiceImpl implements ICrmSupplierService {
     @Transactional
     public int updateSupplier(CrmSupplier supplier) {
         int rows = supplierMapper.updateSupplier(supplier);
-        supplierMapper.deleteContactsBySupplierId(supplier.getId());
-        if (supplier.getContacts() != null && !supplier.getContacts().isEmpty()) {
-            List<CrmSupplierContact> toSave = new ArrayList<>();
-            for (CrmSupplierContact c : supplier.getContacts()) {
-                c.setSupplierId(supplier.getId());
-                toSave.add(c);
+        // 行内编辑只提交单个字段，contacts 为 null；仅在完整编辑表单明确提交联系人数组时才重建联系人。
+        if (supplier.getContacts() != null) {
+            supplierMapper.deleteContactsBySupplierId(supplier.getId());
+            if (!supplier.getContacts().isEmpty()) {
+                List<CrmSupplierContact> toSave = new ArrayList<>();
+                for (CrmSupplierContact c : supplier.getContacts()) {
+                    c.setSupplierId(supplier.getId());
+                    toSave.add(c);
+                }
+                contactMapper.insertBatch(toSave);
             }
-            contactMapper.insertBatch(toSave);
         }
         if (supplier.getAttachments() != null && !supplier.getAttachments().isEmpty()) {
             // 编辑态附件已在上传时绑定供应商ID，此处防御性回填，保证数据一致

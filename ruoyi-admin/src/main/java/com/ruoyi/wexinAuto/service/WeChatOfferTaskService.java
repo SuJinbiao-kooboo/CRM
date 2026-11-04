@@ -10,6 +10,7 @@ import com.ruoyi.crm.domain.OfferTextLine;
 import com.ruoyi.crm.mapper.CrmOfferMapper;
 import com.ruoyi.crm.mapper.CrmSupplierMapper;
 import com.ruoyi.crm.service.ICrmOfferService;
+import com.ruoyi.crm.util.OfferNoStockUtils;
 import com.ruoyi.crm.util.PnUtils;
 import com.ruoyi.crm.util.OfferTextFormatter;
 import com.ruoyi.wexinAuto.config.WeChatAutomationConfig;
@@ -255,13 +256,7 @@ public class WeChatOfferTaskService {
         GenerationResult result = new GenerationResult();
         PartyMatch party = partyService.resolve(message.getName());
         if (party.isUnmappedOrAmbiguous()) {
-            int taskResult = createUnmappedTask(message, party.getMessage());
-            if (taskResult == TASK_INSERTED) {
-                result.created++;
-            }
-            if (taskResult > 0) {
-                result.handled++;
-            }
+            result.manual = true;
             result.message = party.getMessage();
             return result;
         }
@@ -415,21 +410,6 @@ public class WeChatOfferTaskService {
         private boolean hasMatch;
     }
 
-    private int createUnmappedTask(WeChatMessage message, String reason) throws Exception {
-        WeChatOfferTask task = baseTask(message);
-        task.setTaskType(TASK_UNMAPPED_CHAT);
-        task.setPnNormalized("");
-        task.setSendTarget("[]");
-        task.setSendTargetSuccess("[]");
-        task.setRemark(clip(reason, 1000));
-        if (taskMapper.insertTaskIgnore(task) > 0) {
-            return TASK_INSERTED;
-        }
-        return taskMapper.selectByUnique(task.getSourceUsername(), task.getSourceLocalId(),
-                task.getTaskType(), task.getPnNormalized(), task.getSendType()) != null
-                ? TASK_EXISTS : TASK_NOT_CREATED;
-    }
-
     private int createTask(WeChatMessage message, CrmOffer offer, String taskType,
                            List<WeChatTaskTarget> targets, String matchedJson, String remark,
                            Map<String, Boolean> autoApproveBySupplierCode,
@@ -446,10 +426,15 @@ public class WeChatOfferTaskService {
         if (targets == null || targets.isEmpty()) {
             return TASK_NOT_CREATED;
         }
+        String pnOriginal = StringUtils.trimToEmpty(offer.getProductCode());
+        String pnNormalized = PnUtils.normalize(pnOriginal);
+        if (pnNormalized.isEmpty()) {
+            return TASK_NOT_CREATED;
+        }
         WeChatOfferTask task = baseTask(message);
         task.setTaskType(taskType);
-        task.setPnOriginal(offer.getProductCode());
-        task.setPnNormalized(PnUtils.normalize(offer.getProductCode()));
+        task.setPnOriginal(pnOriginal);
+        task.setPnNormalized(pnNormalized);
         task.setBrand(offer.getProductBrand());
         task.setProductType(offer.getProductType());
         task.setSpec(offer.getSpec());
@@ -1048,10 +1033,17 @@ public class WeChatOfferTaskService {
         for (SendGroup group : groups.values()) {
             boolean includePrice = !TASK_SUPPLIER_INQUIRY.equals(group.taskType);
             Map<String, OfferTextLine> rows = new LinkedHashMap<>();
+            LinkedHashSet<String> noStockLines = new LinkedHashSet<>();
+            boolean onlyNoStock = true;
             group.tasks.sort(Comparator.comparing(WeChatOfferTask::getId));
             for (WeChatOfferTask task : group.tasks) {
                 String line = StringUtils.defaultIfBlank(task.getSendContent(), task.getPnOriginal());
                 if (StringUtils.isNotBlank(line)) {
+                    if (OfferNoStockUtils.isNoStockResponse(line)) {
+                        noStockLines.add(line);
+                    } else {
+                        onlyNoStock = false;
+                    }
                     OfferTextLine row = new OfferTextLine();
                     row.setPartNumber(task.getPnOriginal());
                     row.setQuantity(task.getQty());
@@ -1059,10 +1051,16 @@ public class WeChatOfferTaskService {
                     row.setPrice(task.getOfferPrice());
                     row.setRawLine(line);
                     rows.putIfAbsent(StringUtils.defaultString(task.getPnNormalized()) + "\u0000" + line, row);
+                } else {
+                    onlyNoStock = false;
                 }
             }
-            group.text = OfferTextFormatter.formatSendText(new ArrayList<>(rows.values()), includePrice,
-                    Collections.<String>emptyList());
+            if (onlyNoStock && !noStockLines.isEmpty()) {
+                group.text = String.join("\n", noStockLines);
+            } else {
+                group.text = OfferTextFormatter.formatSendText(new ArrayList<>(rows.values()), includePrice,
+                        Collections.<String>emptyList());
+            }
         }
         return new ArrayList<>(groups.values());
     }

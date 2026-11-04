@@ -119,6 +119,7 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
 
     @Override
     public int insertOffer(CrmOffer offer) {
+        offer.setProductCode(requireProductCode(offer));
         String userName = SecurityUtils.getUsername();
         SimpleDateFormat sdf = new SimpleDateFormat("MMddHHmmss");
         offer.setSheetName(userName + "_" + sdf.format(new Date()));
@@ -134,10 +135,18 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
 
     @Override
     public int updateOffer(CrmOffer offer) {
-        if (offer.getProductCode() != null) {
-            offer.setPnNormalized(PnUtils.normalize(offer.getProductCode()));
-        }
+        offer.setProductCode(requireProductCode(offer));
+        offer.setPnNormalized(PnUtils.normalize(offer.getProductCode()));
         return offerMapper.updateOffer(offer);
+    }
+
+    private String requireProductCode(CrmOffer offer) {
+        String productCode = offer == null || offer.getProductCode() == null
+                ? "" : offer.getProductCode().trim();
+        if (productCode.isEmpty()) {
+            throw new ServiceException("产品编码(P/N)不能为空");
+        }
+        return productCode;
     }
 
     @Override

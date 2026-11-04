@@ -35,7 +35,7 @@
             <ul>
               <li><b>生成任务</b>：立即扫描消息并生成任务；任务先按“待审批”写入，若发送目标对应的供应商均开启 <code>crm_supplier.auto_approve</code>，再调用批量审批流程转为“已审批待发送”。点击后弹窗会显示本次扫描对象、起止时间、单批上限、全部必要条件、阶段统计和实际扫描数量。人工点击不受 <code>autoTaskGenerateEnabled=false</code> 限制。</li>
               <li><b>生成时间范围</b>：按消息 <code>create_time</code> 计算，从当前时刻向前滚动 <code>msgRetentionDays</code> 天（默认 30 天），不是只扫描今天；弹窗中的“开始时间/结束时间”就是本次实际 SQL 条件。</li>
-              <li><b>生成必要条件</b>：分类成功且来源为 LLM/CACHE/MANUAL、分类为 INQ/OFFER；AI 录入必须为 <code>SUCCESS/SUCCESS_WARN</code>，任务状态为 <code>PENDING/FAILED</code>，或属于群未映射/群映射冲突的特殊跳过、任务处理超时。单次最多领取 <code>taskGenerateBatchSize=20</code> 条。</li>
+              <li><b>生成必要条件</b>：分类成功且来源为 LLM/CACHE/MANUAL、分类为 INQ/OFFER；AI 录入必须为 <code>SUCCESS/SUCCESS_WARN</code>，任务状态为 <code>PENDING/FAILED</code>，或任务处理超时。群未映射/群映射冲突只会转人工复核，不再创建空料号异常任务。单次最多领取 <code>taskGenerateBatchSize=20</code> 条。</li>
               <li><b>为什么 task_status=PENDING 仍扫描 0 条</b>：<code>task_status=PENDING</code> 只表示“尚未生成任务”，还需 <code>entry_status</code> 已录入成功。若录入仍为 <code>PENDING</code>，消息会停留在等待 AI 录入阶段，不会进入任务生成；生成结果弹窗会单独显示该数量。</li>
               <li><b>任务状态感叹号</b>：微信消息列表的任务状态旁会显示当前卡点；<code>PENDING</code> 会区分“待 AI 录入 / AI 录入处理中 / 已录入等待任务生成扫描”，失败、转人工或异常跳过则显示具体原因。数据库字段 <code>task_failure_reason</code> 只记录失败类原因，等待扫描的说明由页面按状态实时计算。</li>
               <li><b>发送扫描</b>：立即扫描并发送“已审批待发送”任务；人工点击不受 <code>autoSendEnabled=false</code> 限制，但当前微信登录账号必须是 <code>autoSendAccount</code>（默认 Eke），否则停止发送。</li>
@@ -43,7 +43,8 @@
               <li><b>批量审批</b>：勾选列表多行后点击，只审批当前为 <code>PENDING_APPROVAL</code> 的任务；其他状态会跳过，失败数量在结果提示中返回。</li>
               <li><b>确认未发送</b>：仅当最近异常以 <code>GATEWAY_RESULT_UNKNOWN</code> 开头时出现；人工确认网关确实未发送后，任务恢复为“已审批待发送”，重试次数清零。</li>
               <li><b>删除/批量删除</b>：删除任务时弹窗选择“是否回退数据”。选“否”只删除任务；选“是”会把来源微信消息的 <code>task_status</code> 重置为 <code>PENDING</code>，便于重新生成，但不会改变分类、AI 录入和已生成的 OFFER。</li>
-              <li><b>仅异常</b>：只显示发送目标为空、群未映射（<code>UNMAPPED_CHAT</code>）的任务。</li>
+              <li><b>纯缺货发送</b>：同一发送组全部为缺货/无库存回复时，只发送缺货原文，不添加 <code>M&amp;E 日期 Offer：</code>、<code>Part No. Qty Price</code> 表头和品牌行；同组含正常报价时仍按正常格式合并。</li>
+              <li><b>仅异常</b>：显示发送目标为空的任务。历史 <code>UNMAPPED_CHAT</code> 空料号任务已清理，新数据不会再生成。</li>
             </ul>
             <div class="help-title">任务状态</div>
             <ul>
@@ -100,6 +101,7 @@
 
     <el-table v-loading="loading" :data="taskList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="46" align="center" />
+      <el-table-column label="任务 ID" prop="id" width="80" align="center" />
       <el-table-column label="创建时间" prop="createTime" width="158" />
       <el-table-column label="来源对象" prop="oriTarget" min-width="160" show-overflow-tooltip />
       <el-table-column label="来源分类" prop="sourceCategory" width="90" align="center" />
@@ -177,6 +179,7 @@
 
     <el-dialog :title="'任务 #' + form.id + ' 审批与编辑'" :visible.sync="open" width="980px" append-to-body>
       <el-descriptions v-if="form.id" :column="2" border size="small" class="mb8">
+        <el-descriptions-item label="任务 ID">{{ form.id }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ form.createTime || '-' }}</el-descriptions-item>
         <el-descriptions-item label="来源对象">{{ form.oriTarget || '-' }}</el-descriptions-item>
         <el-descriptions-item label="消息时间">{{ form.sourceMessageTime || '-' }}</el-descriptions-item>

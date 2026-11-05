@@ -54,6 +54,9 @@ public class DeepSeekAiService {
     /** 会话缓存key前缀：按登录用户隔离（AI录入与料号查询共用物料解析会话） */
     private static final String SESSION_KEY_PREFIX = "ai:session:material:";
 
+    /** Excel/CSV报价附件通常包含多条物料，单次解析比普通粘贴文本耗时更长，至少保留3分钟。 */
+    private static final int ATTACHMENT_TIMEOUT_MS = 3 * 60 * 1000;
+
     @Autowired
     private RedisCache redisCache;
 
@@ -125,8 +128,11 @@ public class DeepSeekAiService {
         respFormat.put("type", "json_object");
         payload.put("response_format", respFormat);
 
-        // 统一走 AI 通道服务：自动按当前渠道填充 model，主渠道（第三方平台）故障时自动切换备用渠道
-        String body = aiChannelService.chatCompletions(payload);
+        // 统一走 AI 通道服务：自动按当前渠道填充 model，主渠道（第三方平台）故障时自动切换备用渠道。
+        // Excel/CSV附件可能包含几十条报价，沿用普通文本的2分钟超时很容易在返回前被截断。
+        int timeoutMs = content != null && content.contains("【附件:")
+                ? Math.max(aiChannelService.timeoutMs(), ATTACHMENT_TIMEOUT_MS) : 0;
+        String body = aiChannelService.chatCompletions(payload, timeoutMs);
         // 解析返回的JSON并提取物料列表（调用失败不写回会话，避免污染上下文）
         String aiContent = extractContent(body);
         JSONArray items = extractItems(aiContent);

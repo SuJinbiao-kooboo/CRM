@@ -1,6 +1,7 @@
 package com.ruoyi.wexinAuto.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 /**
@@ -130,6 +131,18 @@ public class WeChatMessage {
 
     /** 已下载媒体绝对路径（未下载为空） */
     private String mediaPath;
+
+    /** 附件显示名（仅本次处理使用，不落库、不回传前端） */
+    @JsonIgnore
+    private String attachmentName;
+
+    /** Excel/CSV附件提取文本（仅本次分类或录入使用，不落库、不回传前端） */
+    @JsonIgnore
+    private String attachmentText;
+
+    /** 附件读取失败原因（仅本次处理使用） */
+    @JsonIgnore
+    private String attachmentError;
 
     /** 创建时间，格式 yyyy-MM-dd HH:mm:ss（本地时区） */
     private String createTime;

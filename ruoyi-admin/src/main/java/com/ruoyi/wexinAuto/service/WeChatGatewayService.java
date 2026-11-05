@@ -8,6 +8,7 @@ import com.ruoyi.crm.mapper.CrmOfferMapper;
 import com.ruoyi.crm.service.ai.AiChannelService;
 import com.ruoyi.crm.service.ICrmOfferService;
 import com.ruoyi.crm.util.OfferNoStockUtils;
+import com.ruoyi.wexinAuto.analysis.WeChatExcelTextExtractor;
 import com.ruoyi.wexinAuto.analysis.WeChatLlmClassifier;
 import com.ruoyi.wexinAuto.analysis.WeChatTextUtils;
 import com.ruoyi.wexinAuto.config.WeChatAutomationConfig;
@@ -98,8 +99,20 @@ public class WeChatGatewayService {
             Pattern.CASE_INSENSITIVE);
     private static final Set<String> IMAGE_EXTENSIONS = new HashSet<>(Arrays.asList(
             "jpg", "jpeg", "png", "gif", "webp", "bmp"));
+    /** 可读取正文并交给AI判断的报价表格附件。 */
+    private static final Set<String> EXCEL_EXTENSIONS = new HashSet<>(Arrays.asList("xlsx", "xls", "csv"));
     private static final Pattern FILE_EXT_PATTERN = Pattern.compile(
             "<fileext(?:\\s[^>]*)?>([\\s\\S]*?)</fileext>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern FILE_TITLE_PATTERN = Pattern.compile(
+            "<title(?:\\s[^>]*)?>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</title>",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern ATTACHMENT_BUSINESS_NAME = Pattern.compile(
+            "(?i)(offer|price|quote|quotation|stock|list|rfq|inq|报价|价格|库存|清单|询价|价单)");
+    private static final Pattern ATTACHMENT_PRICE_SIGNAL = Pattern.compile(
+            "(?i)(unit\\s*price|price|usd|报价|价格|单价|库存|stock|qty|数量|交期)");
+    private static final Pattern ATTACHMENT_PART_SIGNAL = Pattern.compile(
+            "(?i)(p/?n|part\\s*no|model|料号|型号)");
+    private static final int ATTACHMENT_TEXT_MAX = 6000;
 
     private final WeChatGatewayProperties props;
     private final WeChatMessageHandler handler;
@@ -406,7 +419,11 @@ public class WeChatGatewayService {
                 continue;
             }
             // 自己人消息直接归为 OTHER，非文本消息也不例外；后续分类入口不会再调用 AI。
-            if (!WeChatTextUtils.isSelf(m.getSender(), currentSelfNames) && !isTextMessage(m)) {
+            boolean self = WeChatTextUtils.isSelf(m.getSender(), currentSelfNames);
+            if (!self) {
+                prepareAttachment(m);
+            }
+            if (!self && !isTextMessage(m)) {
                 String reason = classifySkipReason(m);
                 if (!dryRun) {
                     store.markClassifySkipped(m.getUsername(), m.getLocalId(), reason);
@@ -470,9 +487,13 @@ public class WeChatGatewayService {
         String type = StringUtils.trimToEmpty(message.getType());
         if (type.isEmpty() || "文本".equals(type) || "TEXT".equalsIgnoreCase(type)
                 || "文件/链接/卡片".equals(type)) {
-            return hasClassifiableText(message.getContent());
+            return hasClassifiableText(message.getContent()) || hasUsableAttachment(message);
         }
         return false;
+    }
+
+    private boolean hasUsableAttachment(WeChatMessage message) {
+        return message != null && StringUtils.isNotBlank(message.getAttachmentText());
     }
 
     /** 引用消息在微信原始类型中仍是 appmsg，但正文可能是正常聊天文字，不能只按 type 跳过。 */
@@ -486,6 +507,13 @@ public class WeChatGatewayService {
 
     private String classifySkipReason(WeChatMessage message) {
         String type = StringUtils.defaultIfBlank(message.getType(), "空");
+        if (isSpreadsheetAttachment(message)) {
+            if (StringUtils.isNotBlank(message.getAttachmentError())) {
+                return "Excel/CSV报价附件未读取：" + message.getAttachmentError();
+            }
+            return "Excel/CSV附件没有可用报价内容，不调用模型（文件="
+                    + StringUtils.defaultString(attachmentDisplayName(message), type) + "）";
+        }
         if (StringUtils.isBlank(message.getContent())) {
             return "消息正文为空，不调用模型（消息类型=" + type + "）";
         }
@@ -493,6 +521,66 @@ public class WeChatGatewayService {
             return "卡片/链接/文件消息没有可分类正文，不调用模型（消息类型=" + type + "）";
         }
         return "非文本或系统消息，不调用模型（消息类型=" + type + "）";
+    }
+
+    /**
+     * 文件卡片默认没有可分类正文。仅对 xls/xlsx/csv 尝试找回本机附件并提取有限文本；
+     * 提取结果只挂在当前消息对象上，不落库、不回传前端。
+     */
+    private void prepareAttachment(WeChatMessage message) {
+        if (!isSpreadsheetAttachment(message) || message.getAttachmentText() != null
+                || StringUtils.isNotBlank(message.getAttachmentError())) {
+            return;
+        }
+        String name = attachmentDisplayName(message);
+        message.setAttachmentName(name);
+        try {
+            Path file = ensureMedia(message);
+            String text = WeChatExcelTextExtractor.extract(file);
+            if (StringUtils.isBlank(text)) {
+                message.setAttachmentError("附件为空或无法解析");
+                return;
+            }
+            if (!looksLikeBusinessAttachment(name, text)) {
+                message.setAttachmentError("附件内容未发现料号、价格或库存等报价特征");
+                return;
+            }
+            message.setAttachmentText(WeChatTextUtils.clip(text, ATTACHMENT_TEXT_MAX));
+        } catch (Exception e) {
+            String reason = safeMessage(e);
+            message.setAttachmentError(reason);
+            log.warn("微信报价附件读取失败: localId={} file={} error={}",
+                    message.getLocalId(), name, reason);
+        }
+    }
+
+    private boolean isSpreadsheetAttachment(WeChatMessage message) {
+        return message != null && "文件/链接/卡片".equals(StringUtils.trimToEmpty(message.getType()))
+                && EXCEL_EXTENSIONS.contains(fileExtension(message));
+    }
+
+    private String attachmentDisplayName(WeChatMessage message) {
+        if (message == null) {
+            return "";
+        }
+        if (StringUtils.isNotBlank(message.getAttachmentName())) {
+            return message.getAttachmentName();
+        }
+        Matcher matcher = FILE_TITLE_PATTERN.matcher(StringUtils.defaultString(message.getContent()));
+        if (!matcher.find()) {
+            return "";
+        }
+        return StringUtils.trimToEmpty(matcher.group(1))
+                .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">");
+    }
+
+    private boolean looksLikeBusinessAttachment(String name, String text) {
+        if (ATTACHMENT_BUSINESS_NAME.matcher(StringUtils.defaultString(name)).find()) {
+            return true;
+        }
+        String body = StringUtils.defaultString(text);
+        return ATTACHMENT_PRICE_SIGNAL.matcher(body).find()
+                && ATTACHMENT_PART_SIGNAL.matcher(body).find();
     }
 
     /** 清空AI分类缓存：提示词/语义规则调整后，重跑历史消息前使用。 */
@@ -1373,13 +1461,30 @@ public class WeChatGatewayService {
         }
         sb.append("【本次连续消息】\n");
         for (WeChatMessage m : group.members) {
-            String content = StringUtils.trimToEmpty(m.getContent());
+            prepareAttachment(m);
+            String content = entryDisplayContent(m);
             if (content.isEmpty()) {
                 continue;
             }
             sb.append(StringUtils.defaultIfBlank(m.getSender(), "未知")).append(": ").append(content).append('\n');
         }
         return sb.toString().trim();
+    }
+
+    /** 文件卡片不把原始 XML 交给录入模型；Excel报价附件使用提取后的有限文本。 */
+    private String entryDisplayContent(WeChatMessage message) {
+        if (hasUsableAttachment(message)) {
+            return "【附件: " + StringUtils.defaultIfBlank(message.getAttachmentName(), "Excel/CSV")
+                    + "】\n【Excel录入约束：只提取有明确料号且价格为正数的报价行；"
+                    + "无价格、No stock、询价/缺货说明不要生成物料行】\n"
+                    + message.getAttachmentText();
+        }
+        String content = StringUtils.trimToEmpty(message == null ? null : message.getContent());
+        if (content.startsWith("<") && message != null && "文件/链接/卡片".equals(message.getType())) {
+            String name = attachmentDisplayName(message);
+            return StringUtils.isBlank(name) ? "【文件附件】" : "【文件附件: " + name + "】";
+        }
+        return content;
     }
 
     /**
@@ -1483,10 +1588,11 @@ public class WeChatGatewayService {
         }
         sb.append("\n【本次连续消息】\n");
         for (WeChatMessage message : group.members) {
+            prepareAttachment(message);
             sb.append(StringUtils.defaultIfBlank(message.getSender(), "未知"))
                     .append(" [").append(StringUtils.defaultString(message.getCreateTime())).append("]")
                     .append(" #").append(message.getLocalId()).append(": ")
-                    .append(clipFeishuText(StringUtils.trimToEmpty(message.getContent()), 3000))
+                    .append(clipFeishuText(entryDisplayContent(message), 3000))
                     .append('\n');
         }
         return sb.toString().trim();
@@ -1653,9 +1759,6 @@ public class WeChatGatewayService {
         stats.enteredOffers += saved.size();
         String offerIds = joinOfferIds(saved);
         for (WeChatMessage m : entryMembers) {
-            if (!isEntryRetryable(m)) {
-                continue;
-            }
             store.updateEntryOnly(m.getUsername(), m.getLocalId(), entryStatus,
                     clipEntryMessage(entryMessage), saved.size(), offerIds, 0);
             if (!sameMessage(m, anchor)) {

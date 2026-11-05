@@ -443,7 +443,10 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 : (authorizedSupplier.getProfitRatio() != null ? authorizedSupplier.getProfitRatio() : 2d);
         // 调用AI把无规则文本整理为结构化物料列表（品牌/料号/型号/规格型号/数量/报价）
         List<Map<String, Object>> items = deepSeekAiService.parseMaterialContent(content);
-        boolean filterNoStockRows = "Offer".equals(inqOfferType) && OfferNoStockUtils.mentionsNoStock(content);
+        // 微信Excel报价附件包含表头/空白行，模型可能把无价格行也解析出来；Offer必须有正数价格，
+        // 这里与缺货响应一样过滤掉，避免生成无法使用的报价记录。普通粘贴录入保持原逻辑。
+        boolean filterNoStockRows = "Offer".equals(inqOfferType)
+                && (OfferNoStockUtils.mentionsNoStock(content) || content.contains("【附件:"));
 
         Date now = new Date();
         // 来源表名：AI+时间+供应商名+操作人，便于追溯录入批次

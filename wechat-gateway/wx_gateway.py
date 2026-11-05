@@ -725,6 +725,62 @@ def _quote_media_path(db, media, username, local_id, save_dir):
         die("本机暂无引用文件: %s" % name)
     die("该引用%s没有可读取的图片或文件" % (quote or kind))
 
+
+def _file_card_info(content):
+    """读取文件卡片 XML 里的原文件名与扩展名。"""
+    root = _xml_root(strip_wxid_prefix(content or ""))
+    app = root.find("appmsg") if root is not None else None
+    if app is None:
+        return "", ""
+    title = os.path.basename((app.findtext("title") or "").strip().replace("\\", "/"))
+    ext = (app.findtext(".//fileext") or "").strip().lstrip(".").lower()
+    if title and ext and not title.lower().endswith("." + ext):
+        title += "." + ext
+    return title, ext
+
+
+def _normalized_file_key(name):
+    """忽略微信重复下载自动追加的 (1)/(2) 后缀，便于回查本机原文件。"""
+    base, ext = os.path.splitext(os.path.basename(name or ""))
+    base = re.sub(r"\s*[\(（]\d+[\)）]$", "", base)
+    return base.strip().lower(), ext.lower().lstrip(".")
+
+
+def _copy_local_file(db, content, create_time, save_dir, username, local_id):
+    """微信有时把附件保存为 name(1).xlsx，按标题扫描 msg/file 并复制到媒体目录。"""
+    name, expected_ext = _file_card_info(content)
+    if not name:
+        return ""
+    base = os.path.join(db.account_dir, "msg", "file")
+    if not os.path.isdir(base):
+        return ""
+    target_key = _normalized_file_key(name)
+    candidates = []
+    for root, _, files in os.walk(base):
+        for file_name in files:
+            normalized = _normalized_file_key(file_name)
+            if normalized != target_key:
+                continue
+            if expected_ext and normalized[1] != expected_ext:
+                continue
+            path = os.path.join(root, file_name)
+            try:
+                score = abs(os.path.getmtime(path) - float(create_time or 0))
+            except Exception:
+                score = float("inf")
+            candidates.append((score, path, file_name))
+    if not candidates:
+        return ""
+    candidates.sort(key=lambda item: item[0])
+    source = candidates[0][1]
+    safe_name = re.sub(r'[<>:"/\\|?*]', "_", os.path.basename(name))[:180] or "attachment"
+    os.makedirs(save_dir, exist_ok=True)
+    target = os.path.join(save_dir, "%s_%s_%s" % (username, local_id, safe_name))
+    if not os.path.isfile(target):
+        shutil.copy2(source, target)
+    return target
+
+
 def row_to_json(db, ctx, m, media, name):
     media_path = ""
     mtype = m.get("type")
@@ -734,9 +790,20 @@ def row_to_json(db, ctx, m, media, name):
         try:
             media_path = media.download_media(m.get("__session") or m.get("username"),
                                               m["local_id"], save_dir=media.save_dir) or ""
+            if not media_path and is_file:
+                media_path = _copy_local_file(
+                    db, strip_wxid_prefix(raw_content), m.get("create_time") or 0,
+                    media.save_dir, m.get("__session") or m.get("username"), m["local_id"])
         except Exception as e:
             log("  [媒体下载失败 %s/%s]: %s" % (m.get("__session"), m["local_id"], e))
             media_path = ""
+            if is_file:
+                try:
+                    media_path = _copy_local_file(
+                        db, strip_wxid_prefix(raw_content), m.get("create_time") or 0,
+                        media.save_dir, m.get("__session") or m.get("username"), m["local_id"])
+                except Exception as fe:
+                    log("  [本地文件兜底失败 %s/%s]: %s" % (m.get("__session"), m["local_id"], fe))
     # 先去掉库内多余的 wxid_xxx: 前缀行，再拆解引用/卡片消息
     content, quote, quote_kind = parse_quote(strip_wxid_prefix(m.get("content") or ""))
     ct = m.get("create_time") or 0
@@ -984,7 +1051,17 @@ def cmd_media(args):
     db, media = build_db(args.media, args.account)
     if media is None:
         die("未配置 --media 目录")
-    path = media.download_media(args.username, args.local_id, save_dir=args.media)
+    path = ""
+    try:
+        path = media.download_media(args.username, args.local_id, save_dir=args.media)
+    except Exception as e:
+        log("媒体下载异常，尝试本机附件兜底: %s/%s %s" % (args.username, args.local_id, e))
+    if not path:
+        row = db.get_message_row(args.username, args.local_id)
+        if row:
+            path = _copy_local_file(
+                db, strip_wxid_prefix(_decoded_row_content(db, row)),
+                row.get("create_time") or 0, args.media, args.username, args.local_id)
     if not path:
         die("媒体文件未下载或本机不存在: %s/%s" % (args.username, args.local_id))
     print("MEDIA_PATH=" + os.path.abspath(path))

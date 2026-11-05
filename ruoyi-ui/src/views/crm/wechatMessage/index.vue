@@ -101,7 +101,7 @@
               <li><b>录入异常排查</b>：待录入查询失败会写入“系统监控 → 调度日志”的异常信息；单条消息的 AI 录入失败原因见列表的“录入状态/结果”。</li>
               <li><b>traceAlertEnabled</b>：TRACE 告警开关；<b>traceAlertMaxAgeMin</b> 最大消息年龄（默认 360 分钟，即只告警最近 6 小时），<b>traceAlertChatCooldownMin</b> 同群冷却分钟数。</li>
               <li><b>AI 接口</b>：系统管理 → 参数设置中的 <code>sys.ai.enabled</code>、<code>sys.ai.base.url</code>、<code>sys.ai.api.key</code>、<code>sys.ai.model</code>。</li>
-              <li><b>录入耗时保护</b>：<code>sys.ai.timeout.ms</code> 控制单次模型调用超时（当前 120000 毫秒，即 2 分钟）；网络超时不会在同一渠道反复重试，避免一条消息长时间占住自动录入任务。</li>
+              <li><b>录入耗时保护</b>：<code>sys.ai.timeout.ms</code> 控制普通文本单次模型调用超时（当前 120000 毫秒，即 2 分钟）；Excel/CSV 报价附件因包含多条物料，至少等待 3 分钟；网络超时不会在同一渠道反复重试，避免一条消息长时间占住自动录入任务。</li>
             </ul>
             <div class="help-title">操作提示</div>
             <ul>

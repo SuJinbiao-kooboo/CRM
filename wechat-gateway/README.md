@@ -89,6 +89,11 @@ python -m pip install -U wechatauto-replica
 python -m pip show wechatauto-replica   # 确认版本 1.2.4.4
 ```
 > 只此一个 Python 环境，不建 venv。所有脚本都用它跑。
+>
+> 注意：Python 3.13+ 上 `winsdk` 没有预编译轮子，直接安装会失败。只做消息拉取时可用
+> `pip install wechatauto-replica --no-deps` 后单独安装
+> `uiautomation pywin32 pyperclip Pillow psutil colorama cryptography imageio-ffmpeg zstandard pyautogui opencv-python`；
+> 需要窗口 OCR 发送时建议改用 Python 3.12。
 
 ### 3.4 微信登录 + 首次提取密钥
 - 首次运行需从微信进程内存提取密钥（微信**必须已登录**且有 `Weixin.exe` 进程）。

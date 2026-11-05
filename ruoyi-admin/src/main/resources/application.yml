@@ -155,6 +155,15 @@ eke:
 # AI 接口（DeepSeek 及备用渠道）统一配置在系统参数 sys_config（前缀 sys.ai.）中维护，见 sql/deepseek_ai_config.sql
 # 由 AiChannelService 统一读取并发起调用，支持主/备渠道自动切换；此处不再保留配置项
 
+# 微信网关（仅运行在有微信登录态的 Windows 主机上；其他主机由定时任务 IP 白名单跳过）
+wechat:
+  # 64 位 Python 解释器，需已安装 wechatauto-replica
+  python: ${WECHAT_PYTHON:C:/Software/Python/python.exe}
+  # 消息网关脚本
+  script: ${WECHAT_SCRIPT:C:/Software/GPT/CRM/wechat-gateway/wx_gateway.py}
+  # 图片/语音/视频/文件落地目录
+  media: ${WECHAT_MEDIA:C:/Software/GPT/CRM/wechat-gateway/media}
+
 # 飞书机器人（ruoyi-feishu 模块）
 feishu:
   # 是否随项目启动自动开启机器人

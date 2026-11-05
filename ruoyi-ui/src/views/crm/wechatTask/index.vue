@@ -85,6 +85,7 @@
               <li><b>生成</b>：<code>autoTaskGenerateEnabled</code>、<code>taskGenerateScanSec</code>、<code>taskGenerateBatchSize</code>、<code>msgRetentionDays</code>。</li>
               <li><b>发送</b>：<code>autoSendEnabled</code>、<code>taskSendScanSec</code>、<code>taskSendMaxAttempts</code>、<code>taskSendScanBatchSize</code>、<code>taskSendBatchSize</code>、<code>autoSendAccount</code>。</li>
               <li><b>INQ 直接回复</b>：<code>inqMatchDayNo</code>，默认 2，表示昨天 00:00 至当前；该窗口同时用于客户 INQ 与供应商 OFFER 的关联。</li>
+              <li><b>待跟进告警</b>：<code>offerFollowUpMaxAgeMin</code>，默认 360 分钟；超过该时效的历史 OFFER 补录后仍入库、生成任务，但不再推送“Offer待跟进”飞书消息。</li>
             </ul>
           </div>
           <el-button slot="reference" icon="el-icon-question" size="mini">说明</el-button>
@@ -113,6 +114,7 @@
       <el-table-column type="selection" width="46" align="center" />
       <el-table-column label="任务 ID" prop="id" width="80" align="center" />
       <el-table-column label="创建时间" prop="createTime" width="158" />
+      <el-table-column label="INQ/OFFER 发生时间" prop="sourceMessageTime" width="165" />
       <el-table-column label="来源对象" prop="oriTarget" min-width="160" show-overflow-tooltip />
       <el-table-column label="来源分类" prop="sourceCategory" width="90" align="center" />
       <el-table-column label="任务类型" width="125" align="center">
@@ -192,7 +194,7 @@
         <el-descriptions-item label="任务 ID">{{ form.id }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ form.createTime || '-' }}</el-descriptions-item>
         <el-descriptions-item label="来源对象">{{ form.oriTarget || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="消息时间">{{ form.sourceMessageTime || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="INQ/OFFER 发生时间">{{ form.sourceMessageTime || '-' }}</el-descriptions-item>
         <el-descriptions-item label="来源分类">{{ form.sourceCategory || '-' }}</el-descriptions-item>
         <el-descriptions-item label="任务类型">{{ taskTypeLabel(form.taskType) }}</el-descriptions-item>
         <el-descriptions-item label="料号">{{ form.pnOriginal || '-' }}</el-descriptions-item>

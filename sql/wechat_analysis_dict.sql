@@ -127,7 +127,8 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_defa
 (124, 'traceAlertMaxAgeMin', '1440', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'TRACE预警最大时效(分钟)：超过该时长的历史消息不推送飞书，默认1440=24小时'),
 (125, 'traceAlertChatCooldownMin', '5', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '同一聊天对象TRACE飞书预警冷却(分钟)：期间已成功预警则跳过，默认5；0=关闭冷却'),
 (137, 'offerEntryMinAgeSec', '60', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '分类后等待秒数：让后续消息进入上下文后再自动录入，默认60'),
-(138, 'offerEntryMaxAgeHours', '24', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '自动录入最大回溯小时数：超期历史消息需人工重新入队，默认24');
+(138, 'offerEntryMaxAgeHours', '24', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '自动录入最大回溯小时数：超期历史消息需人工重新入队，默认24'),
+(216, 'offerFollowUpMaxAgeMin', '360', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'Offer待跟进飞书最大时效(分钟)：超过该时长的历史补录OFFER不推送，默认360=6小时');
 
 -- 2.6) 【2026-10-22 调整】AI 渠道配置（地址/Key/模型/备用渠道/告警）已统一到系统参数 sys_config（前缀 sys.ai.），
 --       见 sql/deepseek_ai_config.sql；下列字典旧参数已作废并清理，避免两套配置不一致：

@@ -1340,6 +1340,12 @@ public class WeChatGatewayService {
         if (!"OFFER".equalsIgnoreCase(StringUtils.trimToEmpty(anchor.getMsgCategory()))) {
             return "";
         }
+        int maxAgeMin = Math.max(1, analysisInt("offerFollowUpMaxAgeMin", 360));
+        if (!WeChatTextUtils.isRecent(anchor.getCreateTime(), maxAgeMin)) {
+            log.info("历史OFFER不推送待跟进(超过{}分钟): chat={} localId={} time={}",
+                    maxAgeMin, anchor.getName(), anchor.getLocalId(), anchor.getCreateTime());
+            return "";
+        }
         LinkedHashSet<String> savedPartNumbers = new LinkedHashSet<>();
         Set<String> cpuPartNumbers = new HashSet<>();
         for (CrmOffer row : saved) {

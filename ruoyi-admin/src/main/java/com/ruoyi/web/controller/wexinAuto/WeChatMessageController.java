@@ -72,7 +72,7 @@ public class WeChatMessageController {
      * @param chat  群名/好友名，可选；不填=所有会话增量；填了=只拉该会话
      * @param since 拉取起点时间(格式 yyyy-MM-dd HH:mm:ss，含该秒)，可选；
      *              不填=按轮询水位只拉新增；填了=重新拉该时刻之后的所有消息，
-     *              已入库的按唯一键 username+local_id 自动跳过，不会重复处理
+     *              已入库的按唯一键 username+sort_seq+正文哈希自动跳过，不会重复处理
      */
     @PreAuthorize("@ss.hasPermi('wechat:message:poll')")
     @PostMapping("/poll/run")

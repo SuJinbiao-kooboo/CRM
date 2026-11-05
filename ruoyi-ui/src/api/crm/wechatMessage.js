@@ -78,3 +78,7 @@ export function requeueWechatEntry(data) {
 export function runWechatPoll(data) {
   return request({ url: '/crm/wechat-message/poll/run', method: 'post', data: data, timeout: 180000 })
 }
+
+export function repairWechatSenders(data) {
+  return request({ url: '/crm/wechat-message/sender/repair', method: 'post', data: data, timeout: 600000 })
+}

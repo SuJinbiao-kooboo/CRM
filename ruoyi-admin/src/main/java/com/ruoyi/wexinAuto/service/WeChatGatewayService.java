@@ -238,6 +238,57 @@ public class WeChatGatewayService {
         return out;
     }
 
+    /**
+     * 换服务器/微信升级后修复发言人：按指定时间窗重新读取本地微信库，
+     * 只按稳定消息身份(username+sortSeq+正文)回填 sender，不新增消息、不改分类/录入/任务状态。
+     */
+    public Map<String, Object> repairSenders(String chat, String since) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        String start = StringUtils.trimToEmpty(since);
+        if (start.isEmpty()) {
+            start = fmtTime(System.currentTimeMillis() - 7L * 24 * 3600 * 1000);
+        }
+        synchronized (dumpLock) {
+            if (!pollRunning.compareAndSet(false, true)) {
+                throw new ServiceException("微信拉取正在执行，请稍后再修复发言人");
+            }
+            try {
+                List<String> cmd = new ArrayList<>();
+                cmd.add(props.getPython());
+                cmd.add(props.getScript());
+                cmd.add("dump");
+                cmd.add("--since");
+                cmd.add(start);
+                if (StringUtils.isNotBlank(chat)) {
+                    cmd.add("--chat");
+                    cmd.add(chat.trim());
+                }
+                cmd.add("--limit");
+                // 修复窗口可能跨多天；dump 的 limit 是每个会话的上限，
+                // 再受全局 want 截断，固定给足 20 万条，避免 7 天只修复到前 5000 条。
+                cmd.add(String.valueOf(Math.max(200000, analysisInt("pollLimit", 5000))));
+                List<WeChatMessage> raw = runProcess(cmd, true);
+                if (raw == null) {
+                    raw = new ArrayList<>();
+                }
+                int updated = store.updateSenders(raw);
+                out.put("since", start);
+                out.put("chat", StringUtils.defaultString(chat));
+                out.put("scanned", raw.size());
+                out.put("updated", updated);
+                out.put("message", "发言人修复完成：扫描 " + raw.size() + " 条，更新 " + updated + " 条");
+                log.info("微信发言人修复完成: since={} chat={} scanned={} updated={}",
+                        start, StringUtils.defaultString(chat), raw.size(), updated);
+                return out;
+            } catch (Exception e) {
+                log.error("微信发言人修复失败: since={} chat={}", start, StringUtils.defaultString(chat), e);
+                throw new ServiceException("发言人修复失败: " + e.getMessage());
+            } finally {
+                pollRunning.set(false);
+            }
+        }
+    }
+
     /** 手动触发一次分类：可选指定群/好友名，只处理该会话最早未分类的 classifyBatchSize 条；不填=全部会话。 */
     public Map<String, Object> classifyOnce(String chat) {
         Map<String, Object> out = new LinkedHashMap<>();
@@ -572,7 +623,7 @@ public class WeChatGatewayService {
      * 增量拉取入库。
      * since 为空时：dump --since <水位-冗余回看>，即只拉新增；
      * since 非空时(如 2026-10-17 00:00:00)：dump --since <指定时间>，重新拉该时刻之后的消息，
-     * 已入库的(唯一键 username+local_id 冲突)由 SQL 直接跳过，不重复处理、不覆盖已有分类。
+     * 已入库的(唯一键 username+sort_seq+正文哈希冲突)由 SQL 直接跳过，不重复处理、不覆盖已有分类。
      * 解析出的消息先过 pollIgnoreChats / blackNames 名称关键词过滤，命中写黑表，其余入库(status=0)。
      *
      * @return false 表示上一轮 dump 仍在执行、本次被跳过

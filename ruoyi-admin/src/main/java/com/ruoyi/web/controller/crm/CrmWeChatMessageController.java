@@ -284,6 +284,18 @@ public class CrmWeChatMessageController extends BaseController {
         return success(gateway.pollOnce(text(body, "chat"), text(body, "since"), true));
     }
 
+    /** 换服务器后按时间窗重新解析并回填发言人，不新增消息。 */
+    @PreAuthorize("@ss.hasPermi('wechat:message:poll')")
+    @Log(title = "微信发言人修复", businessType = BusinessType.UPDATE)
+    @PostMapping("/sender/repair")
+    public AjaxResult repairSenders(@RequestBody(required = false) Map<String, Object> body) {
+        try {
+            return success(gateway.repairSenders(text(body, "chat"), text(body, "since")));
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
+    }
+
     private static String text(Map<String, Object> body, String key) {
         Object value = body == null ? null : body.get(key);
         return value == null ? null : String.valueOf(value).trim();

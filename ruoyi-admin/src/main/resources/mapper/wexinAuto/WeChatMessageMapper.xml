@@ -63,8 +63,31 @@
              COALESCE(#{m.classifyStatus}, 'PENDING'), COALESCE(#{m.classifyFailCount}, 0),
              COALESCE(#{m.entryStatus}, 'NOT_APPLICABLE'), COALESCE(#{m.entryOfferCount}, 0), COALESCE(#{m.taskStatus}, 'PENDING'))
         </foreach>
-        ON DUPLICATE KEY UPDATE username = VALUES(username)
+          ON DUPLICATE KEY UPDATE
+              username = VALUES(username),
+              sender = IF(sender IS NULL OR sender = '', VALUES(sender), sender),
+              name = IF(name IS NULL OR name = '', VALUES(name), name)
     </insert>
+
+      <!-- 发言人回填必须按消息唯一身份匹配：server_id 由“会话+秒级时间”组成，
+           同一秒的多条消息会重复，不能作为定位条件。 -->
+      <update id="updateSenderBatch">
+          UPDATE wechat_message
+          SET sender = CASE
+          <foreach collection="list" item="m">
+              WHEN username = #{m.username}
+               AND sort_seq = #{m.sortSeq}
+               AND content_hash = MD5(IFNULL(#{m.content}, ''))
+              THEN #{m.sender}
+          </foreach>
+          ELSE sender END
+          WHERE
+          <foreach collection="list" item="m" separator=" OR ">
+              (username = #{m.username}
+               AND sort_seq = #{m.sortSeq}
+               AND content_hash = MD5(IFNULL(#{m.content}, '')))
+          </foreach>
+      </update>
 
     <insert id="insertBlackBatch">
         INSERT INTO wechat_message_black (username, name, local_id, server_id, type, sender, content, quote, quote_kind,

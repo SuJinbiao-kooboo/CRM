@@ -1,6 +1,7 @@
 package com.ruoyi.wexinAuto.service;
 
 import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.wexinAuto.mapper.WeChatMessageMapper;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +12,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,7 +32,7 @@ public class WeChatMessageStore {
     /** 单批最大行数：避免单条 INSERT 过长(大轮拉取时 5000 行会触发慢 SQL/超包限制) */
     private static final int UPSERT_BATCH = 500;
 
-    /** 批量入库(幂等：username+local_id 重复时只更新非分类字段)，内部自动分批并对失败批次做二分重试。 */
+    /** 批量入库(幂等：username+sort_seq+正文哈希重复时只更新非分类字段)，内部自动分批并对失败批次做二分重试。 */
     public int saveAll(List<WeChatMessage> list) {
         if (list == null || list.isEmpty()) {
             return 0;
@@ -139,6 +141,36 @@ public class WeChatMessageStore {
         } catch (Exception e) {
             log.error("微信消息入库失败: username={} localId={}", m.getUsername(), m.getLocalId(), e);
         }
+    }
+
+    /** 按稳定消息身份(username+sortSeq+正文)回填发言人；用于换服务器后修复历史消息。 */
+    public int updateSenders(List<WeChatMessage> list) {
+        if (list == null || list.isEmpty()) {
+            return 0;
+        }
+        Map<String, WeChatMessage> byIdentity = new LinkedHashMap<>();
+        for (WeChatMessage m : list) {
+            if (m == null || StringUtils.isBlank(m.getUsername()) || StringUtils.isBlank(m.getSender())) {
+                continue;
+            }
+            String identity = m.getUsername().trim() + '\u0001' + m.getSortSeq()
+                    + '\u0001' + StringUtils.defaultString(m.getContent());
+            byIdentity.put(identity, m);
+        }
+        if (byIdentity.isEmpty()) {
+            return 0;
+        }
+        List<WeChatMessage> rows = new ArrayList<>(byIdentity.values());
+        int updated = 0;
+        for (int i = 0; i < rows.size(); i += 200) {
+            List<WeChatMessage> part = rows.subList(i, Math.min(i + 200, rows.size()));
+            try {
+                updated += mapper.updateSenderBatch(new ArrayList<>(part));
+            } catch (Exception e) {
+                log.warn("微信发言人批量回填失败 offset={} size={}", i, part.size(), e);
+            }
+        }
+        return updated;
     }
 
     /** 回写单条消息分类结果。 */

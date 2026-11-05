@@ -140,25 +140,162 @@ def build_db(media_dir, account=None):
     return db, media
 
 def load_ctx(db):
-    info = db.get_self_info()
+    info = db.get_self_info() or {}
     return {
+        "self_wxid": info.get("username") or getattr(db, "wxid", "") or "",
         "self_name": info.get("nick_name") or info.get("username") or "我",
         "nicks": db.nickname_map(),
     }
 
-def resolve_sender(ctx, m, session_user="", session_name=""):
-    sid = m.get("sender_id")
-    if sid in (2, "2"):
-        return ctx["self_name"]
-    # 单聊只有“我方”和“聊天对象”两种发送人。微信库里的 real_sender_id
-    # 偶尔会指向其它联系人，不能用于单聊；否则联系人 A 的会话会显示成 B。
-    if session_user and not session_user.endswith("@chatroom"):
-        return session_name or ctx["nicks"].get(session_user, session_user)
-    su = sender_from_prefix(m.get("content"))
+# 微信 4.x 的消息按 message_0.db / message_1.db / ... 分片存放，每个分片都有
+# 自己的 Name2Id 表；消息行的 real_sender_id 是**当前分片** Name2Id 的 rowid。
+# 旧实现统一查 message_resource.db 的 SenderName2Id，分片一换就会张冠李戴。
+_SENDER_NAME_CACHE = {}
+
+
+def _shard_name_index(conn, rel):
+    """读取单个消息分片的 Name2Id(rowid -> user_name)，按分片缓存。"""
+    if rel in _SENDER_NAME_CACHE:
+        return _SENDER_NAME_CACHE[rel]
+    idx = {}
+    try:
+        for rid, user_name in conn.execute("SELECT rowid, user_name FROM Name2Id"):
+            if user_name:
+                idx[int(rid)] = str(user_name)
+    except sqlite3.Error as e:
+        log("  [Name2Id 读取失败 %s] %s" % (rel, e))
+    _SENDER_NAME_CACHE[rel] = idx
+    return idx
+
+
+def _sender_username_from_shard(conn, rel, sender_id):
+    try:
+        sid = int(sender_id)
+    except (TypeError, ValueError):
+        return ""
+    idx = _shard_name_index(conn, rel)
+    su = idx.get(sid, "")
     if su:
-        return ctx["nicks"].get(su, su)
-    su = m.get("sender_username") or m.get("username") or ""
-    return ctx["nicks"].get(su, su) if su else ""
+        return su
+    # 常驻 listen 期间可能有新成员写入 Name2Id；缓存未命中时补查一次。
+    try:
+        row = conn.execute(
+            "SELECT user_name FROM Name2Id WHERE rowid=? LIMIT 1", (sid,)
+        ).fetchone()
+        if row and row[0]:
+            su = str(row[0])
+            idx[sid] = su
+    except sqlite3.Error:
+        pass
+    return su
+
+
+def _lookup_shard_sender(db, user, local_id, sort_seq):
+    """按会话+消息定位所在分片，再用该分片 Name2Id 解析发送者。
+
+    仅用于 listen / 无 since 的 dump 这类拿不到分片上下文的入口；
+    高频增量 dump 已在扫描时直接复用当前连接，无需再次查找。
+    """
+    import hashlib
+    target = "Msg_" + hashlib.md5((user or "").encode("utf-8")).hexdigest()
+    for rel in db._message_dbs():
+        conn = None
+        try:
+            conn = _open_message_db_with_retry(db, rel)
+            if not conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (target,)
+            ).fetchone():
+                continue
+            row = conn.execute(
+                "SELECT real_sender_id FROM %s WHERE local_id=? AND sort_seq=? LIMIT 1" % target,
+                (local_id, sort_seq),
+            ).fetchone()
+            if row:
+                return _sender_username_from_shard(conn, rel, row[0]), True
+        except sqlite3.DatabaseError as e:
+            log("  [分片发送者解析失败 %s] %s" % (rel, e))
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+    return "", False
+
+
+def _chat_sender_map(db, user, msgs):
+    """无 since 全量 dump 用：一次读取该会话所在分片的 Name2Id，建立消息键映射。"""
+    import hashlib
+    target = "Msg_" + hashlib.md5((user or "").encode("utf-8")).hexdigest()
+    seqs = [int(m.get("sort_seq") or 0) for m in (msgs or []) if m.get("sort_seq")]
+    if not seqs:
+        return {}
+    lo, hi = min(seqs), max(seqs)
+    out = {}
+    for rel in db._message_dbs():
+        conn = None
+        try:
+            conn = _open_message_db_with_retry(db, rel)
+            if not conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (target,)
+            ).fetchone():
+                continue
+            idx = _shard_name_index(conn, rel)
+            rows = conn.execute(
+                "SELECT local_id, sort_seq, real_sender_id FROM %s "
+                "WHERE sort_seq BETWEEN ? AND ?" % target, (lo, hi),
+            ).fetchall()
+            for r in rows:
+                out[(int(r[0]), int(r[1]))] = idx.get(int(r[2]), "")
+        except sqlite3.DatabaseError as e:
+            log("  [分片发送者索引失败 %s] %s" % (rel, e))
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+    return out
+
+
+def resolve_sender(ctx, m, session_user="", session_name=""):
+    """解析发言人。
+
+    优先级：
+      1. 群聊正文首行的 wxid 前缀（最准，跨服务器、跨分片稳定）；
+      2. 当前消息分片 Name2Id 映射出的 user_name（媒体消息/我方消息没有前缀）；
+      3. 单聊直接按会话对象显示（自己/对方）。
+    禁止使用 message_resource.SenderName2Id 或群会话 username 兜底，二者都会张冠李戴。
+    """
+    self_wxid = str(ctx.get("self_wxid") or "")
+    mtype = str(m.get("type") or "")
+    content = str(m.get("content") or "")
+    if mtype in ("系统消息", "系统") or content.lstrip().startswith("<sysmsg"):
+        return "系统消息"
+    su = str(m.get("sender_username") or "").strip()
+    if su.isdigit():
+        su = ""
+    is_group = bool(session_user and session_user.endswith("@chatroom"))
+    if su and su == session_user:
+        # real_sender_id 偶尔指向群本身；群 ID 不是发言人。
+        su = ""
+    is_self = bool(su and self_wxid and su == self_wxid)
+    if is_group:
+        prefix = sender_from_prefix(content)
+        if prefix:
+            return ctx["nicks"].get(prefix, prefix)
+        if is_self:
+            return ctx["self_name"]
+        if su:
+            return ctx["nicks"].get(su, su)
+        # 只有完全拿不到分片映射时才兼容旧库的 sender_id=2；
+        # 分片已成功读取但该 rowid 对不上联系人时，绝不能猜成“我”。
+        if m.get("sender_index_ok") is False and str(m.get("sender_id")) == "2":
+            return ctx["self_name"]
+        return ""
+    if is_self:
+        return ctx["self_name"]
+    return session_name or ctx["nicks"].get(session_user, session_user)
 
 def md5_of(m):
     c = str(m.get("content") or "")
@@ -289,6 +426,12 @@ def cmd_dump(args):
     for i, chat in enumerate(chats, 1):
         user, name = chat["username"], chat["name"]
         msgs = db.get_messages(user, limit=args.limit)
+        sender_map = _chat_sender_map(db, user, msgs)
+        for m in msgs:
+            key = (int(m.get("local_id") or 0), int(m.get("sort_seq") or 0))
+            if key in sender_map:
+                m["sender_username"] = sender_map[key]
+                m["sender_index_ok"] = True
         xs = list(reversed(msgs))  # get_messages 为降序，反转成正序
         if conn:
             conn.execute("INSERT OR REPLACE INTO chats VALUES(?,?)", (user, name))
@@ -318,7 +461,7 @@ def _global_messages_after(db, since_seq, limit, only_user=None):
     conns = []
     try:
         for rel in db._message_dbs():
-            conns.append(_open_message_db_with_retry(db, rel))
+            conns.append((rel, _open_message_db_with_retry(db, rel)))
         hits = []
         for c in chats:
             user = str(c.get("username") or "")
@@ -327,7 +470,7 @@ def _global_messages_after(db, since_seq, limit, only_user=None):
             if only_user and user != only_user:
                 continue
             target = "Msg_" + hashlib.md5(user.encode("utf-8")).hexdigest()
-            for conn in conns:
+            for rel, conn in conns:
                 try:
                     if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (target,)).fetchone():
                         rows = conn.execute(
@@ -335,13 +478,16 @@ def _global_messages_after(db, since_seq, limit, only_user=None):
                             (since_seq,)).fetchall()
                         for r in rows:
                             d = db._msg_row_to_dict(r)
+                            d["sender_username"] = _sender_username_from_shard(
+                                conn, rel, d.get("sender_id"))
+                            d["sender_index_ok"] = bool(_shard_name_index(conn, rel))
                             hits.append((c.get("name") or user, user, d))
                 except sqlite3.DatabaseError:
                     continue
         hits.sort(key=lambda x: ((x[2].get("sort_seq") or 0), x[1]))
         return hits[:want]
     finally:
-        for conn in conns:
+        for _, conn in conns:
             try:
                 conn.close()
             except Exception:
@@ -634,6 +780,12 @@ def cmd_listen(args):
         try:
             user = m.get("username") or m.get("__session") or ""
             name = db.get_nickname(user) or user
+            # Listener 返回的是跨分片合并后的行，sender_username 可能来自错误的分片表；
+            # 这里按 local_id+sort_seq 找回真实分片，再用该分片 Name2Id 覆盖。
+            if not user.endswith("@chatroom") or not sender_from_prefix(m.get("content")):
+                su, ok = _lookup_shard_sender(db, user, m.get("local_id"), m.get("sort_seq"))
+                m["sender_username"] = su
+                m["sender_index_ok"] = ok
             m["__session"] = user
             j = row_to_json(db, ctx, m, media, name)
             sys.stdout.write(json.dumps(j, ensure_ascii=False) + "\n")
@@ -767,6 +919,66 @@ def cmd_whoami(args):
     sys.stdout.flush()
 
 
+def cmd_diagnose_sender(args):
+    """排障：输出一条消息在各分片中的 real_sender_id 与最终解析结果。"""
+    import hashlib
+    db, _ = build_db(None, args.account)
+    ctx = load_ctx(db)
+    target = "Msg_" + hashlib.md5(args.username.encode("utf-8")).hexdigest()
+    out = {
+        "account": db.account,
+        "self": db.get_self_info() or {},
+        "username": args.username,
+        "local_id": args.local_id,
+        "chat_name": db.get_nickname(args.username) or args.username,
+        "candidates": [],
+    }
+    for rel in db._message_dbs():
+        conn = None
+        try:
+            conn = _open_message_db_with_retry(db, rel)
+            if not conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (target,)
+            ).fetchone():
+                continue
+            rows = conn.execute(
+                "SELECT * FROM %s WHERE local_id=? ORDER BY sort_seq DESC" % target,
+                (args.local_id,),
+            ).fetchall()
+            for r in rows:
+                m = db._msg_row_to_dict(r)
+                sid = m.get("sender_id")
+                shard_su = _sender_username_from_shard(conn, rel, sid)
+                try:
+                    global_su = db._sender_id_index().get(int(sid), "") if sid else ""
+                except Exception:
+                    global_su = ""
+                m["sender_username"] = shard_su
+                m["sender_index_ok"] = True
+                resolved = resolve_sender(
+                    ctx, m, args.username, db.get_nickname(args.username) or args.username)
+                out["candidates"].append({
+                    "shard": rel,
+                    "sort_seq": m.get("sort_seq"),
+                    "real_sender_id": sid,
+                    "shard_name2id": shard_su,
+                    "global_sender_name2id": global_su,
+                    "content_prefix": sender_from_prefix(m.get("content")) or "",
+                    "resolved_sender": resolved,
+                    "content_head": (m.get("content") or "")[:80],
+                })
+        except sqlite3.DatabaseError as e:
+            out["candidates"].append({"shard": rel, "error": str(e)})
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+    print(json.dumps(out, ensure_ascii=False))
+    sys.stdout.flush()
+
+
 def cmd_media(args):
     """下载指定消息的图片或文件，成功后输出 MEDIA_PATH=<绝对路径>。"""
     db, media = build_db(args.media, args.account)
@@ -835,6 +1047,12 @@ def main():
     p = sub.add_parser("whoami", help="输出当前登录微信账号(JSON)")
     p.add_argument("--account", default=None)
     p.set_defaults(func=cmd_whoami)
+
+    p = sub.add_parser("diagnose-sender", help="排障：输出消息分片与发送者解析结果(JSON)")
+    p.add_argument("--username", required=True, help="会话ID(wxid/群id)")
+    p.add_argument("--local-id", required=True, type=int, help="库内消息ID")
+    p.add_argument("--account", default=None)
+    p.set_defaults(func=cmd_diagnose_sender)
 
     p = sub.add_parser("media", help="按消息键下载单条媒体，输出 MEDIA_PATH")
     p.add_argument("--username", required=True, help="会话ID(wxid/群id)")

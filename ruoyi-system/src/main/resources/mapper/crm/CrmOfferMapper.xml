@@ -115,7 +115,9 @@
 
     <select id="selectByWechat" resultMap="CrmOfferMap">
         select <include refid="Base_Column_List"/> from crm_offer
-        where wechat_username = #{username} and wechat_local_id = #{localId}
+        where (#{serverId} &lt;&gt; '' and wechat_server_id = #{serverId})
+           or ((#{serverId} = '' or wechat_server_id is null or wechat_server_id = '')
+               and wechat_username = #{username} and wechat_local_id = #{localId})
         order by id asc
     </select>
 
@@ -233,7 +235,9 @@
 
     <select id="countByWechat" resultType="int">
         SELECT COUNT(*) FROM crm_offer
-        WHERE wechat_username = #{username} AND wechat_local_id = #{localId}
+        WHERE (#{serverId} &lt;&gt; '' AND wechat_server_id = #{serverId})
+           OR ((#{serverId} = '' OR wechat_server_id IS NULL OR wechat_server_id = '')
+               AND wechat_username = #{username} AND wechat_local_id = #{localId})
     </select>
 
     <!-- 批量失效：将勾选的Offer置为无效状态（status=0） -->

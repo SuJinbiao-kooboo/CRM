@@ -290,7 +290,9 @@ curl.exe -s -X POST "http://localhost:8081/wechat/batch_send" -H "Content-Type: 
 
 - **水位(watermark)机制**：监听用每个会话记录的 `sort_seq` 作为“已推送到哪”的标记，存在 %TEMP%\wechatauto_db\<wxid>\listener_watermark.json。系统只推 `sort_seq` 严格大于水位的新消息。
 - **为何会回放历史？** 水位文件会持久化。若上次监听被中断/未处理完，重启后会从上次水位回放之后的消息。想“只要新消息”，启动时加 `fresh=true`（会清空水位）。
-- **消息去重**：每条消息有 `server_id`（业务去重键，网关生成 = 会话显示名 + 会话ID + 消息产生时间戳，如 `比特群:20970655512@chatroom:1791250634`）、`local_id`（库内 ID，分片上不全局唯一）、`sort_seq`（单调递增排序键）。听取/拉取都带 `server_id`，建议以 **(username, server_id)** 为主键去重。注意：同一会话同一秒发多条时该键会碰撞，如需更强唯一性，可把主键改为 **(username, local_id)** 或追加 `sort_seq`。
+- **消息去重**：每条消息有 `server_id`（网关生成的辅助键 = 会话显示名 + 会话ID + 消息产生时间戳）、`local_id`（库内 ID，分片上不全局唯一）、`sort_seq`（单调递增排序键）。同一会话同一秒的多条消息会让 `server_id` 碰撞，因此数据库唯一身份统一使用 **(username, sort_seq, MD5(content))**；`server_id` 不能用于定位单条消息或回填发言人。
+- **发言人解析**：群消息优先读正文首行 `wxid_xxx:` 前缀；没有前缀时只查该消息所在 `message_N.db` 分片的 `Name2Id`。`real_sender_id` 是分片内 rowid，不能查 `message_resource.db` 的全局 `SenderName2Id`，也不能用群会话 ID/群名兜底。换服务器、微信升级或分片变化后，使用微信消息页的“修复发言人”按时间窗回填。
+- **迁移边界**：`crm_me.wechat_message.sender` 是可以随业务库一起无损迁移的普通字段；但微信本地库中的 `real_sender_id` 不是可跨机器复用的全局 ID。若新服务器的微信客户端已经没有某条历史消息，该条无法再从微信库重新解析发言人，只能依赖迁移前的业务库备份。
 ## 6. 反封号参数：RuoYi 数据字典（推荐，优先于 application.yml）
 
 发送时 `WeChatGatewayService.batchSend` **先读数据字典 `wechat_send_config`**，
@@ -331,12 +333,12 @@ POST /system/dict/data/refreshCache   （带管理员 token）
 
 1. **定时拉取**（`WeChatClassifyScheduler.pollMessages`，每 5 秒检查一次）：
    - 服务启动后自动按 **`pollIntervalSec`** 秒（默认 10）跑一轮 `wx_gateway.py dump` 增量拉取，
-     把微信新增消息写入 MySQL 表 `wechat_message`（幂等，唯一键 `username+local_id`，`status=0`）；
+     把微信新增消息写入 MySQL 表 `wechat_message`（幂等，唯一键 `username+sort_seq+content_hash`，`status=0`）；
    - 增量水位：每轮从「上次拉到的最大消息时间 − `pollBackSec` 冗余」开始扫，防止边界丢消息；
      首次启动（水位为空）往前拉 **`pollInitBackSec`** 秒历史（默认 3 天，与消息保留天数一致）；
    - 单轮上限 **`pollLimit`** 条（默认 5000）；
    - **黑名单 `pollIgnoreChats`**：群/好友名称【包含】任一关键词（逗号分隔，如 `推广群,广告`）的消息
-     不进入主表，转存 **`wechat_message_black`** 黑表（唯一键 username+local_id，重复跳过），
+     不进入主表，转存 **`wechat_message_black`** 黑表（重复跳过），
      不做分类、不做任何处理，仅留档备查（不参与自动清理）。
    - **分类黑名单 `blackNames`**：按会话名【精确匹配】；即使消息已在主表，也不参与 AI 分类，
      统一标记 `OTHER/FILTER/status=3`。它永远优先于 `whiteNames`。

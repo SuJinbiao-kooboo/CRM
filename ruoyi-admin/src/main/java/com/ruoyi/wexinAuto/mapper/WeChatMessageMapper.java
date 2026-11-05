@@ -13,6 +13,8 @@ public interface WeChatMessageMapper {
 
     int batchUpsert(@Param("list") List<WeChatMessage> list);
 
+    int updateSenderBatch(@Param("list") List<WeChatMessage> list);
+
     int updateCategory(@Param("m") WeChatMessage m);
 
     int updateCategoryManual(@Param("username") String username, @Param("localId") long localId,

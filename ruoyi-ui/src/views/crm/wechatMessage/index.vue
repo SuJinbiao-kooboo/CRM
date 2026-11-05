@@ -40,6 +40,7 @@
               <li><b>自动分类</b>：关闭时只在勾选消息后手动分类；开启后由后端定时扫描未分类消息。</li>
               <li><b>自动录入</b>：关闭时仅在勾选消息后手动录入；开启后由“微信自动化-INQ/OFFER录入”定时任务按配置扫描并调用 AI 录入。</li>
               <li><b>拉取</b>：立即从微信本地库同步消息入库；聊天对象有值时只拉该会话，留空拉全部。</li>
+              <li><b>修复发言人</b>：按指定起始时间重新读取微信本地库，只回填已有消息的发言人，不新增消息、不改分类/录入/任务状态。换服务器、微信升级或分片库变化后使用。</li>
               <li><b>分类选中</b>：对勾选消息强制重新调用 AI 分类为 INQ/OFFER/TRACE/OTHER，单次最多 20 条；已录入或已生成任务的消息不会被覆盖。同一发送人连续补充消息按整组语义归并，INQ/OFFER 的前序误判会自动修正，不判 TRACE。</li>
               <li><b>录入选中</b>：对勾选消息执行 AI 录入和料号匹配；仅处理已成功分类的 INQ/OFFER。选中一条会自动扩展为同一发送人 30 秒内的连续消息组，并带上被引用的原文，整组只调用一次 AI 录入，已录入消息幂等跳过。</li>
               <li><b>重排选中</b>：把失败、跳过或达到重试上限的录入消息重新放回队列，不立即执行。</li>
@@ -124,6 +125,7 @@
         <el-switch v-model="autoEntryEnabled" :disabled="autoEntrySaving" active-color="#13ce66" v-hasPermi="['wechat:message:entry']" @change="handleAutoEntryChange" />
       </el-col>
       <el-col :span="1.5"><el-button type="primary" plain icon="el-icon-download" size="mini" :loading="polling" @click="handlePoll" v-hasPermi="['wechat:message:poll']">拉取</el-button></el-col>
+      <el-col :span="1.5"><el-button type="primary" plain icon="el-icon-user" size="mini" :loading="repairing" @click="handleRepairSenders" v-hasPermi="['wechat:message:poll']">修复发言人</el-button></el-col>
       <el-col :span="1.5"><el-button type="warning" plain icon="el-icon-magic-stick" size="mini" :loading="classifying" @click="handleClassifySelected" v-hasPermi="['wechat:message:classify']">分类选中</el-button></el-col>
       <el-col :span="1.5"><el-button type="success" plain icon="el-icon-document-add" size="mini" :loading="entering" @click="handleEntrySelected" v-hasPermi="['wechat:message:entry']">录入选中</el-button></el-col>
       <el-col :span="1.5"><el-button type="info" plain icon="el-icon-refresh-left" size="mini" @click="handleRequeue" v-hasPermi="['wechat:message:entry']">重排选中</el-button></el-col>
@@ -333,7 +335,7 @@
 <script>
 import { saveAs } from 'file-saver'
 import * as XLSX from 'xlsx'
-import { listWechatMessages, getWechatMessageStats, getWechatMedia, getWechatQuoteInfo, getWechatQuoteMedia, runWechatClassify, updateWechatMessageCategory, setWechatClassifyConfig, clearWechatClassifyCache, scanWechatTrace, setWechatEntryConfig, runWechatEntry, requeueWechatEntry, runWechatPoll } from '@/api/crm/wechatMessage'
+import { listWechatMessages, getWechatMessageStats, getWechatMedia, getWechatQuoteInfo, getWechatQuoteMedia, runWechatClassify, updateWechatMessageCategory, setWechatClassifyConfig, clearWechatClassifyCache, scanWechatTrace, setWechatEntryConfig, runWechatEntry, requeueWechatEntry, runWechatPoll, repairWechatSenders } from '@/api/crm/wechatMessage'
 
 const DOCUMENT_EXTS = ['pdf', 'xls', 'xlsx', 'csv', 'txt', 'md', 'json', 'xml', 'log', 'doc', 'docx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
 const TEXT_EXTS = ['txt', 'md', 'json', 'xml', 'log']
@@ -374,6 +376,7 @@ export default {
     return {
       loading: false,
       polling: false,
+      repairing: false,
       classifying: false,
       autoClassifyEnabled: false,
       autoClassifySaving: false,
@@ -532,6 +535,22 @@ export default {
         this.$modal.msgSuccess((res.data && res.data.message) || '拉取完成')
         this.getList()
       }).finally(() => { this.polling = false })
+    },
+    handleRepairSenders() {
+      const d = new Date(Date.now() - 7 * 24 * 3600 * 1000)
+      const pad = n => String(n).padStart(2, '0')
+      const def = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 00:00:00`
+      this.$prompt('只修复该时间之后已入库消息的发言人，不会新增消息。格式：yyyy-MM-dd HH:mm:ss', '修复发言人', {
+        inputValue: def,
+        inputPattern: /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
+        inputErrorMessage: '请输入 yyyy-MM-dd HH:mm:ss 格式的时间'
+      }).then(({ value }) => {
+        this.repairing = true
+        repairWechatSenders({ since: value, chat: this.queryParams.name || null }).then(res => {
+          this.$modal.msgSuccess((res.data && res.data.message) || '发言人修复完成')
+          this.getList()
+        }).finally(() => { this.repairing = false })
+      }).catch(() => {})
     },
     handleClassifySelected() {
       if (!this.requireSelection()) return

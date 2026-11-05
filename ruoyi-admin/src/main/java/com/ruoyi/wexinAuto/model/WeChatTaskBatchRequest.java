@@ -8,6 +8,7 @@ import java.util.List;
 @Data
 public class WeChatTaskBatchRequest {
     private List<Long> ids;
+    private String handleStatus;
     private String approvalReason;
     private Boolean revertSource;
 }

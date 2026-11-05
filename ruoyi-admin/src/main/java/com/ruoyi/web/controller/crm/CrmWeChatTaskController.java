@@ -96,7 +96,7 @@ public class CrmWeChatTaskController extends BaseController {
     @Log(title = "微信询报价任务批量审批", businessType = BusinessType.UPDATE)
     @PostMapping("/batch-approve")
     public AjaxResult batchApprove(@RequestBody WeChatTaskBatchRequest form) {
-        return success(taskService.batchApprove(form.getIds(), form.getApprovalReason()));
+        return success(taskService.batchApprove(form.getIds(), form.getHandleStatus(), form.getApprovalReason()));
     }
 
     @PreAuthorize("@ss.hasPermi('wechat:task:generate')")

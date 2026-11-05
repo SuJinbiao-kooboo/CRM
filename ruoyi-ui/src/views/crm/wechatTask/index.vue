@@ -42,7 +42,7 @@
               <li><b>发送扫描</b>：立即扫描并发送“已审批待发送”任务；人工点击不受 <code>autoSendEnabled=false</code> 限制，但当前微信登录账号必须是 <code>autoSendAccount</code>（默认 Eke），否则停止发送。网关返回失败时一律按“结果未知”处理，不再自动重试，避免消息实际已发出后重复发送。</li>
               <li><b>自动发送开关</b>：开启后由定时任务持续扫描“已审批待发送”任务并发送；关闭后定时发送停止，“发送扫描”按钮仍可人工执行。</li>
               <li><b>审批/编辑</b>：查看来源消息、OFFER 快照、关联 INQ、发送目标和发送预览，并修改任务状态、对外报价、发送内容和发送目标。</li>
-              <li><b>批量审批</b>：勾选列表多行后点击，只审批当前为 <code>PENDING_APPROVAL</code> 的任务；其他状态会跳过，失败数量在结果提示中返回。</li>
+              <li><b>批量审批</b>：勾选列表多行后点击，弹窗选择统一审批状态，默认“已审批待发送”，也可选择待审批、已审批已发送或无需处理；逐条保存并返回失败明细。</li>
               <li><b>确认未发送</b>：仅当最近异常以 <code>GATEWAY_RESULT_UNKNOWN</code> 开头时出现；人工确认网关确实未发送后，任务恢复为“已审批待发送”，重试次数清零。</li>
               <li><b>删除/批量删除</b>：删除任务时弹窗选择“是否回退数据”。选“否”只删除任务；选“是”会把来源微信消息的 <code>task_status</code> 重置为 <code>PENDING</code>，便于重新生成，但不会改变分类、AI 录入和已生成的 OFFER。</li>
               <li><b>纯缺货发送</b>：同一发送组全部为缺货/无库存回复时，只发送缺货原文，不添加 <code>M&amp;E 日期 Offer：</code>、<code>Part No. Qty Price</code> 表头和品牌行；同组含正常报价时仍按正常格式合并。</li>
@@ -189,6 +189,34 @@
       </div>
     </el-dialog>
 
+    <el-dialog title="批量审批" :visible.sync="batchApproveDialogOpen" width="580px" append-to-body>
+      <el-alert
+        :title="'已选择 ' + selectedRows.length + ' 条任务，确认后将统一更新为“' + statusLabel(batchApproveStatus) + '”。'"
+        type="info"
+        :closable="false"
+        show-icon />
+      <el-form label-width="92px" size="small" class="mt10">
+        <el-form-item label="审批状态">
+          <el-select v-model="batchApproveStatus" style="width:100%" placeholder="请选择审批状态">
+            <el-option v-for="item in statuses" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="审批原因">
+          <el-input v-model="batchApproveReason" maxlength="500" placeholder="可选，默认记录为列表批量审批" />
+        </el-form-item>
+      </el-form>
+      <el-alert
+        v-if="batchApproveStatus === 'APPROVED_PENDING_SEND'"
+        title="选择“已审批待发送”时，每条任务必须已有发送目标；无目标的任务会失败并返回原因。"
+        type="warning"
+        :closable="false"
+        show-icon />
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="batchApproveDialogOpen = false">取消</el-button>
+        <el-button type="warning" :loading="batchApproveSubmitting" @click="submitBatchApprove" v-hasPermi="['wechat:task:approve']">确认批量审批</el-button>
+      </div>
+    </el-dialog>
+
     <el-dialog :title="'任务 #' + form.id + ' 审批与编辑'" :visible.sync="open" width="980px" append-to-body>
       <el-descriptions v-if="form.id" :column="2" border size="small" class="mb8">
         <el-descriptions-item label="任务 ID">{{ form.id }}</el-descriptions-item>
@@ -293,6 +321,10 @@ export default {
       deleteSubmitting: false,
       deleteRevertSource: '0',
       deleteRows: [],
+      batchApproveDialogOpen: false,
+      batchApproveSubmitting: false,
+      batchApproveStatus: 'APPROVED_PENDING_SEND',
+      batchApproveReason: '',
       statuses: [
         { value: 'PENDING_APPROVAL', label: '待审批' },
         { value: 'APPROVED_PENDING_SEND', label: '已审批待发送' },
@@ -455,24 +487,35 @@ export default {
       }).catch(() => {})
     },
     handleBatchApprove() {
-      const pending = this.selectedRows.filter(item => item.handleStatus === 'PENDING_APPROVAL')
-      if (pending.length === 0) {
-        this.$modal.msgWarning('所选任务中没有“待审批”任务')
+      if (this.selectedRows.length === 0) {
+        this.$modal.msgWarning('请先选择要审批的任务')
         return
       }
-      const skipped = this.selectedRows.length - pending.length
-      this.$confirm('已选择 ' + this.selectedRows.length + ' 条，其中待审批 ' + pending.length + ' 条' +
-        (skipped > 0 ? '，其他 ' + skipped + ' 条将跳过' : '') + '。确认批量审批？', '批量审批', { type: 'warning' }).then(() => {
-        return batchApproveWechatTasks({ ids: pending.map(item => item.id), approvalReason: '列表批量审批' }).then(res => {
-          const data = res.data || {}
-          if (data.failed > 0 && data.errors && data.errors.length) {
-            this.$modal.msgWarning(data.message + '；' + data.errors[0])
-          } else {
-            this.$modal.msgSuccess(data.message || '批量审批完成')
-          }
-          this.getList()
-        })
-      }).catch(() => {})
+      this.batchApproveStatus = 'APPROVED_PENDING_SEND'
+      this.batchApproveReason = ''
+      this.batchApproveDialogOpen = true
+    },
+    submitBatchApprove() {
+      if (this.selectedRows.length === 0) {
+        this.$modal.msgWarning('请先选择要审批的任务')
+        return
+      }
+      this.batchApproveSubmitting = true
+      batchApproveWechatTasks({
+        ids: this.selectedRows.map(item => item.id),
+        handleStatus: this.batchApproveStatus,
+        approvalReason: String(this.batchApproveReason || '').trim() || '列表批量审批'
+      }).then(res => {
+        const data = res.data || {}
+        const message = data.message || '批量审批完成'
+        if (data.failed > 0 && data.errors && data.errors.length) {
+          this.$modal.msgWarning(message + '；' + data.errors[0])
+        } else {
+          this.$modal.msgSuccess(message)
+        }
+        this.batchApproveDialogOpen = false
+        this.getList()
+      }).finally(() => { this.batchApproveSubmitting = false })
     },
     openDeleteDialog(row) {
       this.deleteRows = row ? [row] : (this.selectedRows || []).slice()

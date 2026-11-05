@@ -746,11 +746,7 @@ public class WeChatOfferTaskService {
         if (form == null || form.getId() == null) {
             throw new ServiceException("任务ID不能为空");
         }
-        String status = StringUtils.trimToEmpty(form.getHandleStatus());
-        if (!STATUS_PENDING_APPROVAL.equals(status) && !STATUS_APPROVED.equals(status)
-                && !STATUS_SENT.equals(status) && !STATUS_NO_ACTION.equals(status)) {
-            throw new ServiceException("任务状态不合法");
-        }
+        String status = requireValidStatus(form.getHandleStatus());
         WeChatOfferTask existing = taskMapper.selectTaskById(form.getId());
         if (existing == null) {
             throw new ServiceException("任务不存在：" + form.getId());
@@ -797,15 +793,21 @@ public class WeChatOfferTaskService {
         }
     }
 
-    /** 列表多选审批：仅处理待审批任务，其他状态跳过；逐条保留原发送目标和发送内容。 */
+    /** 兼容供应商自动审批：未指定目标状态时默认审批为已审批待发送。 */
     public Map<String, Object> batchApprove(List<Long> ids, String approvalReason) {
+        return batchApprove(ids, STATUS_APPROVED, approvalReason);
+    }
+
+    /** 列表多选审批：将所选任务统一更新为指定状态；逐条保留原发送目标和发送内容。 */
+    public Map<String, Object> batchApprove(List<Long> ids, String handleStatus, String approvalReason) {
         if (ids == null || ids.isEmpty()) {
             throw new ServiceException("请选择要审批的任务");
         }
+        String targetStatus = StringUtils.isBlank(handleStatus)
+                ? STATUS_APPROVED : requireValidStatus(handleStatus);
         Map<String, Object> out = new LinkedHashMap<>();
         List<String> errors = new ArrayList<>();
-        int approved = 0;
-        int skipped = 0;
+        int updated = 0;
         int failed = 0;
         Set<Long> uniqueIds = new LinkedHashSet<>(ids);
         for (Long id : uniqueIds) {
@@ -818,17 +820,13 @@ public class WeChatOfferTaskService {
                 errors.add("任务 #" + id + " 不存在");
                 continue;
             }
-            if (!STATUS_PENDING_APPROVAL.equals(existing.getHandleStatus())) {
-                skipped++;
-                continue;
-            }
             try {
                 WeChatOfferTask form = new WeChatOfferTask();
                 form.setId(id);
-                form.setHandleStatus(STATUS_APPROVED);
+                form.setHandleStatus(targetStatus);
                 form.setApprovalReason(approvalReason);
                 if (approve(form) > 0) {
-                    approved++;
+                    updated++;
                 } else {
                     failed++;
                     errors.add("任务 #" + id + " 审批保存失败");
@@ -838,12 +836,23 @@ public class WeChatOfferTaskService {
                 errors.add("任务 #" + id + "：" + StringUtils.defaultIfBlank(e.getMessage(), e.getClass().getSimpleName()));
             }
         }
-        out.put("approved", approved);
-        out.put("skipped", skipped);
+        out.put("approved", updated);
+        out.put("updated", updated);
+        out.put("skipped", 0);
         out.put("failed", failed);
         out.put("errors", errors);
-        out.put("message", "批量审批完成：成功 " + approved + " 条，跳过 " + skipped + " 条，失败 " + failed + " 条");
+        out.put("targetStatus", targetStatus);
+        out.put("message", "批量审批完成：成功 " + updated + " 条，失败 " + failed + " 条");
         return out;
+    }
+
+    private String requireValidStatus(String status) {
+        String normalized = StringUtils.trimToEmpty(status);
+        if (!STATUS_PENDING_APPROVAL.equals(normalized) && !STATUS_APPROVED.equals(normalized)
+                && !STATUS_SENT.equals(normalized) && !STATUS_NO_ACTION.equals(normalized)) {
+            throw new ServiceException("任务状态不合法");
+        }
+        return normalized;
     }
 
     public int confirmNotSent(Long id) {

@@ -1,8 +1,13 @@
 package com.ruoyi.common.utils;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import com.ruoyi.common.constant.CacheConstants;
+import com.ruoyi.common.core.dict.DictDataLoader;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.redis.RedisCache;
 import com.ruoyi.common.utils.spring.SpringUtils;
@@ -19,6 +24,12 @@ public class DictUtils
      */
     public static final String SEPARATOR = ",";
 
+    /** 字典缓存有效期（分钟） */
+    private static final int DICT_CACHE_TTL_MINUTES = 3;
+
+    /** 字典缓存写入截止时间。本地缓存读取会刷新空闲时间，此处用于保证固定 TTL。 */
+    private static final ConcurrentMap<String, Long> DICT_CACHE_EXPIRE_AT = new ConcurrentHashMap<>();
+
     /**
      * 设置字典缓存
      * 
@@ -27,7 +38,15 @@ public class DictUtils
      */
     public static void setDictCache(String key, List<SysDictData> dictDatas)
     {
-        SpringUtils.getBean(RedisCache.class).setCacheObject(getCacheKey(key), dictDatas);
+        if (dictDatas == null)
+        {
+            removeDictCache(key);
+            return;
+        }
+        SpringUtils.getBean(RedisCache.class).setCacheObject(getCacheKey(key), dictDatas,
+                DICT_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+        DICT_CACHE_EXPIRE_AT.put(key, System.currentTimeMillis()
+                + TimeUnit.MINUTES.toMillis(DICT_CACHE_TTL_MINUTES));
     }
 
     /**
@@ -39,13 +58,39 @@ public class DictUtils
     public static List<SysDictData> getDictCache(String key)
     {
         Object cacheObj = SpringUtils.getBean(RedisCache.class).getCacheObject(getCacheKey(key));
-        if (StringUtils.isNotNull(cacheObj))
+        Long expireAt = DICT_CACHE_EXPIRE_AT.get(key);
+        if (cacheObj instanceof List && expireAt != null && expireAt > System.currentTimeMillis())
         {
             // 本地缓存直接存储对象引用，按写入时的 List 类型还原即可
             // （原 Redis 实现经 FastJson 反序列化会得到 JSONArray，此处不再依赖该类型）
             return (List<SysDictData>) cacheObj;
         }
-        return null;
+
+        List<SysDictData> dictDatas = loadDictDataFromDb(key);
+        if (dictDatas != null)
+        {
+            setDictCache(key, dictDatas);
+        }
+        return dictDatas;
+    }
+
+    /**
+     * 从数据库加载字典数据
+     *
+     * @param key 字典类型
+     * @return 字典数据列表
+     */
+    private static List<SysDictData> loadDictDataFromDb(String key)
+    {
+        try
+        {
+            List<SysDictData> dictDatas = SpringUtils.getBean(DictDataLoader.class).load(key);
+            return dictDatas == null ? Collections.<SysDictData>emptyList() : dictDatas;
+        }
+        catch (Exception e)
+        {
+            return null;
+        }
     }
 
     /**
@@ -216,6 +261,7 @@ public class DictUtils
     public static void removeDictCache(String key)
     {
         SpringUtils.getBean(RedisCache.class).deleteObject(getCacheKey(key));
+        DICT_CACHE_EXPIRE_AT.remove(key);
     }
 
     /**
@@ -225,6 +271,7 @@ public class DictUtils
     {
         Collection<String> keys = SpringUtils.getBean(RedisCache.class).keys(CacheConstants.SYS_DICT_KEY + "*");
         SpringUtils.getBean(RedisCache.class).deleteObject(keys);
+        DICT_CACHE_EXPIRE_AT.clear();
     }
 
     /**

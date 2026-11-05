@@ -1570,7 +1570,7 @@ public class WeChatGatewayService {
                         : config.decimal("offerEntryProfitRatio", 2d),
                 content, priceMode, config.str("offerEntryCreateBy", "wechat_auto"),
                 StringUtils.defaultString(anchor.getServerId()), StringUtils.defaultString(anchor.getUsername()),
-                anchor.getLocalId(), buildGroupRemark(group, anchor));
+                anchor.getLocalId(), null);
         if (saved == null || saved.isEmpty()) {
             throw new IllegalStateException("AI录入未生成任何crm_offer记录");
         }
@@ -1685,29 +1685,6 @@ public class WeChatGatewayService {
                 anchor.getName(), anchor.getSender(), group.localIds(), reason);
     }
 
-    private String buildGroupRemark(EntryGroup group, WeChatMessage anchor) {
-        StringBuilder ids = new StringBuilder();
-        for (WeChatMessage m : group.members) {
-            if (ids.length() > 0) {
-                ids.append(',');
-            }
-            ids.append(m.getLocalId());
-        }
-        StringBuilder quoteIds = new StringBuilder();
-        for (EntryQuote q : group.quotes) {
-            if (StringUtils.isBlank(q.id)) {
-                continue;
-            }
-            if (quoteIds.length() > 0) {
-                quoteIds.append(',');
-            }
-            quoteIds.append(q.id);
-        }
-        String remark = buildEntryRemark(anchor) + "|聚合消息:" + ids
-                + (quoteIds.length() > 0 ? "|引用:" + quoteIds : "");
-        return remark.length() > 500 ? remark.substring(0, 500) : remark;
-    }
-
     private static boolean sameMessage(WeChatMessage a, WeChatMessage b) {
         return a != null && b != null && StringUtils.equals(a.getUsername(), b.getUsername())
                 && a.getLocalId() == b.getLocalId();
@@ -1812,15 +1789,6 @@ public class WeChatGatewayService {
         private int failed;
         private int skipped;
         private int deferred;
-    }
-
-    /** crm_offer 的来源备注，便于从报价记录反查微信原消息。 */
-    private String buildEntryRemark(WeChatMessage m) {
-        String remark = "微信自动录入|群:" + StringUtils.trimToEmpty(m.getName())
-                + "|发言人:" + StringUtils.trimToEmpty(m.getSender())
-                + "|消息时间:" + StringUtils.trimToEmpty(m.getCreateTime())
-                + "|server_id:" + StringUtils.defaultString(m.getServerId());
-        return remark.length() > 500 ? remark.substring(0, 500) : remark;
     }
 
     /** 业务前置条件不满足时转人工，不消耗自动重试次数。 */

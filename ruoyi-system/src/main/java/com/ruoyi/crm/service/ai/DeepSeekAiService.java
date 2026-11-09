@@ -60,33 +60,37 @@ public class DeepSeekAiService {
     @Autowired
     private RedisCache redisCache;
 
-    /** 默认基础提示词：定义JSON输出格式与字段映射（配合解析示例一起生效） */
-    private static final String DEFAULT_SYSTEM_PROMPT_BASE = "你是IT硬件物料信息整理助手。用户会粘贴包含IT配件（SSD、HDD、CPU、GPU、RAM内存、主板、交换机等）的物料信息文本，"
-            + "其中可能包含品牌、料号、型号、规格、数量、报价、DC编码、产地COO、交期等信息。"
-            + "请把文本中的每一条物料整理成结构化数据，并严格按如下JSON格式输出："
-            + "{\"items\":[{\"brand\":\"品牌\",\"partNumber\":\"料号\",\"model\":\"型号\",\"spec\":\"规格\",\"quantity\":数量,\"price\":报价,\"currency\":\"币种\",\"dc\":\"DC编码\",\"coo\":\"产地\",\"deliveryTime\":\"交期\",\"productType\":\"产品类型\",\"productDetail\":\"详情\"}]}"
-            + "字段规则：1. brand为品牌名称，按常见品牌对照表统一名称；"
-            + "2. partNumber为料号/型号（唯一标识符），不要修改或截断；AMD EPYC形如EPYC9015/100-000001553时，partNumber取9015、model取EPYC 9015，100-开头的OPN只放productDetail；西部数据形如0F62796-WUH722424ALE6L4时，partNumber取WUH722424ALE6L4，0F开头的内部编码不能作为料号；"
-            + "3. deliveryTime为交期：L/T、LT、Lead Time、3d、2w、4-6周、货期之类的字眼就是交期信息，提取为简洁交期描述，没有的时候置空字符串"
-            + "4. spec为规格（型号的规范细节，说明容量大小和速度/转速）：SSD、RAM内存、HDD必须填写容量大小（如4TB、64GB、16TB）；HDD补充接口、转速、尺寸（如24TB SATA 6Gb/s 7200rpm 3.5-inch）；SSD补充总线、形态（如1.92TB PCIe 4.0 NVMe U.2、960GB SATA 6Gb/s 2.5-inch）；RAM补充代际、速率和模组类型（如64GB DDR4 3200 ECC RDIMM）；Samsung SSD如能确定系列，型号写PM1655/PM893/PM9A3等系列名，具体SKU保留在partNumber；颗粒必须填容量（如4GB eMMC、8Gb NAND、16GB UFS）；CPU、GPU等类别若无明确规格只写型号参数即可；原文和已确认型号都没有的规格不要编造，也不能漏掉原文已有规格；"
-            + "5. 品牌字段是必须的"
-            + "6. quantity为整数（1k换算为1000、500+取500、40pcs取40），无法识别时输出null；"
-            + "7. price为纯数字（去掉货币符号和单位），无法识别或原文为No price/Not specified时输出null；currency只在原文明确出现非USD币种时填写币种代码（如EUR、CNY），原文无币种或USD时填写USD，无法归属时置空字符串；"
-            + "8. dc为DC编码（如DCA-0305、D/C 23、N2024等年份/批次码，或原文中的DC列值），没有的时候置空字符串"
-            + "9. coo为产地/原产国：原文出现国家或地区字样（如NON CN、No CN、非中国、China、CN、MY、Malaysia、Taiwan、TW、Japan、JP、Korea、KR、Made in xxx、台产、国产、马来西亚产等）时，把对应的国家/地区写入coo（如CN、MY、TW、JP、KR等）；多个产地用逗号分隔；原文完全没有产地信息时才置空字符串，绝不能漏掉"
-            + "10. productType为产品类型，必须从以下分类中选择一个：SSD、HDD、RAM、CPU、GPU、Motherboard、颗粒、其他；根据料号前缀、描述并结合产品知识联网推断（如带SSD/SD/BW/WDS料号的是SSD，DDR/RD/CT/MTA开头的是RAM，ST/WD/Seagate大容量3.5寸是HDD，Intel/AMD 6338/EPYC等是CPU，eMMC/UFS或NAND/DRAM颗粒及KLM/K4/K3/H9/MT41K/SDIN/THGBM开头的是颗粒），无法确定时置空字符串不要乱猜"
-            + "11. productDetail为详情：根据料号补充简短规格与主要参数（容量、接口、速度、系列、核心数等，如 4TB M.2 NVMe）；必须保证正确才能补充，不确定时使用原文描述；productDetail是汇总详情，spec保留原文细节"
-            + "12. 不要遗漏任何一条物料，也不要编造原文中不存在的信息；"
-            + "13. 料号的识别要特别注意，特别是CPU的，料号可能很短，比如 6338         SRKJ9      $1010    440pcs  6338 才是我要的料号，对料号的识别要做二次确认才行"
-            + "14. 最终输出字段需要至少有料号 型号 spec 品牌 数量 价格 dc coo deliveryTime productType productDetail；品牌大部分时候是空的，需要帮我根据料号查询信息补充，详情也最好也补充，但是一定要保证正确才能补充且需要简短 说明规格和主要参数即可"
-            + "15. AMD EPYC的EPYC后的数字型号才是partNumber，例如EPYC9535/100-000001147输出partNumber=9535、model=EPYC 9535，不要输出100-000001147或EPYC9535作为料号；"
-            + "16. 西部数据0F内部编码与WUH正式型号同时出现时，只用WUH型号作为partNumber；只出现0F编码又无法确认正式型号时，不能猜测正式型号；"
-            + "17. Samsung SSD系列名只在能根据原文或明确型号确认时补充，不能把PM1653和PM1655混用；MZILG1T6、MZILG3T2属于PM1655，MZILG960、MZILG1T9、MZILG3T8、MZILG7T6、MZILG15T、MZILG30T属于PM1653；"
-            + "18. 接口类型必须写入spec：HDD/SSD写SATA、SAS、NVMe、PCIe及U.2、M.2、E1.S、E3.S等；RAM写DDR4/DDR5、ECC、RDIMM/LRDIMM/UDIMM等；无法确认的项省略，不得编造；"
-            + "19. NVIDIA GeForce RTX 5090（包括5090、RTX5090、RTX 5090及风扇/涡轮/品牌/OC等描述）统一partNumber=RTX 5090 32G、model=RTX 5090、productType=GPU，spec补32GB GDDR7；5090D、RTX 5090D、5090D V2是不同型号，禁止套用；"
-            + "20. NVIDIA RTX PRO 6000 Server Edition/服务器版统一partNumber=PRO 6000 SE 96G、model=RTX PRO 6000 SE；Workstation Edition/工作站版统一partNumber=PRO 6000 WS 96G、model=RTX PRO 6000 WS；两者productType=GPU，spec补96GB GDDR7；"
-            + "21. 只写PRO 6000且无法确认SE/WS时partNumber=PRO 6000，不得猜测版本；PRO6000D、PRO 6000D、MAX-Q/Max~Q是其他型号，保持原样；AMD Radeon Pro 6000不是NVIDIA，禁止套用；GPU料号统一用“系列 型号 版本 显存”空格分隔格式；"
-            + "22. 缺货、没货、无货、no stock、out of stock、unavailable等明确无库存/不可供货表达不是Offer，不得为对应物料生成行；同一消息只有其他物料有有效报价时，仅输出有报价的物料";
+    /** 数据库提示词版本标记：旧版配置缺少此标记时自动使用内置精简版，避免历史长提示词覆盖拆机修复。 */
+    private static final String PROMPT_VERSION_MARK = "v2026-11-09";
+
+    /** 默认基础提示词：精简版，定义JSON格式、字段规则、料号特例和拆机识别（配合解析示例一起生效）。 */
+    private static final String DEFAULT_SYSTEM_PROMPT_BASE = String.join("\n",
+            "# Offer解析提示词 v2026-11-09",
+            "你是IT硬件物料录入助手。把用户文本中的每条报价整理成JSON，只输出JSON：",
+            "{\"items\":[{\"brand\":\"\",\"partNumber\":\"\",\"model\":\"\",\"spec\":\"\",\"quantity\":null,\"price\":null,\"currency\":\"USD\",\"dc\":\"\",\"coo\":\"\",\"deliveryTime\":\"\",\"productType\":\"\",\"productDetail\":\"\",\"remark\":\"\"}]}",
+            "",
+            "规则：",
+            "1. 每条报价一行；同一料号不同价格、数量或成色必须分行，禁止合并、遗漏。缺货/没货/无货/no stock/out of stock不生成行。",
+            "2. 只提取原文或已确认型号支持的信息，禁止编造。字符串缺失填\"\"，数量/价格缺失填null。",
+            "3. partNumber是唯一料号，原样保留，不改写、不截断。CPU料号可能很短（如6338），SRKJ9等辅助码不能当料号。",
+            "4. quantity取整数：1k=1000，500+=500，40pcs=40。price只取数字，去掉货币符号；currency原文非USD时填代码（如CNY、EUR），否则USD。",
+            "5. deliveryTime提取L/T、LT、3d、2w、4-6周、货期、现货等；dc提取批次/年份码；coo提取产地（NON CN、CN、MY、TW、JP、KR等），多个用逗号。",
+            "6. productType只能是SSD、HDD、RAM、CPU、GPU、Motherboard、颗粒、其他；根据料号前缀、描述判断，无法确定填其他。",
+            "7. spec：SSD/HDD/RAM/颗粒必须写容量；HDD补接口、转速、尺寸，SSD补接口、形态，RAM补代际、速率、模组，颗粒补容量；CPU/GPU无明确规格可留空。productDetail写简短准确的型号和关键规格，不确定时用原文。",
+            "8. brand统一为常见名称：Samsung、Intel、NVIDIA、AMD、Western Digital、Seagate、Micron、SK hynix、Solidigm、Kingston、Crucial、SanDisk、Kioxia等。",
+            "",
+            "料号特例：",
+            "- AMD EPYC：EPYC9015/100-000001553 → partNumber=9015，model=EPYC 9015，OPN 100-000001553放productDetail。",
+            "- WD：0F62796-WUH722424ALE6L4 → partNumber=WUH722424ALE6L4；0F内部编码不作料号。",
+            "- Samsung SSD：能确认系列时model写PM1655/PM1653/PM893/PM9A3/PM9A1，partNumber保留完整SKU；MZILG1T6/MZILG3T2→PM1655，MZILG960/MZILG1T9/MZILG3T8/MZILG7T6/MZILG15T/MZILG30T→PM1653。",
+            "- NVIDIA：5090/RTX5090/RTX 5090（含涡轮、品牌、OC等）→partNumber=RTX 5090 32G，model=RTX 5090，spec=32GB GDDR7；PRO 6000 Server Edition/服务器版→PRO 6000 SE 96G / RTX PRO 6000 SE；Workstation Edition/工作站版→PRO 6000 WS 96G / RTX PRO 6000 WS；只写PRO 6000时保持PRO 6000，不猜SE/WS；5090D、5090D V2、PRO 6000D、MAX-Q保持原样。",
+            "",
+            "拆机/二手规则（最高优先级，适用于CPU、GPU、RAM、SSD、HDD、主板、颗粒等所有类型）：",
+            "- 原文出现「拆」「拆机」「拆新」「拆箱」「拆件」「拆封」「二手」，或出现独立成词的「CP」「Pull」「Pulled」「Clean Pull」「Renew」「Renewed」「Refurb」「Refurbished」「Used」时，该行按拆机处理（CPU/PCS/PCIe中的CP不算）。",
+            "- 该行partNumber=原带拆字料号+「拆」，中间不加空格（如6760P拆、9015拆、RTX 5090 32G拆）；料号已有「拆」不重复添加。",
+            "- productDetail必须含「拆」；remark=partNumber（如6760P拆）。",
+            "- 同一料号同时有全新和拆机报价时拆成两行；一行带拆，一行不带拆。",
+            "- 「不拆」「未拆」「非拆」「勿拆」「无拆」「没有拆」「不是拆」不是拆机。");
 
     /**
      * 调用 DeepSeek 接口，把无规则的物料文本整理为结构化物料列表
@@ -267,7 +271,7 @@ public class DeepSeekAiService {
         return new ArrayList<>(history.subList(history.size() - maxMessages, history.size()));
     }
 
-    /** 组装系统提示词：基础提示词（参数sys.offer.resolve.tips.base，未配置时用默认）+ 用户在参数配置中维护的整理规范与示例（sys.offer.resolve.tips） */
+    /** 组装系统提示词：数据库新版(base+tips)优先；检测到旧版配置时自动使用内置精简版，避免历史冗余提示词覆盖修复。 */
     private String buildSystemPrompt() {
         String base = null;
         try {
@@ -275,7 +279,13 @@ public class DeepSeekAiService {
         } catch (Exception e) {
             log.warn("读取基础提示词参数{}失败，将使用默认基础提示词", TIPS_BASE_CONFIG_KEY, e);
         }
-        if (base == null || base.trim().isEmpty()) {
+        boolean baseCurrent = base != null && !base.trim().isEmpty()
+                && base.contains(PROMPT_VERSION_MARK);
+        if (!baseCurrent) {
+            if (base != null && !base.trim().isEmpty()) {
+                log.warn("检测到旧版Offer解析基础提示词，自动使用内置精简版{}；可执行 sql/20261109_offer_prompt_compact.sql 同步系统参数",
+                        PROMPT_VERSION_MARK);
+            }
             base = DEFAULT_SYSTEM_PROMPT_BASE;
         }
         String tips = null;
@@ -283,6 +293,11 @@ public class DeepSeekAiService {
             tips = sysConfigService.selectConfigByKey(TIPS_CONFIG_KEY);
         } catch (Exception e) {
             log.warn("读取解析示例参数{}失败，将仅使用基础提示词", TIPS_CONFIG_KEY, e);
+        }
+        // 旧版示例与精简版基础提示词大量重复/冲突，只接受带同一版本标记的示例
+        if (tips != null && !tips.trim().isEmpty() && !tips.contains(PROMPT_VERSION_MARK)) {
+            log.warn("检测到旧版Offer解析示例，与精简版基础提示词不兼容，已忽略；可执行 sql/20261109_offer_prompt_compact.sql 同步系统参数");
+            tips = null;
         }
         if (tips == null || tips.trim().isEmpty()) {
             return ensureJsonKeyword(base.trim());

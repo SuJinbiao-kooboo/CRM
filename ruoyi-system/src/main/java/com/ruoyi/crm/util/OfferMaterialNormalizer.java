@@ -58,13 +58,17 @@ public final class OfferMaterialNormalizer {
     private static final Pattern NVIDIA_WORKSTATION_MARK = Pattern.compile(
             "(?i)(?<![A-Z0-9])(WS|WORKSTATION(?:\\s+EDITION)?|工作站版?)(?![A-Z0-9])");
 
-    /** 拆新/二手关键词：命中即按拆新处理（料号加“拆”）。 */
+    /** 拆机/拆新/二手关键词：命中即按拆机处理（料号加“拆”）。CP 必须独立成词，避免误伤 CPU/PCS/PCIe。 */
     private static final Pattern PULLED_MARK = Pattern.compile(
-            "(?i)拆|pulled|clean\\s*pull|\\bpull\\b|\\bused\\b|refurb");
-    /** 明确非拆新的否定词：拆封/不拆/未拆。 */
-    private static final Pattern PULLED_NEGATIVE = Pattern.compile("拆封|不拆|未拆");
-    /** 全新标记：与拆新互斥。 */
-    private static final Pattern NEW_MARK = Pattern.compile("(?i)全新|新|brand\\s*new|\\bnew\\b");
+            "(?i)拆|(?<![A-Z0-9-])CP(?![A-Z0-9-])|\\bCLEAN\\s+PULL\\b|\\bPULL(?:ED)?\\b"
+                    + "|\\bRENEW(?:ED)?\\b|\\bREFURB(?:ISHED)?\\b|\\bUSED\\b|二手");
+    /** 明确非拆机的否定词：不拆/未拆/非拆/勿拆/无拆等。 */
+    private static final Pattern PULLED_NEGATIVE = Pattern.compile(
+            "(?i)不拆|未拆|非拆|勿拆|无拆|没有拆|不是拆"
+                    + "|not\\s+(?:pulled|used|renewed|refurbished)");
+    /** 全新标记：用于拆/新冲突消歧；“拆新”本身属于拆机，不能让其中的“新”覆盖。 */
+    private static final Pattern NEW_MARK = Pattern.compile(
+            "(?i)全新|(?<!拆)新(?:货|品)?|brand\\s*new|(?<!拆)\\bnew\\b");
 
     private OfferMaterialNormalizer() {
     }
@@ -84,6 +88,19 @@ public final class OfferMaterialNormalizer {
         String normalized = PnUtils.normalize(value);
         if (normalized.isEmpty()) {
             return normalized;
+        }
+        boolean pulled = indicatesPulled(normalized);
+        String base = normalizePartNumberBase(stripPulledMarkers(normalized));
+        if (base.isEmpty()) {
+            return base;
+        }
+        return pulled && !base.endsWith("拆") ? base + "拆" : base;
+    }
+
+    /** 在去除拆机标记后统一料号格式。 */
+    private static String normalizePartNumberBase(String normalized) {
+        if (normalized == null || normalized.isEmpty()) {
+            return "";
         }
         Matcher amd = AMD_EPYC_PART.matcher(normalized);
         if (amd.matches()) {
@@ -123,7 +140,8 @@ public final class OfferMaterialNormalizer {
         String type = str(item.get("productType"));
         String combined = originalPn + " " + model + " " + detail + " " + spec;
 
-        String pn = normalizePartNumberToken(originalPn);
+        // 先去掉拆机标记再归一化型号，避免“9015拆”“RTX 5090 32G拆”影响型号识别；最后统一补回“拆”。
+        String pn = normalizePartNumberBase(stripPulledMarkers(PnUtils.normalize(originalPn)));
         String amdModel = resolveAmdModel(pn, model, combined, sourceContent);
         if (amdModel != null) {
             String opn = findAmdOpn(originalPn, combined, sourceContent);
@@ -488,32 +506,50 @@ public final class OfferMaterialNormalizer {
                 && value.toUpperCase(Locale.ROOT).contains(search.toUpperCase(Locale.ROOT));
     }
 
-    /** 判断该行是否拆新：优先看AI详情里的拆/新标记，其次回退到包含该料号的原文行。 */
+    /** 判断该行是否拆机：原文明确拆机时优先于AI详情误写的“全新”；原文拆/新混合时按AI当前行详情区分。 */
     private static boolean isPulledItem(String pn, String originalPn, String detail, String spec,
                                         String model, String sourceContent) {
-        String own = str(detail) + " " + str(spec) + " " + str(model);
-        if (indicatesPulled(own)) {
-            return true;
-        }
-        if (NEW_MARK.matcher(own).find()) {
-            return false;
-        }
+        String own = str(originalPn) + " " + str(detail) + " " + str(spec) + " " + str(model);
+        boolean ownPulled = indicatesPulled(own);
         if (sourceContent != null) {
             String upperPn = str(pn).toUpperCase(Locale.ROOT);
             String upperOrig = str(originalPn).toUpperCase(Locale.ROOT);
+            boolean pulledOnly = false;
+            boolean newOnly = false;
+            boolean mixed = false;
             for (String line : sourceContent.split("\\r?\\n")) {
                 String upperLine = line.toUpperCase(Locale.ROOT);
                 boolean hit = (!upperPn.isEmpty() && upperLine.contains(upperPn))
                         || (!upperOrig.isEmpty() && upperLine.contains(upperOrig));
-                if (hit && indicatesPulled(line)) {
-                    return true;
+                if (!hit) {
+                    continue;
+                }
+                boolean pulled = indicatesPulled(line);
+                boolean isNew = indicatesNew(line);
+                if (pulled && isNew) {
+                    mixed = true;
+                } else if (pulled) {
+                    pulledOnly = true;
+                } else if (isNew) {
+                    newOnly = true;
                 }
             }
+            // 原文只有拆机标记：即使AI详情误写成“全新”，也必须按拆机处理
+            if (pulledOnly && !newOnly && !mixed) {
+                return true;
+            }
+            // 原文同时出现拆/新（同料号拆新两行）：以AI当前行详情区分，详情必须带“拆”或“新”
+            if (mixed || (pulledOnly && newOnly)) {
+                return ownPulled;
+            }
+            if (newOnly) {
+                return false;
+            }
         }
-        return false;
+        return ownPulled;
     }
 
-    /** 文本命中拆新关键词且不含“拆封/不拆/未拆”。 */
+    /** 文本命中拆机关键词且不含否定词。 */
     private static boolean indicatesPulled(String text) {
         if (text == null || text.trim().isEmpty()) {
             return false;
@@ -522,6 +558,22 @@ public final class OfferMaterialNormalizer {
             return false;
         }
         return PULLED_MARK.matcher(text).find();
+    }
+
+    /** 文本是否明确标记为全新。 */
+    private static boolean indicatesNew(String text) {
+        return text != null && !text.trim().isEmpty() && NEW_MARK.matcher(text).find();
+    }
+
+    /** 去掉料号尾部/独立成词的拆机标记，供查询和录入共用。 */
+    private static String stripPulledMarkers(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+        String result = value.replaceAll(
+                "(?i)(^|\\s)(?:CLEAN\\s+PULL|PULLED|PULL|RENEWED|RENEW|REFURBISHED|REFURB|USED|CP)(?=\\s|$)", " ");
+        result = result.replaceAll("拆(?:机|新|箱|件|封)?|二手", "");
+        return result.replaceAll("\\s+", " ").trim();
     }
 
     private static String str(Object value) {

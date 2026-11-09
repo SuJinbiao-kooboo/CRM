@@ -190,15 +190,25 @@ def _sender_username_from_shard(conn, rel, sender_id):
     return su
 
 
-def _lookup_shard_sender(db, user, local_id, sort_seq):
+def _lookup_shard_sender(db, user, local_id, sort_seq, shard_hint=""):
     """按会话+消息定位所在分片，再用该分片 Name2Id 解析发送者。
 
     仅用于 listen / 无 since 的 dump 这类拿不到分片上下文的入口；
     高频增量 dump 已在扫描时直接复用当前连接，无需再次查找。
+    shard_hint 是消息行里的 ``shard`` 字段，命中时优先只查该分片。
     """
     import hashlib
     target = "Msg_" + hashlib.md5((user or "").encode("utf-8")).hexdigest()
-    for rel in db._message_dbs():
+    rels = db._message_dbs()
+    hint = str(shard_hint or "").strip()
+    if hint:
+        hinted = [rel for rel in rels
+                  if hint in (rel, os.path.basename(rel),
+                              rel.replace(os.sep, "__"),
+                              os.path.basename(rel).replace(os.sep, "__"))]
+        if hinted:
+            rels = hinted + [rel for rel in rels if rel not in hinted]
+    for rel in rels:
         conn = None
         try:
             conn = _open_message_db_with_retry(db, rel)
@@ -262,8 +272,9 @@ def resolve_sender(ctx, m, session_user="", session_name=""):
     """解析发言人。
 
     优先级：
-      1. 群聊正文首行的 wxid 前缀（最准，跨服务器、跨分片稳定）；
-      2. 当前消息分片 Name2Id 映射出的 user_name（媒体消息/我方消息没有前缀）；
+      1. 当前消息分片 Name2Id 映射出的 user_name（本机精确映射）；
+      2. 分片映射缺失时，才用正文首行前缀兜底；普通微信号前缀必须在联系人
+         映射中命中，避免把 ``inq:`` / ``offer:`` 这类正文误当发言人；
       3. 单聊直接按会话对象显示（自己/对方）。
     禁止使用 message_resource.SenderName2Id 或群会话 username 兜底，二者都会张冠李戴。
     """
@@ -271,6 +282,10 @@ def resolve_sender(ctx, m, session_user="", session_name=""):
     mtype = str(m.get("type") or "")
     content = str(m.get("content") or "")
     if mtype in ("系统消息", "系统") or content.lstrip().startswith("<sysmsg"):
+        return "系统消息"
+    # 拍一拍是 appmsg type=62 的互动卡片，real_sender_id 可能指向未命名 rowid。
+    # 这不是聊天发言人，统一标成系统消息，避免列表出现无法解释的空发送人。
+    if mtype == "文件/链接/卡片" and re.search(r"<type>\s*62\s*</type>", content):
         return "系统消息"
     su = str(m.get("sender_username") or "").strip()
     if su.isdigit():
@@ -281,13 +296,20 @@ def resolve_sender(ctx, m, session_user="", session_name=""):
         su = ""
     is_self = bool(su and self_wxid and su == self_wxid)
     if is_group:
-        prefix = sender_from_prefix(content)
-        if prefix:
-            return ctx["nicks"].get(prefix, prefix)
-        if is_self:
-            return ctx["self_name"]
         if su:
+            if is_self:
+                return ctx["self_name"]
             return ctx["nicks"].get(su, su)
+        known_users = set(ctx.get("nicks") or {})
+        if self_wxid:
+            known_users.add(self_wxid)
+        if session_user:
+            known_users.add(session_user)
+        prefix = sender_from_prefix(content, known_users=known_users)
+        if prefix:
+            if prefix == self_wxid:
+                return ctx["self_name"]
+            return ctx["nicks"].get(prefix, prefix)
         # 只有完全拿不到分片映射时才兼容旧库的 sender_id=2；
         # 分片已成功读取但该 rowid 对不上联系人时，绝不能猜成“我”。
         if m.get("sender_index_ok") is False and str(m.get("sender_id")) == "2":
@@ -522,25 +544,33 @@ def _list_message_chats_with_retry(db, attempts=5):
 
 # ---- 文本消息清洗：去掉库内多余的发送者前缀行 ----
 _SENDER_PREFIX_STRICT = re.compile(r"^wxid_[A-Za-z0-9_-]+:$")
-# 非 wxid_ 前缀（普通微信号/手机号/@openim）：小写字母或数字开头，避免误匹配 "OFFER:" 之类大写缩写
+# 非 wxid_ 前缀（普通微信号/手机号/@openim）：小写字母或数字开头。
+# 调用方必须传 known_users，否则 inq:/offer: 这类正文仍可能被误认成前缀。
 _SENDER_PREFIX_LOOSE = re.compile(r"^[a-z0-9][a-z0-9_@.\-]*:$")
 
-def sender_from_prefix(content):
-    """从消息内容首行提取发送者 user_name；无前缀返回 None。"""
+def sender_from_prefix(content, known_users=None):
+    """从消息内容首行提取发送者 user_name；无有效前缀返回 None。
+
+    ``known_users`` 非空时，非 wxid_ 前缀必须能在联系人/会话表中命中才认可，
+    防止 ``inq:``、``offer:`` 这类业务正文被误判成发送者前缀。
+    """
     if not isinstance(content, str):
         return None
     first = content.split("\n", 1)[0].strip()
-    if _SENDER_PREFIX_STRICT.match(first) or _SENDER_PREFIX_LOOSE.match(first):
-        return first[:-1]
-    return None
+    strict = bool(_SENDER_PREFIX_STRICT.match(first))
+    if not strict and not _SENDER_PREFIX_LOOSE.match(first):
+        return None
+    prefix = first[:-1]
+    if known_users is not None and not strict and prefix not in known_users:
+        return None
+    return prefix
 
-def strip_wxid_prefix(content):
+def strip_wxid_prefix(content, known_users=None):
     """去掉 content 首行的发送者前缀行（wxid_xxx: / jingfan5807: 等），返回真实正文；无前缀原样返回。"""
     if not isinstance(content, str):
         return content
     lines = content.split("\n", 1)
-    first = lines[0].rstrip("\r")
-    if _SENDER_PREFIX_STRICT.match(first.strip()) or _SENDER_PREFIX_LOOSE.match(first.strip()):
+    if sender_from_prefix(content, known_users=known_users) is not None:
         return lines[1] if len(lines) > 1 else ""
     return content
 
@@ -785,6 +815,12 @@ def row_to_json(db, ctx, m, media, name):
     media_path = ""
     mtype = m.get("type")
     raw_content = m.get("content") or ""
+    session_uid = str(m.get("__session") or m.get("username") or "")
+    known_users = set(ctx.get("nicks") or {})
+    if ctx.get("self_wxid"):
+        known_users.add(ctx["self_wxid"])
+    if session_uid:
+        known_users.add(session_uid)
     is_file = mtype == "文件/链接/卡片" and "<fileext>" in raw_content.lower()
     if media is not None and (mtype in ("图片", "语音", "视频", "文件") or is_file):
         try:
@@ -792,7 +828,8 @@ def row_to_json(db, ctx, m, media, name):
                                               m["local_id"], save_dir=media.save_dir) or ""
             if not media_path and is_file:
                 media_path = _copy_local_file(
-                    db, strip_wxid_prefix(raw_content), m.get("create_time") or 0,
+                    db, strip_wxid_prefix(raw_content, known_users=known_users),
+                    m.get("create_time") or 0,
                     media.save_dir, m.get("__session") or m.get("username"), m["local_id"])
         except Exception as e:
             log("  [媒体下载失败 %s/%s]: %s" % (m.get("__session"), m["local_id"], e))
@@ -800,16 +837,17 @@ def row_to_json(db, ctx, m, media, name):
             if is_file:
                 try:
                     media_path = _copy_local_file(
-                        db, strip_wxid_prefix(raw_content), m.get("create_time") or 0,
+                        db, strip_wxid_prefix(raw_content, known_users=known_users),
+                        m.get("create_time") or 0,
                         media.save_dir, m.get("__session") or m.get("username"), m["local_id"])
                 except Exception as fe:
                     log("  [本地文件兜底失败 %s/%s]: %s" % (m.get("__session"), m["local_id"], fe))
     # 先去掉库内多余的 wxid_xxx: 前缀行，再拆解引用/卡片消息
-    content, quote, quote_kind = parse_quote(strip_wxid_prefix(m.get("content") or ""))
+    content, quote, quote_kind = parse_quote(
+        strip_wxid_prefix(m.get("content") or "", known_users=known_users))
     ct = m.get("create_time") or 0
     # 业务去重键：会话显示名 + 会话ID + 消息产生时间戳（格式 name:username:1791250634）
     session_name = str(name or "")
-    session_uid = str(m.get("__session") or m.get("username") or "")
     server_id = ("%s:%s:%s" % (session_name, session_uid, ct)) if ct else ""
     return {
         "username": m.get("__session") or m.get("username"),
@@ -847,11 +885,14 @@ def cmd_listen(args):
         try:
             user = m.get("username") or m.get("__session") or ""
             name = db.get_nickname(user) or user
-            # Listener 返回的是跨分片合并后的行，sender_username 可能来自错误的分片表；
-            # 这里按 local_id+sort_seq 找回真实分片，再用该分片 Name2Id 覆盖。
-            if not user.endswith("@chatroom") or not sender_from_prefix(m.get("content")):
-                su, ok = _lookup_shard_sender(db, user, m.get("local_id"), m.get("sort_seq"))
-                m["sender_username"] = su
+            # Listener 返回的是跨分片合并后的行，必须按消息自己的 shard 重建映射；
+            # 不能再因正文带前缀就跳过分片校验，否则 inq: 这类正文会串成发言人。
+            if user.endswith("@chatroom"):
+                su, ok = _lookup_shard_sender(
+                    db, user, m.get("local_id"), m.get("sort_seq"),
+                    shard_hint=m.get("shard"))
+                if ok:
+                    m["sender_username"] = su
                 m["sender_index_ok"] = ok
             m["__session"] = user
             j = row_to_json(db, ctx, m, media, name)

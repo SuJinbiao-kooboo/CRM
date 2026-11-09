@@ -294,7 +294,7 @@ curl.exe -s -X POST "http://localhost:8081/wechat/batch_send" -H "Content-Type: 
 - **水位(watermark)机制**：监听用每个会话记录的 `sort_seq` 作为“已推送到哪”的标记，存在 %TEMP%\wechatauto_db\<wxid>\listener_watermark.json。系统只推 `sort_seq` 严格大于水位的新消息。
 - **为何会回放历史？** 水位文件会持久化。若上次监听被中断/未处理完，重启后会从上次水位回放之后的消息。想“只要新消息”，启动时加 `fresh=true`（会清空水位）。
 - **消息去重**：每条消息有 `server_id`（网关生成的辅助键 = 会话显示名 + 会话ID + 消息产生时间戳）、`local_id`（库内 ID，分片上不全局唯一）、`sort_seq`（单调递增排序键）。同一会话同一秒的多条消息会让 `server_id` 碰撞，因此数据库唯一身份统一使用 **(username, sort_seq, MD5(content))**；`server_id` 不能用于定位单条消息或回填发言人。
-- **发言人解析**：群消息优先读正文首行 `wxid_xxx:` 前缀；没有前缀时只查该消息所在 `message_N.db` 分片的 `Name2Id`。`real_sender_id` 是分片内 rowid，不能查 `message_resource.db` 的全局 `SenderName2Id`，也不能用群会话 ID/群名兜底。换服务器、微信升级或分片变化后，使用微信消息页的“修复发言人”按时间窗回填。
+- **发言人解析**：群消息先查该行所在 `message_N.db` 分片的 `Name2Id`；只有分片映射为空时才用正文首行前缀兜底。非 `wxid_` 前缀必须能在联系人/会话映射中命中，防止把 `inq:`、`offer:` 这类业务正文误当发言人，也不会再从正文中删掉这一行。`real_sender_id` 是分片内 rowid，不能查 `message_resource.db` 的全局 `SenderName2Id`，也不能用群会话 ID/群名兜底。换服务器、微信升级或分片变化后，使用微信消息页的“修复发言人”按时间窗回填。
 - **迁移边界**：`crm_me.wechat_message.sender` 是可以随业务库一起无损迁移的普通字段；但微信本地库中的 `real_sender_id` 不是可跨机器复用的全局 ID。若新服务器的微信客户端已经没有某条历史消息，该条无法再从微信库重新解析发言人，只能依赖迁移前的业务库备份。
 ## 6. 反封号参数：RuoYi 数据字典（推荐，优先于 application.yml）
 

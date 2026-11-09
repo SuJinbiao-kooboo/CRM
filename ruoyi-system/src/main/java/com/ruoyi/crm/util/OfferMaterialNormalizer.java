@@ -58,6 +58,14 @@ public final class OfferMaterialNormalizer {
     private static final Pattern NVIDIA_WORKSTATION_MARK = Pattern.compile(
             "(?i)(?<![A-Z0-9])(WS|WORKSTATION(?:\\s+EDITION)?|工作站版?)(?![A-Z0-9])");
 
+    /** 拆新/二手关键词：命中即按拆新处理（料号加“拆”）。 */
+    private static final Pattern PULLED_MARK = Pattern.compile(
+            "(?i)拆|pulled|clean\\s*pull|\\bpull\\b|\\bused\\b|refurb");
+    /** 明确非拆新的否定词：拆封/不拆/未拆。 */
+    private static final Pattern PULLED_NEGATIVE = Pattern.compile("拆封|不拆|未拆");
+    /** 全新标记：与拆新互斥。 */
+    private static final Pattern NEW_MARK = Pattern.compile("(?i)全新|新|brand\\s*new|\\bnew\\b");
+
     private OfferMaterialNormalizer() {
     }
 
@@ -175,6 +183,15 @@ public final class OfferMaterialNormalizer {
             if (model.isEmpty() || model.equalsIgnoreCase(pn) || !containsIgnoreCase(model, samsungSeries)) {
                 model = samsungSeries;
             }
+        }
+
+        // 拆新兜底：AI 可能漏标，这里按原文/AI详情确定性判断，命中则料号、详情、备注同时加“拆”
+        if (isPulledItem(pn, originalPn, detail, spec, model, sourceContent)) {
+            if (!pn.endsWith("拆")) {
+                pn = pn + "拆";
+            }
+            detail = appendMissing(detail, "拆");
+            put(item, "remark", pn);
         }
 
         put(item, "partNumber", pn);
@@ -469,6 +486,42 @@ public final class OfferMaterialNormalizer {
     private static boolean containsIgnoreCase(String value, String search) {
         return value != null && search != null
                 && value.toUpperCase(Locale.ROOT).contains(search.toUpperCase(Locale.ROOT));
+    }
+
+    /** 判断该行是否拆新：优先看AI详情里的拆/新标记，其次回退到包含该料号的原文行。 */
+    private static boolean isPulledItem(String pn, String originalPn, String detail, String spec,
+                                        String model, String sourceContent) {
+        String own = str(detail) + " " + str(spec) + " " + str(model);
+        if (indicatesPulled(own)) {
+            return true;
+        }
+        if (NEW_MARK.matcher(own).find()) {
+            return false;
+        }
+        if (sourceContent != null) {
+            String upperPn = str(pn).toUpperCase(Locale.ROOT);
+            String upperOrig = str(originalPn).toUpperCase(Locale.ROOT);
+            for (String line : sourceContent.split("\\r?\\n")) {
+                String upperLine = line.toUpperCase(Locale.ROOT);
+                boolean hit = (!upperPn.isEmpty() && upperLine.contains(upperPn))
+                        || (!upperOrig.isEmpty() && upperLine.contains(upperOrig));
+                if (hit && indicatesPulled(line)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** 文本命中拆新关键词且不含“拆封/不拆/未拆”。 */
+    private static boolean indicatesPulled(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return false;
+        }
+        if (PULLED_NEGATIVE.matcher(text).find()) {
+            return false;
+        }
+        return PULLED_MARK.matcher(text).find();
     }
 
     private static String str(Object value) {

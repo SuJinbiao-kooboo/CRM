@@ -156,6 +156,7 @@ public class DeepSeekAiService {
             row.put("deliveryTime", strVal(item, "deliveryTime"));
             row.put("productType", strVal(item, "productType"));
             row.put("productDetail", strVal(item, "productDetail"));
+            row.put("remark", strVal(item, "remark"));
             // 关键字段全空的无效行直接跳过
             if (isBlank((String) row.get("partNumber")) && isBlank((String) row.get("brand"))
                     && isBlank((String) row.get("model")) && isBlank((String) row.get("spec"))) {

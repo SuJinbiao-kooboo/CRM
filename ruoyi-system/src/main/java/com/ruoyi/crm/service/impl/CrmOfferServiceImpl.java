@@ -514,8 +514,13 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 offer.setWechatUsername(wechatUsername);
                 offer.setWechatLocalId(wechatLocalId);
             }
+            String itemRemark = str(item.get("remark")).trim();
+            String mergedRemark = itemRemark;
             if (sourceRemark != null && !sourceRemark.trim().isEmpty()) {
-                offer.setRemark(sourceRemark.length() > 500 ? sourceRemark.substring(0, 500) : sourceRemark);
+                mergedRemark = mergedRemark.isEmpty() ? sourceRemark.trim() : (mergedRemark + " " + sourceRemark.trim());
+            }
+            if (!mergedRemark.isEmpty()) {
+                offer.setRemark(mergedRemark.length() > 500 ? mergedRemark.substring(0, 500) : mergedRemark);
             }
             if (offerMapper.insertOffer(offer) > 0) {
                 saved.add(offer);

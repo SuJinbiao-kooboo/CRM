@@ -46,7 +46,7 @@ public class WeChatMessage {
     /** 消息处理状态：0=未分类 1=已分类待处理 2=已处理(录入/预警) 3=无需处理或转人工 4=已发送 */
     @JsonProperty("status")
     private Integer status;
-    /** AI录入失败次数：连续失败达 offerEntryMaxFail 次时置 status=3(无需处理)；0=未失败 */
+    /** AI录入失败次数：首次失败后按指数退避重试 offerEntryMaxFail 次，3次重试耗尽后置DEAD；0=未失败 */
     @JsonProperty("entry_fail_count")
     private Integer entryFailCount;
 

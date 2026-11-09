@@ -306,8 +306,14 @@
           AND msg_category IN
           <foreach collection="categories" item="cat" open="(" separator="," close=")">#{cat}</foreach>
           AND create_time &gt;= #{since}
-          AND (entry_status IN ('PENDING','FAILED')
-               OR (entry_status = 'PROCESSING' AND entry_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND)))
+          AND (
+               entry_status = 'PENDING'
+               OR (entry_status = 'FAILED'
+                   AND TIMESTAMPADD(SECOND,
+                       CAST(POW(2, GREATEST(COALESCE(entry_fail_count, 1) - 1, 0)) * #{retryBaseSec} AS UNSIGNED),
+                       COALESCE(entry_at, create_time)) &lt;= NOW())
+               OR (entry_status = 'PROCESSING' AND entry_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND))
+          )
           AND create_time &lt;= DATE_SUB(NOW(), INTERVAL #{minAgeSec} SECOND)
           <if test="chat != null and chat != ''">AND name = #{chat}</if>
           <if test="chats != null and chats.size() > 0">
@@ -353,8 +359,49 @@
         SET entry_status = 'PROCESSING', entry_message = 'AI录入处理中', entry_at = NOW()
         WHERE username = #{username} AND local_id = #{localId}
           AND classify_status = 'SUCCESS'
-          AND (entry_status IN ('PENDING','FAILED')
-               OR (entry_status = 'PROCESSING' AND entry_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND)))
+          AND (
+               entry_status = 'PENDING'
+               OR (entry_status = 'FAILED'
+                   AND TIMESTAMPADD(SECOND,
+                       CAST(POW(2, GREATEST(COALESCE(entry_fail_count, 1) - 1, 0)) * #{retryBaseSec} AS UNSIGNED),
+                       COALESCE(entry_at, create_time)) &lt;= NOW())
+               OR (entry_status = 'PROCESSING' AND entry_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND))
+          )
+    </update>
+
+    <update id="recoverStaleEntryProcessing">
+        UPDATE wechat_message
+        SET entry_status = CASE
+                WHEN COALESCE(entry_fail_count, 0) + 1 &gt;= #{maxAttempts} THEN 'DEAD'
+                ELSE 'FAILED'
+            END,
+            entry_message = CASE
+                WHEN COALESCE(entry_fail_count, 0) + 1 &gt;= #{maxAttempts}
+                    THEN CONCAT('AI录入处理超时，已停止自动重试（失败', COALESCE(entry_fail_count, 0) + 1,
+                                '/', #{maxAttempts}, '）')
+                ELSE CONCAT('AI录入处理超时，已自动解锁；失败', COALESCE(entry_fail_count, 0) + 1,
+                            '/', #{maxAttempts}, '，将按指数退避重试')
+            END,
+            task_status = CASE
+                WHEN COALESCE(entry_fail_count, 0) + 1 &gt;= #{maxAttempts} THEN 'MANUAL_REVIEW'
+                ELSE task_status
+            END,
+            task_message = CASE
+                WHEN COALESCE(entry_fail_count, 0) + 1 &gt;= #{maxAttempts} THEN '录入处理超时，已停止自动重试'
+                ELSE task_message
+            END,
+            task_failure_reason = CASE
+                WHEN COALESCE(entry_fail_count, 0) + 1 &gt;= #{maxAttempts} THEN 'AI录入处理超时，重试耗尽'
+                ELSE task_failure_reason
+            END,
+            entry_fail_count = COALESCE(entry_fail_count, 0) + 1,
+            entry_at = NOW()
+        WHERE classify_status = 'SUCCESS'
+          AND category_source IN ('LLM','CACHE','MANUAL')
+          AND msg_category IN ('INQ','OFFER')
+          AND entry_status = 'PROCESSING'
+          AND entry_at &lt; DATE_SUB(NOW(), INTERVAL #{timeoutSec} SECOND)
+          AND create_time &gt;= #{since}
     </update>
 
     <update id="updateEntryState">

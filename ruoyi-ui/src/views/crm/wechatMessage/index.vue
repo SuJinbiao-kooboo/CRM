@@ -98,10 +98,11 @@
               <li><b>offerEntryEnabled</b>：INQ/OFFER 自动录入总开关。关闭时“微信自动化-INQ/OFFER录入”定时任务不会查询待录入消息；开启后按 <b>offerEntryScanSec</b> 扫描、每批最多 <b>offerEntryBatchSize</b> 条，并按消息时间从早到晚排队。</li>
               <li><b>autoTaskGenerateEnabled</b>：自动任务生成开关。关闭时消息录入成功后仍会保持 <code>task_status=PENDING</code>；任务状态旁的感叹号会显示该原因，可到“微信询报价任务”页面手动点击“生成任务”。</li>
               <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息的整组分类与录入聚合间隔秒数（默认 30）；<b>aiContextWindow</b>：纯价格 OFFER、纯数量 INQ 录入和 AI 分类共同使用的最近消息条数（默认 20）；<b>offerEntryQuoteLinkSec</b>：同一引用消息的补充回复聚合窗口秒数（默认 1800）；<b>offerEntryMaxAgeHours</b>：自动录入最大回溯小时数。</li>
+              <li><b>失败重试</b>：<code>offerEntryMaxFail</code> 为首次失败后的重试次数（默认 3 次，总尝试 4 次）；<code>offerEntryRetryBaseSec</code> 为首次退避秒数（默认 60，按 60/120/240 秒指数递增）；<code>offerEntryProcessingTimeoutSec</code> 为 PROCESSING 自动解锁秒数（默认 240）。重试前会按微信消息来源检查已有 Offer，已成功入库的消息不会重复录入。</li>
               <li><b>录入异常排查</b>：待录入查询失败会写入“系统监控 → 调度日志”的异常信息；单条消息的 AI 录入失败原因见列表的“录入状态/结果”。</li>
               <li><b>traceAlertEnabled</b>：TRACE 告警开关；<b>traceAlertMaxAgeMin</b> 最大消息年龄（默认 360 分钟，即只告警最近 6 小时），<b>traceAlertChatCooldownMin</b> 同群冷却分钟数。</li>
               <li><b>AI 接口</b>：系统管理 → 参数设置中的 <code>sys.ai.enabled</code>、<code>sys.ai.base.url</code>、<code>sys.ai.api.key</code>、<code>sys.ai.model</code>。</li>
-              <li><b>录入耗时保护</b>：<code>sys.ai.timeout.ms</code> 控制普通文本单次模型调用超时（当前 120000 毫秒，即 2 分钟）；Excel/CSV 报价附件因包含多条物料，至少等待 3 分钟；网络超时不会在同一渠道反复重试，避免一条消息长时间占住自动录入任务。</li>
+              <li><b>录入耗时保护</b>：<code>sys.ai.timeout.ms</code> 控制单次模型调用的总时限（当前 120000 毫秒，即 2 分钟，含主备渠道切换）；Excel/CSV 报价附件因包含多条物料，至少等待 3 分钟。超过 <code>offerEntryProcessingTimeoutSec</code> 仍为 PROCESSING 的消息会自动解锁并按失败进入指数退避，不再阻塞整条录入队列。</li>
             </ul>
             <div class="help-title">操作提示</div>
             <ul>

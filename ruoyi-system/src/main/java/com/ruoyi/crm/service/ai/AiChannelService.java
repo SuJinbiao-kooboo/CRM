@@ -171,7 +171,8 @@ public class AiChannelService {
         if (!enabled()) {
             throw new ServiceException("未配置AI接口参数，请在系统参数配置(" + KEY_API_KEY + ")中配置后重试");
         }
-        int timeout = timeoutMs > 0 ? timeoutMs : timeoutMs();
+        int timeout = Math.max(1000, timeoutMs > 0 ? timeoutMs : timeoutMs());
+        long deadline = System.currentTimeMillis() + timeout;
         String lastError = null;
         // 最多两轮：第一轮当前渠道（默认主渠道），若中途切换到备用渠道则立即用备用渠道再试一轮
         for (int round = 0; round < 2; round++) {
@@ -181,15 +182,25 @@ public class AiChannelService {
             payload.put("model", channel.get("model"));
             String body = JSON.toJSONString(payload);
             for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    lastError = "总调用超时(" + timeout + "ms)";
+                    break;
+                }
                 if (attempt > 1) {
-                    sleepQuietly(2000L * (attempt - 1));
+                    sleepQuietly(Math.min(2000L * (attempt - 1), remaining));
+                    remaining = deadline - System.currentTimeMillis();
+                    if (remaining <= 0) {
+                        lastError = "总调用超时(" + timeout + "ms)";
+                        break;
+                    }
                 }
                 try {
                     HttpResponse resp = HttpRequest.post(channel.get("base") + "/chat/completions")
                             .header("Authorization", "Bearer " + channel.get("key"))
                             .header("Content-Type", "application/json")
                             .body(body)
-                            .timeout(timeout)
+                            .timeout((int) Math.max(1000L, Math.min(Integer.MAX_VALUE, remaining)))
                             .execute();
                     String text = resp.body();
                     if (resp.isOk()) {
@@ -210,6 +221,9 @@ public class AiChannelService {
             }
             boolean wasBackup = "BACKUP".equals(channel.get("name"));
             handleChannelFail();
+            if (System.currentTimeMillis() >= deadline) {
+                throw new ServiceException("AI接口调用超过总时限(" + timeout + "ms)：" + lastError);
+            }
             // 未切换（无可用备用渠道）或本轮已在备用渠道，则不再重试
             if (!backupActive || wasBackup) {
                 throw new ServiceException("AI接口调用失败(" + channel.get("name") + ")：" + lastError);

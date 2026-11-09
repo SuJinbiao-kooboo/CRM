@@ -102,7 +102,7 @@
             </ul>
             <div class="help-title">列表筛选</div>
             <ul>
-              <li>库存开始/库存结束分别选择，按 <code>stock_date</code> 的自然日包含边界筛选；页面首次打开和重置后默认“昨天 00:00 至今天 23:59:59”。</li>
+              <li>库存开始/库存结束分别选择，按 <code>stock_date</code> 的自然日包含边界筛选；页面首次打开和重置后默认“最近 7 天（含今天）”。</li>
               <li>产品编码支持换行、逗号和空格分隔多个料号；供应商、品牌、产品类型支持多选。</li>
             </ul>
           </div>
@@ -936,10 +936,10 @@ export default {
       this.queryParams.pageNum = 1;
       this.getList();
     },
-    /** 库存日期默认昨天至今天，重置时恢复该范围 */
+    /** 库存日期默认最近7天（含今天），重置时恢复该范围 */
     resetStockDates() {
       const end = new Date();
-      const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+      const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 6);
       this.stockDateStart = start;
       this.stockDateEnd = end;
     },

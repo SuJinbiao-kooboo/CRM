@@ -53,7 +53,8 @@ public interface WeChatMessageMapper {
     List<WeChatMessage> queryProcessable(@Param("chat") String chat, @Param("chats") List<String> chats,
                                          @Param("categories") List<String> categories,
                                          @Param("since") String since, @Param("minAgeSec") int minAgeSec,
-                                         @Param("max") int max, @Param("timeoutSec") int timeoutSec);
+                                         @Param("max") int max, @Param("timeoutSec") int timeoutSec,
+                                         @Param("retryBaseSec") int retryBaseSec);
 
     List<WeChatMessage> queryEntryNeighbors(@Param("username") String username, @Param("name") String name,
                                             @Param("sender") String sender, @Param("from") String from,
@@ -69,7 +70,10 @@ public interface WeChatMessageMapper {
     List<java.util.Map<String, Object>> entryStatusStats(@Param("since") String since);
 
     int markEntryProcessing(@Param("username") String username, @Param("localId") long localId,
-                            @Param("timeoutSec") int timeoutSec);
+                            @Param("timeoutSec") int timeoutSec, @Param("retryBaseSec") int retryBaseSec);
+
+    int recoverStaleEntryProcessing(@Param("since") String since, @Param("timeoutSec") int timeoutSec,
+                                    @Param("maxAttempts") int maxAttempts);
 
     int updateEntryState(@Param("username") String username, @Param("localId") long localId,
                          @Param("messageStatus") int messageStatus, @Param("entryStatus") String entryStatus,

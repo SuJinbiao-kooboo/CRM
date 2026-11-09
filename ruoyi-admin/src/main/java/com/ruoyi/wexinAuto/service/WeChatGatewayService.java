@@ -1033,15 +1033,26 @@ public class WeChatGatewayService {
             int groupGapSec = Math.max(1, config.integer("offerEntryGroupGapSec", 30));
             int quoteLinkSec = Math.max(groupGapSec, config.integer("offerEntryQuoteLinkSec", 1800));
             int maxAgeHours = Math.max(1, config.integer("offerEntryMaxAgeHours", 24));
-            int timeout = Math.max(30, config.integer("processingTimeoutSec", 600));
+            int timeout = entryProcessingTimeoutSec();
+            int retryBaseSec = entryRetryBaseSec();
+            int retryMax = entryRetryMax();
             String since = fmtTime(System.currentTimeMillis() - maxAgeHours * 3600_000L);
+            int unlocked = store.recoverStaleEntryProcessing(since, timeout,
+                    WeChatEntryRetryPolicy.maxAttempts(retryMax));
+            if (unlocked > 0) {
+                log.warn("已自动解锁超时INQ/OFFER录入 {} 条，按失败进入指数退避重试", unlocked);
+            }
             List<WeChatMessage> rows = store.queryProcessable(StringUtils.trimToNull(chat), null, cats,
-                    since, minAgeSec, batch, timeout);
+                    since, minAgeSec, batch, timeout, retryBaseSec);
             out.put("categories", cats);
             out.put("maxAgeHours", maxAgeHours);
             out.put("minAgeSec", minAgeSec);
             out.put("groupGapSec", groupGapSec);
             out.put("quoteLinkSec", quoteLinkSec);
+            out.put("entryProcessingTimeoutSec", timeout);
+            out.put("retryMax", retryMax);
+            out.put("retryBaseSec", retryBaseSec);
+            out.put("unlocked", unlocked);
             EntryStats stats = processEntryRows(rows, cats);
             lastEntryProcessed = rows.size();
             return entryResult(out, stats, rows.size());
@@ -1101,7 +1112,8 @@ public class WeChatGatewayService {
         if (rows == null || rows.isEmpty()) {
             return stats;
         }
-        int timeout = Math.max(30, config.integer("processingTimeoutSec", 600));
+        int timeout = entryProcessingTimeoutSec();
+        int retryBaseSec = entryRetryBaseSec();
         int groupGapSec = Math.max(1, config.integer("offerEntryGroupGapSec", 30));
         Set<String> handled = new HashSet<>();
         for (WeChatMessage m : rows) {
@@ -1126,7 +1138,7 @@ public class WeChatGatewayService {
                         waitSec, anchor.getName(), anchor.getSender(), group.localIds());
                 continue;
             }
-            if (!store.markEntryProcessing(anchor.getUsername(), anchor.getLocalId(), timeout)) {
+            if (!store.markEntryProcessing(anchor.getUsername(), anchor.getLocalId(), timeout, retryBaseSec)) {
                 continue;
             }
             try {
@@ -1822,21 +1834,27 @@ public class WeChatGatewayService {
                     anchor.getName(), anchor.getSender(), group.localIds(), reason);
             return;
         }
-        int maxFail = Math.max(1, config.integer("offerEntryMaxFail", 3));
+        int retryMax = entryRetryMax();
+        int retryBaseSec = entryRetryBaseSec();
         stats.failed++;
         for (WeChatMessage m : targets) {
             int failCnt = (m.getEntryFailCount() == null ? 0 : m.getEntryFailCount()) + 1;
-            boolean dead = failCnt >= maxFail;
+            boolean dead = WeChatEntryRetryPolicy.exhausted(failCnt, retryMax);
+            int delaySec = WeChatEntryRetryPolicy.delaySeconds(failCnt, retryBaseSec);
+            String entryMessage = dead
+                    ? "AI录入失败(已尝试" + WeChatEntryRetryPolicy.maxAttempts(retryMax) + "次，重试耗尽): " + reason
+                    : "AI录入失败(第" + failCnt + "次，约" + delaySec + "秒后自动重试"
+                    + failCnt + "/" + retryMax + "): " + reason;
             store.updateEntryOnly(m.getUsername(), m.getLocalId(), dead ? "DEAD" : "FAILED",
-                    clipEntryMessage("AI录入失败(" + failCnt + "/" + maxFail + "): " + reason), 0, "", failCnt);
+                    clipEntryMessage(entryMessage), 0, "", failCnt);
             if (dead) {
                 store.updateTaskState(m.getUsername(), m.getLocalId(), "MANUAL_REVIEW",
-                        "录入连续失败，已停止自动重试",
-                        clipEntryMessage("AI录入连续失败(" + failCnt + "/" + maxFail + ")：" + reason));
+                        "录入重试耗尽，已停止自动重试",
+                        clipEntryMessage("AI录入连续失败(" + failCnt + "次)：" + reason));
             }
         }
-        log.warn("微信消息组AI录入失败: chat={} sender={} 消息={} 原因={}",
-                anchor.getName(), anchor.getSender(), group.localIds(), reason);
+        log.warn("微信消息组AI录入失败: chat={} sender={} 消息={} 重试上限={} 原因={}",
+                anchor.getName(), anchor.getSender(), group.localIds(), retryMax, reason);
     }
 
     private static boolean sameMessage(WeChatMessage a, WeChatMessage b) {
@@ -1970,6 +1988,22 @@ public class WeChatGatewayService {
         return value.length() > 1000 ? value.substring(0, 1000) : value;
     }
 
+    /** offerEntryMaxFail 保留原字典键，语义为首次失败后的自动重试次数，默认3次。 */
+    private int entryRetryMax() {
+        return WeChatEntryRetryPolicy.normalizeMaxRetries(analysisInt("offerEntryMaxFail",
+                WeChatEntryRetryPolicy.DEFAULT_MAX_RETRIES));
+    }
+
+    private int entryRetryBaseSec() {
+        return WeChatEntryRetryPolicy.normalizeBaseDelaySec(analysisInt("offerEntryRetryBaseSec",
+                WeChatEntryRetryPolicy.DEFAULT_BASE_DELAY_SEC));
+    }
+
+    /** AI 单次调用已有总时限，处理中超过4分钟视为遗留锁并自动解锁。 */
+    private int entryProcessingTimeoutSec() {
+        return Math.max(60, Math.min(1800, analysisInt("offerEntryProcessingTimeoutSec", 240)));
+    }
+
     /** INQ/OFFER 自动录入参数与运行状态（便于 Postman 观察）。 */
     public Map<String, Object> offerEntryStatus() {
         Map<String, Object> m = new LinkedHashMap<>();
@@ -1979,7 +2013,15 @@ public class WeChatGatewayService {
         m.put("categories", entryCategories());
         m.put("mappingSource", "crm_supplier.sales_group/purchase_group");
         m.put("profitRatio", analysisDouble("offerEntryProfitRatio", 2d));
-        m.put("maxFail", analysisInt("offerEntryMaxFail", 3));
+        int retryMax = entryRetryMax();
+        int retryBaseSec = entryRetryBaseSec();
+        m.put("maxFail", retryMax);
+        m.put("retryMax", retryMax);
+        m.put("maxAttempts", WeChatEntryRetryPolicy.maxAttempts(retryMax));
+        m.put("retryBaseSec", retryBaseSec);
+        m.put("retryPolicy", "指数退避: " + retryBaseSec + "s/" + (retryBaseSec * 2)
+                + "s/" + (retryBaseSec * 4) + "s，最多重试" + retryMax + "次");
+        m.put("processingTimeoutSec", entryProcessingTimeoutSec());
         m.put("selfNames", analysisStr("selfNames", ""));
         m.put("createBy", analysisStr("offerEntryCreateBy", "wechat_auto"));
         int minAgeSec = Math.max(0, analysisInt("offerEntryMinAgeSec", 30));
@@ -1994,7 +2036,7 @@ public class WeChatGatewayService {
         m.put("aiFlow", "同发送人连续消息 + 同引用补充消息聚合；纯价格OFFER、纯数量INQ补带最近 aiContextWindow 条会话上下文 -> 单次AI录入 -> 返回料号比价");
         m.put("entryStatusLegend",
                 "PENDING=待录入/可重试, PROCESSING=处理中, SUCCESS=成功, SUCCESS_WARN=已录入但比价告警, "
-                        + "FAILED=可重试失败, DEAD=达到失败上限, SKIPPED=需人工确认, NOT_APPLICABLE=不参与录入");
+                        + "FAILED=退避等待中, DEAD=重试耗尽, SKIPPED=需人工确认, NOT_APPLICABLE=不参与录入");
         m.put("running", entryRunning.get());
         m.put("lastRunAt", lastEntryFinishedAt == 0 ? null : fmtTime(lastEntryFinishedAt));
         m.put("lastProcessed", lastEntryProcessed);

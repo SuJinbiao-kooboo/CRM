@@ -358,13 +358,14 @@ public class WeChatMessageStore {
      * chat 非空=只查该会话；chat 为空且 chats 非空=只查这些会话；都为空=全部会话。
      */
     public List<WeChatMessage> queryProcessable(String chat, List<String> chats, List<String> categories,
-                                                String since, int minAgeSec, int max, int timeoutSec) {
+                                                String since, int minAgeSec, int max, int timeoutSec,
+                                                int retryBaseSec) {
         if (categories == null || categories.isEmpty()) {
             return java.util.Collections.emptyList();
         }
         try {
             return mapper.queryProcessable(chat, chats, categories, since, Math.max(0, minAgeSec), max,
-                    Math.max(30, timeoutSec));
+                    Math.max(30, timeoutSec), Math.max(1, retryBaseSec));
         } catch (Exception e) {
             log.error("查询待录入消息失败", e);
             throw new ServiceException("查询待录入消息失败：" + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
@@ -405,7 +406,7 @@ public class WeChatMessageStore {
         }
     }
 
-    /** 回写单条消息录入结果：成功 status=2(已分类处理未发送)；失败达上限 status=3(无需处理)；未达上限保持 status=1 下轮重试。 */
+    /** 回写兼容字段：录入状态新链路以 entry_status/entry_fail_count 为准，失败按指数退避自动重试。 */
     public void updateEntryResult(String username, long localId, int status, int failCount) {
         try {
             mapper.updateEntryResult(username, localId, status, failCount);
@@ -425,12 +426,24 @@ public class WeChatMessageStore {
     }
 
     /** 原子领取一条待录入消息，防止定时任务和手动触发重复处理。 */
-    public boolean markEntryProcessing(String username, long localId, int timeoutSec) {
+    public boolean markEntryProcessing(String username, long localId, int timeoutSec, int retryBaseSec) {
         try {
-            return mapper.markEntryProcessing(username, localId, Math.max(30, timeoutSec)) > 0;
+            return mapper.markEntryProcessing(username, localId, Math.max(30, timeoutSec),
+                    Math.max(1, retryBaseSec)) > 0;
         } catch (Exception e) {
             log.warn("消息录入领取失败: username={} localId={}", username, localId, e);
             return false;
+        }
+    }
+
+    /** 超过处理时限仍为 PROCESSING 的消息自动解锁，按一次失败处理并进入退避重试。 */
+    public int recoverStaleEntryProcessing(String since, int timeoutSec, int maxAttempts) {
+        try {
+            return mapper.recoverStaleEntryProcessing(since, Math.max(30, timeoutSec),
+                    Math.max(1, maxAttempts));
+        } catch (Exception e) {
+            log.warn("自动解锁超时录入消息失败", e);
+            return 0;
         }
     }
 

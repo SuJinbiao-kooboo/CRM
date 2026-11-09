@@ -43,6 +43,7 @@ import com.ruoyi.crm.util.OfferMaterialNormalizer;
 import com.ruoyi.crm.util.OfferNoStockUtils;
 import com.ruoyi.crm.util.PnUtils;
 import com.ruoyi.crm.util.OfferTextFormatter;
+import org.apache.commons.lang3.StringUtils;
 import com.ruoyi.system.service.ISysConfigService;
 
 @Service
@@ -437,6 +438,14 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         // 供应商名称以数据库为准，防止前端传入的名称被篡改
         if (authorizedSupplier.getSupplierName() != null && !authorizedSupplier.getSupplierName().trim().isEmpty()) {
             supplierName = authorizedSupplier.getSupplierName();
+        }
+        // 微信来源重复调用（自动重试、并发触发、状态回写失败后补跑）直接返回已入库记录，禁止再次插入。
+        if (wechatLocalId > 0 && wechatUsername != null && !wechatUsername.trim().isEmpty()) {
+            List<CrmOffer> existing = offerMapper.selectByWechat(StringUtils.defaultString(wechatServerId),
+                    wechatUsername, wechatLocalId);
+            if (existing != null && !existing.isEmpty()) {
+                return existing;
+            }
         }
         // AI录入未显式传利润率时读取供应商默认值；页面手工修改传值时以页面为准。
         double ratio = profitRatio != null ? profitRatio.doubleValue()

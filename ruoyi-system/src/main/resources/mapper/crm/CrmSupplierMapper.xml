@@ -53,12 +53,11 @@
         <result column="post" property="post" />
         <result column="phone" property="phone" />
         <result column="email" property="email" />
-        <result column="teams" property="email" />
         <result column="whatsapp" property="whatsapp" />
         <result column="other_contact_first" property="otherContactFirst" />
         <result column="other_contact_second" property="otherContactSecond" />
-        <result column="remark_first" property="contactRemarkFirst" />
-        <result column="remark_second" property="contactRemarkSecond" />
+        <result column="contact_remark_first" property="contactRemarkFirst" />
+        <result column="contact_remark_second" property="contactRemarkSecond" />
     </resultMap>
 
     <!-- 供应商主表 resultMap（type=CrmSupplier），供 selectSupplierById / selectSupplierSimpleList 等返回 CrmSupplier 的查询使用 -->
@@ -123,7 +122,7 @@
         <include refid="Base_Column_List"/>,
         <!-- 跟进人显示名称：登录名转昵称（存储为登录名保证唯一，展示用昵称） -->
         (select group_concat(u.nick_name order by find_in_set(u.user_name, s.follow_up_by) separator ',') from sys_user u where find_in_set(u.user_name, s.follow_up_by) > 0) as follow_up_by_names,
-        c.id as contact_id, c.contact_name as contact_name, c.post as post, c.phone as phone, c.email as email, c.qq as teams, c.whatsapp, c.other_contact_first,  c.other_contact_second,c.remark_first, c.remark_second
+        c.id as contact_id, c.contact_name as contact_name, c.post as post, c.phone as phone, c.email as email, c.qq as teams, c.whatsapp, c.other_contact_first, c.other_contact_second, c.remark_first as contact_remark_first, c.remark_second as contact_remark_second
         from crm_supplier s
         left join crm_supplier_contact c on c.supplier_id = s.id
         <where>

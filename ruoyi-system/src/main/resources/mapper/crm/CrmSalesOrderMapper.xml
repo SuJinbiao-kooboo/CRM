@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.crm.mapper.CrmSalesOrderMapper">
+
+    <resultMap id="CrmSalesOrderMap" type="com.ruoyi.crm.domain.CrmSalesOrder">
+        <id column="id" property="id" />
+        <result column="order_no" property="orderNo" />
+        <result column="order_date" property="orderDate" />
+        <result column="booking_date" property="bookingDate" />
+        <result column="booking_month" property="bookingMonth" />
+        <result column="cooperation_status" property="cooperationStatus" />
+        <result column="pn" property="pn" />
+        <result column="desp" property="desp" />
+        <result column="product_types" property="productTypes" />
+        <result column="status" property="status" />
+        <result column="quantity" property="quantity" />
+        <result column="customer_id" property="customerId" />
+        <result column="customer_po_no" property="customerPoNo" />
+        <result column="pi_me_no" property="piMeNo" />
+        <result column="sale_price" property="salePrice" />
+        <result column="sales_amount" property="salesAmount" />
+        <result column="payment_received_date" property="paymentReceivedDate" />
+        <result column="supplier_id" property="supplierId" />
+        <result column="po_me_no" property="poMeNo" />
+        <result column="supplier_pi_no" property="supplierPiNo" />
+        <result column="cost_price" property="costPrice" />
+        <result column="purchase_amount" property="purchaseAmount" />
+        <result column="price_diff" property="priceDiff" />
+        <result column="gp" property="gp" />
+        <result column="profit_rate" property="profitRate" />
+        <result column="payment_date" property="paymentDate" />
+        <result column="arrival_date" property="arrivalDate" />
+        <result column="logistics_fee" property="logisticsFee" />
+        <result column="carton_spec" property="cartonSpec" />
+        <result column="gross_weight" property="grossWeight" />
+        <result column="sign_receipt_file" property="signReceiptFile" />
+        <result column="photo_file" property="photoFile" />
+        <result column="remark" property="remark" />
+        <result column="logistics_reconciliation" property="logisticsReconciliation" />
+        <result column="customer_contact_id" property="customerContactId" />
+        <result column="supplier_contact_id" property="supplierContactId" />
+        <result column="po_customer_file" property="poCustomerFile" />
+        <result column="pi_our_file" property="piOurFile" />
+        <result column="po_our_file" property="poOurFile" />
+        <result column="pi_supplier_file" property="piSupplierFile" />
+        <result column="pl_supplier_file" property="plSupplierFile" />
+        <result column="pl_our_file" property="plOurFile" />
+        <result column="ci_supplier_file" property="ciSupplierFile" />
+        <result column="ci_our_file" property="ciOurFile" />
+        <result column="entrust_file" property="entrustFile" />
+        <result column="sn_file" property="snFile" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+        <result column="customer_name" property="customerName" />
+        <result column="supplier_name" property="supplierName" />
+        <result column="customer_contact_name" property="customerContactName" />
+        <result column="supplier_contact_name" property="supplierContactName" />
+    </resultMap>
+
+    <sql id="selectSalesOrderVo">
+        select o.*,
+               c.supplier_name as customer_name,
+               s.supplier_name as supplier_name,
+               cc.contact_name as customer_contact_name,
+               sc.contact_name as supplier_contact_name
+        from crm_sales_order o
+        left join crm_supplier c on c.id = o.customer_id
+        left join crm_supplier s on s.id = o.supplier_id
+        left join crm_supplier_contact cc on cc.id = o.customer_contact_id
+        left join crm_supplier_contact sc on sc.id = o.supplier_contact_id
+    </sql>
+
+    <select id="selectSalesOrderList" parameterType="com.ruoyi.crm.domain.CrmSalesOrder" resultMap="CrmSalesOrderMap">
+        <include refid="selectSalesOrderVo"/>
+        <where>
+            <if test="orderNo != null and orderNo != ''">and o.order_no like concat('%', #{orderNo}, '%')</if>
+            <if test="pn != null and pn != ''">and o.pn like concat('%', #{pn}, '%')</if>
+            <if test="status != null and status != ''">and o.status = #{status}</if>
+            <if test="params != null and params.beginTime != null and params.beginTime != ''">
+                and o.order_date &gt;= #{params.beginTime}
+            </if>
+            <if test="params != null and params.endTime != null and params.endTime != ''">
+                and o.order_date &lt;= #{params.endTime}
+            </if>
+        </where>
+        order by o.booking_month desc, o.order_date desc, o.id desc
+    </select>
+
+    <select id="selectSalesOrderById" parameterType="long" resultMap="CrmSalesOrderMap">
+        <include refid="selectSalesOrderVo"/>
+        where o.id = #{id}
+    </select>
+
+    <select id="selectSalesOrderOptions" resultMap="CrmSalesOrderMap">
+        select o.id, o.order_no, o.pn, o.po_me_no, o.pi_me_no,
+               c.supplier_name as customer_name
+        from crm_sales_order o
+        left join crm_supplier c on c.id = o.customer_id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                and (o.order_no like concat('%', #{keyword}, '%')
+                  or o.pn like concat('%', #{keyword}, '%')
+                  or o.customer_po_no like concat('%', #{keyword}, '%')
+                  or o.po_me_no like concat('%', #{keyword}, '%')
+                  or o.pi_me_no like concat('%', #{keyword}, '%'))
+            </if>
+        </where>
+        order by o.id desc
+        limit 100
+    </select>
+
+    <select id="countOrderNo" resultType="int">
+        select count(1) from crm_sales_order
+        where order_no = #{orderNo}
+        <if test="excludeId != null">and id != #{excludeId}</if>
+    </select>
+
+    <insert id="insertSalesOrder" parameterType="com.ruoyi.crm.domain.CrmSalesOrder" useGeneratedKeys="true" keyProperty="id">
+        insert into crm_sales_order(
+            order_no, order_date, booking_date, booking_month, cooperation_status, pn, desp, product_types, status,
+            quantity, customer_id, customer_po_no, pi_me_no, sale_price, sales_amount, payment_received_date,
+            supplier_id, po_me_no, supplier_pi_no, cost_price, purchase_amount, price_diff, gp, profit_rate,
+            payment_date, arrival_date, logistics_fee, carton_spec, gross_weight, sign_receipt_file, photo_file,
+            remark, logistics_reconciliation, customer_contact_id, supplier_contact_id,
+            po_customer_file, pi_our_file, po_our_file, pi_supplier_file, pl_supplier_file, pl_our_file,
+            ci_supplier_file, ci_our_file, entrust_file, sn_file,
+            create_by, create_time, update_by, update_time
+        ) values (
+            #{orderNo}, #{orderDate}, #{bookingDate}, #{bookingMonth}, #{cooperationStatus}, #{pn}, #{desp}, #{productTypes}, #{status},
+            #{quantity}, #{customerId}, #{customerPoNo}, #{piMeNo}, #{salePrice}, #{salesAmount}, #{paymentReceivedDate},
+            #{supplierId}, #{poMeNo}, #{supplierPiNo}, #{costPrice}, #{purchaseAmount}, #{priceDiff}, #{gp}, #{profitRate},
+            #{paymentDate}, #{arrivalDate}, #{logisticsFee}, #{cartonSpec}, #{grossWeight}, #{signReceiptFile}, #{photoFile},
+            #{remark}, #{logisticsReconciliation}, #{customerContactId}, #{supplierContactId},
+            #{poCustomerFile}, #{piOurFile}, #{poOurFile}, #{piSupplierFile}, #{plSupplierFile}, #{plOurFile},
+            #{ciSupplierFile}, #{ciOurFile}, #{entrustFile}, #{snFile},
+            #{createBy}, now(), #{updateBy}, now()
+        )
+    </insert>
+
+    <update id="updateSalesOrder" parameterType="com.ruoyi.crm.domain.CrmSalesOrder">
+        update crm_sales_order
+        set order_no = #{orderNo},
+            order_date = #{orderDate},
+            booking_date = #{bookingDate},
+            booking_month = #{bookingMonth},
+            cooperation_status = #{cooperationStatus},
+            pn = #{pn},
+            desp = #{desp},
+            product_types = #{productTypes},
+            status = #{status},
+            quantity = #{quantity},
+            customer_id = #{customerId},
+            customer_po_no = #{customerPoNo},
+            pi_me_no = #{piMeNo},
+            sale_price = #{salePrice},
+            sales_amount = #{salesAmount},
+            payment_received_date = #{paymentReceivedDate},
+            supplier_id = #{supplierId},
+            po_me_no = #{poMeNo},
+            supplier_pi_no = #{supplierPiNo},
+            cost_price = #{costPrice},
+            purchase_amount = #{purchaseAmount},
+            price_diff = #{priceDiff},
+            gp = #{gp},
+            profit_rate = #{profitRate},
+            payment_date = #{paymentDate},
+            arrival_date = #{arrivalDate},
+            logistics_fee = #{logisticsFee},
+            carton_spec = #{cartonSpec},
+            gross_weight = #{grossWeight},
+            sign_receipt_file = #{signReceiptFile},
+            photo_file = #{photoFile},
+            remark = #{remark},
+            logistics_reconciliation = #{logisticsReconciliation},
+            customer_contact_id = #{customerContactId},
+            supplier_contact_id = #{supplierContactId},
+            po_customer_file = #{poCustomerFile},
+            pi_our_file = #{piOurFile},
+            po_our_file = #{poOurFile},
+            pi_supplier_file = #{piSupplierFile},
+            pl_supplier_file = #{plSupplierFile},
+            pl_our_file = #{plOurFile},
+            ci_supplier_file = #{ciSupplierFile},
+            ci_our_file = #{ciOurFile},
+            entrust_file = #{entrustFile},
+            sn_file = #{snFile},
+            update_by = #{updateBy},
+            update_time = now()
+        where id = #{id}
+    </update>
+
+    <delete id="deleteSalesOrderByIds">
+        delete from crm_sales_order where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+
+</mapper>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.crm.mapper.CrmSalesOrderSnMapper">
+
+    <resultMap id="CrmSalesOrderSnMap" type="com.ruoyi.crm.domain.CrmSalesOrderSn">
+        <id column="id" property="id" />
+        <result column="order_id" property="orderId" />
+        <result column="order_no" property="orderNo" />
+        <result column="pn" property="pn" />
+        <result column="po_me_no" property="poMeNo" />
+        <result column="pi_me_no" property="piMeNo" />
+        <result column="sn_no" property="snNo" />
+        <result column="carton_no" property="cartonNo" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <select id="selectSnList" parameterType="com.ruoyi.crm.domain.CrmSalesOrderSn" resultMap="CrmSalesOrderSnMap">
+        select sn.id, sn.order_id, sn.sn_no, sn.carton_no, sn.create_by, sn.create_time, sn.update_by, sn.update_time,
+               o.order_no, o.pn, o.po_me_no, o.pi_me_no
+        from crm_sales_order_sn sn
+        inner join crm_sales_order o on o.id = sn.order_id
+        <where>
+            <if test="orderId != null">and sn.order_id = #{orderId}</if>
+            <if test="orderNo != null and orderNo != ''">and o.order_no like concat('%', #{orderNo}, '%')</if>
+            <if test="pn != null and pn != ''">and o.pn like concat('%', #{pn}, '%')</if>
+            <if test="snNo != null and snNo != ''">and sn.sn_no like concat('%', #{snNo}, '%')</if>
+        </where>
+        order by sn.id desc
+    </select>
+
+    <select id="countSnNo" resultType="int">
+        select count(1) from crm_sales_order_sn
+        where sn_no = #{snNo}
+        <if test="excludeId != null">and id != #{excludeId}</if>
+    </select>
+
+    <insert id="insertBatchIgnore">
+        insert ignore into crm_sales_order_sn(order_id, sn_no, carton_no, create_by, create_time, update_by, update_time)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.orderId}, #{item.snNo}, #{item.cartonNo}, #{item.createBy}, now(), #{item.updateBy}, now())
+        </foreach>
+    </insert>
+
+    <update id="updateSn" parameterType="com.ruoyi.crm.domain.CrmSalesOrderSn">
+        update crm_sales_order_sn
+        set sn_no = #{snNo},
+            carton_no = #{cartonNo},
+            update_by = #{updateBy},
+            update_time = now()
+        where id = #{id}
+    </update>
+
+    <delete id="deleteSnByIds">
+        delete from crm_sales_order_sn where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+
+    <delete id="deleteSnByOrderIds">
+        delete from crm_sales_order_sn where order_id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+
+</mapper>

@@ -50,6 +50,18 @@ public class WeChatClassifyScheduler {
         }
     }
 
+    /** 分类/录入/任务失败聚合告警：09:00-21:30 每10分钟检查一次。 */
+    public void alertFailures() {
+        try {
+            Map<String, Object> result = gateway.alertFailureBurst();
+            if (Boolean.TRUE.equals(result.get("alertSent"))) {
+                log.info("微信自动化失败聚合告警已发送: {}", result.get("message"));
+            }
+        } catch (Exception e) {
+            log.error("定时微信自动化失败聚合告警失败", e);
+        }
+    }
+
     /** 历史消息清理：默认每 6 小时执行一次。 */
     public void purgeOldMessages() {
         try {

@@ -69,6 +69,11 @@ public interface WeChatMessageMapper {
 
     List<java.util.Map<String, Object>> entryStatusStats(@Param("since") String since);
 
+    java.util.Map<String, Object> failureBurstStats(@Param("since") String since);
+
+    List<java.util.Map<String, Object>> queryRecentFailureSamples(@Param("since") String since,
+                                                                  @Param("max") int max);
+
     int markEntryProcessing(@Param("username") String username, @Param("localId") long localId,
                             @Param("timeoutSec") int timeoutSec, @Param("retryBaseSec") int retryBaseSec);
 

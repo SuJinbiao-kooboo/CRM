@@ -39,6 +39,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1999,9 +2001,108 @@ public class WeChatGatewayService {
                 WeChatEntryRetryPolicy.DEFAULT_BASE_DELAY_SEC));
     }
 
-    /** AI 单次调用已有总时限，处理中超过4分钟视为遗留锁并自动解锁。 */
+    /** 录入解锁时限必须大于AI总超时，避免模型仍在返回时被下一轮扫描误判为遗留锁。 */
     private int entryProcessingTimeoutSec() {
-        return Math.max(60, Math.min(1800, analysisInt("offerEntryProcessingTimeoutSec", 240)));
+        int configured = Math.max(60, Math.min(1800,
+                analysisInt("offerEntryProcessingTimeoutSec", 360)));
+        int aiFloor = Math.max(60, Math.min(1800, (aiChannelService.timeoutMs() + 999) / 1000 + 60));
+        return Math.max(configured, aiFloor);
+    }
+
+    /** 09:00-21:30 每10分钟检查一次近期分类、录入和任务失败，达到阈值后推送飞书。 */
+    public Map<String, Object> alertFailureBurst() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        boolean enabled = config.bool("failureAlertEnabled", true);
+        LocalTime now = LocalTime.now(ZoneId.of("Asia/Shanghai"));
+        boolean inWindow = !now.isBefore(LocalTime.of(9, 0)) && !now.isAfter(LocalTime.of(21, 30));
+        out.put("enabled", enabled);
+        out.put("inWindow", inWindow);
+        out.put("checkedAt", fmtTime(System.currentTimeMillis()));
+        if (!enabled) {
+            out.put("alertSent", false);
+            out.put("message", "失败聚合告警已关闭(failureAlertEnabled=false)");
+            return out;
+        }
+        if (!inWindow) {
+            out.put("alertSent", false);
+            out.put("message", "当前不在失败聚合告警时段(09:00-21:30)");
+            return out;
+        }
+
+        int windowMin = Math.max(10, Math.min(180, analysisInt("failureAlertWindowMin", 30)));
+        int threshold = Math.max(1, Math.min(100, analysisInt("failureAlertThreshold", 3)));
+        String since = fmtTime(System.currentTimeMillis() - windowMin * 60_000L);
+        Map<String, Object> stats = store.failureBurstStats(since);
+        int classifyFailed = mapInt(stats, "classify_failed");
+        int entryFailed = mapInt(stats, "entry_failed");
+        int entryDead = mapInt(stats, "entry_dead");
+        int taskFailed = mapInt(stats, "task_failed");
+        int total = classifyFailed + entryFailed + entryDead + taskFailed;
+        out.put("windowMin", windowMin);
+        out.put("threshold", threshold);
+        out.put("classifyFailed", classifyFailed);
+        out.put("entryFailed", entryFailed);
+        out.put("entryDead", entryDead);
+        out.put("taskFailed", taskFailed);
+        out.put("totalFailed", total);
+        if (total < threshold) {
+            out.put("alertSent", false);
+            out.put("message", "最近" + windowMin + "分钟失败" + total + "条，未达到告警阈值" + threshold);
+            return out;
+        }
+
+        List<Map<String, Object>> samples = store.recentFailureSamples(since, 10);
+        StringBuilder detail = new StringBuilder();
+        detail.append("统计窗口: 最近").append(windowMin).append("分钟\n")
+                .append("告警时段: 09:00-21:30，每10分钟最多一次\n")
+                .append("分类失败: ").append(classifyFailed).append(" 条\n")
+                .append("录入失败: ").append(entryFailed).append(" 条\n")
+                .append("录入重试耗尽(DEAD): ").append(entryDead).append(" 条\n")
+                .append("任务生成失败: ").append(taskFailed).append(" 条\n")
+                .append("合计: ").append(total).append(" 条，告警阈值 ").append(threshold).append(" 条\n");
+        if (!samples.isEmpty()) {
+            detail.append("\n最近失败明细:\n");
+            for (Map<String, Object> row : samples) {
+                detail.append("- #").append(mapText(row, "id")).append(' ')
+                        .append(mapText(row, "failure_type")).append(" | ")
+                        .append(mapText(row, "name")).append(" / ")
+                        .append(mapText(row, "sender")).append(" / ")
+                        .append(mapText(row, "msg_category")).append('\n')
+                        .append("  ").append(mapText(row, "failure_detail")).append('\n');
+            }
+        }
+        detail.append("\n处理建议: 到“微信消息列表”按分类/录入/任务状态筛选，修正配置或数据后重新入队。");
+
+        String event = "WECHAT_FAILURE|" + (System.currentTimeMillis() / 600_000L);
+        boolean sent = aiChannelService.alert(event,
+                "【微信自动化-失败告警】最近" + windowMin + "分钟失败 " + total + " 条",
+                detail.toString());
+        out.put("alertSent", sent);
+        out.put("message", sent ? "失败聚合告警已发送" : "失败聚合告警发送失败，请检查 sys.ai.alert.webhook");
+        return out;
+    }
+
+    private int mapInt(Map<String, Object> map, String key) {
+        Object value = map == null ? null : map.get(key);
+        if (value == null && map != null) {
+            value = map.get(key.toUpperCase(Locale.ROOT));
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        try {
+            return value == null ? 0 : Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private String mapText(Map<String, Object> map, String key) {
+        Object value = map == null ? null : map.get(key);
+        if (value == null && map != null) {
+            value = map.get(key.toUpperCase(Locale.ROOT));
+        }
+        return value == null ? "" : String.valueOf(value);
     }
 
     /** INQ/OFFER 自动录入参数与运行状态（便于 Postman 观察）。 */

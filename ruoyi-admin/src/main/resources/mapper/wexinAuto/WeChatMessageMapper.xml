@@ -354,6 +354,52 @@
         GROUP BY entry_status ORDER BY entry_status
     </select>
 
+    <select id="failureBurstStats" resultType="java.util.Map">
+        SELECT
+            COALESCE(SUM(CASE WHEN classify_status = 'FAILED' AND classify_at &gt;= #{since}
+                              THEN 1 ELSE 0 END), 0) AS classify_failed,
+            COALESCE(SUM(CASE WHEN entry_status = 'FAILED' AND entry_at &gt;= #{since}
+                              THEN 1 ELSE 0 END), 0) AS entry_failed,
+            COALESCE(SUM(CASE WHEN entry_status = 'DEAD' AND entry_at &gt;= #{since}
+                              THEN 1 ELSE 0 END), 0) AS entry_dead,
+            COALESCE(SUM(CASE WHEN task_status = 'FAILED' AND task_at &gt;= #{since}
+                              THEN 1 ELSE 0 END), 0) AS task_failed
+        FROM wechat_message
+        WHERE (classify_status = 'FAILED' AND classify_at &gt;= #{since})
+           OR (entry_status IN ('FAILED','DEAD') AND entry_at &gt;= #{since})
+           OR (task_status = 'FAILED' AND task_at &gt;= #{since})
+    </select>
+
+    <select id="queryRecentFailureSamples" resultType="java.util.Map">
+        SELECT id, name, sender, msg_category,
+               CASE
+                   WHEN entry_status = 'DEAD' THEN '录入DEAD'
+                   WHEN entry_status = 'FAILED' THEN '录入FAILED'
+                   WHEN classify_status = 'FAILED' THEN '分类FAILED'
+                   WHEN task_status = 'FAILED' THEN '任务FAILED'
+                   ELSE 'FAILED'
+               END AS failure_type,
+               CASE
+                   WHEN entry_status IN ('FAILED','DEAD')
+                       THEN LEFT(COALESCE(NULLIF(entry_message, ''), '未记录录入失败原因'), 200)
+                   WHEN classify_status = 'FAILED'
+                       THEN LEFT(COALESCE(NULLIF(category_reason, ''), '未记录分类失败原因'), 200)
+                   WHEN task_status = 'FAILED'
+                       THEN LEFT(COALESCE(NULLIF(task_failure_reason, ''),
+                                         NULLIF(task_message, ''), '未记录任务失败原因'), 200)
+                   ELSE ''
+               END AS failure_detail,
+               GREATEST(COALESCE(entry_at, '1970-01-01 00:00:00'),
+                        COALESCE(task_at, '1970-01-01 00:00:00'),
+                        COALESCE(classify_at, '1970-01-01 00:00:00')) AS failed_at
+        FROM wechat_message
+        WHERE (classify_status = 'FAILED' AND classify_at &gt;= #{since})
+           OR (entry_status IN ('FAILED','DEAD') AND entry_at &gt;= #{since})
+           OR (task_status = 'FAILED' AND task_at &gt;= #{since})
+        ORDER BY failed_at DESC
+        LIMIT #{max}
+    </select>
+
     <update id="markEntryProcessing">
         UPDATE wechat_message
         SET entry_status = 'PROCESSING', entry_message = 'AI录入处理中', entry_at = NOW()

@@ -425,6 +425,24 @@ public class WeChatMessageStore {
         }
     }
 
+    public Map<String, Object> failureBurstStats(String since) {
+        try {
+            return mapper.failureBurstStats(since);
+        } catch (Exception e) {
+            log.error("查询微信自动化失败聚合统计失败", e);
+            return Collections.emptyMap();
+        }
+    }
+
+    public List<Map<String, Object>> recentFailureSamples(String since, int max) {
+        try {
+            return mapper.queryRecentFailureSamples(since, Math.max(1, Math.min(30, max)));
+        } catch (Exception e) {
+            log.error("查询微信自动化失败明细失败", e);
+            return Collections.emptyList();
+        }
+    }
+
     /** 原子领取一条待录入消息，防止定时任务和手动触发重复处理。 */
     public boolean markEntryProcessing(String username, long localId, int timeoutSec, int retryBaseSec) {
         try {

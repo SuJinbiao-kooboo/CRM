@@ -66,9 +66,9 @@ SELECT 'AI主渠道恢复探测间隔(秒)', 'sys.ai.backup.check.sec', '300', '
 WHERE NOT EXISTS (SELECT 1 FROM sys_config WHERE config_key = 'sys.ai.backup.check.sec');
 
 -- 4) 超时与告警
-UPDATE sys_config SET config_value = '120000', update_by = 'admin', update_time = NOW() WHERE config_key = 'sys.ai.timeout.ms';
+UPDATE sys_config SET config_value = '300000', update_by = 'admin', update_time = NOW() WHERE config_key = 'sys.ai.timeout.ms';
 INSERT INTO sys_config (config_name, config_key, config_value, config_type, create_by, create_time, update_by, update_time, remark)
-SELECT 'AI接口超时(毫秒)', 'sys.ai.timeout.ms', '120000', 'Y', 'admin', NOW(), 'admin', NOW(), '单次模型调用2分钟；网络超时不重复重试，避免阻塞自动任务'
+SELECT 'AI接口超时(毫秒)', 'sys.ai.timeout.ms', '300000', 'Y', 'admin', NOW(), 'admin', NOW(), '单次模型调用5分钟；长报价和多行物料需要更长响应时间，网络超时不重复重试'
 WHERE NOT EXISTS (SELECT 1 FROM sys_config WHERE config_key = 'sys.ai.timeout.ms');
 
 UPDATE sys_config SET config_value = '', update_by = 'admin', update_time = NOW() WHERE config_key = 'sys.ai.alert.webhook';

@@ -54,8 +54,8 @@ public class DeepSeekAiService {
     /** 会话缓存key前缀：按登录用户隔离（AI录入与料号查询共用物料解析会话） */
     private static final String SESSION_KEY_PREFIX = "ai:session:material:";
 
-    /** Excel/CSV报价附件通常包含多条物料，单次解析比普通粘贴文本耗时更长，至少保留3分钟。 */
-    private static final int ATTACHMENT_TIMEOUT_MS = 3 * 60 * 1000;
+    /** Excel/CSV报价附件通常包含多条物料，单次解析比普通粘贴文本耗时更长，至少保留5分钟。 */
+    private static final int ATTACHMENT_TIMEOUT_MS = 5 * 60 * 1000;
 
     @Autowired
     private RedisCache redisCache;

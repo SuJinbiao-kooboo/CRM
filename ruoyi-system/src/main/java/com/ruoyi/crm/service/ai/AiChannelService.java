@@ -79,8 +79,8 @@ public class AiChannelService {
     private static final int DEFAULT_FAIL_THRESHOLD = 3;
     /** 默认主渠道恢复探测间隔（秒） */
     private static final int DEFAULT_BACKUP_CHECK_SEC = 300;
-    /** 默认调用超时（毫秒）：2分钟；避免单次模型卡住长时间占用自动任务队列 */
-    private static final int DEFAULT_TIMEOUT_MS = 2 * 60 * 1000;
+    /** 默认调用超时（毫秒）：5分钟；多行报价等长文本需要更充足的模型响应时间 */
+    private static final int DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
     /** 默认告警冷却（秒） */
     private static final int DEFAULT_ALERT_COOLDOWN_SEC = 600;
 

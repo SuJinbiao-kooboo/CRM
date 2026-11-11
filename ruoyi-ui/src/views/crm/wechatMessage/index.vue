@@ -76,6 +76,18 @@
               <li><b>定时任务位置</b>：系统监控 → 定时任务 → 任务组 <code>WECHAT</code> → <code>微信自动化-TRACE预警</code>；可在此启停、修改 cron 和查看调度日志。</li>
               <li><b>飞书机器人</b>：应用凭证位于 <code>ruoyi-admin/src/main/resources/application.yml</code> 的 <code>feishu.app-id</code>、<code>feishu.app-secret</code>；生产环境可用环境变量 <code>FEISHU_APP_SECRET</code> 注入密钥。</li>
             </ul>
+            <div class="help-title">飞书消息清单（统一管理）</div>
+            <ul>
+              <li><b>统一发送出口</b>：本页业务告警和推送都走系统参数 <code>sys.ai.alert.webhook</code>，并受 <code>sys.ai.alert.cooldown.sec</code> 冷却限制；飞书机器人主动接口和回调回复走另一套 <code>/feishu/**</code> 接口。</li>
+              <li><b>AI 渠道故障/恢复</b>：<code>AiChannelService</code> 在主渠道连续失败、切换备用渠道、备用渠道仍失败、主渠道恢复时推送。</li>
+              <li><b>微信 TRACE 预警</b>：外部 TRACE 且已关联 INQ/OFFER 时推送；同一条成功预警永久去重，同会话按 <code>traceAlertChatCooldownMin</code> 冷却，历史消息受 <code>traceAlertMaxAgeMin</code> 限制。</li>
+              <li><b>Offer 待跟进</b>：微信 OFFER 自动录入成功后，CPU 料号全部推送，其他料号按价格优势阈值筛选；每次按“好价报价”和“相关聊天记录”各推送一条。</li>
+              <li><b>好价格 Offer 定时推送</b>：每天 09:00-21:00 整点执行，推送最近 2 天最低价；同一自然日且内容一致时只推送一次。</li>
+              <li><b>供应商群配置缺失</b>：每天 09:00 检查启用供应商，采购群和销售群都为空时推送告警。</li>
+              <li><b>微信自动化失败聚合</b>：09:00-21:30 每 10 分钟检查一次；最近 <code>failureAlertWindowMin</code> 分钟内的分类失败、录入失败、录入 DEAD、任务生成失败合计达到 <code>failureAlertThreshold</code>（默认 3 条）时推送，同一 10 分钟窗口最多一条。</li>
+              <li><b>飞书机器人接口/回调</b>：<code>/feishu/message/sendText</code>、<code>sendQuestion</code>、<code>sendReport</code>、<code>sendFile</code> 可主动发送；机器人收到文本、A/B/C/D、<code>汇报</code>、<code>提问</code>、<code>codex ...</code> 或普通指令后会回传处理消息、结果和产出文件。</li>
+              <li><b>独立桥接服务</b>：如启用 <code>feishu-codex-bridge</code>，其机器人长连接和 Codex 结果回传也会发送飞书消息，需要和本页 webhook 告警分开管理。</li>
+            </ul>
             <div class="help-title">多消息聚合录入</div>
             <ul>
               <li><b>聚合范围</b>：同一会话 + 同一发送人，相邻消息时间差不超过 <code>offerEntryGroupGapSec</code>（默认 30 秒）时视为一组；回复同一条引用消息的补充内容，在 <code>offerEntryQuoteLinkSec</code>（默认 1800 秒）内也会并入同组；不同发送人、不同会话不会并入同一组。</li>
@@ -98,11 +110,12 @@
               <li><b>offerEntryEnabled</b>：INQ/OFFER 自动录入总开关。关闭时“微信自动化-INQ/OFFER录入”定时任务不会查询待录入消息；开启后按 <b>offerEntryScanSec</b> 扫描、每批最多 <b>offerEntryBatchSize</b> 条，并按消息时间从早到晚排队。</li>
               <li><b>autoTaskGenerateEnabled</b>：自动任务生成开关。关闭时消息录入成功后仍会保持 <code>task_status=PENDING</code>；任务状态旁的感叹号会显示该原因，可到“微信询报价任务”页面手动点击“生成任务”。</li>
               <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息的整组分类与录入聚合间隔秒数（默认 30）；<b>aiContextWindow</b>：纯价格 OFFER、纯数量 INQ 录入和 AI 分类共同使用的最近消息条数（默认 20）；<b>offerEntryQuoteLinkSec</b>：同一引用消息的补充回复聚合窗口秒数（默认 1800）；<b>offerEntryMaxAgeHours</b>：自动录入最大回溯小时数。</li>
-              <li><b>失败重试</b>：<code>offerEntryMaxFail</code> 为首次失败后的重试次数（默认 3 次，总尝试 4 次）；<code>offerEntryRetryBaseSec</code> 为首次退避秒数（默认 60，按 60/120/240 秒指数递增）；<code>offerEntryProcessingTimeoutSec</code> 为 PROCESSING 自动解锁秒数（默认 240）。重试前会按微信消息来源检查已有 Offer，已成功入库的消息不会重复录入。</li>
+              <li><b>失败重试</b>：<code>offerEntryMaxFail</code> 为首次失败后的重试次数（默认 3 次，总尝试 4 次）；<code>offerEntryRetryBaseSec</code> 为首次退避秒数（默认 60，按 60/120/240 秒指数递增）；<code>offerEntryProcessingTimeoutSec</code> 为 PROCESSING 自动解锁秒数（默认 360，且自动取 <code>sys.ai.timeout.ms</code> 对应秒数 + 60 秒作为下限）。重试前会按微信消息来源检查已有 Offer，已成功入库的消息不会重复录入。</li>
               <li><b>录入异常排查</b>：待录入查询失败会写入“系统监控 → 调度日志”的异常信息；单条消息的 AI 录入失败原因见列表的“录入状态/结果”。</li>
               <li><b>traceAlertEnabled</b>：TRACE 告警开关；<b>traceAlertMaxAgeMin</b> 最大消息年龄（默认 360 分钟，即只告警最近 6 小时），<b>traceAlertChatCooldownMin</b> 同群冷却分钟数。</li>
               <li><b>AI 接口</b>：系统管理 → 参数设置中的 <code>sys.ai.enabled</code>、<code>sys.ai.base.url</code>、<code>sys.ai.api.key</code>、<code>sys.ai.model</code>。</li>
-              <li><b>录入耗时保护</b>：<code>sys.ai.timeout.ms</code> 控制单次模型调用的总时限（当前 120000 毫秒，即 2 分钟，含主备渠道切换）；Excel/CSV 报价附件因包含多条物料，至少等待 3 分钟。超过 <code>offerEntryProcessingTimeoutSec</code> 仍为 PROCESSING 的消息会自动解锁并按失败进入指数退避，不再阻塞整条录入队列。</li>
+              <li><b>录入耗时保护</b>：<code>sys.ai.timeout.ms</code> 控制单次模型调用的总时限（当前 300000 毫秒，即 5 分钟，含主备渠道切换）；Excel/CSV 报价附件也至少保留 5 分钟。超过 <code>offerEntryProcessingTimeoutSec</code> 仍为 PROCESSING 的消息会自动解锁并按失败进入指数退避，不再阻塞整条录入队列。</li>
+              <li><b>失败聚合告警</b>：<code>failureAlertEnabled</code>、<code>failureAlertThreshold</code>、<code>failureAlertWindowMin</code> 可控制开关、阈值和统计窗口；定时任务为系统监控 → 定时任务 → 任务组 <code>WECHAT</code> → <code>微信自动化-失败聚合告警</code>。</li>
             </ul>
             <div class="help-title">操作提示</div>
             <ul>

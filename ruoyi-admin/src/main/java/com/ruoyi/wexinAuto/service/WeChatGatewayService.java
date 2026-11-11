@@ -150,6 +150,8 @@ public class WeChatGatewayService {
     private volatile long lastPollFinishedAt = 0L;
     /** 上次拉取到的最大 sort_seq(ms)，作为增量水位；0=尚未初始化(首轮拉 pollInitBackSec 历史) */
     private volatile long lastPollMaxSeqMs = 0L;
+    /** 上次周期补偿扫描完成时间(ms)，用于捞回延迟写入微信本地库的旧消息 */
+    private volatile long lastPollReconcileAt = 0L;
     /** 最近一轮 dump 拉到的原始条数(含被忽略名单过滤掉的) */
     private volatile long lastPollFetched = 0L;
     /** 最近一次轮询失败原因；空=最近一次成功 */
@@ -689,6 +691,9 @@ public class WeChatGatewayService {
         m.put("intervalSec", analysisInt("pollIntervalSec", 10));
         m.put("backSec", analysisInt("pollBackSec", 120));
         m.put("initBackSec", analysisInt("pollInitBackSec", 259200));
+        m.put("reconcileSec", analysisInt("pollReconcileSec", 600));
+        m.put("reconcileBackSec", analysisInt("pollReconcileBackSec", 259200));
+        m.put("reconcileLimit", analysisInt("pollReconcileLimit", 10000));
         m.put("limit", analysisInt("pollLimit", 5000));
         m.put("ignoreChats", analysisStr("pollIgnoreChats", ""));
         m.put("blackNames", analysisStr("blackNames", ""));
@@ -703,6 +708,7 @@ public class WeChatGatewayService {
         m.put("lastFetched", lastPollFetched);
         m.put("lastError", lastPollError);
         m.put("watermark", lastPollMaxSeqMs == 0 ? null : fmtTime(lastPollMaxSeqMs));
+        m.put("lastReconcileAt", lastPollReconcileAt == 0 ? null : fmtTime(lastPollReconcileAt));
         Map<String, Object> st = store.unclassifiedStats();
         m.put("unclassifiedCnt", st == null ? 0 : st.get("cnt"));
         m.put("earliestUnclassified", st == null ? null : st.get("earliest"));
@@ -730,50 +736,89 @@ public class WeChatGatewayService {
                 long nowMs = System.currentTimeMillis();
                 long initBackMs = Math.max(60, analysisInt("pollInitBackSec", 259200)) * 1000L;
                 long backMs = Math.max(0, analysisInt("pollBackSec", 120)) * 1000L;
+                int reconcileSec = Math.max(0, Math.min(86400, analysisInt("pollReconcileSec", 600)));
+                long reconcileBackMs = Math.max(backMs,
+                        Math.min(30L * 86400, Math.max(600, analysisInt("pollReconcileBackSec", 259200))) * 1000L);
+                boolean reconcile = reconcileSec > 0 && StringUtils.isBlank(since) && StringUtils.isBlank(chat)
+                        && (lastPollReconcileAt == 0L
+                        || nowMs - lastPollReconcileAt >= reconcileSec * 1000L);
                 long sinceMs = (lastPollMaxSeqMs > 0 ? lastPollMaxSeqMs : nowMs - initBackMs) - backMs;
-                List<String> cmd = new ArrayList<>();
-                cmd.add(props.getPython());
-                cmd.add(props.getScript());
-                cmd.add("dump");
-                cmd.add("--since");
-                cmd.add(StringUtils.isNotBlank(since) ? since.trim() : fmtTime(sinceMs));
+                if (reconcile) {
+                    // 微信客户端可能延迟写入旧消息；仅靠全局水位+短回看会永久漏拉。
+                    // 周期性从源库重新扫描最近窗口，已有消息由幂等 upsert 自动去重。
+                    sinceMs = Math.min(sinceMs, nowMs - reconcileBackMs);
+                }
+                int fetchLimit = Math.max(1, analysisInt(reconcile ? "pollReconcileLimit" : "pollLimit",
+                        reconcile ? 10000 : 5000));
+                int maxPages = reconcile ? 100 : 1;
+                int pages = 0;
+                long totalFetched = 0L;
+                long totalKept = 0L;
+                String sinceArg = StringUtils.isNotBlank(since) ? since.trim() : fmtTime(sinceMs);
                 if (StringUtils.isNotBlank(since)) {
                     log.info("手动指定 since 拉取: {}", since.trim());
                 }
-                if (StringUtils.isNotBlank(chat)) {
-                    cmd.add("--chat");
-                    cmd.add(chat);
-                }
-                if (media) {
-                    cmd.add("--media");
-                    cmd.add(props.getMediaDir());
-                }
-                cmd.add("--limit");
-                cmd.add(String.valueOf(Math.max(1, analysisInt("pollLimit", 5000))));
-                List<WeChatMessage> raw = runProcess(cmd, true);
-                if (raw == null) {
-                    raw = new ArrayList<>();
-                }
-                long maxSeq = lastPollMaxSeqMs;
-                for (WeChatMessage m : raw) {
-                    maxSeq = Math.max(maxSeq, m.getSortSeq());
-                }
-                lastPollMaxSeqMs = maxSeq;
-                long kept = 0;
-                if (!raw.isEmpty()) {
-                    List<WeChatMessage> normal = new ArrayList<>();
-                    List<WeChatMessage> black = new ArrayList<>();
-                    splitExcludedChats(raw, normal, black);
-                    if (!black.isEmpty()) {
-                        log.info("排除会话消息 {} 条转存 wechat_message_black(不处理)", black.size());
-                        store.saveBlackAll(black);
+                while (pages < maxPages) {
+                    List<String> cmd = new ArrayList<>();
+                    cmd.add(props.getPython());
+                    cmd.add(props.getScript());
+                    cmd.add("dump");
+                    cmd.add("--since");
+                    cmd.add(sinceArg);
+                    if (StringUtils.isNotBlank(chat)) {
+                        cmd.add("--chat");
+                        cmd.add(chat);
                     }
-                    if (!normal.isEmpty()) {
-                        kept = store.saveAll(normal);
+                    if (media) {
+                        cmd.add("--media");
+                        cmd.add(props.getMediaDir());
                     }
+                    cmd.add("--limit");
+                    cmd.add(String.valueOf(fetchLimit));
+                    List<WeChatMessage> raw = runProcess(cmd, true);
+                    if (raw == null) {
+                        raw = new ArrayList<>();
+                    }
+                    totalFetched += raw.size();
+                    long batchMaxSeq = sinceMs;
+                    long maxSeq = lastPollMaxSeqMs;
+                    for (WeChatMessage m : raw) {
+                        maxSeq = Math.max(maxSeq, m.getSortSeq());
+                        batchMaxSeq = Math.max(batchMaxSeq, m.getSortSeq());
+                    }
+                    lastPollMaxSeqMs = maxSeq;
+                    if (!raw.isEmpty()) {
+                        List<WeChatMessage> normal = new ArrayList<>();
+                        List<WeChatMessage> black = new ArrayList<>();
+                        splitExcludedChats(raw, normal, black);
+                        if (!black.isEmpty()) {
+                            log.info("排除会话消息 {} 条转存 wechat_message_black(不处理)", black.size());
+                            store.saveBlackAll(black);
+                        }
+                        if (!normal.isEmpty()) {
+                            totalKept += store.saveAll(normal);
+                        }
+                    }
+                    pages++;
+                    if (!reconcile || raw.size() < fetchLimit) {
+                        break;
+                    }
+                    long nextSinceMs = Math.max(sinceMs + 1000L, batchMaxSeq);
+                    if (nextSinceMs <= sinceMs) {
+                        log.warn("周期补偿扫描无法继续推进: since={}, batchMaxSeq={}", fmtTime(sinceMs), batchMaxSeq);
+                        break;
+                    }
+                    sinceMs = nextSinceMs;
+                    sinceArg = fmtTime(sinceMs);
+                    log.info("周期补偿分批: 第 {} 页拉到 {} 条，继续从 {} 扫描", pages, raw.size(), sinceArg);
                 }
-                lastPollFetched = raw.size();
-                log.info("轮询拉取完成: 拉到 {} 条, 入库 {} 条, 水位 {}", raw.size(), kept, fmtTime(lastPollMaxSeqMs));
+                if (reconcile) {
+                    lastPollReconcileAt = System.currentTimeMillis();
+                }
+                lastPollFetched = totalFetched;
+                log.info("轮询拉取完成({}): 拉到 {} 条, 入库 {} 条, 水位 {}{}",
+                        reconcile ? "周期补偿" : "增量", totalFetched, totalKept, fmtTime(lastPollMaxSeqMs),
+                        pages > 1 ? "，补偿页数 " + pages : "");
                 return true;
             } catch (Exception e) {
                 lastPollError = e.getMessage() == null ? e.toString() : e.getMessage();

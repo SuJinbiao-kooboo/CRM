@@ -928,7 +928,7 @@ public class WeChatOfferTaskService {
             return out;
         }
         if (!manual) {
-            long scanSec = Math.max(5, config.integer("taskSendScanSec", 30));
+            long scanSec = Math.max(30, config.integer("taskSendScanSec", 600));
             if (lastSendAt > 0 && System.currentTimeMillis() - lastSendAt < scanSec * 1000L) {
                 out.put("message", "未到发送扫描间隔(taskSendScanSec=" + scanSec + "s)");
                 return out;
@@ -936,7 +936,7 @@ public class WeChatOfferTaskService {
             lastSendAt = System.currentTimeMillis();
         }
         int maxAttempts = Math.max(1, config.integer("taskSendMaxAttempts", 3));
-        int scanMax = Math.max(1, Math.min(500, config.integer("taskSendScanBatchSize", 200)));
+        int scanMax = Math.max(1, Math.min(500, config.integer("taskSendScanBatchSize", 50)));
         List<WeChatOfferTask> candidates = taskMapper.selectSendCandidates(maxAttempts, scanMax);
         List<WeChatOfferTask> pending = new ArrayList<>();
         for (WeChatOfferTask task : candidates) {
@@ -958,7 +958,12 @@ public class WeChatOfferTaskService {
             throw new ServiceException("微信当前登录账号不是 " + expectedAccount + "，已停止自动发送");
         }
         List<SendGroup> groups = buildGroups(pending);
-        int chunkSize = Math.max(1, Math.min(20, config.integer("taskSendBatchSize", 20)));
+        int totalGroups = groups.size();
+        int roundMax = Math.max(1, Math.min(50, config.integer("taskSendRoundMax", 3)));
+        if (groups.size() > roundMax) {
+            groups = new ArrayList<>(groups.subList(0, roundMax));
+        }
+        int chunkSize = Math.max(1, Math.min(20, config.integer("taskSendBatchSize", 3)));
         int sentGroups = 0;
         int failedGroups = 0;
         for (int start = 0; start < groups.size(); start += chunkSize) {
@@ -1024,9 +1029,12 @@ public class WeChatOfferTaskService {
         }
         out.put("scannedTasks", candidates.size());
         out.put("sendGroups", groups.size());
+        out.put("pendingGroups", Math.max(0, totalGroups - groups.size()));
         out.put("sentGroups", sentGroups);
         out.put("failedGroups", failedGroups);
-        out.put("message", "发送扫描完成：目标组 " + groups.size() + "，成功 " + sentGroups + "，失败 " + failedGroups);
+        out.put("message", "发送扫描完成：本轮目标组 " + groups.size() + "/" + totalGroups
+                + "，成功 " + sentGroups + "，失败 " + failedGroups
+                + (totalGroups > groups.size() ? "，其余目标顺延下一轮" : ""));
         return out;
     }
 

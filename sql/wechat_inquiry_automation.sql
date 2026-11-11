@@ -137,7 +137,7 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_defa
 SELECT 206, 'autoSendEnabled', 'false', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '自动发送定时开关'
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='wechat_analysis_config' AND dict_label='autoSendEnabled');
 INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark)
-SELECT 207, 'taskSendScanSec', '30', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '自动发送扫描秒数'
+SELECT 207, 'taskSendScanSec', '600', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '自动发送扫描秒数'
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='wechat_analysis_config' AND dict_label='taskSendScanSec');
 INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark)
 SELECT 208, 'taskSendMaxAttempts', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '单目标发送最大尝试次数'
@@ -158,11 +158,14 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_defa
 SELECT 213, 'taskGenerateBatchSize', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '单轮任务生成消息数'
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='wechat_analysis_config' AND dict_label='taskGenerateBatchSize');
 INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark)
-SELECT 214, 'taskSendScanBatchSize', '200', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '单轮发送扫描任务上限'
+SELECT 214, 'taskSendScanBatchSize', '50', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '单轮发送扫描任务上限'
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='wechat_analysis_config' AND dict_label='taskSendScanBatchSize');
 INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark)
-SELECT 215, 'taskSendBatchSize', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '单次网关发送目标上限'
+SELECT 215, 'taskSendBatchSize', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '单次网关发送目标上限'
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='wechat_analysis_config' AND dict_label='taskSendBatchSize');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark)
+SELECT 217, 'taskSendRoundMax', '3', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '单轮发送最多处理的目标组数，超出顺延下一轮'
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='wechat_analysis_config' AND dict_label='taskSendRoundMax');
 
 UPDATE sys_dict_data SET dict_value='Eke,May,Jin,Jasmine' WHERE dict_type='wechat_analysis_config' AND dict_label='selfNames'
   AND NOT EXISTS (SELECT 1 FROM wechat_automation_migration WHERE migration_key='CONFIG_V1');

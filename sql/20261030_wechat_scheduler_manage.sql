@@ -65,6 +65,6 @@ WHERE NOT EXISTS (SELECT 1 FROM sys_job WHERE invoke_target = 'weChatClassifySch
 -- 7. 询报价任务发送：每10秒检查
 INSERT INTO sys_job
     (job_name, job_group, invoke_target, cron_expression, misfire_policy, concurrent, status, create_by, create_time, remark)
-SELECT '微信自动化-任务发送', 'WECHAT', 'weChatClassifyScheduler.scanTaskSend()', '0/10 * * * * ?', '3', '1', '0', 'admin', NOW(), '实际开关和间隔由字典 autoSendEnabled / taskSendScanSec 控制'
+SELECT '微信自动化-任务发送', 'WECHAT', 'weChatClassifyScheduler.scanTaskSend()', '0/10 * * * * ?', '3', '1', '0', 'admin', NOW(), '安全发送限频：calm；间隔30~60s；单批≤3；每轮≤3组；每600s扫描；maxBatch=3；verify=true；autoSendEnabled=false'
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM sys_job WHERE invoke_target = 'weChatClassifyScheduler.scanTaskSend()');

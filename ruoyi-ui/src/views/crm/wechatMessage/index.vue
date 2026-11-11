@@ -110,6 +110,7 @@
               <li><b>offerEntryEnabled</b>：INQ/OFFER 自动录入总开关。关闭时“微信自动化-INQ/OFFER录入”定时任务不会查询待录入消息；开启后按 <b>offerEntryScanSec</b> 扫描、每批最多 <b>offerEntryBatchSize</b> 条，并按消息时间从早到晚排队。</li>
               <li><b>autoTaskGenerateEnabled</b>：自动任务生成开关。关闭时消息录入成功后仍会保持 <code>task_status=PENDING</code>；任务状态旁的感叹号会显示该原因，可到“微信询报价任务”页面手动点击“生成任务”。</li>
               <li><b>offerEntryMinAgeSec</b>：录入前消息稳定等待秒数（默认 30）；<b>offerEntryGroupGapSec</b>：同一发送人连续消息的整组分类与录入聚合间隔秒数（默认 30）；<b>aiContextWindow</b>：纯价格 OFFER、纯数量 INQ 录入和 AI 分类共同使用的最近消息条数（默认 20）；<b>offerEntryQuoteLinkSec</b>：同一引用消息的补充回复聚合窗口秒数（默认 1800）；<b>offerEntryMaxAgeHours</b>：自动录入最大回溯小时数。</li>
+              <li><b>漏拉补偿</b>：<code>pollReconcileSec</code> 控制周期补偿间隔（默认 600 秒，0=关闭）；<code>pollReconcileBackSec</code> 控制补偿回看窗口（默认 259200 秒，即 3 天）；<code>pollReconcileLimit</code> 控制每页条数（默认 10000），超过时自动继续向后翻页直至追平。微信客户端延迟写入旧消息或单会话读取短暂失败时，会在下一轮补偿扫描补回；重复消息按唯一键幂等去重。</li>
               <li><b>失败重试</b>：<code>offerEntryMaxFail</code> 为首次失败后的重试次数（默认 3 次，总尝试 4 次）；<code>offerEntryRetryBaseSec</code> 为首次退避秒数（默认 60，按 60/120/240 秒指数递增）；<code>offerEntryProcessingTimeoutSec</code> 为 PROCESSING 自动解锁秒数（默认 360，且自动取 <code>sys.ai.timeout.ms</code> 对应秒数 + 60 秒作为下限）。重试前会按微信消息来源检查已有 Offer，已成功入库的消息不会重复录入。</li>
               <li><b>录入异常排查</b>：待录入查询失败会写入“系统监控 → 调度日志”的异常信息；单条消息的 AI 录入失败原因见列表的“录入状态/结果”。</li>
               <li><b>traceAlertEnabled</b>：TRACE 告警开关；<b>traceAlertMaxAgeMin</b> 最大消息年龄（默认 360 分钟，即只告警最近 6 小时），<b>traceAlertChatCooldownMin</b> 同群冷却分钟数。</li>

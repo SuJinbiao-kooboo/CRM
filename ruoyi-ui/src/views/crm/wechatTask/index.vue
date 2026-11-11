@@ -73,17 +73,26 @@
             </ul>
             <div class="help-title">发送扫描细节</div>
             <ul>
-              <li>只处理 <code>APPROVED_PENDING_SEND</code>、发送目标非空、发送次数小于 <code>taskSendMaxAttempts</code>（默认 3）且非结果未知的任务。</li>
-              <li>单次最多扫描 <code>taskSendScanBatchSize=200</code> 条，按 <code>taskSendBatchSize=20</code> 组分批发送；同一任务类型+同一群名合并为一条消息。</li>
+              <li>只处理 <code>APPROVED_PENDING_SEND</code>、发送目标非空、发送次数小于 <code>taskSendMaxAttempts</code>（当前 3）且非结果未知的任务。</li>
+              <li>单次最多扫描 <code>taskSendScanBatchSize=50</code> 条；每轮最多处理 <code>taskSendRoundMax=3</code> 个目标组，网关每批最多 <code>taskSendBatchSize=3</code> 组，超出的组顺延到下一轮；同一任务类型+同一群名合并为一条消息。</li>
               <li>每个目标成功即写入成功清单；全部成功置“已审批已发送”；失败目标保留在发送目标中，但统一标记 <code>GATEWAY_RESULT_UNKNOWN</code>，不会自动进入下一轮。</li>
               <li>网关返回失败、异常或结果不完整时停止本轮并标记为结果未知，需人工核实确实未发送后点“确认未发送”，避免重复发送。</li>
-              <li>自动扫描由 <code>autoSendEnabled=true</code> 开启，间隔 <code>taskSendScanSec=30</code> 秒。</li>
+              <li>自动扫描由 <code>autoSendEnabled=true</code> 开启，间隔 <code>taskSendScanSec=600</code> 秒（每 10 分钟最多一轮）。</li>
+            </ul>
+            <div class="help-title">防封限频（当前生产配置）</div>
+            <ul>
+              <li>网关拟人节奏 <code>rhythm=calm</code>：5 分钟内最多 3 次写动作，超限自动冷却 60~150 秒。</li>
+              <li>目标之间随机间隔 <code>interval=30~60</code> 秒；等待抖动倍率 <code>nap=1.1~1.8</code>，不采用固定节奏。</li>
+              <li>单批上限 <code>maxBatch=3</code>；每轮最多 <code>taskSendRoundMax=3</code> 个目标组、每批最多 <code>taskSendBatchSize=3</code> 组；<code>verify=true</code> 发送后回读数据库防重复发送。</li>
+              <li><code>autoSendEnabled</code> 保持 <code>false</code>；仅在微信已登录、固定账号 <code>autoSendAccount=Eke</code>、人工单发验证通过后再开启。</li>
+              <li>修改 <code>wechat_send_config</code> 或 <code>wechat_analysis_config</code> 后，必须刷新字典缓存或重启后端才会生效。</li>
             </ul>
             <div class="help-title">配置位置</div>
             <ul>
-              <li>系统管理 → 字典管理 → 字典类型 <code>wechat_analysis_config</code>。</li>
+              <li>系统管理 → 字典管理 → 字典类型 <code>wechat_analysis_config</code>（发送开关、扫描间隔、批次）。</li>
+              <li>系统管理 → 字典管理 → 字典类型 <code>wechat_send_config</code>（拟人节奏、随机间隔、单批上限、回读确认）。</li>
               <li><b>生成</b>：<code>autoTaskGenerateEnabled</code>、<code>taskGenerateScanSec</code>、<code>taskGenerateBatchSize</code>、<code>msgRetentionDays</code>。</li>
-              <li><b>发送</b>：<code>autoSendEnabled</code>、<code>taskSendScanSec</code>、<code>taskSendMaxAttempts</code>、<code>taskSendScanBatchSize</code>、<code>taskSendBatchSize</code>、<code>autoSendAccount</code>。</li>
+              <li><b>发送</b>：<code>autoSendEnabled</code>、<code>taskSendScanSec</code>、<code>taskSendMaxAttempts</code>、<code>taskSendScanBatchSize</code>、<code>taskSendRoundMax</code>、<code>taskSendBatchSize</code>、<code>autoSendAccount</code>。</li>
               <li><b>INQ 直接回复</b>：<code>inqMatchDayNo</code>，默认 2，表示昨天 00:00 至当前；该窗口同时用于客户 INQ 与供应商 OFFER 的关联。</li>
               <li><b>待跟进告警</b>：<code>offerFollowUpMaxAgeMin</code>，默认 360 分钟；超过该时效的历史 OFFER 补录后仍入库、生成任务，但不再推送“Offer待跟进”飞书消息。</li>
             </ul>

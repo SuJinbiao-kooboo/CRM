@@ -17,10 +17,10 @@ WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE dict_type='wechat_send_confi
 -- 2) 字典数据（dict_label = 参数名，dict_value = 参数值，dict_sort = 顺序，remark = 说明）
 INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark) VALUES
 (1, 'rhythm',       'calm',  'wechat_send_config', 'N', '0', 'admin', NOW(), '拟人节奏档位：calm(最稳,推荐) / fast / off'),
-(2, 'napMin',       '1.0',   'wechat_send_config', 'N', '0', 'admin', NOW(), '等待时长抖动倍率下限(>=1.0)，越大越像真人'),
-(3, 'napMax',       '1.6',   'wechat_send_config', 'N', '0', 'admin', NOW(), '等待时长抖动倍率上限'),
-(4, 'intervalMin',  '6',     'wechat_send_config', 'N', '0', 'admin', NOW(), '每条消息随机间隔下限(秒)，越大越安全'),
-(5, 'intervalMax',  '15',    'wechat_send_config', 'N', '0', 'admin', NOW(), '每条消息随机间隔上限(秒)'),
-(6, 'maxBatch',     '20',    'wechat_send_config', 'N', '0', 'admin', NOW(), '单批数量上限，超过直接拒绝发送'),
+(2, 'napMin',       '1.1',   'wechat_send_config', 'N', '0', 'admin', NOW(), '等待时长抖动倍率下限(>=1.0)，越大越像真人'),
+(3, 'napMax',       '1.8',   'wechat_send_config', 'N', '0', 'admin', NOW(), '等待时长抖动倍率上限'),
+(4, 'intervalMin',  '30',     'wechat_send_config', 'N', '0', 'admin', NOW(), '每条消息随机间隔下限(秒)，越大越安全'),
+(5, 'intervalMax',  '60',    'wechat_send_config', 'N', '0', 'admin', NOW(), '每条消息随机间隔上限(秒)'),
+(6, 'maxBatch',     '3',    'wechat_send_config', 'N', '0', 'admin', NOW(), '单批数量上限，超过直接拒绝发送'),
 (7, 'verify',       'true',  'wechat_send_config', 'N', '0', 'admin', NOW(), '发送后是否回读数据库确认(防止重复发送)')
 ON DUPLICATE KEY UPDATE dict_value=VALUES(dict_value), remark=VALUES(remark), status='0';

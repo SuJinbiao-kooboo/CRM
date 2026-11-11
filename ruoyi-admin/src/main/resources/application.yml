@@ -157,8 +157,8 @@ eke:
 
 # 微信网关（仅运行在有微信登录态的 Windows 主机上；其他主机由定时任务 IP 白名单跳过）
 wechat:
-  # 64 位 Python 解释器，需已安装 wechatauto-replica
-  python: ${WECHAT_PYTHON:C:/Software/Python/python.exe}
+  # 64 位 Python 3.12（含 winsdk/OCR），需已安装 wechatauto-replica
+  python: ${WECHAT_PYTHON:C:/Software/GPT/runtime/python312/python.exe}
   # 消息网关脚本
   script: ${WECHAT_SCRIPT:C:/Software/GPT/CRM/wechat-gateway/wx_gateway.py}
   # 图片/语音/视频/文件落地目录

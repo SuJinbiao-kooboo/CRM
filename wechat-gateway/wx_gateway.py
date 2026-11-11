@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """wechatauto 消息网关 —— 给外部程序(如 Java)读取微信本地数据库的桥接层
 
-运行环境: 单一 Python 环境(C:\\Software\\Python), 已装 wechatauto-replica。
+运行环境: 项目内 Python 3.12 (C:\\Software\\GPT\\runtime\\python312\\python.exe)，已装 wechatauto-replica 和 winsdk。
 不新建 venv。Java 每次需要时跑一下本脚本, 读完 stdout 即可, 无需常驻服务。
 
 用法:
@@ -113,6 +113,71 @@ def log(*a):
 def die(msg, code=2):
     log("[错误] %s" % msg)
     sys.exit(code)
+
+
+def configure_wechatauto(verbose=False):
+    """按当前环境设置发送回读超时和 OCR 开关。
+
+    Python 3.13+ 没有 winsdk 预编译轮子；缺 winsdk 时 guia 的 OCR 路径会直接
+    抛 ModuleNotFoundError。这里提前关掉 OCR，让相关操作按“OCR 不可用”
+    优雅降级到 UIA，而不是把发送任务打成异常。
+    """
+    try:
+        from wechatauto.param import WxParam
+    except Exception as e:
+        log("[提示] wechatauto 参数模块加载失败: %s" % e)
+        return
+    try:
+        WxParam.DB_VERIFY_TIMEOUT = float(os.environ.get("WECHAT_VERIFY_TIMEOUT", "20"))
+    except ValueError:
+        WxParam.DB_VERIFY_TIMEOUT = 20.0
+    try:
+        import winsdk  # noqa: F401
+    except Exception:
+        WxParam.ENABLE_OCR = False
+        if verbose:
+            log("[提示] 未检测到 winsdk：OCR 已关闭，发送只走 UIA；"
+                "需要 OCR 兜底请改用 64 位 Python 3.12 并安装 winsdk")
+
+
+def patch_send_verify():
+    """修正发送回读：不依赖写死的 sender_id == 2。
+
+    wechatauto 1.2.9 的 guia._verify_sent 用 ``sender_id == 2`` 判断“这条是我
+    自己发的”。微信 4.1.15.56 的 real_sender_id 是分片 Name2Id 的 rowid，
+    自己的编号不一定是 2，于是消息明明已落库也会被判成“未确认”。这里改成
+    按当前账号 username 匹配发送人；解析不到发送人时退回“正文 + 水位”匹配。
+    """
+    from wechatauto.guia import WeChatGUI
+
+    def _verify_sent(self, text, who, mode='exact', after=None):
+        if not text:
+            return False
+        try:
+            db = self._get_db()
+            self_username = (db.get_self_info() or {}).get('username') or ''
+            marked = (after or {}).get('username')
+            names = [marked] if marked else self._verify_usernames(who)
+            for uname in names:
+                for m in db.get_messages(uname, limit=8):
+                    seq = int(m.get('sort_seq') or 0)
+                    if after:
+                        if seq < after['seq']:
+                            continue
+                        if (seq, int(m.get('local_id') or 0)) in after['ids']:
+                            continue
+                    sender = m.get('sender_username') or ''
+                    if sender and self_username and sender != self_username:
+                        continue
+                    content = m.get('content') or ''
+                    if (content == text) if mode == 'exact' else (text in content):
+                        return True
+        except Exception as e:
+            log("[回读] 校验异常: %s" % e)
+        return False
+
+    WeChatGUI._verify_sent = _verify_sent
+
 
 def parse_since(text):
     """把用户输入的时间串解析成 epoch 秒(int)。闭区间语义由调用方用 >= 判断。"""
@@ -939,7 +1004,7 @@ def cmd_batch_send(args):
     if not targets:
         die("未提供 names/targets")
 
-    max_batch = int(cfg.get("max_batch") or 20)
+    max_batch = int(cfg.get("max_batch") or 3)
     if len(targets) > max_batch:
         print(json.dumps({"ok": False, "index": 0, "name": "", "text": "",
                           "status": "错误",
@@ -950,21 +1015,26 @@ def cmd_batch_send(args):
     verify = bool(cfg.get("verify", True))
     rhythm = (cfg.get("rhythm") or "calm").lower()
     nap = cfg.get("nap") or []
-    nap_min = float(nap[0]) if len(nap) > 0 else 1.0
-    nap_max = float(nap[1]) if len(nap) > 1 else 1.6
+    nap_min = float(nap[0]) if len(nap) > 0 else 1.1
+    nap_max = float(nap[1]) if len(nap) > 1 else 1.8
     if nap_max < nap_min:
         nap_max = nap_min
     interval = cfg.get("interval") or []
-    iv_min = float(interval[0]) if len(interval) > 0 else 6.0
-    iv_max = float(interval[1]) if len(interval) > 1 else 15.0
+    iv_min = float(interval[0]) if len(interval) > 0 else 30.0
+    iv_max = float(interval[1]) if len(interval) > 1 else 60.0
     if iv_max < iv_min:
         iv_max = iv_min
 
-    os.environ.setdefault("WECHATAUTO_RHYTHM", rhythm)
+    os.environ["WECHATAUTO_RHYTHM"] = rhythm
     try:
         import wechatauto.rhythm as rhythm_mod
+        # 字典值是最终权威：显式切档并覆盖 nap，避免环境变量或进程默认档位残留
+        rhythm_mod.set_profile(rhythm)
         rhythm_mod.configure(nap=(nap_min, nap_max))
-        log("拟人节奏: %s, nap=%.2f~%.2f" % (rhythm, nap_min, nap_max))
+        active = rhythm_mod.profile()
+        log("拟人节奏: %s, nap=%.2f~%.2f, gap=%.1f~%.1f, %ds 内最多 %d 次写动作"
+            % (active.name, active.nap[0], active.nap[1], active.gap[0],
+               active.gap[1], int(active.window), int(active.burst)))
     except Exception as e:
         log("配置拟人节奏失败(继续用默认): %s" % e)
 
@@ -972,6 +1042,7 @@ def cmd_batch_send(args):
         % (len(targets), iv_min, iv_max, verify, max_batch))
     try:
         from wechatauto.guia import WeChatGUI
+        patch_send_verify()
         gui = WeChatGUI()
     except Exception as e:
         die("初始化 WeChatGUI 失败（微信是否已登录且窗口可见？）: %s" % e)
@@ -1193,6 +1264,8 @@ def main():
     p.set_defaults(func=cmd_quote_media)
     args = ap.parse_args()
     cleanup_stale_proc_dirs()
+    configure_wechatauto(verbose=getattr(args.func, "__name__", "") in (
+        "cmd_batch_send", "cmd_media", "cmd_quote_media"))
     try:
         args.func(args)
     except KeyboardInterrupt:

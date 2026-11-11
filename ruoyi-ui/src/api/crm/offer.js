@@ -42,15 +42,15 @@ export function parseOffer(data) {
 }
 
 // AI智能录入：粘贴物料内容，后端调用DeepSeek整理后批量入库
-// timeout: 8分钟前端兜底；后端单次模型调用由sys.ai.timeout.ms控制（默认2分钟），非超时故障可能重试；silent: 错误提示由页面自行处理
+// timeout: 11分钟前端兜底；后端AI录入由sys.ai.entry.timeout.ms控制（默认10分钟）；silent: 错误提示由页面自行处理
 export function aiEntry(data) {
-  return request({ url: '/crm/offer/aiEntry', method: 'post', data: data, timeout: 480000, silent: true })
+  return request({ url: '/crm/offer/aiEntry', method: 'post', data: data, timeout: 660000, silent: true })
 }
 
 // AI料号查询：粘贴物料内容，后端调用DeepSeek提取料号并查询最近1个月INQ/OFFER历史（组内按Offer日期倒排）
-// timeout: 8分钟前端兜底（同aiEntry）；silent: 错误提示由页面自行处理
+// timeout: 11分钟前端兜底（同aiEntry）；silent: 错误提示由页面自行处理
 export function aiQuery(data) {
-  return request({ url: '/crm/offer/aiQuery', method: 'post', data: data, timeout: 480000, silent: true })
+  return request({ url: '/crm/offer/aiQuery', method: 'post', data: data, timeout: 660000, silent: true })
 }
 
 // 复制Offer：查询最近days天内INQ/OFFER记录（按品牌排序、相同料号取成本最低，无价格也保留），返回制表符分隔文本

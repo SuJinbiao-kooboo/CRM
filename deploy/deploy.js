@@ -61,9 +61,9 @@ function nginxConf() {
     '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;',
     '        proxy_set_header X-Forwarded-Proto $scheme;',
     '        proxy_connect_timeout 60s;',
-    // 500s：需大于AI接口最长耗时（后端sys.ai.timeout.ms默认8分钟=480s、前端axios 480s），避免代理先断开
-    '        proxy_read_timeout 500s;',
-    '        proxy_send_timeout 500s;',
+    // 900s：需大于AI录入最长耗时（后端默认10分钟、前端11分钟），避免代理先断开
+    '        proxy_read_timeout 900s;',
+    '        proxy_send_timeout 900s;',
     '    }',
     '}',
     '',

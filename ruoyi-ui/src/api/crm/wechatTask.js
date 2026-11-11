@@ -29,7 +29,7 @@ export function batchApproveWechatTasks(data) {
 }
 
 export function generateWechatTasks(data) {
-  return request({ url: '/crm/wechat-task/generate', method: 'post', data: data, timeout: 480000 })
+  return request({ url: '/crm/wechat-task/generate', method: 'post', data: data, timeout: 660000 })
 }
 
 export function sendWechatTasks() {

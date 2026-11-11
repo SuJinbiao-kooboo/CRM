@@ -40,7 +40,7 @@ export function getWechatQuoteMedia(params) {
 }
 
 export function runWechatClassify(data) {
-  return request({ url: '/crm/wechat-message/classify/run', method: 'post', data: data, timeout: 480000 })
+  return request({ url: '/crm/wechat-message/classify/run', method: 'post', data: data, timeout: 660000 })
 }
 
 export function updateWechatMessageCategory(data) {
@@ -68,7 +68,7 @@ export function setWechatEntryConfig(enabled) {
 }
 
 export function runWechatEntry(data) {
-  return request({ url: '/crm/wechat-message/entry/run', method: 'post', data: data, timeout: 480000 })
+  return request({ url: '/crm/wechat-message/entry/run', method: 'post', data: data, timeout: 660000 })
 }
 
 export function requeueWechatEntry(data) {

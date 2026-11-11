@@ -1,6 +1,7 @@
 package com.ruoyi.crm.service.ai;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +58,12 @@ public class DeepSeekAiService {
     /** Excel/CSV报价附件通常包含多条物料，单次解析比普通粘贴文本耗时更长，至少保留5分钟。 */
     private static final int ATTACHMENT_TIMEOUT_MS = 5 * 60 * 1000;
 
+    /** 长文本分段后单段至少保留的字符数，避免系统参数误配导致切得过碎。 */
+    private static final int ENTRY_CHUNK_MIN_CHARS = 800;
+
+    /** 长文本分段后单段超时：每段30行左右，最多3分钟，避免一段长时间卡住整个录入。 */
+    private static final int ENTRY_CHUNK_TIMEOUT_MS = 3 * 60 * 1000;
+
     @Autowired
     private RedisCache redisCache;
 
@@ -103,22 +110,86 @@ public class DeepSeekAiService {
         if (!aiChannelService.enabled()) {
             throw new ServiceException("未配置AI接口参数，请在系统参数配置(sys.ai.api.key)中配置后重试");
         }
+        if (content == null || content.trim().isEmpty()) {
+            throw new ServiceException("待解析的物料内容不能为空");
+        }
+        boolean attachment = content.contains("【附件:");
+        int chunkChars = Math.max(ENTRY_CHUNK_MIN_CHARS,
+                configInt("sys.ai.entry.chunk.chars", AiTextChunker.DEFAULT_MAX_CHARS));
+        int chunkLines = Math.max(5, Math.min(200,
+                configInt("sys.ai.entry.chunk.lines", AiTextChunker.DEFAULT_MAX_LINES)));
+        // 只有“每行自带料号+价格”的行式清单才分段；Excel复制的列式表格必须整段保留列对应关系。
+        // 如仍有特殊格式担心被切分，可将 sys.ai.entry.chunk.enabled 设为0彻底关闭分段。
+        boolean chunkEnabled = configInt("sys.ai.entry.chunk.enabled", 1) != 0;
+        boolean rowOriented = chunkEnabled && AiTextChunker.looksLikeRowOrientedQuote(content);
+        List<String> chunks = (attachment || !rowOriented)
+                ? Collections.singletonList(content)
+                : AiTextChunker.split(content, chunkChars, chunkLines);
+        if (chunks.isEmpty()) {
+            chunks = Collections.singletonList(content);
+        }
+        if (!attachment && !rowOriented && content.length() > chunkChars) {
+            log.info("Offer长文本疑似表格/列式结构，保持整段解析不分段: chars={}", content.length());
+        }
+        boolean segmented = chunks.size() > 1;
         // 会话复用：开启时读取历史上下文（最近maxTurns轮）；关闭或非登录场景（如定时任务）则每次全新会话
         String sessionKey = null;
         List<Map<String, String>> history = null;
-        if (isSessionEnabled()) {
+        if (!segmented && isSessionEnabled()) {
             sessionKey = buildSessionKey();
             if (sessionKey != null) {
                 history = loadHistory(sessionKey);
             }
         }
-        // 组装请求体（OpenAI 兼容格式）
+        String systemPrompt = buildSystemPrompt();
+        List<Map<String, Object>> result = new ArrayList<>();
+        String firstAiContent = null;
+        for (int i = 0; i < chunks.size(); i++) {
+            String chunk = chunks.get(i);
+            Map<String, Object> payload = buildPayload(systemPrompt, segmented ? null : history, chunk);
+            // 整段最多10分钟；行式清单分段后每段最多3分钟。任一段失败都会整体失败，不会先写入部分数据。
+            int timeoutMs = segmented
+                    ? Math.max(60000, Math.min(aiChannelService.entryTimeoutMs(), ENTRY_CHUNK_TIMEOUT_MS))
+                    : Math.max(aiChannelService.entryTimeoutMs(), ATTACHMENT_TIMEOUT_MS);
+            String body = aiChannelService.chatCompletions(payload, timeoutMs);
+            String aiContent = extractContent(body);
+            if (firstAiContent == null) {
+                firstAiContent = aiContent;
+            }
+            JSONArray items = extractItems(aiContent);
+            if (items != null && !items.isEmpty()) {
+                result.addAll(toRows(items));
+            }
+            if (segmented) {
+                log.info("Offer长文本分段解析: {}/{} chars={} lines={} rows={}", i + 1, chunks.size(),
+                        chunk.length(), chunk.split("\\n", -1).length, items == null ? 0 : items.size());
+            }
+        }
+        if (result.isEmpty()) {
+            throw new ServiceException(segmented
+                    ? "AI未从分段内容中识别出有效物料，请检查粘贴内容后重试"
+                    : "AI未从内容中识别出有效的物料信息，请检查粘贴内容后重试");
+        }
+        // 对可确定判断的料号格式统一归一化，保证 AI 录入与 AI 查询结果一致
+        OfferMaterialNormalizer.normalizeItems(result, content);
+        // 调用成功后才把本轮问答追加进会话历史（带过期时间，自动续期）
+        if (sessionKey != null && !segmented && firstAiContent != null) {
+            saveHistory(sessionKey, history, content, firstAiContent);
+        }
+        return result;
+    }
+
+    /** 组装 OpenAI 兼容请求体；长文本分段时不带会话历史，避免每段被旧上下文污染。 */
+    private Map<String, Object> buildPayload(String systemPrompt, List<Map<String, String>> history,
+                                             String content) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("temperature", 0);
+        // 报价录入只需要结构化提取，不需要展示思考过程；关闭推理可显著缩短长清单响应时间。
+        payload.put("reasoning_effort", "none");
         List<Map<String, String>> messages = new ArrayList<>();
         Map<String, String> sys = new HashMap<>();
         sys.put("role", "system");
-        sys.put("content", buildSystemPrompt());
+        sys.put("content", systemPrompt);
         messages.add(sys);
         if (history != null) {
             messages.addAll(history);
@@ -131,22 +202,20 @@ public class DeepSeekAiService {
         Map<String, String> respFormat = new HashMap<>();
         respFormat.put("type", "json_object");
         payload.put("response_format", respFormat);
+        return payload;
+    }
 
-        // 统一走 AI 通道服务：自动按当前渠道填充 model，主渠道（第三方平台）故障时自动切换备用渠道。
-        // Excel/CSV附件可能包含几十条报价，沿用普通文本的2分钟超时很容易在返回前被截断。
-        int timeoutMs = content != null && content.contains("【附件:")
-                ? Math.max(aiChannelService.timeoutMs(), ATTACHMENT_TIMEOUT_MS) : 0;
-        String body = aiChannelService.chatCompletions(payload, timeoutMs);
-        // 解析返回的JSON并提取物料列表（调用失败不写回会话，避免污染上下文）
-        String aiContent = extractContent(body);
-        JSONArray items = extractItems(aiContent);
-        if (items == null || items.isEmpty()) {
-            throw new ServiceException("AI未从内容中识别出物料信息，请检查粘贴内容后重试");
+    /** 将AI返回的items数组转为统一Map结构，过滤关键字段全空的无效行。 */
+    private List<Map<String, Object>> toRows(JSONArray items) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        if (items == null) {
+            return rows;
         }
-        List<Map<String, Object>> result = new ArrayList<>();
         for (int i = 0; i < items.size(); i++) {
             JSONObject item = items.getJSONObject(i);
-            if (item == null) continue;
+            if (item == null) {
+                continue;
+            }
             Map<String, Object> row = new HashMap<>();
             row.put("brand", strVal(item, "brand"));
             row.put("partNumber", strVal(item, "partNumber"));
@@ -161,23 +230,13 @@ public class DeepSeekAiService {
             row.put("productType", strVal(item, "productType"));
             row.put("productDetail", strVal(item, "productDetail"));
             row.put("remark", strVal(item, "remark"));
-            // 关键字段全空的无效行直接跳过
             if (isBlank((String) row.get("partNumber")) && isBlank((String) row.get("brand"))
                     && isBlank((String) row.get("model")) && isBlank((String) row.get("spec"))) {
                 continue;
             }
-            result.add(row);
+            rows.add(row);
         }
-        if (result.isEmpty()) {
-            throw new ServiceException("AI未从内容中识别出有效的物料信息，请检查粘贴内容后重试");
-        }
-        // 对可确定判断的料号格式统一归一化，保证 AI 录入与 AI 查询结果一致
-        OfferMaterialNormalizer.normalizeItems(result, content);
-        // 调用成功后才把本轮问答追加进会话历史（带过期时间，自动续期）
-        if (sessionKey != null) {
-            saveHistory(sessionKey, history, content, aiContent);
-        }
-        return result;
+        return rows;
     }
 
     /** 会话复用开关：sys.ai.session.enabled=0 时每次新建会话；其余情况（含未配置）默认复用 */
@@ -263,7 +322,8 @@ public class DeepSeekAiService {
 
     /** 按maxTurns轮截断历史：1轮=一问一答（2条消息），超出部分丢弃最早的消息，防止历史无限累积 */
     private List<Map<String, String>> trimToMaxTurns(List<Map<String, String>> history) {
-        int maxTurns = Math.max(configInt(SESSION_MAX_TURNS_KEY, 3), 1);
+        // 历史轮数过多会明显拖慢每次录入；上限8轮，避免线上配置成30轮后请求越来越大。
+        int maxTurns = Math.max(1, Math.min(configInt(SESSION_MAX_TURNS_KEY, 3), 8));
         int maxMessages = maxTurns * 2;
         if (history.size() <= maxMessages) {
             return history;

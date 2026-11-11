@@ -62,6 +62,8 @@ public class AiChannelService {
     public static final String KEY_BACKUP_CHECK_SEC = "sys.ai.backup.check.sec";
     /** 调用超时（毫秒） */
     public static final String KEY_TIMEOUT_MS = "sys.ai.timeout.ms";
+    /** Offer AI录入超时（毫秒）：长报价清单可单独放宽，不影响分类等短请求 */
+    public static final String KEY_ENTRY_TIMEOUT_MS = "sys.ai.entry.timeout.ms";
     /** 故障告警飞书 Webhook（可空，空则仅记日志） */
     public static final String KEY_ALERT_WEBHOOK = "sys.ai.alert.webhook";
     /** 同类告警冷却（秒） */
@@ -81,6 +83,8 @@ public class AiChannelService {
     private static final int DEFAULT_BACKUP_CHECK_SEC = 300;
     /** 默认调用超时（毫秒）：5分钟；多行报价等长文本需要更充足的模型响应时间 */
     private static final int DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+    /** 默认AI录入超时（毫秒）：10分钟；长报价或整表粘贴时单次请求可能较慢 */
+    private static final int DEFAULT_ENTRY_TIMEOUT_MS = 10 * 60 * 1000;
     /** 默认告警冷却（秒） */
     private static final int DEFAULT_ALERT_COOLDOWN_SEC = 600;
 
@@ -127,6 +131,12 @@ public class AiChannelService {
     /** 默认调用超时（毫秒） */
     public int timeoutMs() {
         return configInt(KEY_TIMEOUT_MS, DEFAULT_TIMEOUT_MS);
+    }
+
+    /** AI录入专用超时：默认10分钟，可通过 sys.ai.entry.timeout.ms 单独调整。 */
+    public int entryTimeoutMs() {
+        return Math.max(60000, Math.min(30 * 60 * 1000,
+                configInt(KEY_ENTRY_TIMEOUT_MS, DEFAULT_ENTRY_TIMEOUT_MS)));
     }
 
     /** 当前生效渠道的连接信息（base/key/model） */

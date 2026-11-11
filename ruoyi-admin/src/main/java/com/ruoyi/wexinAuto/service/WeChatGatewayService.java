@@ -2050,7 +2050,7 @@ public class WeChatGatewayService {
     private int entryProcessingTimeoutSec() {
         int configured = Math.max(60, Math.min(1800,
                 analysisInt("offerEntryProcessingTimeoutSec", 360)));
-        int aiFloor = Math.max(60, Math.min(1800, (aiChannelService.timeoutMs() + 999) / 1000 + 60));
+        int aiFloor = Math.max(60, Math.min(1800, (aiChannelService.entryTimeoutMs() + 999) / 1000 + 60));
         return Math.max(configured, aiFloor);
     }
 

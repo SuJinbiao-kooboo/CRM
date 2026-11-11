@@ -244,11 +244,55 @@ public class WeChatLlmClassifier {
                         reason(cat, inq, offer)));
             }
             normalizeSameSenderBusinessGroups(input, batchStart, out);
+            correctShortOfferInq(input, batchStart, out);
             applyNoStockClassifications(input, batchStart, out);
         } catch (Exception e) {
             log.warn("AI 分类响应解析失败: {}", e.toString());
         }
         return out;
+    }
+
+    /**
+     * 短价格/数量回复的确定性关联校正。
+     *
+     * <p>我方询价在调用 AI 前会被标记为 OTHER，模型容易从更早历史里挑一条旧 INQ。
+     * 对“拆 2040”这类没有料号的短报价，强制优先关联其前面最近一条我方询价；
+     * 如果模型已经关联了更新的消息，则保持不动。</p>
+     */
+    private void correctShortOfferInq(List<WeChatMessage> input, int batchStart,
+                                       Map<Integer, Classification> out) {
+        if (input == null || out == null || out.isEmpty()) {
+            return;
+        }
+        long maxGapMs = Math.max(60, cfgInt("offerEntryQuoteLinkSec", 1800)) * 1000L;
+        Set<String> selfNames = selfNames();
+        for (int idx = Math.max(0, batchStart); idx < input.size(); idx++) {
+            Classification old = out.get(idx);
+            if (old == null || !"OFFER".equalsIgnoreCase(old.category)) {
+                continue;
+            }
+            WeChatMessage current = input.get(idx);
+            if (current == null || !WeChatInqLinkRules.isPriceOnlyReply(current.getContent())) {
+                continue;
+            }
+            int candidate = WeChatInqLinkRules.latestSelfInquiryIndex(input, idx, selfNames, maxGapMs);
+            if (candidate < 0) {
+                continue;
+            }
+            int oldRelation = WeChatInqLinkRules.relationIndex(input, old.relatInq);
+            if (oldRelation >= candidate) {
+                continue;
+            }
+            String relatInq = toRelJson(input.get(candidate));
+            if (StringUtils.isBlank(relatInq)) {
+                continue;
+            }
+            String reason = WeChatTextUtils.clip(
+                    StringUtils.defaultString(old.reason) + "；短报价已校正为最近我方INQ", 300);
+            out.put(idx, new Classification(old.category, relatInq, old.relatOffer, reason));
+            log.info("短报价关联校正: chatMessage={} oldInqIndex={} newInqIndex={}",
+                    current.getLocalId(), oldRelation, candidate);
+        }
     }
 
     /** 关联目标必须来自本次输入的最近上下文，且是INQ/OFFER或我方业务原文，不能指向无关OTHER。 */
@@ -569,6 +613,8 @@ public class WeChatLlmClassifier {
                 + "外部针对具体INQ/OFFER追问包装、原装、新旧、交期、质保等，即使只有“Sealed box ?”这类短句，也判TRACE并填写关联编号。");
         sb.append("\n判断TRACE时必须在最近20条上下文内定位真正对应的具体INQ/OFFER或我方业务原文，"
                 + "优先结合料号、数量、价格、引用关系选择语义最匹配的一条；不得按最新一条盲目关联。");
+        sb.append("\n外部消息只有价格/数量、没有明确料号时（如“拆 2040”），必须关联其前面最近一条我方询价历史"
+                + "（含inq/询价/问号等信号），不得关联更早的旧INQ；只有最近我方消息不是询价时，才允许按语义回退。");
         sb.append("\nINQ必须指向具体待询价的料号、型号、规格或品类；只是在打听对方历史成交价、问对方是否还收货/还做不做，"
                 + "且没有具体待询价对象的（如“多少钱拿的”“你们还收不”），判OTHER；"
                 + "若这类追问明确围绕前面某条具体INQ/OFFER推进条件，则判TRACE。");
@@ -745,6 +791,7 @@ public class WeChatLlmClassifier {
             "#38 [客户] 有货吗（同一人紧接着补充） → {\"i\":38,\"cat\":\"INQ\"}\n" +
             "#39 H [SELF-OTHER] [May] inq: RTX Pro 6000 Workstation 40Pcs\n#40 P [供应商] 18400USD → {\"i\":40,\"cat\":\"OFFER\",\"inq\":39}\n" +
             "#41 P [供应商] 2weeks（上一条报价的交期补充） → {\"i\":41,\"cat\":\"OFFER\",\"inq\":39}\n" +
+            "#42 H [SELF-OTHER] [Eke] inq: 8358 14pcs TP: 1850USD\n#43 P [供应商] 拆 2040 → {\"i\":43,\"cat\":\"OFFER\",\"inq\":42}\n" +
             "#50 P [May] 5317\n#51 P [May] 10pcs 有货吗\n" +
             "#52 P [供应商] 超微有这些\n#53 P [供应商] 都是国内库存\n" +
             "→ 同发送人连续组：#50/#51 都INQ，#52/#53 都OFFER："

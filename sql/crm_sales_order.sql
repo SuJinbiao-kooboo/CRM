@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS `crm_sales_order` (
   `customer_id` bigint DEFAULT NULL COMMENT '客户ID(crm_supplier.id)',
   `customer_po_no` varchar(100) DEFAULT NULL COMMENT 'PO号-客',
   `pi_me_no` varchar(100) DEFAULT NULL COMMENT 'PI号-M&E',
+  `customer_pi_no` varchar(100) DEFAULT NULL COMMENT 'PI号-客户',
   `sale_price` decimal(18,4) DEFAULT NULL COMMENT '售价',
   `sales_amount` decimal(18,2) DEFAULT NULL COMMENT '销售额',
   `payment_received_date` date DEFAULT NULL COMMENT '付款到账日期',
@@ -85,6 +86,24 @@ CREATE TABLE IF NOT EXISTS `crm_sales_order_sn` (
   KEY `idx_crm_sales_order_sn_order` (`order_id`),
   KEY `idx_crm_sales_order_sn_carton` (`carton_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='CRM销售订单SN';
+
+CREATE TABLE IF NOT EXISTS `crm_sales_order_file` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `order_id` bigint NOT NULL COMMENT '销售订单ID(crm_sales_order.id)',
+  `field_key` varchar(64) NOT NULL COMMENT '附件栏位（如 piOurFile）',
+  `file_name` varchar(255) NOT NULL COMMENT '原始文件名',
+  `content_type` varchar(128) DEFAULT NULL COMMENT 'MIME类型',
+  `file_size` bigint DEFAULT NULL COMMENT '文件大小(字节)',
+  `file_content` longblob NOT NULL COMMENT '文件内容（二进制入库）',
+  `del_flag` char(1) NOT NULL DEFAULT '0' COMMENT '删除标记：0=正常，1=已删除',
+  `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
+  `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+  `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
+  `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_crm_sales_order_file_order` (`order_id`, `del_flag`),
+  KEY `idx_crm_sales_order_file_field` (`field_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='CRM销售订单附件（内容入库）';
 
 -- 菜单目录：订单需求管理（挂在 CRM 管理下）
 INSERT INTO `sys_menu`

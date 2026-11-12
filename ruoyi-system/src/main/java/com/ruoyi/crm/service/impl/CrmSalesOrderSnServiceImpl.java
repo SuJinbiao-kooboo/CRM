@@ -93,17 +93,6 @@ public class CrmSalesOrderSnServiceImpl implements ICrmSalesOrderSnService {
         if (sn == null || sn.getId() == null) {
             throw new ServiceException("SN记录ID不能为空");
         }
-        if (StringUtils.isEmpty(sn.getSnNo())) {
-            throw new ServiceException("SN编号不能为空");
-        }
-        String snNo = sn.getSnNo().trim();
-        if (snNo.length() > 128) {
-            throw new ServiceException("SN编号过长");
-        }
-        if (snMapper.countSnNo(snNo, sn.getId()) > 0) {
-            throw new ServiceException("SN编号已存在：" + snNo);
-        }
-        sn.setSnNo(snNo);
         sn.setCartonNo(StringUtils.trimToNull(sn.getCartonNo()));
         sn.setUpdateBy(SecurityUtils.getUsername());
         return snMapper.updateSn(sn);

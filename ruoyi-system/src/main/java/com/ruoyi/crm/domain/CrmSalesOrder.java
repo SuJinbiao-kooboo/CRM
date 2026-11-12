@@ -39,6 +39,7 @@ public class CrmSalesOrder extends BaseEntity {
     private Long customerId;
     private String customerPoNo;
     private String piMeNo;
+    private String customerPiNo;
     private BigDecimal salePrice;
     private BigDecimal salesAmount;
 
@@ -86,4 +87,7 @@ public class CrmSalesOrder extends BaseEntity {
     private String supplierName;
     private String customerContactName;
     private String supplierContactName;
+
+    /** 数据库附件数量（列表展示用，不落库） */
+    private Integer attachmentCount;
 }

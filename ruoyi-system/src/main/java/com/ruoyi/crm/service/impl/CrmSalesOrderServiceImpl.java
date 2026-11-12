@@ -15,6 +15,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.crm.domain.CrmSalesOrder;
 import com.ruoyi.crm.domain.CrmSupplierContact;
 import com.ruoyi.crm.mapper.CrmOrderMapper;
+import com.ruoyi.crm.mapper.CrmSalesOrderFileMapper;
 import com.ruoyi.crm.mapper.CrmSalesOrderMapper;
 import com.ruoyi.crm.mapper.CrmSalesOrderSnMapper;
 import com.ruoyi.crm.mapper.CrmSupplierContactMapper;
@@ -28,6 +29,9 @@ public class CrmSalesOrderServiceImpl implements ICrmSalesOrderService {
 
     @Autowired
     private CrmSalesOrderSnMapper salesOrderSnMapper;
+
+    @Autowired
+    private CrmSalesOrderFileMapper salesOrderFileMapper;
 
     @Autowired
     private CrmOrderMapper orderSequenceMapper;
@@ -97,6 +101,7 @@ public class CrmSalesOrderServiceImpl implements ICrmSalesOrderService {
             return 0;
         }
         salesOrderSnMapper.deleteSnByOrderIds(ids);
+        salesOrderFileMapper.softDeleteByOrderIds(ids, SecurityUtils.getUsername());
         return salesOrderMapper.deleteSalesOrderByIds(ids);
     }
 

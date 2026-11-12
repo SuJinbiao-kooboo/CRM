@@ -161,6 +161,20 @@ export const dynamicRoutes = [
         meta: { title: '修改生成配置', activeMenu: '/tool/gen' }
       }
     ]
+  },
+  {
+    path: '/crm/sales-order-detail',
+    component: Layout,
+    hidden: true,
+    permissions: ['crm:salesOrder:query'],
+    children: [
+      {
+        path: 'index/:id(\\d+)',
+        component: () => import('@/views/crm/salesOrder/detail'),
+        name: 'SalesOrderDetail',
+        meta: { title: '订单详情', activeMenu: '/crm/orderDemand/salesOrder' }
+      }
+    ]
   }
 ]
 

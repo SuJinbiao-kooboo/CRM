@@ -24,13 +24,19 @@
         <el-button type="primary" plain icon="el-icon-plus" size="mini" @click="handleAdd" v-hasPermi="['crm:salesOrder:add']">新增订单</el-button>
       </el-col>
       <el-col :span="18">
-        <span class="page-tip">新增后自动生成编号；除主键和文件外，所有字段均可在列表中直接编辑，修改后自动保存。</span>
+        <span class="page-tip">新增后自动生成编号；点击编号查看详情；除编号和附件外所有字段可直接编辑，修改后自动保存。</span>
       </el-col>
       <right-toolbar :showSearch.sync="showSearch" @queryTable="getList" />
     </el-row>
 
     <el-table v-loading="loading" :data="orderList" border size="mini" row-key="id" class="inline-table">
-      <el-table-column label="ID" prop="id" width="72" align="center" />
+      <el-table-column label="ID" prop="id" width="72" align="center" fixed="left" />
+      <el-table-column label="编号" prop="orderNo" width="175" fixed="left" show-overflow-tooltip>
+        <template slot-scope="scope">
+          <el-link type="primary" :underline="false" @click="goDetail(scope.row)">{{ scope.row.orderNo || '-' }}</el-link>
+          <i v-if="scope.row._saving" class="el-icon-loading save-icon" title="自动保存中"></i>
+        </template>
+      </el-table-column>
       <el-table-column v-for="col in editableColumns" :key="col.prop" :label="col.label" :width="col.width" :align="col.align || 'left'">
         <template slot-scope="scope">
           <el-input v-if="col.type === 'text'" v-model="scope.row[col.prop]" size="mini" clearable class="inline-editor"
@@ -66,11 +72,8 @@
           </el-button>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="145" align="center" fixed="right">
+      <el-table-column label="操作" width="80" align="center" fixed="right">
         <template slot-scope="scope">
-          <el-button type="text" size="mini" :loading="scope.row._saving" @click="saveRow(scope.row, true)">
-            {{ scope.row._saving ? '保存中' : '保存' }}
-          </el-button>
           <el-button type="text" size="mini" class="danger-text" @click="handleDelete(scope.row)" v-hasPermi="['crm:salesOrder:remove']">删除</el-button>
         </template>
       </el-table-column>
@@ -78,19 +81,9 @@
 
     <pagination v-show="total > 0" :total="total" :page.sync="queryParams.pageNum" :limit.sync="queryParams.pageSize" @pagination="getList" />
 
-    <el-dialog title="订单文件" :visible.sync="fileOpen" width="960px" append-to-body @closed="fileRow = null">
+    <el-dialog title="订单文件" :visible.sync="fileOpen" width="1100px" append-to-body @closed="fileRow = null">
       <div v-if="fileRow" class="file-order-no">订单：{{ fileRow.orderNo }}　PN：{{ fileRow.pn || '-' }}</div>
-      <div class="file-grid">
-        <div v-for="slot in fileSlots" :key="slot.prop" class="file-field">
-          <div class="file-field-title">{{ slot.label }}</div>
-          <file-upload v-model="fileForm[slot.prop]" :action="uploadAction" :limit="5" :file-size="50"
-            :file-type="fileTypes" :is-show-tip="false" />
-        </div>
-      </div>
-      <div slot="footer" class="dialog-footer">
-        <el-button type="primary" :loading="fileSaving" @click="saveFiles">保存文件</el-button>
-        <el-button @click="fileOpen = false">取 消</el-button>
-      </div>
+      <order-file-panel v-if="fileRow" :order-id="fileRow.id" :legacy-files="legacyFilesOf(fileRow)" @changed="onFilesChanged" />
     </el-dialog>
   </div>
 </template>
@@ -98,6 +91,8 @@
 <script>
 import { listSalesOrder, addSalesOrder, updateSalesOrder, delSalesOrder, listSalesOrderContacts } from '@/api/crm/salesOrder'
 import { listSupplierOptions } from '@/api/crm/supplier'
+import OrderFilePanel from './components/OrderFilePanel'
+import { ORDER_FILE_SLOTS } from './fileFields'
 
 const STATUS_OPTIONS = [
   { value: 'UNPAID', label: '未付款' },
@@ -139,6 +134,7 @@ function round(value, precision) {
 
 export default {
   name: 'CrmSalesOrder',
+  components: { OrderFilePanel },
   dicts: ['crm_product_type'],
   data() {
     return {
@@ -152,7 +148,6 @@ export default {
       statusOptions: STATUS_OPTIONS,
       cooperationOptions: COOPERATION_OPTIONS,
       editableColumns: [
-        { prop: 'orderNo', label: '编号', width: 165, type: 'text' },
         { prop: 'orderDate', label: '订单日期', width: 148, type: 'date' },
         { prop: 'bookingDate', label: '入账日期', width: 148, type: 'date' },
         { prop: 'bookingMonth', label: '入账月份', width: 138, type: 'month' },
@@ -165,6 +160,7 @@ export default {
         { prop: 'customerId', label: '客户（供应商列表）', width: 250, type: 'partner', partner: 'customer' },
         { prop: 'customerPoNo', label: 'PO号-客', width: 150, type: 'text' },
         { prop: 'piMeNo', label: 'PI号-M&E', width: 150, type: 'text' },
+        { prop: 'customerPiNo', label: 'PI号-客户', width: 150, type: 'text' },
         { prop: 'salePrice', label: '售价', width: 118, type: 'number', precision: 4, align: 'right' },
         { prop: 'salesAmount', label: '销售额', width: 125, type: 'number', precision: 2, align: 'right' },
         { prop: 'paymentReceivedDate', label: '付款到账日期', width: 148, type: 'date' },
@@ -188,24 +184,6 @@ export default {
       ],
       fileOpen: false,
       fileRow: null,
-      fileSaving: false,
-      fileForm: {},
-      uploadAction: '/common/upload',
-      fileTypes: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tif', 'tiff', 'zip', 'rar', '7z', 'txt', 'csv'],
-      fileSlots: [
-        { prop: 'signReceiptFile', label: '签收单存档' },
-        { prop: 'photoFile', label: '照片存档' },
-        { prop: 'poCustomerFile', label: 'PO客户文件' },
-        { prop: 'piOurFile', label: 'PI我方文件' },
-        { prop: 'poOurFile', label: 'PO我方文件' },
-        { prop: 'piSupplierFile', label: 'PI供应商文件' },
-        { prop: 'plSupplierFile', label: 'PL供应商文件' },
-        { prop: 'plOurFile', label: 'PL我方文件' },
-        { prop: 'ciSupplierFile', label: 'CI供应商文件' },
-        { prop: 'ciOurFile', label: 'CI我方文件' },
-        { prop: 'entrustFile', label: '委托单文件' },
-        { prop: 'snFile', label: 'SN文件' }
-      ],
       _saveTimers: {}
     }
   },
@@ -440,42 +418,28 @@ export default {
     },
     openFiles(row) {
       this.fileRow = row
-      const form = {}
-      this.fileSlots.forEach(slot => {
-        form[slot.prop] = row[slot.prop] || ''
-      })
-      this.fileForm = form
       this.fileOpen = true
     },
-    fileCount(row) {
-      return this.fileSlots.reduce((count, slot) => count + (row[slot.prop] ? String(row[slot.prop]).split(',').filter(Boolean).length : 0), 0)
+    legacyFilesOf(row) {
+      const legacy = {}
+      ORDER_FILE_SLOTS.forEach(slot => {
+        if (row[slot.prop]) {
+          legacy[slot.prop] = row[slot.prop]
+        }
+      })
+      return legacy
     },
-    saveFiles() {
-      if (!this.fileRow) {
-        return
+    onFilesChanged(count) {
+      if (this.fileRow) {
+        this.fileRow.attachmentCount = count
       }
-      this.fileSlots.forEach(slot => {
-        this.fileRow[slot.prop] = this.fileForm[slot.prop] || null
-      })
-      const row = this.fileRow
-      const payload = this.buildPayload(row)
-      this.fileSaving = true
-      updateSalesOrder(payload).then(response => {
-        const data = response.data || payload
-        const customerContacts = row._customerContacts
-        const supplierContacts = row._supplierContacts
-        Object.assign(row, data)
-        row._customerContacts = customerContacts
-        row._supplierContacts = supplierContacts
-        this.hydrateRow(row)
-        row._lastSaved = JSON.stringify(this.buildPayload(row))
-        this.fileOpen = false
-        this.$modal.msgSuccess('文件已保存')
-      }).catch(error => {
-        this.$modal.msgError((error && error.msg) || '文件保存失败')
-      }).finally(() => {
-        this.fileSaving = false
-      })
+    },
+    fileCount(row) {
+      const legacyCount = ORDER_FILE_SLOTS.reduce((count, slot) => count + (row[slot.prop] ? String(row[slot.prop]).split(',').filter(Boolean).length : 0), 0)
+      return (Number(row.attachmentCount) || 0) + legacyCount
+    },
+    goDetail(row) {
+      this.$router.push('/crm/sales-order-detail/index/' + row.id)
     }
   }
 }
@@ -501,10 +465,5 @@ export default {
 .number-editor >>> .el-input__inner { text-align: right; }
 .danger-text { color: #f56c6c; }
 .file-order-no { margin-bottom: 12px; color: #606266; font-weight: 600; }
-.file-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.file-field { padding: 10px; border: 1px solid #ebeef5; border-radius: 4px; background: #fafafa; }
-.file-field-title { margin-bottom: 8px; color: #303133; font-size: 13px; font-weight: 600; }
-@media (max-width: 1100px) {
-  .file-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+.save-icon { margin-left: 6px; color: #409eff; }
 </style>

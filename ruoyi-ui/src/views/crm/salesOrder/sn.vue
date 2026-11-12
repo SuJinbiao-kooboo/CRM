@@ -20,6 +20,9 @@
       <el-col :span="1.5">
         <el-button type="primary" plain icon="el-icon-plus" size="mini" @click="openBatch" v-hasPermi="['crm:salesOrderSn:add']">批量录入</el-button>
       </el-col>
+      <el-col :span="18">
+        <span class="page-tip">SN编号不允许编辑；箱号修改后自动保存。</span>
+      </el-col>
       <right-toolbar :showSearch.sync="showSearch" @queryTable="getList" />
     </el-row>
 
@@ -29,20 +32,17 @@
       <el-table-column label="产品P/N号" prop="pn" width="180" show-overflow-tooltip />
       <el-table-column label="PO编号（M&E）" prop="poMeNo" width="170" show-overflow-tooltip />
       <el-table-column label="PI编号（M&E）" prop="piMeNo" width="170" show-overflow-tooltip />
-      <el-table-column label="SN编号" prop="snNo" min-width="220">
-        <template slot-scope="scope">
-          <el-input v-model="scope.row.snNo" size="mini" @change="saveRow(scope.row)" @keyup.enter.native="$event.target.blur()" />
-        </template>
-      </el-table-column>
+      <el-table-column label="PI编号（客户）" prop="customerPiNo" width="170" show-overflow-tooltip />
+      <el-table-column label="SN编号" prop="snNo" min-width="220" show-overflow-tooltip />
       <el-table-column label="箱号" prop="cartonNo" width="160">
         <template slot-scope="scope">
-          <el-input v-model="scope.row.cartonNo" size="mini" placeholder="非必填" clearable @change="saveRow(scope.row)" @keyup.enter.native="$event.target.blur()" />
+          <el-input v-model="scope.row.cartonNo" size="mini" placeholder="非必填，修改后自动保存" clearable
+            :suffix-icon="scope.row._saving ? 'el-icon-loading' : ''" @change="saveRow(scope.row)" @keyup.enter.native="$event.target.blur()" />
         </template>
       </el-table-column>
       <el-table-column label="录入时间" prop="createTime" width="160" align="center" />
-      <el-table-column label="操作" width="105" align="center" fixed="right">
+      <el-table-column label="操作" width="80" align="center" fixed="right">
         <template slot-scope="scope">
-          <el-button type="text" size="mini" :loading="scope.row._saving" @click="saveRow(scope.row)">保存</el-button>
           <el-button type="text" size="mini" class="danger-text" @click="handleDelete(scope.row)" v-hasPermi="['crm:salesOrderSn:remove']">删除</el-button>
         </template>
       </el-table-column>
@@ -65,6 +65,7 @@
             <el-descriptions-item label="产品P/N号">{{ selectedOrder.pn || '-' }}</el-descriptions-item>
             <el-descriptions-item label="PO编号（M&E）">{{ selectedOrder.poMeNo || '-' }}</el-descriptions-item>
             <el-descriptions-item label="PI编号（M&E）">{{ selectedOrder.piMeNo || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="PI编号（客户）">{{ selectedOrder.customerPiNo || '-' }}</el-descriptions-item>
           </el-descriptions>
         </el-form-item>
         <el-form-item label="箱号">
@@ -124,7 +125,7 @@ export default {
       })
     },
     serializeRow(row) {
-      return JSON.stringify({ id: row.id, snNo: row.snNo, cartonNo: row.cartonNo })
+      return JSON.stringify({ id: row.id, cartonNo: row.cartonNo })
     },
     handleQuery() {
       this.queryParams.pageNum = 1
@@ -141,10 +142,6 @@ export default {
       if (!row || !row.id) {
         return
       }
-      if (!row.snNo || !String(row.snNo).trim()) {
-        this.$modal.msgError('SN编号不能为空')
-        return
-      }
       const serialized = this.serializeRow(row)
       if (serialized === row._lastSaved) {
         return
@@ -154,8 +151,7 @@ export default {
         return
       }
       row._saving = true
-      updateSalesOrderSn({ id: row.id, snNo: String(row.snNo).trim(), cartonNo: row.cartonNo || null }).then(() => {
-        row.snNo = String(row.snNo).trim()
+      updateSalesOrderSn({ id: row.id, cartonNo: row.cartonNo || null }).then(() => {
         row.cartonNo = row.cartonNo || null
         row._lastSaved = this.serializeRow(row)
       }).catch(error => {
@@ -197,7 +193,7 @@ export default {
       })
     },
     orderOptionLabel(item) {
-      const parts = [item.orderNo || '-', item.pn || '-', item.poMeNo || '-', item.piMeNo || '-']
+      const parts = [item.orderNo || '-', item.pn || '-', item.poMeNo || '-', item.piMeNo || '-', item.customerPiNo || '-']
       return parts.join(' ｜ ')
     },
     onOrderChange(orderId) {
@@ -249,6 +245,7 @@ export default {
 
 <style scoped>
 .danger-text { color: #f56c6c; }
+.page-tip { color: #909399; font-size: 12px; }
 .auto-fill-box { width: 100%; }
 .auto-fill-box >>> .el-descriptions-item__content { color: #409eff; font-weight: 600; }
 .batch-tip { color: #909399; font-size: 12px; line-height: 20px; }

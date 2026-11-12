@@ -9,6 +9,7 @@
         <result column="pn" property="pn" />
         <result column="po_me_no" property="poMeNo" />
         <result column="pi_me_no" property="piMeNo" />
+        <result column="customer_pi_no" property="customerPiNo" />
         <result column="sn_no" property="snNo" />
         <result column="carton_no" property="cartonNo" />
         <result column="create_by" property="createBy" />
@@ -19,7 +20,7 @@
 
     <select id="selectSnList" parameterType="com.ruoyi.crm.domain.CrmSalesOrderSn" resultMap="CrmSalesOrderSnMap">
         select sn.id, sn.order_id, sn.sn_no, sn.carton_no, sn.create_by, sn.create_time, sn.update_by, sn.update_time,
-               o.order_no, o.pn, o.po_me_no, o.pi_me_no
+               o.order_no, o.pn, o.po_me_no, o.pi_me_no, o.customer_pi_no
         from crm_sales_order_sn sn
         inner join crm_sales_order o on o.id = sn.order_id
         <where>
@@ -47,8 +48,7 @@
 
     <update id="updateSn" parameterType="com.ruoyi.crm.domain.CrmSalesOrderSn">
         update crm_sales_order_sn
-        set sn_no = #{snNo},
-            carton_no = #{cartonNo},
+        set carton_no = #{cartonNo},
             update_by = #{updateBy},
             update_time = now()
         where id = #{id}

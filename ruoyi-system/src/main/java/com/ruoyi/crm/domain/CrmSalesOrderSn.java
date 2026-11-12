@@ -21,6 +21,7 @@ public class CrmSalesOrderSn extends BaseEntity {
     private String pn;
     private String poMeNo;
     private String piMeNo;
+    private String customerPiNo;
     private String snNo;
     private String cartonNo;
 }

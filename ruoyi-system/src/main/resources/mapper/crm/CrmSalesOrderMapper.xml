@@ -17,6 +17,7 @@
         <result column="customer_id" property="customerId" />
         <result column="customer_po_no" property="customerPoNo" />
         <result column="pi_me_no" property="piMeNo" />
+        <result column="customer_pi_no" property="customerPiNo" />
         <result column="sale_price" property="salePrice" />
         <result column="sales_amount" property="salesAmount" />
         <result column="payment_received_date" property="paymentReceivedDate" />
@@ -57,10 +58,12 @@
         <result column="supplier_name" property="supplierName" />
         <result column="customer_contact_name" property="customerContactName" />
         <result column="supplier_contact_name" property="supplierContactName" />
+        <result column="attachment_count" property="attachmentCount" />
     </resultMap>
 
     <sql id="selectSalesOrderVo">
         select o.*,
+               (select count(1) from crm_sales_order_file f where f.order_id = o.id and f.del_flag = '0') as attachment_count,
                c.supplier_name as customer_name,
                s.supplier_name as supplier_name,
                cc.contact_name as customer_contact_name,
@@ -94,7 +97,7 @@
     </select>
 
     <select id="selectSalesOrderOptions" resultMap="CrmSalesOrderMap">
-        select o.id, o.order_no, o.pn, o.po_me_no, o.pi_me_no,
+        select o.id, o.order_no, o.pn, o.po_me_no, o.pi_me_no, o.customer_pi_no,
                c.supplier_name as customer_name
         from crm_sales_order o
         left join crm_supplier c on c.id = o.customer_id
@@ -103,6 +106,7 @@
                 and (o.order_no like concat('%', #{keyword}, '%')
                   or o.pn like concat('%', #{keyword}, '%')
                   or o.customer_po_no like concat('%', #{keyword}, '%')
+                  or o.customer_pi_no like concat('%', #{keyword}, '%')
                   or o.po_me_no like concat('%', #{keyword}, '%')
                   or o.pi_me_no like concat('%', #{keyword}, '%'))
             </if>
@@ -120,7 +124,7 @@
     <insert id="insertSalesOrder" parameterType="com.ruoyi.crm.domain.CrmSalesOrder" useGeneratedKeys="true" keyProperty="id">
         insert into crm_sales_order(
             order_no, order_date, booking_date, booking_month, cooperation_status, pn, desp, product_types, status,
-            quantity, customer_id, customer_po_no, pi_me_no, sale_price, sales_amount, payment_received_date,
+            quantity, customer_id, customer_po_no, pi_me_no, customer_pi_no, sale_price, sales_amount, payment_received_date,
             supplier_id, po_me_no, supplier_pi_no, cost_price, purchase_amount, price_diff, gp, profit_rate,
             payment_date, arrival_date, logistics_fee, carton_spec, gross_weight, sign_receipt_file, photo_file,
             remark, logistics_reconciliation, customer_contact_id, supplier_contact_id,
@@ -129,7 +133,7 @@
             create_by, create_time, update_by, update_time
         ) values (
             #{orderNo}, #{orderDate}, #{bookingDate}, #{bookingMonth}, #{cooperationStatus}, #{pn}, #{desp}, #{productTypes}, #{status},
-            #{quantity}, #{customerId}, #{customerPoNo}, #{piMeNo}, #{salePrice}, #{salesAmount}, #{paymentReceivedDate},
+            #{quantity}, #{customerId}, #{customerPoNo}, #{piMeNo}, #{customerPiNo}, #{salePrice}, #{salesAmount}, #{paymentReceivedDate},
             #{supplierId}, #{poMeNo}, #{supplierPiNo}, #{costPrice}, #{purchaseAmount}, #{priceDiff}, #{gp}, #{profitRate},
             #{paymentDate}, #{arrivalDate}, #{logisticsFee}, #{cartonSpec}, #{grossWeight}, #{signReceiptFile}, #{photoFile},
             #{remark}, #{logisticsReconciliation}, #{customerContactId}, #{supplierContactId},
@@ -154,6 +158,7 @@
             customer_id = #{customerId},
             customer_po_no = #{customerPoNo},
             pi_me_no = #{piMeNo},
+            customer_pi_no = #{customerPiNo},
             sale_price = #{salePrice},
             sales_amount = #{salesAmount},
             payment_received_date = #{paymentReceivedDate},

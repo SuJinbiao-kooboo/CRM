@@ -54,3 +54,28 @@ export function updateSalesOrderSn(data) {
 export function delSalesOrderSn(ids) {
   return request({ url: '/crm/salesOrderSn/' + ids, method: 'delete' })
 }
+
+// 订单附件列表（不含文件内容）
+export function listSalesOrderFiles(orderId) {
+  return request({ url: '/crm/salesOrder/attachment/list/' + orderId, method: 'get' })
+}
+
+// 订单附件上传：上传成功即入库保存
+export function uploadSalesOrderFile(data) {
+  return request({ url: '/crm/salesOrder/attachment/upload', method: 'post', data: data, timeout: 120000, headers: { 'Content-Type': 'multipart/form-data', repeatSubmit: false } })
+}
+
+// 订单附件下载（blob）
+export function downloadSalesOrderFile(id) {
+  return request({ url: '/crm/salesOrder/attachment/download/' + id, method: 'post', responseType: 'blob', timeout: 120000 })
+}
+
+// 订单附件预览（Excel/CSV/Word 解析为 HTML）
+export function previewSalesOrderFile(id) {
+  return request({ url: '/crm/salesOrder/attachment/preview/' + id, method: 'post', timeout: 120000 })
+}
+
+// 订单附件软删除
+export function delSalesOrderFile(id) {
+  return request({ url: '/crm/salesOrder/attachment/' + id, method: 'delete' })
+}

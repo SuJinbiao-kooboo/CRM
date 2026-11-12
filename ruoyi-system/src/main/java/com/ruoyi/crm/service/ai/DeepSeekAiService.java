@@ -11,9 +11,11 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.common.core.redis.RedisCache;
+import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.crm.util.OfferMaterialNormalizer;
+import com.ruoyi.system.service.ISysDictTypeService;
 import com.ruoyi.system.service.ISysConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,11 +39,20 @@ public class DeepSeekAiService {
     @Autowired
     private AiChannelService aiChannelService;
 
+    /** 产品类型/品牌以系统字典为唯一可维护来源，新增字典项后自动加入 AI 提示词。 */
+    @Autowired
+    private ISysDictTypeService dictTypeService;
+
     /** 解析示例参数键：用户在系统参数配置中维护，内容为整理规范与输入输出对照示例 */
     private static final String TIPS_CONFIG_KEY = "sys.offer.resolve.tips";
 
     /** 基础提示词参数键：用户在系统参数配置中维护；未配置或为空时使用下方默认基础提示词 */
     private static final String TIPS_BASE_CONFIG_KEY = "sys.offer.resolve.tips.base";
+
+    private static final String DICT_PRODUCT_TYPE = "crm_product_type";
+    private static final String DICT_PRODUCT_BRAND = "crm_product_brand";
+    private static final String DEFAULT_PRODUCT_TYPES = "SSD、HDD、RAM、CPU、GPU、Motherboard、颗粒、其他";
+    private static final String DEFAULT_PRODUCT_BRANDS = "Samsung、Intel、NVIDIA、AMD、Western Digital、Seagate、Micron、SK hynix、Solidigm、Kingston、Crucial、SanDisk、Kioxia";
 
     /** 会话复用开关参数键：1=启用（有效期内复用同一会话上下文）；0=每次新建会话 */
     private static final String SESSION_ENABLED_KEY = "sys.ai.session.enabled";
@@ -82,9 +93,9 @@ public class DeepSeekAiService {
             "3. partNumber是唯一料号，原样保留，不改写、不截断。CPU料号可能很短（如6338），SRKJ9等辅助码不能当料号。",
             "4. quantity取整数：1k=1000，500+=500，40pcs=40。price只取数字，去掉货币符号；currency原文非USD时填代码（如CNY、EUR），否则USD。",
             "5. deliveryTime提取L/T、LT、3d、2w、4-6周、货期、现货等；dc提取批次/年份码；coo提取产地（NON CN、CN、MY、TW、JP、KR等），多个用逗号。",
-            "6. productType只能是SSD、HDD、RAM、CPU、GPU、Motherboard、颗粒、其他；根据料号前缀、描述判断，无法确定填其他。",
+            "6. productType按文末【产品类型候选】选择；根据料号前缀、描述判断，无法确定填“其他”。",
             "7. spec：SSD/HDD/RAM/颗粒必须写容量；HDD补接口、转速、尺寸，SSD补接口、形态，RAM补代际、速率、模组，颗粒补容量；CPU/GPU无明确规格可留空。productDetail写简短准确的型号和关键规格，不确定时用原文。",
-            "8. brand统一为常见名称：Samsung、Intel、NVIDIA、AMD、Western Digital、Seagate、Micron、SK hynix、Solidigm、Kingston、Crucial、SanDisk、Kioxia等。",
+            "8. brand优先使用文末【品牌候选】中的标准名称；候选外的品牌保留原文，不编造。",
             "",
             "料号特例：",
             "- AMD EPYC：EPYC9015/100-000001553 → partNumber=9015，model=EPYC 9015，OPN 100-000001553放productDetail。",
@@ -359,10 +370,54 @@ public class DeepSeekAiService {
             log.warn("检测到旧版Offer解析示例，与精简版基础提示词不兼容，已忽略；可执行 sql/20261109_offer_prompt_compact.sql 同步系统参数");
             tips = null;
         }
-        if (tips == null || tips.trim().isEmpty()) {
-            return ensureJsonKeyword(base.trim());
+        String prompt = tips == null || tips.trim().isEmpty()
+                ? base.trim()
+                : base.trim() + "\n以下为数据整理规范与输入输出对照示例，必须严格遵守：\n" + tips.trim();
+        return ensureJsonKeyword(prompt + buildDictionaryCandidates());
+    }
+
+    /** 将字典中的产品类型/品牌追加到提示词；新增或停用字典项后自动生效。 */
+    private String buildDictionaryCandidates() {
+        String types = dictionaryValues(DICT_PRODUCT_TYPE, DEFAULT_PRODUCT_TYPES);
+        String brands = dictionaryValues(DICT_PRODUCT_BRAND, DEFAULT_PRODUCT_BRANDS);
+        return "\n\n字典配置（实时生效）：\n"
+                + "【产品类型候选】" + types + "\n"
+                + "【品牌候选】" + brands;
+    }
+
+    private String dictionaryValues(String dictType, String fallback) {
+        List<String> values = new ArrayList<>();
+        for (String value : fallback.split("、")) {
+            addCandidate(values, value);
         }
-        return ensureJsonKeyword(base.trim() + "\n以下为数据整理规范与输入输出对照示例，必须严格遵守：\n" + tips.trim());
+        try {
+            List<SysDictData> dictData = dictTypeService.selectDictDataByType(dictType);
+            if (dictData != null) {
+                for (SysDictData item : dictData) {
+                    if (item == null || !"0".equals(item.getStatus())) {
+                        continue;
+                    }
+                    addCandidate(values, item.getDictValue());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("读取字典{}失败，使用内置候选值: {}", dictType, e.toString());
+        }
+        return String.join("、", values);
+    }
+
+    /** 追加候选值并按不区分大小写去重，内置常见值优先、字典新增值随后。 */
+    private void addCandidate(List<String> values, String candidate) {
+        String value = candidate == null ? "" : candidate.trim();
+        if (value.isEmpty()) {
+            return;
+        }
+        for (String existing : values) {
+            if (existing.equalsIgnoreCase(value)) {
+                return;
+            }
+        }
+        values.add(value);
     }
 
     /**

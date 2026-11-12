@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.NumberUtil;
@@ -937,6 +938,30 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
 
     @Override
     public String buildAiQueryCopyText(List<String> partNumbers, int days, List<String> extraFields) {
+        List<OfferTextLine> textRows = buildAiQueryCopyTextRows(partNumbers, days);
+        return OfferTextFormatter.formatSendText(textRows, true, normalizeCopyExtraFields(extraFields));
+    }
+
+    @Override
+    public Map<String, String> buildAiQueryCopyTextByBrand(List<String> partNumbers, int days, List<String> extraFields) {
+        List<OfferTextLine> textRows = buildAiQueryCopyTextRows(partNumbers, days);
+        List<String> extras = normalizeCopyExtraFields(extraFields);
+        Map<String, List<OfferTextLine>> byBrand = new TreeMap<>();
+        for (OfferTextLine row : textRows) {
+            String brand = str(row.getBrand());
+            String sortKey = brand.isEmpty() ? "\uFFFF" : brand;
+            byBrand.computeIfAbsent(sortKey, key -> new ArrayList<>()).add(row);
+        }
+        Map<String, String> result = new LinkedHashMap<>();
+        for (Map.Entry<String, List<OfferTextLine>> entry : byBrand.entrySet()) {
+            String brand = "\uFFFF".equals(entry.getKey()) ? "未识别品牌" : entry.getKey();
+            result.put(brand, OfferTextFormatter.formatSendText(entry.getValue(), true, extras));
+        }
+        return result;
+    }
+
+    /** 一键复制/AI查询按料号取最低 Offer，装配为统一文本行。 */
+    private List<OfferTextLine> buildAiQueryCopyTextRows(List<String> partNumbers, int days) {
         if (days < 1 || days > 999) {
             throw new ServiceException("最近天数范围应为1-999天");
         }
@@ -953,13 +978,6 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
         }
         if (pns.isEmpty()) {
             throw new ServiceException("没有可复制的物料，请先执行AI查询");
-        }
-        // 额外字段白名单校验并按固定顺序排列（供应商编号→详情→交期→DC），前端勾选先后不影响输出列顺序
-        LinkedHashSet<String> extras = new LinkedHashSet<>();
-        for (String f : new String[]{"supplierCode", "productDetail", "deliveryTime", "dc", "spec"}) {
-            if (extraFields != null && extraFields.contains(f)) {
-                extras.add(f);
-            }
         }
         List<CrmOffer> list = offerMapper.selectRecentOffersByPartNumbers(new ArrayList<>(pns), days);
         if (list.isEmpty()) {
@@ -988,7 +1006,18 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             line.setSpec(o.getSpec());
             textRows.add(line);
         }
-        return OfferTextFormatter.formatSendText(textRows, true, new ArrayList<>(extras));
+        return textRows;
+    }
+
+    /** 额外字段白名单校验并按固定顺序排列（供应商编号→详情→交期→DC→规格）。 */
+    private List<String> normalizeCopyExtraFields(List<String> extraFields) {
+        LinkedHashSet<String> extras = new LinkedHashSet<>();
+        for (String f : new String[]{"supplierCode", "productDetail", "deliveryTime", "dc", "spec"}) {
+            if (extraFields != null && extraFields.contains(f)) {
+                extras.add(f);
+            }
+        }
+        return new ArrayList<>(extras);
     }
 
     /**

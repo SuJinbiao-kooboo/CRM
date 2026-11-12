@@ -371,6 +371,33 @@ public class AiChannelService {
             return false;
         }
         try {
+            boolean accepted = sendFeishuText(webhook, title, detail);
+            if (accepted) {
+                // 只有真正发送成功才进入冷却；发送失败必须允许下一轮立即重试。
+                alertLastAt.put(event, now);
+            }
+            return accepted;
+        } finally {
+            alertInFlight.remove(event);
+        }
+    }
+
+    /**
+     * 发送普通飞书文本消息（不做告警冷却）。
+     * 供定时摘要按品牌拆分后逐条发送；调用方负责消息节流与重试。
+     */
+    public boolean sendText(String title, String detail) {
+        String webhook = config(KEY_ALERT_WEBHOOK, null);
+        if (isBlank(webhook)) {
+            log.warn("飞书消息未发送：未配置 {}", KEY_ALERT_WEBHOOK);
+            return false;
+        }
+        return sendFeishuText(webhook, title, detail);
+    }
+
+    /** 飞书自定义机器人文本消息发送；HTTP 200 仍需校验业务返回码。 */
+    private boolean sendFeishuText(String webhook, String title, String detail) {
+        try {
             Map<String, Object> content = new HashMap<>();
             content.put("text", title + "\n" + detail);
             Map<String, Object> body = new HashMap<>();
@@ -382,22 +409,17 @@ public class AiChannelService {
                     .timeout(10000)
                     .execute();
             if (!resp.isOk()) {
-                log.warn("AI告警推送飞书失败: HTTP {}", resp.getStatus());
+                log.warn("飞书消息发送失败: HTTP {}, title={}", resp.getStatus(), title);
                 return false;
             }
             boolean accepted = feishuAccepted(resp.body());
             if (!accepted) {
-                log.warn("AI告警推送飞书未确认成功: {}", resp.body());
-            } else {
-                // 只有真正发送成功才进入冷却；发送失败必须允许下一轮立即重试。
-                alertLastAt.put(event, now);
+                log.warn("飞书消息未确认成功: title={}, resp={}", title, resp.body());
             }
             return accepted;
         } catch (Exception e) {
-            log.warn("AI告警推送飞书异常: {}", e.toString());
+            log.warn("飞书消息发送异常: title={}, error={}", title, e.toString());
             return false;
-        } finally {
-            alertInFlight.remove(event);
         }
     }
 

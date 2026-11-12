@@ -92,6 +92,12 @@ public interface ICrmOfferService {
      */
     String buildAiQueryCopyText(List<String> partNumbers, int days, List<String> extraFields);
 
+    /**
+     * 一键复制 Offer（按品牌拆分）：筛选与最低价规则同 buildAiQueryCopyText，
+     * 返回“品牌 -> 该品牌的 Offer 文本”，供飞书定时推送按品牌分多条发送。
+     */
+    Map<String, String> buildAiQueryCopyTextByBrand(List<String> partNumbers, int days, List<String> extraFields);
+
     /** 批量判断料号在最近 days 个自然日内是否具备价格优势（同一后端算法）。 */
     Map<String, Boolean> priceAdvantageBatch(List<String> partNumbers, int days);
 

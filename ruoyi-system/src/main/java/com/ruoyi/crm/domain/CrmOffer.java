@@ -67,6 +67,8 @@ public class CrmOffer extends BaseEntity {
     private String updateBy;
     @Excel(name = "产品类型")
     private String productType;
+    @Excel(name = "消费/服务")
+    private String usageSegment;
     @Excel(name = "产品明细编号")
     private String productDetailCode;
     @Excel(name = "询报价类型 Offer/Inq")
@@ -109,6 +111,7 @@ public class CrmOffer extends BaseEntity {
                 .append("updateBy", getUpdateBy())
                 .append("updateTime", getUpdateTime())
                 .append("productType", getProductType())
+                .append("usageSegment", getUsageSegment())
                 .append("productDetailCode", getProductDetailCode())
                 .append("inqOfferType", getInqOfferType())
                 .append("wechatServerId", getWechatServerId())

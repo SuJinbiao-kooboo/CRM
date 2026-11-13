@@ -74,6 +74,10 @@ public interface WeChatMessageMapper {
     List<java.util.Map<String, Object>> queryRecentFailureSamples(@Param("since") String since,
                                                                   @Param("max") int max);
 
+    /** 当天出现过、且历史上发过 INQ/OFFER 的聊天对象+发言人；是否未关联供应商由服务层判断。 */
+    List<java.util.Map<String, Object>> selectUnlinkedChatCandidates(@Param("since") String since,
+                                                                     @Param("max") int max);
+
     int markEntryProcessing(@Param("username") String username, @Param("localId") long localId,
                             @Param("timeoutSec") int timeoutSec, @Param("retryBaseSec") int retryBaseSec);
 

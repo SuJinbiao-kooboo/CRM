@@ -19,6 +19,12 @@ public interface ICrmOfferService {
 
     int batchUpdate(List<Long> ids, CrmOffer offer);
 
+    /** 按去重基础料号分批调用 AI 回填消费/服务，并批量更新同料号历史记录。 */
+    Map<String, Object> refreshUsageSegmentBatch(int limit);
+
+    /** 统计仍待回填消费/服务的基础料号数量。 */
+    long countPendingUsageSegments();
+
     Map<String, Object> importOffers(MultipartFile file, String supplierCode, String supplierName, String inqOfferType, Map<String, String> colMap, Double profitRatio);
 
     /** AI智能录入：调用AI把物料内容整理为结构化数据并批量入库，返回成功条数 */

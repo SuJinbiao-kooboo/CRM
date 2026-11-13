@@ -35,7 +35,7 @@ public class SupplierGroupCheckScheduler {
             boolean sent = aiChannelService.alert(ALERT_EVENT,
                     "【供应商群配置预警】采购群和销售群均为空（" + suppliers.size() + " 家）", detail);
             if (!sent) {
-                log.warn("供应商群配置飞书告警未发送成功，请检查 sys.ai.alert.webhook 配置或告警冷却；待补供应商 {} 家",
+                log.warn("供应商群配置飞书告警未发送成功，请检查字典 feishu_robot_config/business_alert 或告警冷却；待补供应商 {} 家",
                         suppliers.size());
             }
         } catch (Exception e) {

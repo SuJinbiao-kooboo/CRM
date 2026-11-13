@@ -81,7 +81,7 @@
 
     <pagination v-show="total > 0" :total="total" :page.sync="queryParams.pageNum" :limit.sync="queryParams.pageSize" @pagination="getList" />
 
-    <el-dialog title="订单文件" :visible.sync="fileOpen" width="1100px" append-to-body @closed="fileRow = null">
+    <el-dialog title="订单文件（客户 / 供应商）" :visible.sync="fileOpen" width="92%" top="5vh" append-to-body @closed="fileRow = null">
       <div v-if="fileRow" class="file-order-no">订单：{{ fileRow.orderNo }}　PN：{{ fileRow.pn || '-' }}</div>
       <order-file-panel v-if="fileRow" :order-id="fileRow.id" :legacy-files="legacyFilesOf(fileRow)" @changed="onFilesChanged" />
     </el-dialog>

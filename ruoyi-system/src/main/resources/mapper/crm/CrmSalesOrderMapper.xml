@@ -50,6 +50,10 @@
         <result column="ci_our_file" property="ciOurFile" />
         <result column="entrust_file" property="entrustFile" />
         <result column="sn_file" property="snFile" />
+        <result column="entrust_supplier_file" property="entrustSupplierFile" />
+        <result column="sign_receipt_supplier_file" property="signReceiptSupplierFile" />
+        <result column="photo_supplier_file" property="photoSupplierFile" />
+        <result column="sn_supplier_file" property="snSupplierFile" />
         <result column="create_by" property="createBy" />
         <result column="create_time" property="createTime" />
         <result column="update_by" property="updateBy" />
@@ -129,7 +133,8 @@
             payment_date, arrival_date, logistics_fee, carton_spec, gross_weight, sign_receipt_file, photo_file,
             remark, logistics_reconciliation, customer_contact_id, supplier_contact_id,
             po_customer_file, pi_our_file, po_our_file, pi_supplier_file, pl_supplier_file, pl_our_file,
-            ci_supplier_file, ci_our_file, entrust_file, sn_file,
+            ci_supplier_file, ci_our_file, entrust_file, entrust_supplier_file, sign_receipt_supplier_file,
+            photo_supplier_file, sn_file, sn_supplier_file,
             create_by, create_time, update_by, update_time
         ) values (
             #{orderNo}, #{orderDate}, #{bookingDate}, #{bookingMonth}, #{cooperationStatus}, #{pn}, #{desp}, #{productTypes}, #{status},
@@ -138,7 +143,8 @@
             #{paymentDate}, #{arrivalDate}, #{logisticsFee}, #{cartonSpec}, #{grossWeight}, #{signReceiptFile}, #{photoFile},
             #{remark}, #{logisticsReconciliation}, #{customerContactId}, #{supplierContactId},
             #{poCustomerFile}, #{piOurFile}, #{poOurFile}, #{piSupplierFile}, #{plSupplierFile}, #{plOurFile},
-            #{ciSupplierFile}, #{ciOurFile}, #{entrustFile}, #{snFile},
+            #{ciSupplierFile}, #{ciOurFile}, #{entrustFile}, #{entrustSupplierFile}, #{signReceiptSupplierFile},
+            #{photoSupplierFile}, #{snFile}, #{snSupplierFile},
             #{createBy}, now(), #{updateBy}, now()
         )
     </insert>
@@ -190,7 +196,11 @@
             ci_supplier_file = #{ciSupplierFile},
             ci_our_file = #{ciOurFile},
             entrust_file = #{entrustFile},
+            entrust_supplier_file = #{entrustSupplierFile},
+            sign_receipt_supplier_file = #{signReceiptSupplierFile},
+            photo_supplier_file = #{photoSupplierFile},
             sn_file = #{snFile},
+            sn_supplier_file = #{snSupplierFile},
             update_by = #{updateBy},
             update_time = now()
         where id = #{id}

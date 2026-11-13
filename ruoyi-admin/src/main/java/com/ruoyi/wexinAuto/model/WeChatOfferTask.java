@@ -17,6 +17,8 @@ public class WeChatOfferTask extends BaseEntity {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Date sourceMessageTime;
     private String sourceCategory;
+    /** 任务来源：消息自动 / 人工手动 / 自动询Offer */
+    private String taskSource;
     private String taskType;
     private String sendType;
     private String oriTarget;

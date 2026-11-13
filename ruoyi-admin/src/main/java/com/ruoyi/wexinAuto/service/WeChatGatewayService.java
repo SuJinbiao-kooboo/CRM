@@ -17,6 +17,7 @@ import com.ruoyi.wexinAuto.model.PartyMatch;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
 import com.ruoyi.wexinAuto.model.WeChatSendItem;
 import com.ruoyi.wexinAuto.model.WeChatSendResult;
+import com.ruoyi.wexinAuto.model.WeChatSessionStatus;
 import com.ruoyi.wexinAuto.msg.WeChatMessageHandler;
 import com.ruoyi.wexinAuto.msg.WeChatMessageParser;
 import com.ruoyi.common.core.domain.entity.SysDictData;
@@ -56,6 +57,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
@@ -171,10 +178,6 @@ public class WeChatGatewayService {
     private volatile int lastEntryProcessed = 0;
 
     private final ObjectMapper jackson = new ObjectMapper();
-
-    /** whoami 结果短时缓存，避免每轮发送扫描都解密一次微信数据库。 */
-    private volatile String currentWxName = "";
-    private volatile long whoamiAt = 0L;
 
     @Autowired
     public WeChatGatewayService(WeChatGatewayProperties props, WeChatMessageHandler handler,
@@ -1790,6 +1793,8 @@ public class WeChatGatewayService {
         if (saved == null || saved.isEmpty()) {
             throw new IllegalStateException("AI录入未生成任何crm_offer记录");
         }
+        // 自动录入成功即记录来源对象；未关联供应商同样记录，供管理员审计和整点提醒。
+        partyService.recordSource(party.getSupplier(), anchor.getName(), anchor.getSender());
 
         List<String> partNumbers = new ArrayList<>();
         for (CrmOffer offerRow : saved) {
@@ -2123,7 +2128,80 @@ public class WeChatGatewayService {
                 "【微信自动化-失败告警】最近" + windowMin + "分钟失败 " + total + " 条",
                 detail.toString());
         out.put("alertSent", sent);
-        out.put("message", sent ? "失败聚合告警已发送" : "失败聚合告警发送失败，请检查 sys.ai.alert.webhook");
+        out.put("message", sent ? "失败聚合告警已发送"
+                : "失败聚合告警发送失败，请检查字典 feishu_robot_config 的 business_alert");
+        return out;
+    }
+
+    /**
+     * 当天未关联供应商聊天提醒：只统计历史上给我方发过 INQ/OFFER 的发言人。
+     * 按“聊天对象 + 发言人”去重，仅保留无法匹配任何供应商群的会话；无数据不发送。
+     */
+    public Map<String, Object> alertUnlinkedChats() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        long dayStart = java.time.LocalDate.now(ZoneId.of("Asia/Shanghai"))
+                .atStartOfDay(ZoneId.of("Asia/Shanghai")).toInstant().toEpochMilli();
+        String since = fmtTime(dayStart);
+        List<Map<String, Object>> candidates = store.unlinkedChatCandidates(since, 5000);
+        Map<String, Boolean> unlinkedByChat = new LinkedHashMap<>();
+        LinkedHashSet<String> lines = new LinkedHashSet<>();
+        for (Map<String, Object> row : candidates) {
+            String chat = StringUtils.trimToEmpty(mapText(row, "name"));
+            if (chat.isEmpty()) {
+                continue;
+            }
+            String sender = StringUtils.trimToEmpty(mapText(row, "sender"));
+            if (sender.isEmpty()) {
+                sender = "未知";
+            }
+            if (partyService.isSelf(sender)) {
+                continue;
+            }
+            Boolean unlinked = unlinkedByChat.get(chat);
+            if (unlinked == null) {
+                unlinked = partyService.isUnlinkedSupplier(partyService.resolve(chat));
+                unlinkedByChat.put(chat, unlinked);
+            }
+            if (Boolean.TRUE.equals(unlinked)) {
+                lines.add(chat + "：" + sender);
+            }
+        }
+
+        out.put("since", since);
+        out.put("candidatePairs", candidates.size());
+        out.put("unlinkedPairs", lines.size());
+        if (lines.isEmpty()) {
+            out.put("alertSent", false);
+            out.put("message", "当天没有发过INQ/OFFER的人员进入未关联供应商聊天");
+            return out;
+        }
+
+        StringBuilder detail = new StringBuilder();
+        detail.append("统计范围: ").append(since).append(" 至 ").append(fmtTime(System.currentTimeMillis())).append('\n')
+                .append("筛选口径: 发言人历史上发过 INQ/OFFER，且当天所在聊天对象未关联供应商\n")
+                .append("去重口径: 聊天对象 + 发言人\n")
+                .append("告警组合: ").append(lines.size()).append(" 个\n\n");
+        int listed = 0;
+        for (String line : lines) {
+            if (detail.length() + line.length() + 1 > 16000) {
+                break;
+            }
+            detail.append("- ").append(line).append('\n');
+            listed++;
+        }
+        if (listed < lines.size()) {
+            detail.append("...其余 ").append(lines.size() - listed)
+                    .append(" 个未展开，请到“微信消息列表”按聊天对象核对。\n");
+        }
+        detail.append("\n处理建议: 在供应商档案补全销售群/采购群映射；确认无需关联的会话可保持未关联状态。");
+
+        String event = "WECHAT_UNLINKED|" + new SimpleDateFormat("yyyyMMddHH").format(new Date());
+        boolean sent = aiChannelService.alert(event,
+                "【微信自动化-未关联供应商聊天】当天 " + lines.size() + " 个未关联聊天/人员组合",
+                detail.toString());
+        out.put("alertSent", sent);
+        out.put("message", sent ? "未关联供应商聊天提醒已发送"
+                : "未关联供应商聊天提醒发送失败，请检查字典 feishu_robot_config 的 business_alert");
         return out;
     }
 
@@ -2399,7 +2477,7 @@ public class WeChatGatewayService {
                         + "关联OFFER: " + relText(m.getRelatOffer()) + "\n"
                         + "建议: 立即确认库存/价格/交期及订单推进动作。";
                 try {
-                    if (!aiChannelService.alert(alertKey,
+                    if (!aiChannelService.traceAlert(alertKey,
                             "【微信TRACE预警】询报价二次跟进，存在订单机会", detail)) {
                         store.markTraceAlertError(m.getUsername(), m.getLocalId(), "飞书预警返回失败");
                         log.warn("TRACE预警推送未成功，等待下一轮重试: chat={} sender={} localId={}",
@@ -2690,7 +2768,11 @@ public class WeChatGatewayService {
                     log.info("[wx_gateway {}] {}", operation, line);
                 }
             }
-            int code = process.waitFor();
+            if (!process.waitFor(15, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                throw new IllegalStateException("wx_gateway batch_send 输出已结束但进程未退出，已终止");
+            }
+            int code = process.exitValue();
             if (code != 0) {
                 throw new IllegalStateException(StringUtils.defaultIfBlank(error,
                         operation + "失败，exitCode=" + code));
@@ -2939,84 +3021,219 @@ public class WeChatGatewayService {
                                           sendDouble("intervalMax", props.getSendIntervalMax())));
         cfg.put("max_batch", sendInt("maxBatch", props.getSendMaxBatch()));
         cfg.put("verify", sendBool("verify", props.isSendVerify()));
+        cfg.put("send_timeout_sec", sendInt("sendTimeoutSec", 180));
         return cfg;
     }
 
-    /** 发送前校验当前微信登录人；结果短时缓存，避免频繁启动网关。 */
+    /** Java 侧硬超时只做最后兜底，必须比 Python 的逐条看门狗更宽松。 */
+    private long batchHardTimeoutSeconds(Map<String, Object> cfg) {
+        int targetCount = 1;
+        Object targets = cfg.get("targets");
+        if (targets instanceof List) {
+            targetCount = Math.max(1, ((List<?>) targets).size());
+        }
+        long perSend = 180L;
+        Object timeout = cfg.get("send_timeout_sec");
+        if (timeout instanceof Number) {
+            perSend = Math.max(30L, ((Number) timeout).longValue());
+        }
+        double intervalMax = 0D;
+        Object interval = cfg.get("interval");
+        if (interval instanceof List && ((List<?>) interval).size() > 1) {
+            Object value = ((List<?>) interval).get(1);
+            if (value instanceof Number) {
+                intervalMax = Math.max(0D, ((Number) value).doubleValue());
+            }
+        }
+        long computed = targetCount * (perSend + 90L)
+                + (long) Math.ceil(intervalMax * Math.max(0, targetCount - 1));
+        return Math.max(120L, Math.min(1800L, computed));
+    }
+
+    /** 发送前校验当前微信登录人。失败结果绝不缓存，避免临时读取失败阻塞后续发送。 */
     public boolean isExpectedSendAccount(String expected) {
         String wanted = StringUtils.trimToEmpty(expected);
         if (wanted.isEmpty()) {
             return false;
         }
-        long now = System.currentTimeMillis();
-        if (now - whoamiAt < 120_000L) {
-            return wanted.equalsIgnoreCase(currentWxName);
+        return wanted.equalsIgnoreCase(currentSendAccount());
+    }
+
+    /** 读取当前微信昵称；whoami 偶发失败时重试 3 次，仍失败返回空串。 */
+    public String currentSendAccount() {
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            String name = readCurrentWxName();
+            if (StringUtils.isNotBlank(name)) {
+                return name;
+            }
+            if (attempt < 3) {
+                try {
+                    Thread.sleep(800L);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
         }
-        currentWxName = readCurrentWxName();
-        whoamiAt = System.currentTimeMillis();
-        return wanted.equalsIgnoreCase(currentWxName);
+        log.warn("读取微信当前登录账号失败（已重试 3 次）");
+        return "";
+    }
+
+    /** 发送前检查 Windows 是否处于可交互桌面，锁屏时直接暂停。 */
+    public WeChatSessionStatus sessionStatus() {
+        WeChatSessionStatus status = new WeChatSessionStatus();
+        Process process = null;
+        try {
+            ProcessBuilder pb = new ProcessBuilder(props.getPython(), props.getScript(), "session_status");
+            pb.redirectErrorStream(true);
+            process = pb.start();
+            boolean finished = process.waitFor(10, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                status.setReason("交互桌面检测超时，交由网关发送前再次检查");
+                log.warn(status.getReason());
+                return status;
+            }
+            String json = "";
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String text = StringUtils.trimToEmpty(line);
+                    if (text.startsWith("{")) {
+                        json = text;
+                    } else if (StringUtils.isNotBlank(text)) {
+                        log.info("[wx_gateway.session_status] {}", text);
+                    }
+                }
+            }
+            if (StringUtils.isNotBlank(json)) {
+                return jackson.readValue(json, WeChatSessionStatus.class);
+            }
+            status.setReason("交互桌面检测未返回结果，交由网关发送前再次检查");
+            log.warn("wx_gateway session_status 退出码 {}，未返回 JSON", process.exitValue());
+        } catch (Exception e) {
+            status.setReason("交互桌面检测失败，交由网关发送前再次检查: " + e.getMessage());
+            log.warn(status.getReason());
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
+        return status;
     }
 
     private String readCurrentWxName() {
+        Process process = null;
         try {
             ProcessBuilder pb = new ProcessBuilder(props.getPython(), props.getScript(), "whoami");
             pb.redirectErrorStream(true);
-            Process p = pb.start();
+            process = pb.start();
+            if (!process.waitFor(10, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                log.warn("wx_gateway whoami 超时，已终止");
+                return "";
+            }
             String name = "";
+            String username = "";
+            String output = "";
             try (BufferedReader r = new BufferedReader(
-                    new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = r.readLine()) != null) {
                     String text = StringUtils.trimToEmpty(line);
+                    if (StringUtils.isNotBlank(text) && !text.contains("已删除自身临时解密目录")) {
+                        output = text;
+                    }
                     if (text.startsWith("{")) {
                         JsonNode node = jackson.readTree(text);
-                        String nick = node.path("nick_name").asText("");
-                        name = StringUtils.isNotBlank(nick) ? nick : node.path("username").asText("");
+                        username = node.path("username").asText("");
+                        name = node.path("nick_name").asText("");
                     } else if (text.contains("失败") || text.contains("错误")) {
                         log.warn("[wx_gateway.whoami] {}", text);
                     }
                 }
             }
-            int code = p.waitFor();
+            int code = process.exitValue();
             if (code != 0) {
-                log.error("wx_gateway whoami 退出码 {}", code);
+                log.error("wx_gateway whoami 退出码 {}，输出: {}", code, output);
                 return "";
             }
-            return StringUtils.trimToEmpty(name);
+            String resolved = StringUtils.isNotBlank(name) ? name : username;
+            if (StringUtils.isBlank(resolved)) {
+                log.warn("wx_gateway whoami 未返回账号信息，输出: {}", output);
+                return "";
+            }
+            log.info("微信当前登录账号: {} ({})", resolved.trim(), username);
+            return resolved.trim();
         } catch (Exception e) {
             log.error("读取微信当前登录账号失败", e);
             return "";
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
         }
     }
 
     private List<WeChatSendResult> runBatchSend(Map<String, Object> cfg) {
         List<WeChatSendResult> out = new ArrayList<>();
+        Process process = null;
+        long hardTimeoutSec = batchHardTimeoutSeconds(cfg);
+        ExecutorService readerPool = Executors.newSingleThreadExecutor(r -> {
+            Thread thread = new Thread(r, "wx-batch-send-reader");
+            thread.setDaemon(true);
+            return thread;
+        });
         try {
             ProcessBuilder pb = new ProcessBuilder(props.getPython(), props.getScript(), "batch_send");
             pb.redirectErrorStream(true);
-            Process p = pb.start();
+            process = pb.start();
             try (BufferedWriter w = new BufferedWriter(
-                    new OutputStreamWriter(p.getOutputStream(), StandardCharsets.UTF_8))) {
+                    new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8))) {
                 w.write(jackson.writeValueAsString(cfg));
                 w.newLine();
                 w.flush();
             }
-            try (BufferedReader r = new BufferedReader(
-                    new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = r.readLine()) != null) {
-                    if (WeChatMessageParser.isJsonLine(line)) {
-                        try {
-                            out.add(jackson.readValue(line, WeChatSendResult.class));
-                        } catch (IOException e) {
-                            log.warn("解析发送结果失败: {}", line, e);
+            final Process running = process;
+            Future<?> readFuture = readerPool.submit(() -> {
+                try (BufferedReader r = new BufferedReader(
+                        new InputStreamReader(running.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = r.readLine()) != null) {
+                        if (WeChatMessageParser.isJsonLine(line)) {
+                            try {
+                                out.add(jackson.readValue(line, WeChatSendResult.class));
+                            } catch (IOException e) {
+                                log.warn("解析发送结果失败: {}", line, e);
+                            }
+                        } else if (StringUtils.isNotBlank(line)) {
+                            log.info("[wx_gateway.batch_send] {}", line);
                         }
-                    } else if (StringUtils.isNotBlank(line)) {
-                        log.info("[wx_gateway.batch_send] {}", line);
                     }
+                } catch (Exception e) {
+                    throw new IllegalStateException("读取 wx_gateway 发送结果失败: " + e.getMessage(), e);
                 }
+            });
+            try {
+                readFuture.get(hardTimeoutSec, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                process.destroyForcibly();
+                readFuture.cancel(true);
+                throw new IllegalStateException("wx_gateway batch_send 超过 " + hardTimeoutSec + " 秒未完成，已强制终止进程");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                process.destroyForcibly();
+                readFuture.cancel(true);
+                throw new IllegalStateException("等待 wx_gateway batch_send 被中断", e);
+            } catch (ExecutionException e) {
+                throw new IllegalStateException("读取 wx_gateway batch_send 结果失败", e.getCause());
             }
-            int code = p.waitFor();
+            if (!process.waitFor(15, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                throw new IllegalStateException("wx_gateway batch_send 输出已结束但进程未在 15 秒内退出，已强制终止");
+            }
+            int code = process.exitValue();
             log.info("wx_gateway batch_send 退出码: {}", code);
             if (code != 0) {
                 throw new IllegalStateException("wx_gateway batch_send 进程异常退出，exitCode=" + code);
@@ -3024,6 +3241,11 @@ public class WeChatGatewayService {
         } catch (Exception e) {
             log.error("批量发送执行失败", e);
             throw new IllegalStateException("批量发送失败: " + e.getMessage(), e);
+        } finally {
+            readerPool.shutdownNow();
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
         }
         return out;
     }

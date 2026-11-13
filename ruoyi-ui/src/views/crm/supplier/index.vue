@@ -127,6 +127,7 @@
           <el-descriptions-item label="供应商编号">{{ detailData.supplierCode }}</el-descriptions-item>
           <el-descriptions-item label="供应商简称">{{ detailData.supplierShortName }}</el-descriptions-item>
           <el-descriptions-item label="公司别名">{{ detailData.supplierAlias }}</el-descriptions-item>
+          <el-descriptions-item label="来源对象" :span="3">{{ detailData.sourceObjects || '无' }}</el-descriptions-item>
           <el-descriptions-item label="类型">{{ detailData.supplierType }}</el-descriptions-item>
           <el-descriptions-item label="国家">{{ detailData.country }}</el-descriptions-item>
           <el-descriptions-item label="地址" :span="3">{{ detailData.address }}</el-descriptions-item>
@@ -146,6 +147,7 @@
           <el-descriptions-item label="合作状态">{{ detailData.cooperationStatus }}</el-descriptions-item>
           <el-descriptions-item label="利润率">{{ detailData.profitRatio == null ? '2' : detailData.profitRatio }}%</el-descriptions-item>
           <el-descriptions-item label="自动审批">{{ detailData.autoApprove === 1 ? '开启' : '关闭' }}</el-descriptions-item>
+          <el-descriptions-item label="自动询Offer">{{ detailData.autoInquiryOffer === 1 ? '开启' : '关闭' }}</el-descriptions-item>
           <el-descriptions-item label="跟进人">{{ detailData.followUpByNames || detailData.followUpBy }}</el-descriptions-item>
           <el-descriptions-item label="状态">{{ detailData.status === 1 ? '正常' : '停用' }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ parseTime(detailData.createTime) }}</el-descriptions-item>
@@ -297,6 +299,12 @@
           <div v-else-if="col.type === 'autoApproveSwitch'" class="auto-approve-cell" :class="{ 'is-on': Number(scope.row[col.prop]) === 1 }" title="点击切换自动审批" @click.stop="toggleInlineAutoApprove(scope.row)">
             <el-tooltip :content="Number(scope.row[col.prop]) === 1 ? '点击关闭自动审批' : '点击开启自动审批'" placement="top">
               <el-switch :value="Number(scope.row[col.prop]) === 1" :disabled="!!scope.row.autoApproveSaving" active-color="#13ce66" @change="updateInlineAutoApprove(scope.row, $event)" @click.native.stop />
+            </el-tooltip>
+            <span class="auto-approve-label">{{ Number(scope.row[col.prop]) === 1 ? '开启' : '关闭' }}</span>
+          </div>
+          <div v-else-if="col.type === 'autoInquiryOfferSwitch'" class="auto-approve-cell" :class="{ 'is-on': Number(scope.row[col.prop]) === 1 }" title="点击切换自动询Offer" @click.stop="toggleInlineAutoInquiryOffer(scope.row)">
+            <el-tooltip :content="Number(scope.row[col.prop]) === 1 ? '点击关闭自动询Offer' : '点击开启自动询Offer'" placement="top">
+              <el-switch :value="Number(scope.row[col.prop]) === 1" :disabled="!!scope.row.autoInquiryOfferSaving" active-color="#13ce66" @change="updateInlineAutoInquiryOffer(scope.row, $event)" @click.native.stop />
             </el-tooltip>
             <span class="auto-approve-label">{{ Number(scope.row[col.prop]) === 1 ? '开启' : '关闭' }}</span>
           </div>
@@ -483,6 +491,12 @@
             <el-form-item label="自动审批" prop="autoApprove">
               <el-switch v-model="form.autoApprove" :active-value="1" :inactive-value="0" />
               <span style="color:#909399;font-size:12px;margin-left:8px;">任务所有发送目标均开启时生效</span>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="自动询Offer" prop="autoInquiryOffer">
+              <el-switch v-model="form.autoInquiryOffer" :active-value="1" :inactive-value="0" />
+              <span style="color:#909399;font-size:12px;margin-left:8px;">每周一、三、四 10:00 创建待审批任务</span>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -746,6 +760,7 @@ const DEFAULT_COLUMNS = [
   { key: 'supplierName', label: '供应商名称', prop: 'supplierName', width: 220, type: 'link', editType: 'text' },
   { key: 'supplierShortName', label: '供应商简称', prop: 'supplierShortName', width: 120, type: 'inlineText', editType: 'text' },
   { key: 'supplierAlias', label: '公司别名', prop: 'supplierAlias', width: 140, type: 'inlineText', editType: 'text' },
+  { key: 'sourceObjects', label: '来源对象', prop: 'sourceObjects', width: 260, type: 'plain' },
   { key: 'supplierType', label: '类型', prop: 'supplierType', width: 130, type: 'multiSelect', editType: 'multiSelect', arrProp: 'supplierTypeArr', dict: 'dictSupplierType' },
   { key: 'brands', label: '品牌', prop: 'brands', width: 190, type: 'multiSelect', editType: 'multiSelect', arrProp: 'brandsArr', dict: 'dictProductBrand' },
   { key: 'country', label: '国家', prop: 'country', width: 90, type: 'plain', editType: 'text' },
@@ -761,6 +776,7 @@ const DEFAULT_COLUMNS = [
   { key: 'cooperationDirection', label: '合作方向', prop: 'cooperationDirection', width: 190, type: 'multiSelect', editType: 'multiSelect', arrProp: 'cooperationDirectionArr', dict: 'dictCooperationDirection' },
   { key: 'profitRatio', label: '利润率(%)', prop: 'profitRatio', width: 110, type: 'plain', editType: 'number' },
   { key: 'autoApprove', label: '自动审批', prop: 'autoApprove', width: 115, type: 'autoApproveSwitch' },
+  { key: 'autoInquiryOffer', label: '自动询Offer', prop: 'autoInquiryOffer', width: 135, type: 'autoInquiryOfferSwitch' },
   { key: 'salesGroup', label: '销售群', prop: 'salesGroup', width: 160, type: 'plain', editType: 'text' },
   { key: 'purchaseGroup', label: '采购群', prop: 'purchaseGroup', width: 160, type: 'plain', editType: 'text' },
   { key: 'cooperationStatus', label: '合作状态', prop: 'cooperationStatus', width: 140, type: 'statusSelect' },
@@ -789,7 +805,7 @@ const DEFAULT_COLUMNS = [
   { key: 'updateTime', label: '更新时间', prop: 'updateTime', width: 160, type: 'datetime' }
 ]
 // localStorage 存储键（带版本号，后续列配置结构变更时调整版本即可平滑重置）
-const COLUMNS_STORAGE_KEY = 'crm:supplier:table-columns:v2'
+const COLUMNS_STORAGE_KEY = 'crm:supplier:table-columns:v3'
 
 // 深拷贝默认列配置并默认全部可见（避免多个实例共享同一对象引用）
 function defaultColumns() {
@@ -855,7 +871,7 @@ export default {
       uploadHeaders: { Authorization: 'Bearer ' + getToken() },
       uploadFiles: [],
       queryParams: { pageNum: 1, pageSize: 10, supplierCode: '', supplierName: '', supplierAlias: '', contactName: '', cooperationStatus: '', supplierTypeArr: [], brandsArr: [], mainProductsArr: [], cooperationLevelArr: [], riskLevelArr: [], paymentTermsArr: [], params: {} },
-      form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], profitRatio: 2, autoApprove: 0, salesGroup: '', purchaseGroup: '', cooperationStatus: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
+      form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], profitRatio: 2, autoApprove: 0, autoInquiryOffer: 0, salesGroup: '', purchaseGroup: '', cooperationStatus: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
       dictSupplierType: [], dictMainProducts: [], dictCooperationLevel: [], dictRiskLevel: [], dictPaymentTerms: [], dictProductBrand: [], dictCooperationDirection: [], dictCooperationStatus: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       userOptions: [],
       userLoading: false,
@@ -1019,7 +1035,7 @@ export default {
       this.download('/crm/supplier/export', { ids: this.ids }, `supplier_${new Date().getTime()}.xlsx`)
     },
     cancel() { this.open = false },
-    resetFormData() { this.form = { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], profitRatio: 2, autoApprove: 0, salesGroup: '', purchaseGroup: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] }; this.uploadFiles = [] },
+    resetFormData() { this.form = { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], profitRatio: 2, autoApprove: 0, autoInquiryOffer: 0, salesGroup: '', purchaseGroup: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] }; this.uploadFiles = [] },
     addContact() { this.form.contacts.push({ contactName: '', post: '', phone: '', email: '', isPrimary: 0 }) },
     removeContact(index) { this.form.contacts.splice(index, 1) },
     onUploadSuccess(resp, file) {
@@ -1166,6 +1182,26 @@ export default {
     ,toggleInlineAutoApprove(row) {
       if (!row || row.id == null || row.autoApproveSaving) return
       this.updateInlineAutoApprove(row, Number(row.autoApprove) !== 1)
+    }
+    ,updateInlineAutoInquiryOffer(row, enabled) {
+      if (!row || row.id == null || row.autoInquiryOfferSaving) return
+      const prev = Number(row.autoInquiryOffer) === 1 ? 1 : 0
+      const next = enabled ? 1 : 0
+      if (next === prev) return
+      this.$set(row, 'autoInquiryOfferSaving', true)
+      row.autoInquiryOffer = next
+      updateSupplier({ id: row.id, autoInquiryOffer: next }).then(() => {
+        this.$modal.msgSuccess(next === 1 ? '自动询Offer已开启' : '自动询Offer已关闭')
+      }).catch(err => {
+        row.autoInquiryOffer = prev
+        this.$modal.msgError(err && err.msg ? err.msg : '自动询Offer更新失败')
+      }).finally(() => {
+        this.$set(row, 'autoInquiryOfferSaving', false)
+      })
+    }
+    ,toggleInlineAutoInquiryOffer(row) {
+      if (!row || row.id == null || row.autoInquiryOfferSaving) return
+      this.updateInlineAutoInquiryOffer(row, Number(row.autoInquiryOffer) !== 1)
     }
     ,isEditable(col) { return !!(col && col.editType) }
     ,isEditing(row, col) { return !!this.editingCells[this.cellKey(row, col)] }

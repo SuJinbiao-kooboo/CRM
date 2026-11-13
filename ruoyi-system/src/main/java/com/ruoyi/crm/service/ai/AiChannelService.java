@@ -2,6 +2,7 @@ package com.ruoyi.crm.service.ai;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,6 +13,8 @@ import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.core.domain.entity.SysDictData;
+import com.ruoyi.common.utils.DictUtils;
 import com.ruoyi.system.service.ISysConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +32,7 @@ import org.springframework.stereotype.Component;
  *       sys.ai.backup.api.key / sys.ai.backup.model</li>
  *   <li>切换策略：sys.ai.backup.enabled / sys.ai.fail.threshold / sys.ai.backup.check.sec</li>
  *   <li>总开关与超时：sys.ai.enabled / sys.ai.timeout.ms</li>
- *   <li>故障告警：sys.ai.alert.webhook（飞书机器人，可空）/ sys.ai.alert.cooldown.sec</li>
+ *   <li>故障告警：字典 feishu_robot_config（Webhook/Secret/用途）/ sys.ai.alert.cooldown.sec</li>
  * </ul>
  *
  * <p>防呆逻辑：主渠道连续失败达到阈值自动切到备用渠道；备用模式下周期性探测主渠道，
@@ -87,6 +90,11 @@ public class AiChannelService {
     private static final int DEFAULT_ENTRY_TIMEOUT_MS = 10 * 60 * 1000;
     /** 默认告警冷却（秒） */
     private static final int DEFAULT_ALERT_COOLDOWN_SEC = 600;
+
+    /** 飞书机器人配置字典：dict_label=机器人标识，dict_value=Webhook，css_class=Secret，remark=用途。 */
+    private static final String ROBOT_DICT_TYPE = "feishu_robot_config";
+    private static final String ROBOT_BUSINESS = "business_alert";
+    private static final String ROBOT_LEGACY = "legacy_trace_offer";
 
     /** 单次请求内部重试次数 */
     private static final int MAX_ATTEMPTS = 3;
@@ -356,9 +364,19 @@ public class AiChannelService {
      * @return true=飞书确认接收成功；false=未配置、冷却中、HTTP失败或飞书返回业务错误
      */
     public boolean alert(String event, String title, String detail) {
+        return alertInternal(event, title, detail, ROBOT_BUSINESS);
+    }
+
+    /** TRACE 专属告警：按既定规则继续发送到旧机器人。 */
+    public boolean traceAlert(String event, String title, String detail) {
+        return alertInternal(event, title, detail, ROBOT_LEGACY);
+    }
+
+    private boolean alertInternal(String event, String title, String detail, String robotName) {
         log.warn("{}\n{}", title, detail);
-        String webhook = config(KEY_ALERT_WEBHOOK, null);
-        if (isBlank(webhook)) {
+        RobotConfig robot = robotConfig(robotName);
+        if (isBlank(robot.webhook)) {
+            log.warn("飞书告警未发送：字典 {} 缺少机器人 {} 的 Webhook", ROBOT_DICT_TYPE, robotName);
             return false;
         }
         long cooldownMs = Math.max(0, configInt(KEY_ALERT_COOLDOWN_SEC, DEFAULT_ALERT_COOLDOWN_SEC)) * 1000L;
@@ -371,7 +389,7 @@ public class AiChannelService {
             return false;
         }
         try {
-            boolean accepted = sendFeishuText(webhook, title, detail);
+            boolean accepted = sendFeishuText(robot, title, detail);
             if (accepted) {
                 // 只有真正发送成功才进入冷却；发送失败必须允许下一轮立即重试。
                 alertLastAt.put(event, now);
@@ -387,39 +405,90 @@ public class AiChannelService {
      * 供定时摘要按品牌拆分后逐条发送；调用方负责消息节流与重试。
      */
     public boolean sendText(String title, String detail) {
-        String webhook = config(KEY_ALERT_WEBHOOK, null);
-        if (isBlank(webhook)) {
-            log.warn("飞书消息未发送：未配置 {}", KEY_ALERT_WEBHOOK);
+        RobotConfig robot = robotConfig(ROBOT_LEGACY);
+        if (isBlank(robot.webhook)) {
+            log.warn("飞书消息未发送：字典 {} 缺少机器人 {} 的 Webhook",
+                    ROBOT_DICT_TYPE, ROBOT_LEGACY);
             return false;
         }
-        return sendFeishuText(webhook, title, detail);
+        return sendFeishuText(robot, title, detail);
+    }
+
+    private RobotConfig robotConfig(String robotName) {
+        String webhook = null;
+        String secret = null;
+        List<SysDictData> rows = DictUtils.getDictCache(ROBOT_DICT_TYPE);
+        if (rows != null) {
+            for (SysDictData row : rows) {
+                if (row != null && robotName.equalsIgnoreCase(String.valueOf(row.getDictLabel()).trim())) {
+                    webhook = row.getDictValue();
+                    secret = row.getCssClass();
+                    break;
+                }
+            }
+        }
+        if (isBlank(webhook)) {
+            // 兼容旧配置，确保字典迁移前/迁移失败时 TRACE 与好价格 Offer 不中断。
+            webhook = config(KEY_ALERT_WEBHOOK, null);
+        }
+        return new RobotConfig(robotName, webhook == null ? null : webhook.trim(),
+                secret == null ? "" : secret.trim());
     }
 
     /** 飞书自定义机器人文本消息发送；HTTP 200 仍需校验业务返回码。 */
-    private boolean sendFeishuText(String webhook, String title, String detail) {
+    private boolean sendFeishuText(RobotConfig robot, String title, String detail) {
         try {
             Map<String, Object> content = new HashMap<>();
             content.put("text", title + "\n" + detail);
             Map<String, Object> body = new HashMap<>();
             body.put("msg_type", "text");
             body.put("content", content);
-            HttpResponse resp = HttpRequest.post(webhook)
+            if (!isBlank(robot.secret)) {
+                long timestamp = System.currentTimeMillis() / 1000L;
+                body.put("timestamp", String.valueOf(timestamp));
+                body.put("sign", feishuSign(robot.secret, timestamp));
+            }
+            HttpResponse resp = HttpRequest.post(robot.webhook)
                     .header("Content-Type", "application/json")
                     .body(JSON.toJSONString(body))
                     .timeout(10000)
                     .execute();
             if (!resp.isOk()) {
-                log.warn("飞书消息发送失败: HTTP {}, title={}", resp.getStatus(), title);
+                log.warn("飞书消息发送失败: robot={}, HTTP {}, title={}",
+                        robot.name, resp.getStatus(), title);
                 return false;
             }
             boolean accepted = feishuAccepted(resp.body());
             if (!accepted) {
-                log.warn("飞书消息未确认成功: title={}, resp={}", title, resp.body());
+                log.warn("飞书消息未确认成功: robot={}, title={}, resp={}",
+                        robot.name, title, resp.body());
             }
             return accepted;
         } catch (Exception e) {
-            log.warn("飞书消息发送异常: title={}, error={}", title, e.toString());
+            log.warn("飞书消息发送异常: robot={}, title={}, error={}",
+                    robot.name, title, e.toString());
             return false;
+        }
+    }
+
+    /** 飞书签名：HMAC-SHA256(key=timestamp+"\\n"+secret, data="")，再 Base64。 */
+    private String feishuSign(String secret, long timestamp) throws Exception {
+        String stringToSign = timestamp + "\n" + secret;
+        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+        mac.init(new javax.crypto.spec.SecretKeySpec(
+                stringToSign.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256"));
+        return java.util.Base64.getEncoder().encodeToString(mac.doFinal(new byte[0]));
+    }
+
+    private static final class RobotConfig {
+        private final String name;
+        private final String webhook;
+        private final String secret;
+
+        private RobotConfig(String name, String webhook, String secret) {
+            this.name = name;
+            this.webhook = webhook;
+            this.secret = secret;
         }
     }
 

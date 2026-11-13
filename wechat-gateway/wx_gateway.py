@@ -31,7 +31,7 @@
     sort_seq  排序键(增量断点)    md5        消息md5(媒体消息)
 """
 from __future__ import annotations
-import argparse, atexit, datetime, json, os, random, re, shutil, sqlite3, sys, tempfile, time, xml.etree.ElementTree as ET
+import argparse, atexit, datetime, json, os, random, re, shutil, sqlite3, sys, tempfile, threading, time, xml.etree.ElementTree as ET
 
 try:
     os.system("chcp 65001 >nul 2>&1")
@@ -177,6 +177,104 @@ def patch_send_verify():
         return False
 
     WeChatGUI._verify_sent = _verify_sent
+
+
+def windows_session_status():
+    """检测当前交互桌面是否可操作。
+
+    锁屏后 OpenInputDesktop 返回的是 Winlogon/安全桌面，微信窗口仍在后台，
+    但鼠标点击会落到锁屏界面，随后截图也会失败。发送前必须先拦截这种情况，
+    否则网关会把“根本没点进微信”误报成结果未知。
+    """
+    result = {"unlocked": False, "desktop": "", "reason": ""}
+    if sys.platform != "win32":
+        result.update(unlocked=True, desktop="non-windows", reason="非 Windows 环境")
+        return result
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        open_desktop = user32.OpenInputDesktop
+        open_desktop.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        open_desktop.restype = wintypes.HANDLE
+        close_desktop = user32.CloseDesktop
+        close_desktop.argtypes = (wintypes.HANDLE,)
+        close_desktop.restype = wintypes.BOOL
+        get_info = user32.GetUserObjectInformationW
+        get_info.argtypes = (wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p,
+                             wintypes.DWORD, ctypes.POINTER(wintypes.DWORD))
+        get_info.restype = wintypes.BOOL
+
+        # DESKTOP_SWITCHDESKTOP=0x0100；正常登录会话的桌面名固定为 Default。
+        hdesk = open_desktop(0, False, 0x0100)
+        if not hdesk:
+            err = ctypes.get_last_error()
+            result["reason"] = "无法打开当前交互桌面(错误 %d)，可能已锁屏或远程会话已断开" % err
+            return result
+        try:
+            buf = ctypes.create_unicode_buffer(256)
+            needed = wintypes.DWORD()
+            if not get_info(hdesk, 2, buf, ctypes.sizeof(buf), ctypes.byref(needed)):
+                err = ctypes.get_last_error()
+                result["reason"] = "读取交互桌面名称失败(错误 %d)" % err
+                return result
+            desktop = (buf.value or "").strip()
+            result["desktop"] = desktop
+            if desktop.lower() != "default":
+                result["reason"] = "当前交互桌面为 %s，Windows 已锁屏或处于安全桌面" % (desktop or "未知")
+                return result
+            result["unlocked"] = True
+            result["reason"] = "交互桌面可用"
+            return result
+        finally:
+            close_desktop(hdesk)
+    except Exception as e:
+        result["reason"] = "检测 Windows 交互桌面失败: %s" % e
+        return result
+
+
+def cmd_session_status(args):
+    """输出当前 Windows 交互桌面状态，供发送前预检。"""
+    print(json.dumps(windows_session_status(), ensure_ascii=False))
+    sys.stdout.flush()
+
+
+def emit_session_locked(targets, start, template, session):
+    """锁屏时按原序号为未执行目标输出结果，让后端能回滚预增的重试次数。"""
+    reason = (session or {}).get("reason") or "Windows 已锁屏或交互桌面不可用"
+    for i in range(start, len(targets)):
+        target = targets[i] or {}
+        name = (target.get("name") or "").strip()
+        text = (target.get("text") or "").strip()
+        if not text and template:
+            text = template.replace("{name}", name).strip()
+        out = {"ok": False, "index": i, "name": name, "text": text,
+               "status": "SESSION_LOCKED", "message": reason, "duration_ms": 0}
+        sys.stdout.write(json.dumps(out, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+
+
+def emit_send_timeout(targets, start, template, timeout_sec, current_elapsed_ms=0):
+    """单条发送卡住时回传当前及剩余目标，随后由看门狗终止整个进程。"""
+    for i in range(start, len(targets)):
+        target = targets[i] or {}
+        name = (target.get("name") or "").strip()
+        text = (target.get("text") or "").strip()
+        if not text and template:
+            text = template.replace("{name}", name).strip()
+        if i == start:
+            message = "单条发送超过 %ds 未返回，已终止本次批量发送" % int(timeout_sec)
+            duration = current_elapsed_ms
+            status = "SEND_TIMEOUT"
+        else:
+            message = "前一条消息发送超时，本目标尚未执行"
+            duration = 0
+            status = "SEND_ABORTED"
+        out = {"ok": False, "index": i, "name": name, "text": text,
+               "status": status, "message": message, "duration_ms": duration}
+        sys.stdout.write(json.dumps(out, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
 
 
 def parse_since(text):
@@ -1013,6 +1111,10 @@ def cmd_batch_send(args):
         sys.stdout.flush()
         return
     verify = bool(cfg.get("verify", True))
+    try:
+        send_timeout_sec = max(30.0, float(cfg.get("send_timeout_sec") or 180))
+    except (TypeError, ValueError):
+        send_timeout_sec = 180.0
     rhythm = (cfg.get("rhythm") or "calm").lower()
     nap = cfg.get("nap") or []
     nap_min = float(nap[0]) if len(nap) > 0 else 1.1
@@ -1024,6 +1126,14 @@ def cmd_batch_send(args):
     iv_max = float(interval[1]) if len(interval) > 1 else 60.0
     if iv_max < iv_min:
         iv_max = iv_min
+
+    session = windows_session_status()
+    log("交互桌面检测: %s (%s)" % (session.get("desktop") or "?",
+                                 session.get("reason") or "未知"))
+    if not session.get("unlocked"):
+        log("Windows 当前不可交互，%d 条发送已暂停（不点击、不截图）" % len(targets))
+        emit_session_locked(targets, 0, template, session)
+        return
 
     os.environ["WECHATAUTO_RHYTHM"] = rhythm
     try:
@@ -1038,8 +1148,8 @@ def cmd_batch_send(args):
     except Exception as e:
         log("配置拟人节奏失败(继续用默认): %s" % e)
 
-    log("批量发送: %d 条, 间隔[%.1f, %.1f]s, verify=%s, 上限=%d"
-        % (len(targets), iv_min, iv_max, verify, max_batch))
+    log("批量发送: %d 条, 间隔[%.1f, %.1f]s, 单条超时=%ds, verify=%s, 上限=%d"
+        % (len(targets), iv_min, iv_max, int(send_timeout_sec), verify, max_batch))
     try:
         from wechatauto.guia import WeChatGUI
         patch_send_verify()
@@ -1062,7 +1172,30 @@ def cmd_batch_send(args):
             continue
         # 每条前加一点扰动，再执行
         time.sleep(random.uniform(nap_min, nap_min + 0.8))
+        session = windows_session_status()
+        if not session.get("unlocked"):
+            log("发送过程中 Windows 进入锁屏/安全桌面，剩余 %d 条已暂停: %s"
+                % (len(targets) - i, session.get("reason") or "交互桌面不可用"))
+            emit_session_locked(targets, i, template, session)
+            break
         t0 = time.time()
+        finished = {"value": False}
+
+        def on_send_timeout(idx=i, started=t0):
+            if finished["value"]:
+                return
+            finished["value"] = True
+            elapsed_ms = int((time.time() - started) * 1000)
+            log("  [%d/%d] %s => 单条发送超过 %ds，终止进程"
+                % (idx + 1, len(targets), name, int(send_timeout_sec)))
+            emit_send_timeout(targets, idx, template, send_timeout_sec, elapsed_ms)
+            os._exit(0)
+
+        watchdog = threading.Timer(send_timeout_sec, on_send_timeout)
+        watchdog.daemon = True
+        watchdog.start()
+        log("  [%d/%d] %s => 开始发送（超时 %ds）"
+            % (i + 1, len(targets), name, int(send_timeout_sec)))
         try:
             resp = gui.send_msg(text, who=name, verify=verify)
             d = resp.to_dict()
@@ -1077,6 +1210,9 @@ def cmd_batch_send(args):
             out = {"ok": False, "index": i, "name": name, "text": text,
                    "status": "异常", "message": str(e),
                    "duration_ms": int((time.time() - t0) * 1000)}
+        finally:
+            finished["value"] = True
+            watchdog.cancel()
         sys.stdout.write(json.dumps(out, ensure_ascii=False) + "\n")
         sys.stdout.flush()
         if out.get("ok"):
@@ -1232,6 +1368,9 @@ def main():
     p = sub.add_parser("batch_send",
                        help="批量发送(从 stdin 读 JSON 配置)，逐条结果 NDJSON 到 stdout")
     p.set_defaults(func=cmd_batch_send)
+
+    p = sub.add_parser("session_status", help="检测 Windows 交互桌面是否可用(锁屏预检)")
+    p.set_defaults(func=cmd_session_status)
 
     p = sub.add_parser("whoami", help="输出当前登录微信账号(JSON)")
     p.add_argument("--account", default=None)

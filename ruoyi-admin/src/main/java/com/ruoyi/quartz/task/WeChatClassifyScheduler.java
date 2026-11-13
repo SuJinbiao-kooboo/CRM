@@ -62,6 +62,18 @@ public class WeChatClassifyScheduler {
         }
     }
 
+    /** 未关联供应商聊天提醒：只提醒历史上发过INQ/OFFER的人员进入未关联聊天，09:00-22:00每小时扫描。 */
+    public void alertUnlinkedChats() {
+        try {
+            Map<String, Object> result = gateway.alertUnlinkedChats();
+            if (Boolean.TRUE.equals(result.get("alertSent"))) {
+                log.info("未关联供应商聊天提醒已发送: {}", result.get("message"));
+            }
+        } catch (Exception e) {
+            log.error("定时未关联供应商聊天提醒失败", e);
+        }
+    }
+
     /** 历史消息清理：默认每 6 小时执行一次。 */
     public void purgeOldMessages() {
         try {

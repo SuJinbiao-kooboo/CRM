@@ -43,10 +43,11 @@ public class CrmSalesOrderFileServiceImpl implements ICrmSalesOrderFileService {
     /** 单个附件上限 50MB（需与 application.yml multipart 限制保持一致） */
     private static final long MAX_FILE_SIZE = 50L * 1024 * 1024;
 
-    /** 订单上的 12 个附件栏位 */
+    /** 订单上的 16 个附件栏位（客户侧 8 个、供应商侧 8 个） */
     private static final Set<String> FIELD_KEYS = new HashSet<>(Arrays.asList(
         "signReceiptFile", "photoFile", "poCustomerFile", "piOurFile", "poOurFile", "piSupplierFile",
-        "plSupplierFile", "plOurFile", "ciSupplierFile", "ciOurFile", "entrustFile", "snFile"
+        "plSupplierFile", "plOurFile", "ciSupplierFile", "ciOurFile", "entrustFile", "snFile",
+        "entrustSupplierFile", "signReceiptSupplierFile", "photoSupplierFile", "snSupplierFile"
     ));
 
     private static final int PREVIEW_MAX_ROWS = 200;

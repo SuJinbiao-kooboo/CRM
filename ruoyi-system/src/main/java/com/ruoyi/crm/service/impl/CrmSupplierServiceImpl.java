@@ -3,10 +3,13 @@ package com.ruoyi.crm.service.impl;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 import com.ruoyi.common.core.domain.entity.SysRole;
 import com.ruoyi.common.core.domain.model.LoginUser;
@@ -38,7 +41,9 @@ public class CrmSupplierServiceImpl implements ICrmSupplierService {
     @Override
     public List<CrmSupplierVO> selectSupplierListJoined(CrmSupplier supplier) {
         applyPermFilter(supplier);
-        return supplierMapper.selectSupplierListJoined(supplier);
+        List<CrmSupplierVO> rows = supplierMapper.selectSupplierListJoined(supplier);
+        applySourceObjects(rows);
+        return rows;
     }
 
     @Override
@@ -79,6 +84,12 @@ public class CrmSupplierServiceImpl implements ICrmSupplierService {
         if (s.getFollowUpBy() != null && !s.getFollowUpBy().trim().isEmpty()) {
             List<String> nickNames = supplierMapper.selectNickNamesByUserNames(s.getFollowUpBy());
             s.setFollowUpByNames(String.join(",", nickNames));
+        }
+        if (isFullAccess()) {
+            Map<Long, String> summaries = sourceSummaryMap(Collections.singletonList(id));
+            s.setSourceObjects(summaries.getOrDefault(id, "无"));
+        } else {
+            s.setSourceObjects("无");
         }
         List<CrmSupplierContact> contacts = contactMapper.selectBySupplierId(id);
         s.setContacts(contacts);
@@ -263,5 +274,52 @@ public class CrmSupplierServiceImpl implements ICrmSupplierService {
         if (userName != null && !userName.isEmpty()) {
             query.getParams().put("permUserName", userName);
         }
+    }
+
+    /** 来源对象属于敏感审计信息：管理员/超级管理员返回真实值，其他角色固定返回“无”。 */
+    private void applySourceObjects(List<CrmSupplierVO> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        boolean fullAccess = isFullAccess();
+        Set<Long> ids = new LinkedHashSet<>();
+        if (fullAccess) {
+            for (CrmSupplierVO row : rows) {
+                if (row != null && row.getId() != null) {
+                    ids.add(row.getId());
+                }
+            }
+        }
+        Map<Long, String> summaries = ids.isEmpty()
+                ? Collections.<Long, String>emptyMap() : sourceSummaryMap(new ArrayList<>(ids));
+        for (CrmSupplierVO row : rows) {
+            if (row == null) {
+                continue;
+            }
+            row.setSourceObjects(fullAccess
+                    ? summaries.getOrDefault(row.getId(), "无") : "无");
+        }
+    }
+
+    private Map<Long, String> sourceSummaryMap(List<Long> supplierIds) {
+        Map<Long, String> result = new java.util.HashMap<>();
+        if (supplierIds == null || supplierIds.isEmpty()) {
+            return result;
+        }
+        List<Map<String, Object>> rows = supplierMapper.selectWeChatSourceSummaries(supplierIds);
+        if (rows == null) {
+            return result;
+        }
+        for (Map<String, Object> row : rows) {
+            if (row == null) {
+                continue;
+            }
+            Object idValue = row.containsKey("supplier_id") ? row.get("supplier_id") : row.get("SUPPLIER_ID");
+            Object textValue = row.containsKey("source_objects") ? row.get("source_objects") : row.get("SOURCE_OBJECTS");
+            if (idValue instanceof Number && textValue != null) {
+                result.put(((Number) idValue).longValue(), String.valueOf(textValue));
+            }
+        }
+        return result;
     }
 }

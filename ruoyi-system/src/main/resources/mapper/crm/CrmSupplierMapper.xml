@@ -23,6 +23,7 @@
         <result column="cooperation_status" property="cooperationStatus" />
         <result column="profit_ratio" property="profitRatio" />
         <result column="auto_approve" property="autoApprove" />
+        <result column="auto_inquiry_offer" property="autoInquiryOffer" />
         <result column="business_license" property="businessLicense" />
         <result column="tax_number" property="taxNumber" />
         <result column="bank_info" property="bankInfo" />
@@ -35,6 +36,7 @@
         <result column="status" property="status" />
         <result column="follow_up_by" property="followUpBy" />
         <result column="follow_up_by_names" property="followUpByNames" />
+        <result column="source_objects" property="sourceObjects" />
         <result column="create_by" property="createBy" />
         <result column="create_time" property="createTime" />
         <result column="update_by" property="updateBy" />
@@ -82,6 +84,7 @@
         <result column="cooperation_status" property="cooperationStatus" />
         <result column="profit_ratio" property="profitRatio" />
         <result column="auto_approve" property="autoApprove" />
+        <result column="auto_inquiry_offer" property="autoInquiryOffer" />
         <result column="business_license" property="businessLicense" />
         <result column="tax_number" property="taxNumber" />
         <result column="bank_info" property="bankInfo" />
@@ -93,6 +96,7 @@
         <result column="remark_second" property="remarkSecond" />
         <result column="status" property="status" />
         <result column="follow_up_by" property="followUpBy" />
+        <result column="source_objects" property="sourceObjects" />
         <result column="create_by" property="createBy" />
         <result column="create_time" property="createTime" />
         <result column="update_by" property="updateBy" />
@@ -111,7 +115,7 @@
         s.id, s.supplier_code, s.supplier_name, s.supplier_short_name, s.supplier_alias, s.supplier_type, s.brands,
         s.country, s.address, s.website, s.main_products, s.cooperation_level, s.risk_level,
         s.payment_terms, s.cooperation_direction, s.sales_group, s.purchase_group, s.cooperation_status,
-        s.profit_ratio, s.auto_approve, s.business_license, s.tax_number, s.bank_info, s.bank_account, s.bill_to, s.ship_to,
+        s.profit_ratio, s.auto_approve, s.auto_inquiry_offer, s.business_license, s.tax_number, s.bank_info, s.bank_account, s.bill_to, s.ship_to,
         s.introduction, s.remark, s.remark_second, s.status, s.follow_up_by, s.create_by, s.create_time,
         s.update_by, s.update_time, s.tags_first, s.tags_second, s.tags_third, s.tags_si,
         s.last_follow_up_time, s.last_follow_up_result, s.next_follow_up_time, s.next_follow_up_goal
@@ -212,6 +216,7 @@
             (s.purchase_group is null or trim(s.purchase_group) = '')
             and (s.sales_group is null or trim(s.sales_group) = '')
             and s.status = 1
+            and upper(coalesce(s.supplier_code, '')) &lt;&gt; 'UNLINKED'
             <if test="params != null and params['permUserName'] != null and params['permUserName'] != ''">
                 and find_in_set(#{params.permUserName}, s.follow_up_by) > 0
             </if>
@@ -234,13 +239,13 @@
         insert into crm_supplier(
             supplier_code, supplier_name, supplier_short_name, supplier_alias, supplier_type, brands,
             country, address, website, main_products, cooperation_level, risk_level,
-            payment_terms, cooperation_direction, sales_group, purchase_group, cooperation_status, profit_ratio, auto_approve, business_license, tax_number, bank_info, bank_account, bill_to, ship_to,
+            payment_terms, cooperation_direction, sales_group, purchase_group, cooperation_status, profit_ratio, auto_approve, auto_inquiry_offer, business_license, tax_number, bank_info, bank_account, bill_to, ship_to,
             introduction, remark, remark_second, status, follow_up_by, create_by, create_time,
             update_by, update_time, tags_first, tags_second, tags_third, tags_si
         ) values(
             #{supplierCode}, #{supplierName}, #{supplierShortName}, #{supplierAlias}, #{supplierType}, #{brands},
             #{country}, #{address}, #{website}, #{mainProducts}, #{cooperationLevel}, #{riskLevel},
-            #{paymentTerms}, #{cooperationDirection}, #{salesGroup}, #{purchaseGroup}, #{cooperationStatus}, #{profitRatio}, COALESCE(#{autoApprove}, 0), #{businessLicense}, #{taxNumber}, #{bankInfo}, #{bankAccount}, #{billTo}, #{shipTo},
+            #{paymentTerms}, #{cooperationDirection}, #{salesGroup}, #{purchaseGroup}, #{cooperationStatus}, #{profitRatio}, COALESCE(#{autoApprove}, 0), COALESCE(#{autoInquiryOffer}, 0), #{businessLicense}, #{taxNumber}, #{bankInfo}, #{bankAccount}, #{billTo}, #{shipTo},
             #{introduction}, #{remark}, #{remarkSecond}, #{status}, #{followUpBy}, #{createBy}, now(),
             #{updateBy}, now(), #{tagsFirst}, #{tagsSecond}, #{tagsThird}, #{tagsSi}
         )
@@ -268,6 +273,7 @@
             <if test="cooperationStatus != null">cooperation_status = #{cooperationStatus},</if>
             <if test="profitRatio != null">profit_ratio = #{profitRatio},</if>
             <if test="autoApprove != null">auto_approve = #{autoApprove},</if>
+            <if test="autoInquiryOffer != null">auto_inquiry_offer = #{autoInquiryOffer},</if>
             <if test="businessLicense != null">business_license = #{businessLicense},</if>
             <if test="taxNumber != null">tax_number = #{taxNumber},</if>
             <if test="bankInfo != null">bank_info = #{bankInfo},</if>
@@ -317,9 +323,11 @@
         select min(s.id) as id, s.supplier_code as supplier_code, s.supplier_name as supplier_name,
                group_concat(distinct ifnull(s.supplier_alias, '') separator '/') as supplier_alias,
                max(coalesce(s.profit_ratio, 2.00)) as profit_ratio,
-               min(coalesce(s.auto_approve, 0)) as auto_approve
+               min(coalesce(s.auto_approve, 0)) as auto_approve,
+               min(coalesce(s.auto_inquiry_offer, 0)) as auto_inquiry_offer
         from crm_supplier s
         <where>
+            and upper(coalesce(s.supplier_code, '')) &lt;&gt; 'UNLINKED'
             <!-- 支持按供应商编码、名称或别名模糊搜索（Offer页面供应商选择均显示编码，故编码需可搜） -->
             <if test="supplierName != null and supplierName != ''">and (s.supplier_name like concat('%', #{supplierName}, '%') or s.supplier_alias like concat('%', #{supplierName}, '%') or s.supplier_code like concat('%', #{supplierName}, '%'))</if>
             <if test="supplierCode != null and supplierCode != ''">and s.supplier_code like concat('%', #{supplierCode}, '%')</if>
@@ -333,8 +341,9 @@
     </select>
 
     <select id="selectSupplierSimpleList" parameterType="com.ruoyi.crm.domain.CrmSupplier" resultMap="CrmSupplierBaseMap">
-        select id, supplier_code, supplier_name, profit_ratio, auto_approve from crm_supplier
+        select id, supplier_code, supplier_name, profit_ratio, auto_approve, auto_inquiry_offer from crm_supplier
         <where>
+            and upper(coalesce(supplier_code, '')) &lt;&gt; 'UNLINKED'
             <if test="params != null and params.keyword != null and params.keyword != ''">
                 and (supplier_code like concat('%', #{params.keyword}, '%') or supplier_name like concat('%', #{params.keyword}, '%'))
             </if>
@@ -348,8 +357,24 @@
 
     <select id="selectAllForWeChat" resultMap="CrmSupplierBaseMap">
         select id, supplier_code, supplier_name, supplier_short_name, supplier_alias, brands,
-               cooperation_level, cooperation_direction, sales_group, purchase_group, status, profit_ratio, auto_approve
+               cooperation_level, cooperation_direction, sales_group, purchase_group, status, profit_ratio, auto_approve, auto_inquiry_offer
         from crm_supplier
+        order by id asc
+    </select>
+
+    <!-- 自动询Offer：只取启用、开启开关、有编码且配置了销售群的正常供应商。 -->
+    <select id="selectAutoInquiryOfferSuppliers" resultMap="CrmSupplierBaseMap">
+        select id, supplier_code, supplier_name, supplier_short_name, supplier_alias,
+               cooperation_direction, sales_group, purchase_group, status, profit_ratio,
+               auto_approve, auto_inquiry_offer
+        from crm_supplier
+        where status = 1
+          and auto_inquiry_offer = 1
+          and supplier_code is not null
+          and trim(supplier_code) &lt;&gt; ''
+          and upper(supplier_code) &lt;&gt; 'UNLINKED'
+          and sales_group is not null
+          and trim(sales_group) &lt;&gt; ''
         order by id asc
     </select>
 
@@ -425,6 +450,58 @@
     <!-- 批量插入，支持默认值 -->
     <select id="selectSubscribeEmailList" resultType="com.ruoyi.crm.domain.dto.SubscribeEmailDTO">
         select * from portal.t_subscription;
+    </select>
+
+    <!-- 微信自动录入来源对象：同一供应商+聊天对象+发言人只保留一条 -->
+    <insert id="upsertWeChatSource">
+        insert into crm_supplier_wechat_source (supplier_id, chat_name, sender, first_seen_time, last_seen_time)
+        values (#{supplierId}, #{chatName}, #{sender}, now(), now())
+        on duplicate key update last_seen_time = now()
+    </insert>
+
+    <!-- 供应商列表“来源对象”聚合；是否返回真实值由服务层按管理员角色脱敏 -->
+    <select id="selectWeChatSourceSummaries" resultType="java.util.Map">
+        select supplier_id,
+               group_concat(concat(chat_name, '：', sender) order by last_seen_time desc, id desc separator '；') as source_objects
+        from crm_supplier_wechat_source
+        where supplier_id in
+        <foreach collection="supplierIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        group by supplier_id
+    </select>
+
+    <!-- 手工创建微信任务的可选供应商：启用、具备指定方向群，并排除未关联兜底供应商 -->
+    <select id="selectManualTaskSuppliers" resultMap="CrmSupplierBaseMap">
+        select id, supplier_code, supplier_name, supplier_short_name, supplier_alias,
+               cooperation_direction, sales_group, purchase_group, status
+        from crm_supplier s
+        where s.status = 1
+          and s.supplier_code is not null
+          and trim(s.supplier_code) &lt;&gt; ''
+          and upper(s.supplier_code) &lt;&gt; 'UNLINKED'
+          and (
+            <choose>
+                <when test="groupSide == 'purchase'">
+                    (s.purchase_group is not null and trim(s.purchase_group) &lt;&gt; '')
+                </when>
+                <when test="groupSide == 'sales'">
+                    (s.sales_group is not null and trim(s.sales_group) &lt;&gt; '')
+                </when>
+                <otherwise>
+                    ((s.sales_group is not null and trim(s.sales_group) &lt;&gt; '')
+                     or (s.purchase_group is not null and trim(s.purchase_group) &lt;&gt; ''))
+                </otherwise>
+            </choose>
+          )
+          <if test="keyword != null and keyword != ''">
+              and (s.supplier_name like concat('%', #{keyword}, '%')
+                   or s.supplier_code like concat('%', #{keyword}, '%')
+                   or s.supplier_alias like concat('%', #{keyword}, '%'))
+          </if>
+          <if test="direction != null and direction != ''">
+              and s.cooperation_direction like concat('%', #{direction}, '%')
+          </if>
+        order by s.supplier_name asc, s.supplier_code asc
+        limit 1000
     </select>
 
 </mapper>

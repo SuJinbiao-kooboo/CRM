@@ -564,6 +564,16 @@ public class WeChatMessageStore {
         }
     }
 
+    /** 当天出现过、且历史上发过 INQ/OFFER 的聊天对象+发言人候选；群映射判断交给 WeChatPartyService。 */
+    public List<Map<String, Object>> unlinkedChatCandidates(String since, int max) {
+        try {
+            return mapper.selectUnlinkedChatCandidates(since, Math.max(1, Math.min(5000, max)));
+        } catch (Exception e) {
+            log.error("查询未关联聊天候选失败: since={}", since, e);
+            return Collections.emptyList();
+        }
+    }
+
     /** 管理页条件查询，分页由 Controller 的 startPage 完成。 */
     public List<WeChatMessage> selectMessageList(WeChatMessage query) {
         try {

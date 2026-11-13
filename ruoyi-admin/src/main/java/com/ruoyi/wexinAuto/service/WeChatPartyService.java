@@ -18,6 +18,9 @@ import java.util.Set;
 @Service
 public class WeChatPartyService {
 
+    /** 未关联聊天对象的固定供应商编码；该供应商只用于兜底归档，不参与自动选群和手工群发。 */
+    public static final String UNLINKED_SUPPLIER_CODE = "UNLINKED";
+
     private final CrmSupplierMapper supplierMapper;
     private final WeChatAutomationConfig config;
 
@@ -34,7 +37,11 @@ public class WeChatPartyService {
         String normalizedName = normalizeGroupName(name);
         List<CrmSupplier> matched = new ArrayList<>();
         Set<Long> seen = new LinkedHashSet<>();
+        CrmSupplier unlinkedSupplier = null;
         for (CrmSupplier supplier : supplierMapper.selectAllForWeChat()) {
+            if (isUnlinkedSupplier(supplier)) {
+                unlinkedSupplier = supplier;
+            }
             if (containsGroup(supplier.getSalesGroup(), normalizedName)
                     || containsGroup(supplier.getPurchaseGroup(), normalizedName)) {
                 if (supplier.getId() != null && seen.add(supplier.getId())) {
@@ -43,6 +50,9 @@ public class WeChatPartyService {
             }
         }
         if (matched.isEmpty()) {
+            if (isUsableSupplier(unlinkedSupplier)) {
+                return PartyMatch.ok(unlinkedSupplier);
+            }
             return PartyMatch.of(PartyMatch.UNMAPPED, "群未映射到供应商档案");
         }
         if (matched.size() > 1) {
@@ -76,6 +86,9 @@ public class WeChatPartyService {
             return out;
         }
         for (CrmSupplier supplier : supplierMapper.selectAllForWeChat()) {
+            if (isUnlinkedSupplier(supplier)) {
+                continue;
+            }
             if (excludeSupplierId != null && excludeSupplierId.equals(supplier.getId())) {
                 continue;
             }
@@ -91,6 +104,38 @@ public class WeChatPartyService {
             out.add(supplier);
         }
         return out;
+    }
+
+    /** 是否为未关联兜底供应商。 */
+    public boolean isUnlinkedSupplier(CrmSupplier supplier) {
+        return supplier != null && UNLINKED_SUPPLIER_CODE.equalsIgnoreCase(
+                StringUtils.trimToEmpty(supplier.getSupplierCode()));
+    }
+
+    /** 是否为未关联兜底匹配结果。 */
+    public boolean isUnlinkedSupplier(PartyMatch match) {
+        return match != null && match.isOk() && isUnlinkedSupplier(match.getSupplier());
+    }
+
+    /**
+     * 记录微信自动录入时实际使用的聊天对象和发言人。
+     * 同一供应商、聊天对象、发言人的组合只保留一条，并刷新最后出现时间。
+     */
+    public void recordSource(CrmSupplier supplier, String chatName, String sender) {
+        if (supplier == null || supplier.getId() == null) {
+            return;
+        }
+        String chat = StringUtils.trimToEmpty(chatName);
+        if (chat.isEmpty()) {
+            return;
+        }
+        String speaker = StringUtils.defaultIfBlank(StringUtils.trimToEmpty(sender), "未知");
+        supplierMapper.upsertWeChatSource(supplier.getId(), chat, speaker);
+    }
+
+    private boolean isUsableSupplier(CrmSupplier supplier) {
+        return supplier != null && supplier.getStatus() != null && supplier.getStatus() == 1
+                && StringUtils.isNotBlank(supplier.getSupplierCode());
     }
 
     public boolean matchesDirection(String supplierDirections, Set<String> wanted) {

@@ -165,6 +165,88 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
     }
 
     @Override
+    public long countPendingUsageSegments() {
+        return offerMapper.countPendingUsageSegmentSources();
+    }
+
+    /**
+     * 历史消费/服务回填：每次取一批已按基础料号去重的代表记录，一次 AI 请求完成整批判定，
+     * 再按判定结果对同料号（含末尾“拆”变体）做批量 UPDATE，避免逐行调用模型和逐行更新。
+     */
+    @Override
+    public Map<String, Object> refreshUsageSegmentBatch(int limit) {
+        int batchSize = Math.max(1, Math.min(150, limit));
+        List<Map<String, Object>> sources = offerMapper.selectUsageSegmentBackfillSources(batchSize);
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (sources == null || sources.isEmpty()) {
+            result.put("requested", 0);
+            result.put("classified", 0);
+            result.put("updatedRows", 0);
+            result.put("remaining", offerMapper.countPendingUsageSegmentSources());
+            return result;
+        }
+
+        List<Map<String, Object>> aiItems = new ArrayList<>();
+        for (int i = 0; i < sources.size(); i++) {
+            Map<String, Object> source = sources.get(i);
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("index", i + 1);
+            item.put("partNumber", str(source.get("pnNormalized")));
+            item.put("brand", str(source.get("productBrand")));
+            item.put("productType", str(source.get("productType")));
+            item.put("model", str(source.get("productDetailCode")));
+            item.put("spec", str(source.get("spec")));
+            aiItems.add(item);
+        }
+        Map<Integer, String> decisions = deepSeekAiService.classifyOfferUsageSegments(aiItems);
+
+        Map<String, List<String>> pnsBySegment = new LinkedHashMap<>();
+        int classified = 0;
+        for (int i = 0; i < sources.size(); i++) {
+            String segment = decisions.get(i + 1);
+            if (segment == null || segment.trim().isEmpty()) {
+                continue;
+            }
+            String pn = str(sources.get(i).get("pnNormalized"));
+            if (pn.isEmpty()) {
+                continue;
+            }
+            String basePn = pn.trim();
+            while (basePn.endsWith("拆")) {
+                basePn = basePn.substring(0, basePn.length() - 1).trim();
+            }
+            if (basePn.isEmpty()) {
+                continue;
+            }
+            classified++;
+            List<String> pns = pnsBySegment.get(segment);
+            if (pns == null) {
+                pns = new ArrayList<>();
+                pnsBySegment.put(segment, pns);
+            }
+            if (!pns.contains(basePn)) {
+                pns.add(basePn);
+            }
+            String pulledPn = basePn + "拆";
+            if (!pns.contains(pulledPn)) {
+                pns.add(pulledPn);
+            }
+        }
+
+        int updatedRows = 0;
+        for (Map.Entry<String, List<String>> entry : pnsBySegment.entrySet()) {
+            if (!entry.getValue().isEmpty()) {
+                updatedRows += offerMapper.updateUsageSegmentByPns(entry.getValue(), entry.getKey());
+            }
+        }
+        result.put("requested", sources.size());
+        result.put("classified", classified);
+        result.put("updatedRows", updatedRows);
+        result.put("remaining", offerMapper.countPendingUsageSegmentSources());
+        return result;
+    }
+
+    @Override
     @Transactional
     public Map<String, Object> importOffers(MultipartFile file, String supplierCode, String supplierName, String inqOfferType, Map<String, String> colMap, Double profitRatio) {
         // 数据权限：非管理员/超级管理员仅能导入跟进人包含自己的供应商（防止绕过前端直接提交）
@@ -453,6 +535,8 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
                 : (authorizedSupplier.getProfitRatio() != null ? authorizedSupplier.getProfitRatio() : 2d);
         // 调用AI把无规则文本整理为结构化物料列表（品牌/料号/型号/规格型号/数量/报价）
         List<Map<String, Object>> items = deepSeekAiService.parseMaterialContent(content);
+        // Fill missing usage segment with one batched classification request.
+        ensureUsageSegments(items);
         // 微信Excel报价附件包含表头/空白行，模型可能把无价格行也解析出来；Offer必须有正数价格，
         // 这里与缺货响应一样过滤掉，避免生成无法使用的报价记录。普通粘贴录入保持原逻辑。
         boolean filterNoStockRows = "Offer".equals(inqOfferType)
@@ -516,6 +600,12 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             offer.setSupplierName(supplierName);
             offer.setInqOfferType(inqOfferType);
             offer.setPnNormalized(PnUtils.normalize(offer.getProductCode()));
+            String usageSegment = DeepSeekAiService.normalizeUsageSegment(str(item.get("usageSegment")));
+            if (usageSegment.isEmpty()) {
+                usageSegment = DeepSeekAiService.normalizeUsageSegment(
+                        offerMapper.selectUsageSegmentByPn(offer.getPnNormalized()));
+            }
+            offer.setUsageSegment(usageSegment);
             offer.setStatus(1);
             offer.setCreateBy(userName);
             offer.setUpdateBy(userName);
@@ -908,6 +998,57 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
             return "";
         }
         return new BigDecimal(String.valueOf(price)).stripTrailingZeros().toPlainString();
+    }
+
+    /**
+     * Fill missing usage segments for AI entry rows. Reuse the latest value for the same PN,
+     * then classify all remaining rows with one request instead of one request per row.
+     */
+    private void ensureUsageSegments(List<Map<String, Object>> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        List<Map<String, Object>> missingItems = new ArrayList<>();
+        List<Integer> sourceIndexes = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            Map<String, Object> item = items.get(i);
+            String partNumber = str(item.get("partNumber"));
+            if (partNumber.isEmpty()) {
+                continue;
+            }
+            String segment = DeepSeekAiService.normalizeUsageSegment(str(item.get("usageSegment")));
+            if (segment.isEmpty()) {
+                segment = DeepSeekAiService.normalizeUsageSegment(
+                        offerMapper.selectUsageSegmentByPn(PnUtils.normalize(partNumber)));
+            }
+            if (!segment.isEmpty()) {
+                item.put("usageSegment", segment);
+                continue;
+            }
+            Map<String, Object> queryItem = new LinkedHashMap<>();
+            queryItem.put("index", missingItems.size() + 1);
+            queryItem.put("partNumber", partNumber);
+            queryItem.put("brand", str(item.get("brand")));
+            queryItem.put("productType", str(item.get("productType")));
+            queryItem.put("model", str(item.get("model")));
+            queryItem.put("spec", str(item.get("spec")));
+            missingItems.add(queryItem);
+            sourceIndexes.add(i);
+        }
+        if (missingItems.isEmpty()) {
+            return;
+        }
+        try {
+            Map<Integer, String> decisions = deepSeekAiService.classifyOfferUsageSegments(missingItems);
+            for (int i = 0; i < sourceIndexes.size(); i++) {
+                String segment = DeepSeekAiService.normalizeUsageSegment(decisions.get(i + 1));
+                if (!segment.isEmpty()) {
+                    items.get(sourceIndexes.get(i)).put("usageSegment", segment);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to supplement usage segment; keep history value or blank", e);
+        }
     }
 
     private String str(Object v) {

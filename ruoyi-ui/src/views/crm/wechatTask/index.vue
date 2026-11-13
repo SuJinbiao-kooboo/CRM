@@ -20,6 +20,11 @@
           <el-option v-for="item in statuses" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
+      <el-form-item label="任务来源" prop="taskSource">
+        <el-select v-model="queryParams.taskSource" clearable placeholder="全部" style="width:120px">
+          <el-option v-for="item in taskSources" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="仅异常">
         <el-switch v-model="queryParams.exceptionOnly" />
       </el-form-item>
@@ -34,6 +39,7 @@
             <div class="help-title">菜单按钮说明</div>
             <ul>
               <li><b>生成任务</b>：立即扫描消息并生成任务；任务先按“待审批”写入，若发送目标对应的供应商均开启 <code>crm_supplier.auto_approve</code>，再调用批量审批流程转为“已审批待发送”。点击后弹窗会显示本次扫描对象、起止时间、单批上限、全部必要条件、阶段统计和实际扫描数量。人工点击不受 <code>autoTaskGenerateEnabled=false</code> 限制。</li>
+              <li><b>新增任务（人工手动）</b>：粘贴一段原文，选择发送到销售群或采购群，再从供应商双列表中选择对象。左侧可按供应商名称和字典中的合作方向即时筛选，“全选当前”会把当前筛选结果移到右侧，右侧按供应商自动去重。可创建“待审批”任务，或直接创建“已审批待发送”任务；发送扫描时按原文发送，不做 Offer 行格式化。</li>
               <li><b>任务生成开关</b>：开启后由“微信自动化-INQ/OFFER任务生成”定时任务扫描并生成任务；关闭后定时任务不再生成，但“生成任务”按钮仍可人工执行。</li>
               <li><b>生成时间范围</b>：按消息 <code>create_time</code> 计算，从当前时刻向前滚动 <code>msgRetentionDays</code> 天（默认 30 天），不是只扫描今天；弹窗中的“开始时间/结束时间”就是本次实际 SQL 条件。</li>
               <li><b>生成必要条件</b>：分类成功且来源为 LLM/CACHE/MANUAL、分类为 INQ/OFFER；AI 录入必须为 <code>SUCCESS/SUCCESS_WARN</code>，任务状态为 <code>PENDING/FAILED</code>，或任务处理超时。群未映射/群映射冲突只会转人工复核，不再创建空料号异常任务。单次最多领取 <code>taskGenerateBatchSize=20</code> 条。</li>
@@ -42,6 +48,7 @@
               <li><b>发送扫描</b>：立即扫描并发送“已审批待发送”任务；人工点击不受 <code>autoSendEnabled=false</code> 限制，但当前微信登录账号必须是 <code>autoSendAccount</code>（默认 Eke），否则停止发送。网关返回失败时一律按“结果未知”处理，不再自动重试，避免消息实际已发出后重复发送。</li>
               <li><b>自动发送开关</b>：开启后由定时任务持续扫描“已审批待发送”任务并发送；关闭后定时发送停止，“发送扫描”按钮仍可人工执行。</li>
               <li><b>审批/编辑</b>：查看来源消息、OFFER 快照、关联 INQ、发送目标和发送预览，并修改任务状态、对外报价、发送内容和发送目标。</li>
+              <li><b>发送目标容量</b>：<code>send_target</code>、<code>send_target_success</code> 使用 JSON 存储，业务上限为 <code>32 个目标 × 每个目标字段 300 字符</code>；群名、伙伴编码、伙伴名称均受此限制。手工创建和审批修改都会校验。</li>
               <li><b>批量审批</b>：勾选列表多行后点击，弹窗选择统一审批状态，默认“已审批待发送”，也可选择待审批、已审批已发送或无需处理；逐条保存并返回失败明细。</li>
               <li><b>确认未发送</b>：仅当最近异常以 <code>GATEWAY_RESULT_UNKNOWN</code> 开头时出现；人工确认网关确实未发送后，任务恢复为“已审批待发送”，重试次数清零。</li>
               <li><b>删除/批量删除</b>：删除任务时弹窗选择“是否回退数据”。选“否”只删除任务；选“是”会把来源微信消息的 <code>task_status</code> 重置为 <code>PENDING</code>，便于重新生成，但不会改变分类、AI 录入和已生成的 OFFER。</li>
@@ -95,6 +102,8 @@
               <li><b>发送</b>：<code>autoSendEnabled</code>、<code>taskSendScanSec</code>、<code>taskSendMaxAttempts</code>、<code>taskSendScanBatchSize</code>、<code>taskSendRoundMax</code>、<code>taskSendBatchSize</code>、<code>autoSendAccount</code>。</li>
               <li><b>INQ 直接回复</b>：<code>inqMatchDayNo</code>，默认 2，表示昨天 00:00 至当前；该窗口同时用于客户 INQ 与供应商 OFFER 的关联。</li>
               <li><b>待跟进告警</b>：<code>offerFollowUpMaxAgeMin</code>，默认 360 分钟；超过该时效的历史 OFFER 补录后仍入库、生成任务，但不再推送“Offer待跟进”飞书消息。</li>
+              <li><b>飞书机器人</b>：字典 <code>feishu_robot_config</code> 统一维护。旧机器人 <code>legacy_trace_offer</code> 只发 TRACE 预警和好价格 Offer；新机器人 <code>business_alert</code> 接收 Offer待跟进、失败聚合、供应商群配置、AI 通道故障/恢复、未关联供应商聊天以及其余业务告警。字典项：<code>dict_value=Webhook</code>、<code>css_class=Secret</code>、<code>remark=用途</code>。</li>
+              <li><b>未关联供应商</b>：群名完全匹配不到供应商时回落到固定供应商 <code>UNLINKED/未关联</code>；供应商列表“来源对象”记录“聊天对象：发言人”，仅管理员/经理角色返回真实值，其他角色显示“无”。每天 09:00-22:00 每小时把当天未关联的聊天对象+发言人推送到新业务机器人，无数据不发。</li>
             </ul>
           </div>
           <el-button slot="reference" icon="el-icon-question" size="mini">说明</el-button>
@@ -112,6 +121,7 @@
         <el-switch v-model="autoSendEnabled" :disabled="taskSwitchesLoading || taskSendSaving" active-color="#13ce66" v-hasPermi="['wechat:task:send']" @change="handleTaskSendChange" />
       </el-col>
       <el-col :span="1.5"><el-button type="primary" plain icon="el-icon-magic-stick" size="mini" :loading="generating" @click="handleGenerate" v-hasPermi="['wechat:task:generate']">生成任务</el-button></el-col>
+      <el-col :span="1.5"><el-button type="primary" plain icon="el-icon-plus" size="mini" @click="openManualTask" v-hasPermi="['wechat:task:generate']">新增任务</el-button></el-col>
       <el-col :span="1.5"><el-button type="success" plain icon="el-icon-s-promotion" size="mini" :loading="sending" @click="handleSend" v-hasPermi="['wechat:task:send']">发送扫描</el-button></el-col>
       <el-col :span="1.5"><el-button type="warning" plain icon="el-icon-check" size="mini" :disabled="selectedRows.length === 0" @click="handleBatchApprove" v-hasPermi="['wechat:task:approve']">批量审批</el-button></el-col>
       <el-col :span="1.5"><el-button type="danger" plain icon="el-icon-delete" size="mini" :disabled="selectedRows.length === 0" @click="openDeleteDialog(null)" v-hasPermi="['wechat:task:remove']">批量删除</el-button></el-col>
@@ -125,6 +135,7 @@
       <el-table-column label="创建时间" prop="createTime" width="158" />
       <el-table-column label="INQ/OFFER 发生时间" prop="sourceMessageTime" width="165" />
       <el-table-column label="来源对象" prop="oriTarget" min-width="160" show-overflow-tooltip />
+      <el-table-column label="任务来源" prop="taskSource" width="105" align="center" />
       <el-table-column label="来源分类" prop="sourceCategory" width="90" align="center" />
       <el-table-column label="任务类型" width="125" align="center">
         <template slot-scope="scope"><el-tag size="mini" :type="taskTypeTag(scope.row.taskType)">{{ taskTypeLabel(scope.row.taskType) }}</el-tag></template>
@@ -226,11 +237,92 @@
       </div>
     </el-dialog>
 
+    <el-dialog title="新增微信任务（人工手动）" :visible.sync="manualTaskOpen" width="1180px" append-to-body @closed="resetManualTask">
+      <el-alert
+        title="“待审批”任务需先审批；“已审批待发送”任务会直接进入发送队列。执行“发送扫描”时，所选群将按下方原文逐字发送，不做 Offer 表头、品牌或价格格式化。"
+        type="info"
+        :closable="false"
+        show-icon />
+      <el-form label-width="96px" size="small" class="mt10">
+        <el-form-item label="消息内容">
+          <el-input v-model="manualTaskContent" type="textarea" :rows="8" maxlength="100000" show-word-limit placeholder="粘贴要发送到微信群的原文，保留换行和制表符" />
+        </el-form-item>
+        <el-form-item label="发送群类型">
+          <el-radio-group v-model="manualGroupSide" @change="handleManualGroupSideChange">
+            <el-radio-button label="sales">销售群</el-radio-button>
+            <el-radio-button label="purchase">采购群</el-radio-button>
+          </el-radio-group>
+          <span class="manual-tip">切换后已选供应商会清空，避免群方向不一致。</span>
+        </el-form-item>
+        <el-form-item label="供应商筛选">
+          <div class="manual-filter-row">
+            <el-input v-model="manualSupplierKeyword" clearable placeholder="供应商名称/编码/别名" @keyup.enter.native="applyManualSupplierFilters" />
+            <el-select v-model="manualSupplierDirection" clearable filterable placeholder="合作方向" @change="applyManualSupplierFilters">
+              <el-option v-for="item in dictCooperationDirection" :key="item.dictValue" :label="item.dictLabel" :value="item.dictValue" />
+            </el-select>
+            <el-button type="primary" icon="el-icon-search" @click="applyManualSupplierFilters">筛选</el-button>
+            <el-button icon="el-icon-refresh" @click="clearManualSupplierFilter">清空</el-button>
+          </div>
+        </el-form-item>
+        <el-form-item label="选择供应商">
+          <div class="manual-transfer">
+            <div class="manual-pane">
+              <div class="manual-pane-head">
+                <span>可选供应商（{{ manualSupplierRows.length }}）</span>
+                <el-button type="text" size="mini" :disabled="manualSupplierRows.length === 0" @click="addAllManualSuppliers">全选当前筛选结果</el-button>
+              </div>
+              <el-table
+                ref="manualSupplierTable"
+                v-loading="manualSupplierLoading"
+                :data="manualSupplierRows"
+                row-key="id"
+                height="330"
+                size="mini"
+                border
+                @selection-change="handleManualSupplierSelection">
+                <el-table-column type="selection" width="42" reserve-selection />
+                <el-table-column label="编码" prop="supplierCode" width="105" show-overflow-tooltip />
+                <el-table-column label="供应商名称" prop="supplierName" min-width="135" show-overflow-tooltip />
+                <el-table-column label="合作方向" prop="cooperationDirection" min-width="150" show-overflow-tooltip />
+              </el-table>
+            </div>
+            <div class="manual-actions">
+              <el-button type="primary" icon="el-icon-right" :disabled="manualSupplierSelection.length === 0" @click="addSelectedManualSuppliers">添加</el-button>
+              <el-button icon="el-icon-delete" :disabled="manualSelectedSuppliers.length === 0" @click="clearManualSuppliers">清空</el-button>
+            </div>
+            <div class="manual-pane">
+              <div class="manual-pane-head">
+                <span>已选供应商（{{ manualSelectedSuppliers.length }}）</span>
+                <span class="manual-tip">自动去重</span>
+              </div>
+              <el-table :data="manualSelectedSuppliers" row-key="id" height="330" size="mini" border>
+                <el-table-column label="编码" prop="supplierCode" width="105" show-overflow-tooltip />
+                <el-table-column label="供应商名称" prop="supplierName" min-width="125" show-overflow-tooltip />
+                <el-table-column label="目标群" min-width="170" show-overflow-tooltip>
+                  <template slot-scope="scope">{{ manualGroupSide === 'purchase' ? scope.row.purchaseGroup : scope.row.salesGroup }}</template>
+                </el-table-column>
+                <el-table-column label="操作" width="62" align="center">
+                  <template slot-scope="scope"><el-button type="text" class="text-danger" @click="removeManualSupplier(scope.row.id)">移除</el-button></template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </div>
+          <div class="manual-tip mt10">同一供应商的多个群会合并为一个任务；同一群自动去重。单条任务最多 32 个发送目标，每个群名/伙伴字段最多 300 字符。</div>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="manualTaskOpen = false">取消</el-button>
+        <el-button type="primary" :disabled="manualTaskSubmitting" :loading="manualTaskSubmitting && manualTaskSubmitMode === 'pending'" @click="submitManualTask(false)" v-hasPermi="['wechat:task:generate']">创建待审批任务</el-button>
+        <el-button type="success" :disabled="manualTaskSubmitting" :loading="manualTaskSubmitting && manualTaskSubmitMode === 'approved'" @click="submitManualTask(true)" v-hasPermi="['wechat:task:approve']">创建已审批待发送任务</el-button>
+      </div>
+    </el-dialog>
+
     <el-dialog :title="'任务 #' + form.id + ' 审批与编辑'" :visible.sync="open" width="980px" append-to-body>
       <el-descriptions v-if="form.id" :column="2" border size="small" class="mb8">
         <el-descriptions-item label="任务 ID">{{ form.id }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ form.createTime || '-' }}</el-descriptions-item>
         <el-descriptions-item label="来源对象">{{ form.oriTarget || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="任务来源">{{ form.taskSource || '消息自动' }}</el-descriptions-item>
         <el-descriptions-item label="INQ/OFFER 发生时间">{{ form.sourceMessageTime || '-' }}</el-descriptions-item>
         <el-descriptions-item label="来源分类">{{ form.sourceCategory || '-' }}</el-descriptions-item>
         <el-descriptions-item label="任务类型">{{ taskTypeLabel(form.taskType) }}</el-descriptions-item>
@@ -268,9 +360,9 @@
         <el-form-item label="发送目标">
           <el-button size="mini" icon="el-icon-plus" @click="addTarget">添加目标</el-button>
           <el-table :data="form.targets || []" size="mini" border class="target-table">
-            <el-table-column label="群名" min-width="220"><template slot-scope="scope"><el-input v-model="scope.row.name" size="mini" /></template></el-table-column>
-            <el-table-column label="伙伴编码" width="150"><template slot-scope="scope"><el-input v-model="scope.row.partyCode" size="mini" /></template></el-table-column>
-            <el-table-column label="伙伴名称" min-width="160"><template slot-scope="scope"><el-input v-model="scope.row.partyName" size="mini" /></template></el-table-column>
+            <el-table-column label="群名" min-width="220"><template slot-scope="scope"><el-input v-model="scope.row.name" size="mini" maxlength="300" show-word-limit /></template></el-table-column>
+            <el-table-column label="伙伴编码" width="150"><template slot-scope="scope"><el-input v-model="scope.row.partyCode" size="mini" maxlength="300" /></template></el-table-column>
+            <el-table-column label="伙伴名称" min-width="160"><template slot-scope="scope"><el-input v-model="scope.row.partyName" size="mini" maxlength="300" /></template></el-table-column>
             <el-table-column label="操作" width="70" align="center"><template slot-scope="scope"><el-button type="text" class="text-danger" @click="removeTarget(scope.$index)">移除</el-button></template></el-table-column>
           </el-table>
         </el-form-item>
@@ -302,7 +394,8 @@
 </template>
 
 <script>
-import { listWechatTasks, getWechatTask, getWechatTaskConfig, setWechatTaskGenerateConfig, setWechatTaskSendConfig, approveWechatTask, batchApproveWechatTasks, batchRemoveWechatTasks, generateWechatTasks, sendWechatTasks, confirmWechatTaskNotSent } from '@/api/crm/wechatTask'
+import { listWechatTasks, getWechatTask, getWechatTaskConfig, setWechatTaskGenerateConfig, setWechatTaskSendConfig, approveWechatTask, batchApproveWechatTasks, batchRemoveWechatTasks, generateWechatTasks, sendWechatTasks, confirmWechatTaskNotSent, listManualWechatTaskSuppliers, createManualWechatTask, createManualApprovedWechatTask } from '@/api/crm/wechatTask'
+import { getDicts } from '@/api/system/dict/data'
 
 export default {
   name: 'CrmWechatTask',
@@ -334,6 +427,19 @@ export default {
       batchApproveSubmitting: false,
       batchApproveStatus: 'APPROVED_PENDING_SEND',
       batchApproveReason: '',
+      manualTaskOpen: false,
+      manualTaskSubmitting: false,
+      manualTaskSubmitMode: '',
+      manualTaskContent: '',
+      manualGroupSide: 'sales',
+      manualSupplierKeyword: '',
+      manualSupplierDirection: '',
+      manualSupplierLoading: false,
+      manualSupplierSource: [],
+      manualSupplierRows: [],
+      manualSupplierSelection: [],
+      manualSelectedSuppliers: [],
+      dictCooperationDirection: [],
       statuses: [
         { value: 'PENDING_APPROVAL', label: '待审批' },
         { value: 'APPROVED_PENDING_SEND', label: '已审批待发送' },
@@ -344,9 +450,15 @@ export default {
         { value: 'SUPPLIER_INQUIRY', label: '供应商询价' },
         { value: 'CUSTOMER_REPLY', label: '客户回复' },
         { value: 'CUSTOMER_PUSH', label: '客户推送' },
+        { value: 'MANUAL_SEND', label: '手工群发' },
         { value: 'UNMAPPED_CHAT', label: '未映射异常' }
       ],
-      queryParams: { pageNum: 1, pageSize: 20, pnKeyword: undefined, oriTarget: undefined, queryKeyword: undefined, taskType: undefined, handleStatus: undefined, exceptionOnly: false, beginTime: undefined, endTime: undefined }
+      taskSources: [
+        { value: '消息自动', label: '消息自动' },
+        { value: '人工手动', label: '人工手动' },
+        { value: '自动询Offer', label: '自动询Offer' }
+      ],
+      queryParams: { pageNum: 1, pageSize: 20, pnKeyword: undefined, oriTarget: undefined, queryKeyword: undefined, taskType: undefined, handleStatus: undefined, taskSource: undefined, exceptionOnly: false, beginTime: undefined, endTime: undefined }
     }
   },
   computed: {
@@ -371,6 +483,7 @@ export default {
   },
   created() {
     this.dateRange = this.last30Days()
+    this.loadManualTaskDicts()
     this.loadTaskSwitches()
     this.handleQuery()
   },
@@ -379,6 +492,11 @@ export default {
       const fmt = date => date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0')
       const now = new Date()
       return [fmt(new Date(now.getTime() - 29 * 86400000)), fmt(now)]
+    },
+    loadManualTaskDicts() {
+      getDicts('crm_supplier_cooperation_direction').then(res => {
+        this.dictCooperationDirection = res.data || []
+      }).catch(() => {})
     },
     getList() {
       this.loading = true
@@ -436,6 +554,125 @@ export default {
     handleSelectionChange(rows) {
       this.selectedRows = rows || []
     },
+    openManualTask() {
+      this.resetManualTask()
+      this.manualTaskOpen = true
+      this.loadManualSuppliers()
+    },
+    resetManualTask() {
+      this.manualTaskContent = ''
+      this.manualGroupSide = 'sales'
+      this.manualSupplierKeyword = ''
+      this.manualSupplierDirection = ''
+      this.manualSupplierSource = []
+      this.manualSupplierRows = []
+      this.manualSupplierSelection = []
+      this.manualSelectedSuppliers = []
+    },
+    handleManualGroupSideChange() {
+      this.manualSelectedSuppliers = []
+      this.applyManualSupplierFilters()
+    },
+    clearManualSupplierFilter() {
+      this.manualSupplierKeyword = ''
+      this.manualSupplierDirection = ''
+      this.applyManualSupplierFilters()
+    },
+    loadManualSuppliers() {
+      this.manualSupplierLoading = true
+      listManualWechatTaskSuppliers({ groupSide: 'all' }).then(res => {
+        this.manualSupplierSource = res.data || []
+        this.applyManualSupplierFilters()
+      }).catch(() => {
+        this.manualSupplierSource = []
+        this.applyManualSupplierFilters()
+      }).finally(() => { this.manualSupplierLoading = false })
+    },
+    applyManualSupplierFilters() {
+      const keyword = String(this.manualSupplierKeyword || '').trim()
+      const direction = String(this.manualSupplierDirection || '').trim()
+      const selectedIds = new Set(this.manualSelectedSuppliers.map(item => item.id))
+      const lowerKeyword = keyword.toLowerCase()
+      this.manualSupplierRows = (this.manualSupplierSource || []).filter(item => {
+        if (selectedIds.has(item.id)) return false
+        const group = this.manualGroupSide === 'purchase' ? item.purchaseGroup : item.salesGroup
+        if (!String(group || '').trim()) return false
+        if (lowerKeyword) {
+          const text = [item.supplierName, item.supplierCode, item.supplierAlias]
+            .map(value => String(value || '').toLowerCase()).join(' ')
+          if (text.indexOf(lowerKeyword) === -1) return false
+        }
+        if (direction) {
+          const directions = String(item.cooperationDirection || '').split(/[，,、；;]/)
+            .map(value => value.trim()).filter(Boolean)
+          if (directions.indexOf(direction) === -1) return false
+        }
+        return true
+      })
+      this.$nextTick(() => {
+        if (this.$refs.manualSupplierTable) this.$refs.manualSupplierTable.clearSelection()
+      })
+    },
+    handleManualSupplierSelection(rows) {
+      this.manualSupplierSelection = rows || []
+    },
+    addSelectedManualSuppliers() {
+      this.appendManualSuppliers(this.manualSupplierSelection)
+    },
+    addAllManualSuppliers() {
+      this.appendManualSuppliers(this.manualSupplierRows)
+    },
+    appendManualSuppliers(rows) {
+      if (!rows || rows.length === 0) return
+      const selectedIds = new Set(this.manualSelectedSuppliers.map(item => item.id))
+      let added = 0
+      for (const row of rows) {
+        if (selectedIds.has(row.id)) continue
+        if (this.manualSelectedSuppliers.length >= 32) break
+        this.manualSelectedSuppliers.push(Object.assign({}, row))
+        selectedIds.add(row.id)
+        added++
+      }
+      if (this.manualSelectedSuppliers.length >= 32 && added < rows.length) {
+        this.$modal.msgWarning('单条任务最多选择 32 家供应商；若一家配置多个群，后端会按发送目标数再次校验')
+      }
+      this.applyManualSupplierFilters()
+    },
+    removeManualSupplier(id) {
+      this.manualSelectedSuppliers = this.manualSelectedSuppliers.filter(item => item.id !== id)
+      this.applyManualSupplierFilters()
+    },
+    clearManualSuppliers() {
+      this.manualSelectedSuppliers = []
+      this.applyManualSupplierFilters()
+    },
+    submitManualTask(directlyApproved) {
+      const content = String(this.manualTaskContent || '').trim()
+      if (!content) {
+        this.$modal.msgWarning('请粘贴要发送的消息内容')
+        return
+      }
+      if (this.manualSelectedSuppliers.length === 0) {
+        this.$modal.msgWarning('请至少选择一个供应商')
+        return
+      }
+      this.manualTaskSubmitting = true
+      this.manualTaskSubmitMode = directlyApproved ? 'approved' : 'pending'
+      const submit = directlyApproved ? createManualApprovedWechatTask : createManualWechatTask
+      submit({
+        content: content,
+        groupSide: this.manualGroupSide,
+        supplierIds: this.manualSelectedSuppliers.map(item => item.id)
+      }).then(res => {
+        const data = res.data || {}
+        this.$modal.msgSuccess(data.message || (directlyApproved ? '已审批待发送任务已创建' : '手工任务已创建'))
+        this.manualTaskOpen = false
+        this.handleQuery()
+      }).finally(() => {
+        this.manualTaskSubmitting = false
+        this.manualTaskSubmitMode = ''
+      })
+    },
     handleGenerate() {
       this.generating = true
       generateWechatTasks({}).then(res => {
@@ -469,6 +706,10 @@ export default {
     },
     addTarget() {
       if (!this.form.targets) this.$set(this.form, 'targets', [])
+      if (this.form.targets.length >= 32) {
+        this.$modal.msgWarning('单条任务最多允许 32 个发送目标')
+        return
+      }
       this.form.targets.push({ name: '', partyCode: '', partyName: '' })
     },
     removeTarget(index) {
@@ -478,6 +719,16 @@ export default {
       const targets = (this.form.targets || []).filter(item => String(item.name || '').trim())
       if (this.form.handleStatus === 'APPROVED_PENDING_SEND' && targets.length === 0) {
         this.$modal.msgError('已审批待发送任务必须至少有一个发送目标')
+        return
+      }
+      if (targets.length > 32) {
+        this.$modal.msgError('单条任务最多允许 32 个发送目标')
+        return
+      }
+      const overlong = targets.find(item => ['name', 'partyCode', 'partyName']
+        .some(key => String(item[key] || '').length > 300))
+      if (overlong) {
+        this.$modal.msgError('发送目标的群名、伙伴编码和伙伴名称每个字段最多 300 字符')
         return
       }
       this.saving = true
@@ -557,6 +808,7 @@ export default {
     taskTypeTag(value) {
       if (value === 'CUSTOMER_REPLY') return 'success'
       if (value === 'CUSTOMER_PUSH') return 'warning'
+      if (value === 'MANUAL_SEND') return ''
       if (value === 'UNMAPPED_CHAT') return 'danger'
       return 'info'
     },
@@ -590,6 +842,15 @@ export default {
 .selection-tip { margin-left: 10px; line-height: 28px; color: #909399; font-size: 12px; }
 .task-switch { line-height: 28px; white-space: nowrap; }
 .task-switch-label { margin-right: 6px; color: #606266; font-size: 13px; }
+.manual-filter-row { display: flex; gap: 8px; width: 100%; }
+.manual-filter-row .el-input { width: 260px; }
+.manual-filter-row .el-select { width: 260px; }
+.manual-transfer { display: flex; align-items: stretch; width: 100%; gap: 10px; }
+.manual-pane { flex: 1; min-width: 0; }
+.manual-pane-head { display: flex; align-items: center; justify-content: space-between; height: 30px; color: #606266; font-weight: 600; }
+.manual-actions { display: flex; flex-direction: column; justify-content: center; gap: 8px; width: 88px; }
+.manual-actions .el-button { margin-left: 0; }
+.manual-tip { margin-left: 10px; color: #909399; font-size: 12px; }
 .dialog-section-title { margin: 16px 0 8px; font-weight: 600; color: #303133; }
 .condition-list { margin: 0; padding-left: 22px; color: #606266; line-height: 1.8; }
 .delete-question { margin: 18px 0 10px; font-weight: 600; }

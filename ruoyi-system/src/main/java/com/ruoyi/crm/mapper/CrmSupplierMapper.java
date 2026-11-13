@@ -31,6 +31,18 @@ public interface CrmSupplierMapper {
     List<CrmSupplier> selectSupplierSimpleList(CrmSupplier supplier);
     /** 微信自动化的全量交易对手映射（含停用/缺编码，供两步解析）。 */
     List<CrmSupplier> selectAllForWeChat();
+    /** 开启自动询Offer、启用且配置了销售群的供应商。 */
+    List<CrmSupplier> selectAutoInquiryOfferSuppliers();
+    /** 记录微信自动录入来源对象；按供应商+聊天对象+发言人幂等去重。 */
+    int upsertWeChatSource(@Param("supplierId") Long supplierId,
+                           @Param("chatName") String chatName,
+                           @Param("sender") String sender);
+    /** 批量聚合供应商来源对象，仅供服务层管理员权限判断后组装返回。 */
+    List<Map<String, Object>> selectWeChatSourceSummaries(@Param("supplierIds") List<Long> supplierIds);
+    /** 手工创建任务弹窗的供应商候选：仅启用、有对应销售群/采购群，并排除未关联兜底供应商。 */
+    List<CrmSupplier> selectManualTaskSuppliers(@Param("keyword") String keyword,
+                                                @Param("direction") String direction,
+                                                @Param("groupSide") String groupSide);
     /** 自动发送成功后更新交易对手跟进时间与结论。 */
     int updateWechatFollowUpByCodes(@Param("codes") List<String> codes,
                                     @Param("followTime") Date followTime,

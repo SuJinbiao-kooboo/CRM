@@ -1,6 +1,7 @@
 package com.ruoyi.crm.mapper;
 
 import java.util.List;
+import java.util.Map;
 import org.apache.ibatis.annotations.Param;
 import com.ruoyi.crm.domain.CrmOffer;
 
@@ -59,5 +60,18 @@ public interface CrmOfferMapper {
     int deleteOfferByIds(Long[] ids);
     int deleteOfferById(Long id);
     int batchUpdate(@Param("ids") List<Long> ids, @Param("offer") CrmOffer offer);
+
+    /** 查询待回填消费/服务的去重料号样本（同一基础料号去掉尾部“拆”后只取一条）。 */
+    List<Map<String, Object>> selectUsageSegmentBackfillSources(@Param("limit") int limit);
+
+    /** 统计待回填消费/服务的基础料号数量。 */
+    long countPendingUsageSegmentSources();
+
+    /** 按料号集合批量回填消费/服务；只更新空值，避免覆盖人工修正。 */
+    int updateUsageSegmentByPns(@Param("list") List<String> pns,
+                                @Param("usageSegment") String usageSegment);
+
+    /** 查询同料号最近一次已确认的消费/服务，供 AI 录入复用，减少重复模型调用。 */
+    String selectUsageSegmentByPn(@Param("pn") String pn);
 }
 

@@ -78,7 +78,7 @@
             </ul>
             <div class="help-title">飞书消息清单（统一管理）</div>
             <ul>
-              <li><b>统一发送出口</b>：本页业务告警和推送都走系统参数 <code>sys.ai.alert.webhook</code>，并受 <code>sys.ai.alert.cooldown.sec</code> 冷却限制；飞书机器人主动接口和回调回复走另一套 <code>/feishu/**</code> 接口。</li>
+              <li><b>统一发送出口</b>：本页业务告警和推送走字典 <code>feishu_robot_config</code>；TRACE 与好价格 Offer 走旧机器人 <code>legacy_trace_offer</code>，其余告警走新业务机器人 <code>business_alert</code>，并受 <code>sys.ai.alert.cooldown.sec</code> 冷却限制。飞书机器人主动接口和回调回复走另一套 <code>/feishu/**</code> 接口。</li>
               <li><b>AI 渠道故障/恢复</b>：<code>AiChannelService</code> 在主渠道连续失败、切换备用渠道、备用渠道仍失败、主渠道恢复时推送。</li>
               <li><b>微信 TRACE 预警</b>：外部 TRACE 且已关联 INQ/OFFER 时推送；同一条成功预警永久去重，同会话按 <code>traceAlertChatCooldownMin</code> 冷却，历史消息受 <code>traceAlertMaxAgeMin</code> 限制。</li>
               <li><b>Offer 待跟进</b>：微信 OFFER 自动录入成功后，CPU 料号全部推送，其他料号按价格优势阈值筛选；每次按“好价报价”和“相关聊天记录”各推送一条。</li>

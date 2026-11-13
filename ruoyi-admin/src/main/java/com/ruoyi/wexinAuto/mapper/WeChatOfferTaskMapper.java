@@ -24,6 +24,8 @@ public interface WeChatOfferTaskMapper {
 
     int markSendAttempt(@Param("id") Long id, @Param("attemptAt") Date attemptAt);
 
+    int releaseSendAttempt(@Param("id") Long id);
+
     int updateSendResult(@Param("id") Long id,
                          @Param("successJson") String successJson,
                          @Param("handleStatus") String handleStatus,

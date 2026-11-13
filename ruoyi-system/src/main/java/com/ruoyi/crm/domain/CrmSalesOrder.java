@@ -82,6 +82,10 @@ public class CrmSalesOrder extends BaseEntity {
     private String ciOurFile;
     private String entrustFile;
     private String snFile;
+    private String entrustSupplierFile;
+    private String signReceiptSupplierFile;
+    private String photoSupplierFile;
+    private String snSupplierFile;
 
     private String customerName;
     private String supplierName;

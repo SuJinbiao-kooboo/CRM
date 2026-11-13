@@ -28,6 +28,11 @@
           <el-option v-for="d in dictProductType" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
         </el-select>
       </el-form-item>
+      <el-form-item label="消费/服务">
+        <el-select v-model="queryParams.usageSegment" clearable placeholder="全部" style="width: 110px">
+          <el-option v-for="d in dictUsageSegment" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="规格">
         <el-input v-model="queryParams.spec" placeholder="请输入规格（容量/转速等）" clearable size="mini" style="width: 180px" @keyup.enter.native="handleQuery" />
       </el-form-item>
@@ -160,6 +165,7 @@
       <el-table-column label="规格" align="center" prop="spec" min-width="140" show-overflow-tooltip />
       <el-table-column label="价格单位" align="center" prop="priceUnit" show-overflow-tooltip />
       <el-table-column label="产品类型" align="center" prop="productType" show-overflow-tooltip />
+      <el-table-column label="消费/服务" align="center" prop="usageSegment" width="100" show-overflow-tooltip />
       <el-table-column label="DC" align="center" prop="dc" show-overflow-tooltip />
       <el-table-column label="类型" align="center" prop="inqOfferType" show-overflow-tooltip />
       <el-table-column label="状态" align="center" width="80">
@@ -257,6 +263,11 @@
             <el-option v-for="d in dictProductType" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
           </el-select>
         </el-form-item>
+        <el-form-item label="消费/服务" prop="usageSegment">
+          <el-select v-model="form.usageSegment" clearable placeholder="请选择消费/服务">
+            <el-option v-for="d in dictUsageSegment" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="标签1" prop="tagsFirst">
           <el-select v-model="form.tagsFirstArr" multiple collapse-tags filterable placeholder="请选择标签1"><el-option v-for="d in dictTagsFirst" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" /></el-select>
         </el-form-item>
@@ -302,6 +313,7 @@
         <el-descriptions-item label="供应商名称">{{ detailText(offerDetail.supplierName) }}</el-descriptions-item>
         <el-descriptions-item label="品牌">{{ detailText(offerDetail.productBrand) }}</el-descriptions-item>
         <el-descriptions-item label="产品类型">{{ detailText(offerDetail.productType) }}</el-descriptions-item>
+        <el-descriptions-item label="消费/服务">{{ detailText(offerDetail.usageSegment) }}</el-descriptions-item>
         <el-descriptions-item label="产品明细编号">{{ detailText(offerDetail.productDetailCode) }}</el-descriptions-item>
         <el-descriptions-item label="询报价类型">{{ detailText(offerDetail.inqOfferType) }}</el-descriptions-item>
         <el-descriptions-item label="成本">{{ detailText(offerDetail.priceCost) }}</el-descriptions-item>
@@ -633,6 +645,11 @@
             <el-option v-for="d in dictProductType" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
           </el-select>
         </el-form-item>
+        <el-form-item label="消费/服务">
+          <el-select v-model="batchForm.usageSegment" clearable placeholder="不填不更新">
+            <el-option v-for="d in dictUsageSegment" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="备注"><el-input v-model="batchForm.remark" placeholder="不填不更新" /></el-form-item>
         <el-form-item label="类型"><el-select v-model="batchForm.inqOfferType" clearable placeholder="不填不更新"><el-option label="Inq" value="Inq" /><el-option label="Offer" value="Offer" /></el-select></el-form-item>
       </el-form>
@@ -845,15 +862,15 @@ export default {
       importSupplier: null,
       letters: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),
       colMap: { productCode: 'A', productDetail: '', productDetailArr: [], priceCost: '', priceOffer: '', quantity: '', deliveryTime: '', remark: '', moqQuantity: '', warrantyDetail: '', dc: '' },
-      queryParams: { pageNum: 1, pageSize: 10, productCode: undefined, supplierCodes: [], productBrandArr: [], productTypeArr: [], inqOfferType: undefined, status: undefined, tagsFirst: undefined, tagsSecond: undefined, tagsThird: undefined, tagsSi: undefined, params: {} },
+      queryParams: { pageNum: 1, pageSize: 10, productCode: undefined, supplierCodes: [], productBrandArr: [], productTypeArr: [], usageSegment: undefined, inqOfferType: undefined, status: undefined, tagsFirst: undefined, tagsSecond: undefined, tagsThird: undefined, tagsSi: undefined, params: {} },
       moreTags: false,
       stockDateStart: undefined,
       stockDateEnd: undefined,
-      form: { id: undefined, supplierCode: '', supplierName: '', productCode: '', productDetailCode: '', productBrand: '', productBrandArr: [], stockDate: undefined, priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, productDetail: '', spec: '', coo: '', deliveryTime: '', remark: '', sheetName: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer', status: 1 },
-      dictProductBrand: [], dictPriceUnit: [], dictProductType: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
+      form: { id: undefined, supplierCode: '', supplierName: '', productCode: '', productDetailCode: '', productBrand: '', productBrandArr: [], stockDate: undefined, priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, productDetail: '', spec: '', coo: '', deliveryTime: '', remark: '', sheetName: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], usageSegment: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer', status: 1 },
+      dictProductBrand: [], dictPriceUnit: [], dictProductType: [], dictUsageSegment: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       importForm: { inqOfferType: 'Offer', profitRatio: 2 },
       uploadAction: process.env.VUE_APP_BASE_API + '/crm/offer/import',
-      batchForm: { productBrand: '', stockDate: undefined, productDetail: '', priceCost: undefined, priceOffer: undefined, priceUnit: '', quantity: undefined, deliveryTime: '', moqQuantity: undefined, warrantyDetail: '', productType: '', remark: '', inqOfferType: '' },
+      batchForm: { productBrand: '', stockDate: undefined, productDetail: '', priceCost: undefined, priceOffer: undefined, priceUnit: '', quantity: undefined, deliveryTime: '', moqQuantity: undefined, warrantyDetail: '', productType: '', usageSegment: '', remark: '', inqOfferType: '' },
       tmpField: '',
       tmpSep: '',
       openBatchAddDialog: false,
@@ -943,7 +960,7 @@ export default {
       this.stockDateStart = start;
       this.stockDateEnd = end;
     },
-    resetQuery() { this.resetStockDates(); this.queryParams.supplierCodes = []; this.queryParams.productBrandArr = []; this.queryParams.productTypeArr = []; this.resetForm('queryForm'); this.handleQuery() },
+    resetQuery() { this.resetStockDates(); this.queryParams.supplierCodes = []; this.queryParams.productBrandArr = []; this.queryParams.productTypeArr = []; this.queryParams.usageSegment = undefined; this.resetForm('queryForm'); this.handleQuery() },
     handleSelectionChange(selection) { this.ids = selection.map(item => item.id); this.single = selection.length != 1; this.multiple = !selection.length },
     remoteSupplier(query) { listSupplierOptions({ supplierName: query, pageNum: 1, pageSize: 20 }).then(res => { this.supplierOptions = res.data }) },
     remoteSupplierQuery(query) { listSupplierOptions({ supplierName: query, pageNum: 1, pageSize: 20 }).then(res => { this.supplierOptionsQuery = res.data }) },
@@ -1560,7 +1577,7 @@ export default {
     toNumberOrNull(v) { if (v == null) return null; const s = String(v).match(/\d+(\.\d+)?/); return s ? Number(s[0]) : null },
     submitBatch() { batchEditOffer(this.ids, this.batchForm).then(() => { this.$modal.msgSuccess('批量编辑成功'); this.openBatchDialog = false; this.getList() }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '批量编辑失败') }) },
     cancel() { this.open = false },
-    resetFormData() { this.form = { id: undefined, supplierCode: '', supplierName: '', productCode: '', productDetailCode: '', productBrand: '', productBrandArr: [], stockDate: new Date(), priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, productDetail: '', deliveryTime: '', remark: '', sheetName: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer', status: 1 } },
+    resetFormData() { this.form = { id: undefined, supplierCode: '', supplierName: '', productCode: '', productDetailCode: '', productBrand: '', productBrandArr: [], stockDate: new Date(), priceCost: undefined, priceOffer: undefined, priceUnit: '', priceUnitArr: [], quantity: undefined, productDetail: '', deliveryTime: '', remark: '', sheetName: '', warrantyDetail: '', moqQuantity: undefined, dc: '', productType: '', productTypeArr: [], usageSegment: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], inqOfferType: 'Offer', status: 1 } },
     submitForm() { if (!this.form.productCode) { this.$modal.msgError('产品编码不能为空'); return } this.joinFromArrays(); const data = Object.assign({}, this.form); (data.id ? updateOffer(data) : addOffer(data)).then(() => { this.$modal.msgSuccess(this.form.id ? '修改成功' : '新增成功'); this.open = false; this.getList() }).catch(err => { this.$modal.msgError(err && err.msg ? err.msg : '提交失败') }) }
     ,searchSupplier(query) {
       this.supplierLoading = true;
@@ -1574,6 +1591,7 @@ export default {
       getDicts('crm_product_brand').then(res => { this.dictProductBrand = res.data })
       getDicts('crm_price_unit').then(res => { this.dictPriceUnit = res.data })
       getDicts('crm_product_type').then(res => { this.dictProductType = res.data })
+      getDicts('crm_offer_usage_segment').then(res => { this.dictUsageSegment = res.data })
       getDicts('crm_tags_first').then(res => { this.dictTagsFirst = res.data })
       getDicts('crm_tags_second').then(res => { this.dictTagsSecond = res.data })
       getDicts('crm_tags_third').then(res => { this.dictTagsThird = res.data })

@@ -52,6 +52,8 @@ public class CrmSupplierVO extends BaseEntity {
     private Double profitRatio;
     @Excel(name = "自动审批", readConverterExp = "1=开启,0=关闭")
     private Integer autoApprove;
+    @Excel(name = "自动询Offer", readConverterExp = "1=开启,0=关闭")
+    private Integer autoInquiryOffer;
     @Excel(name = "营业执照号")
     private String businessLicense;
     @Excel(name = "税号")
@@ -77,6 +79,8 @@ public class CrmSupplierVO extends BaseEntity {
     /** 跟进人显示名称（昵称，逗号分隔，查询时由登录名解析） */
     @Excel(name = "跟进人")
     private String followUpByNames;
+    /** 来源对象：微信自动录入时记录“聊天对象：发言人”，非管理员角色统一返回“无” */
+    private String sourceObjects;
     private String createBy;
     private Date createTime;
     private String updateBy;

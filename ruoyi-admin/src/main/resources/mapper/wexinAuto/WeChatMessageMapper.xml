@@ -400,6 +400,22 @@
         LIMIT #{max}
     </select>
 
+    <select id="selectUnlinkedChatCandidates" resultType="java.util.Map">
+        SELECT m.name, m.sender, MAX(m.create_time) AS latest_time
+        FROM wechat_message m
+        JOIN (
+            SELECT DISTINCT sender
+            FROM wechat_message
+            WHERE msg_category IN ('INQ', 'OFFER')
+              AND sender IS NOT NULL AND TRIM(sender) &lt;&gt; ''
+        ) known ON known.sender = m.sender
+        WHERE m.create_time &gt;= #{since}
+          AND m.name IS NOT NULL AND TRIM(m.name) &lt;&gt; ''
+        GROUP BY m.name, m.sender
+        ORDER BY latest_time DESC
+        LIMIT #{max}
+    </select>
+
     <update id="markEntryProcessing">
         UPDATE wechat_message
         SET entry_status = 'PROCESSING', entry_message = 'AI录入处理中', entry_at = NOW()

@@ -364,6 +364,27 @@ public class OfferController extends BaseController {
         return AjaxResult.success(msg, result);
     }
 
+    /**
+     * 历史消费/服务回填（按基础料号去重后分批调用 AI，再批量更新同料号记录）。
+     * 每次最多处理 150 个去重料号；返回 remaining，前端/运维可循环调用直到为 0。
+     * 只填空白值，不覆盖人工维护的数据。
+     */
+    @PreAuthorize("@ss.hasPermi('crm:offer:edit')")
+    @Log(title = "Offer消费服务回填", businessType = BusinessType.UPDATE)
+    @PostMapping("/usageSegment/refreshBatch")
+    public AjaxResult refreshUsageSegmentBatch(@RequestParam(value = "limit", defaultValue = "80") int limit) {
+        return AjaxResult.success(offerService.refreshUsageSegmentBatch(limit));
+    }
+
+    /** 查询待回填的基础料号数量，用于判断是否需要继续回填。 */
+    @PreAuthorize("@ss.hasPermi('crm:offer:list')")
+    @GetMapping("/usageSegment/pending")
+    public AjaxResult pendingUsageSegment() {
+        Map<String, Object> data = new HashMap<>();
+        data.put("pending", offerService.countPendingUsageSegments());
+        return AjaxResult.success(data);
+    }
+
     @PreAuthorize("@ss.hasPermi('crm:offer:add')")
     @Log(title = "Offer管理", businessType = BusinessType.INSERT)
     @PostMapping("/aiEntry")

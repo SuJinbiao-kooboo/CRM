@@ -22,6 +22,8 @@ public class CrmOfferExportDTO extends BaseEntity {
     private Double priceOffer;
     @Excel(name = "数量")
     private Integer quantity;
+    @Excel(name = "消费/服务")
+    private String usageSegment;
     @Excel(name = "DC")
     private String dc;
 

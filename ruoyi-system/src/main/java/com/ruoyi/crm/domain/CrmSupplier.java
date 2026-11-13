@@ -55,6 +55,9 @@ public class CrmSupplier extends BaseEntity {
     /** 微信询报价任务自动审批：1开启，0关闭 */
     @Excel(name = "自动审批", readConverterExp = "1=开启,0=关闭")
     private Integer autoApprove;
+    /** 微信自动询Offer：1开启，0关闭 */
+    @Excel(name = "自动询Offer", readConverterExp = "1=开启,0=关闭")
+    private Integer autoInquiryOffer;
     @Excel(name = "营业执照号")
     private String businessLicense;
     @Excel(name = "税号")
@@ -79,6 +82,8 @@ public class CrmSupplier extends BaseEntity {
     private String followUpBy;
     /** 跟进人显示名称（昵称，逗号分隔，查询时由登录名解析，仅用于列表/详情展示） */
     private String followUpByNames;
+    /** 来源对象：微信自动录入时记录“聊天对象：发言人”，仅管理员/超级管理员返回真实值 */
+    private String sourceObjects;
     private String createBy;
     private Date createTime;
     private String updateBy;

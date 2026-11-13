@@ -79,13 +79,13 @@ public class DeepSeekAiService {
     private RedisCache redisCache;
 
     /** 数据库提示词版本标记：旧版配置缺少此标记时自动使用内置精简版，避免历史长提示词覆盖拆机修复。 */
-    private static final String PROMPT_VERSION_MARK = "v2026-11-09";
+    private static final String PROMPT_VERSION_MARK = "v2026-11-12";
 
     /** 默认基础提示词：精简版，定义JSON格式、字段规则、料号特例和拆机识别（配合解析示例一起生效）。 */
     private static final String DEFAULT_SYSTEM_PROMPT_BASE = String.join("\n",
-            "# Offer解析提示词 v2026-11-09",
+            "# Offer解析提示词 v2026-11-12",
             "你是IT硬件物料录入助手。把用户文本中的每条报价整理成JSON，只输出JSON：",
-            "{\"items\":[{\"brand\":\"\",\"partNumber\":\"\",\"model\":\"\",\"spec\":\"\",\"quantity\":null,\"price\":null,\"currency\":\"USD\",\"dc\":\"\",\"coo\":\"\",\"deliveryTime\":\"\",\"productType\":\"\",\"productDetail\":\"\",\"remark\":\"\"}]}",
+            "{\"items\":[{\"brand\":\"\",\"partNumber\":\"\",\"model\":\"\",\"spec\":\"\",\"quantity\":null,\"price\":null,\"currency\":\"USD\",\"dc\":\"\",\"coo\":\"\",\"deliveryTime\":\"\",\"productType\":\"\",\"usageSegment\":\"\",\"productDetail\":\"\",\"remark\":\"\"}]}",
             "",
             "规则：",
             "1. 每条报价一行；同一料号不同价格、数量或成色必须分行，禁止合并、遗漏。缺货/没货/无货/no stock/out of stock不生成行。",
@@ -96,6 +96,7 @@ public class DeepSeekAiService {
             "6. productType按文末【产品类型候选】选择；根据料号前缀、描述判断，无法确定填“其他”。",
             "7. spec：SSD/HDD/RAM/颗粒必须写容量；HDD补接口、转速、尺寸，SSD补接口、形态，RAM补代际、速率、模组，颗粒补容量；CPU/GPU无明确规格可留空。productDetail写简短准确的型号和关键规格，不确定时用原文。",
             "8. brand优先使用文末【品牌候选】中的标准名称；候选外的品牌保留原文，不编造。",
+            "9. usageSegment只能是“服务器”或“消费级”。服务器：Xeon/EPYC、RDIMM/LRDIMM/ECC Registered内存、企业级SSD/HDD、U.2/SAS/E1.S/E3.S、数据中心GPU、服务器主板/网卡/Raid卡等；消费级：桌面或笔记本Core/Ryzen、GeForce/Radeon、UDIMM/SODIMM、消费级SSD/HDD、eMMC/LPDDR、USB移动存储等。根据料号、型号、规格判断；无法完全确定时按产品实际定位选最接近的一项，不得留空。",
             "",
             "料号特例：",
             "- AMD EPYC：EPYC9015/100-000001553 → partNumber=9015，model=EPYC 9015，OPN 100-000001553放productDetail。",
@@ -239,6 +240,7 @@ public class DeepSeekAiService {
             row.put("coo", strVal(item, "coo"));
             row.put("deliveryTime", strVal(item, "deliveryTime"));
             row.put("productType", strVal(item, "productType"));
+            row.put("usageSegment", normalizeUsageSegment(strVal(item, "usageSegment")));
             row.put("productDetail", strVal(item, "productDetail"));
             row.put("remark", strVal(item, "remark"));
             if (isBlank((String) row.get("partNumber")) && isBlank((String) row.get("brand"))
@@ -248,6 +250,85 @@ public class DeepSeekAiService {
             rows.add(row);
         }
         return rows;
+    }
+
+    /**
+     * 批量判定消费/服务。输入项需含 index/partNumber/brand/productType/model/spec，
+     * 返回 index -> 服务器/消费级。一次请求处理一批已去重料号，避免逐条调用消耗 Token。
+     */
+    public Map<Integer, String> classifyOfferUsageSegments(List<Map<String, Object>> items) {
+        Map<Integer, String> result = new HashMap<>();
+        if (items == null || items.isEmpty()) {
+            return result;
+        }
+        if (!aiChannelService.enabled()) {
+            throw new ServiceException("未配置AI接口参数，请在系统参数配置(sys.ai.api.key)中配置后重试");
+        }
+        String systemPrompt = String.join("\n",
+                "# IT硬件产品定位分类 v2026-11-12",
+                "只判断每条记录属于“服务器”还是“消费级”，并严格输出JSON：",
+                "{\"items\":[{\"index\":1,\"usageSegment\":\"服务器\"}]}",
+                "规则：",
+                "1. usageSegment只能是“服务器”或“消费级”，每条都必须填写，不能留空。",
+                "2. 服务器：服务器CPU（Intel Xeon、AMD EPYC等）、服务器内存（RDIMM/LRDIMM/ECC Registered）、企业级SSD/HDD（U.2/U.3/SAS/E1.S/E3.S、PM893/PM9A3/PM1653、Exos/Ultrastar等）、数据中心GPU（H100/A100/L40S等）、服务器主板/网卡/Raid卡。",
+                "3. 消费级：桌面或笔记本处理器（Core、Ryzen等）、GeForce/Radeon显卡、UDIMM/SODIMM内存、消费级SSD/HDD、eMMC/LPDDR、USB移动存储及普通消费电子。",
+                "4. 根据料号、品牌、产品类型、型号、规格综合判断；信息不足时按产品常见定位选择最接近的一项，不能猜测不存在的料号。",
+                "5. index必须原样返回，不能遗漏、合并或改变顺序。");
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("temperature", 0);
+        payload.put("reasoning_effort", "none");
+        List<Map<String, String>> messages = new ArrayList<>();
+        Map<String, String> sys = new HashMap<>();
+        sys.put("role", "system");
+        sys.put("content", systemPrompt);
+        messages.add(sys);
+        Map<String, String> usr = new HashMap<>();
+        usr.put("role", "user");
+        Map<String, Object> userBody = new HashMap<>();
+        userBody.put("items", items);
+        usr.put("content", JSON.toJSONString(userBody));
+        messages.add(usr);
+        payload.put("messages", messages);
+        Map<String, String> respFormat = new HashMap<>();
+        respFormat.put("type", "json_object");
+        payload.put("response_format", respFormat);
+        int timeout = Math.min(180000, Math.max(30000, aiChannelService.timeoutMs()));
+        String body = aiChannelService.chatCompletions(payload, timeout);
+        JSONArray rows = extractItems(extractContent(body));
+        if (rows == null || rows.isEmpty()) {
+            throw new ServiceException("AI未返回消费/服务分类结果");
+        }
+        for (int i = 0; i < rows.size(); i++) {
+            JSONObject row = rows.getJSONObject(i);
+            if (row == null) {
+                continue;
+            }
+            Integer index = intVal(row, "index");
+            String segment = normalizeUsageSegment(strVal(row, "usageSegment"));
+            if (index != null && !segment.isEmpty()) {
+                result.put(index, segment);
+            }
+        }
+        return result;
+    }
+
+    /** 统一消费/服务枚举值，兼容模型返回的英文或近似词。 */
+    public static String normalizeUsageSegment(String value) {
+        if (value == null) {
+            return "";
+        }
+        String text = value.trim();
+        if (text.isEmpty()) {
+            return "";
+        }
+        String lower = text.toLowerCase();
+        if (text.contains("服务器") || lower.contains("server") || lower.contains("enterprise")) {
+            return "服务器";
+        }
+        if (text.contains("消费") || lower.contains("consumer") || lower.contains("client")) {
+            return "消费级";
+        }
+        return "";
     }
 
     /** 会话复用开关：sys.ai.session.enabled=0 时每次新建会话；其余情况（含未配置）默认复用 */

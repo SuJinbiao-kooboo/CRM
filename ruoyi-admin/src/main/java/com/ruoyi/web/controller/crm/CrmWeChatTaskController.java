@@ -6,6 +6,7 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.wexinAuto.model.WeChatManualTaskRequest;
 import com.ruoyi.wexinAuto.model.WeChatOfferTask;
 import com.ruoyi.wexinAuto.model.WeChatTaskBatchRequest;
 import com.ruoyi.wexinAuto.service.WeChatOfferTaskService;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
@@ -82,6 +84,48 @@ public class CrmWeChatTaskController extends BaseController {
     @GetMapping("/{id}")
     public AjaxResult getInfo(@PathVariable Long id) {
         return success(taskService.selectTaskById(id));
+    }
+
+    /**
+     * 手工新增任务弹窗的供应商候选列表。
+     *
+     * <p>仅返回启用、已配置销售群或采购群且不是“未关联”兜底供应商的记录；
+     * groupSide=sales/purchase/all，all 或空表示两种群任一即可；
+     * keyword 支持供应商名称、编码和别名，direction 按合作方向匹配。</p>
+     */
+    @PreAuthorize("@ss.hasPermi('wechat:task:generate')")
+    @GetMapping("/manual/suppliers")
+    public AjaxResult manualSuppliers(@RequestParam(required = false) String keyword,
+                                      @RequestParam(required = false) String direction,
+                                      @RequestParam(required = false) String groupSide) {
+        return success(taskService.listManualTaskSuppliers(keyword, direction, groupSide));
+    }
+
+    /**
+     * 创建一条人工手动微信任务。
+     *
+     * <p>用户粘贴的原文会原样保存；一个任务可携带多个销售群或采购群发送目标，
+     * 目标最多 32 个，群名/伙伴字段每个最多 300 字符。创建后进入待审批状态，
+     * 复用现有批量审批和发送扫描流程。</p>
+     */
+    @PreAuthorize("@ss.hasPermi('wechat:task:generate')")
+    @Log(title = "手工新增微信询报价任务", businessType = BusinessType.INSERT)
+    @PostMapping("/manual")
+    public AjaxResult createManual(@RequestBody WeChatManualTaskRequest request) {
+        return success(taskService.createManualTask(request));
+    }
+
+    /**
+     * 创建一条人工手动任务，并直接置为“已审批待发送”。
+     *
+     * <p>该入口跳过待审批状态，必须同时具备任务生成和任务审批权限；
+     * 审批人记录为当前登录用户，后续由发送扫描按现有流程发送。</p>
+     */
+    @PreAuthorize("@ss.hasPermi('wechat:task:generate') and @ss.hasPermi('wechat:task:approve')")
+    @Log(title = "手工新增已审批微信询报价任务", businessType = BusinessType.INSERT)
+    @PostMapping("/manual/approved")
+    public AjaxResult createManualApproved(@RequestBody WeChatManualTaskRequest request) {
+        return success(taskService.createManualTask(request, true));
     }
 
     @PreAuthorize("@ss.hasPermi('wechat:task:approve')")

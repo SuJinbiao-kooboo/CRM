@@ -73,7 +73,7 @@
     </el-card>
 
     <el-card shadow="never" class="detail-card">
-      <div slot="header" class="card-title">订单附件</div>
+      <div slot="header" class="card-title">订单文件（客户 / 供应商）</div>
       <order-file-panel v-if="order.id" :order-id="order.id" :legacy-files="legacyFiles" @changed="loadOrder" />
     </el-card>
 

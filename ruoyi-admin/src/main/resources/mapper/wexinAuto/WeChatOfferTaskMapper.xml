@@ -12,6 +12,7 @@
         <result property="taskSource" column="task_source"/>
         <result property="taskType" column="task_type"/>
         <result property="sendType" column="send_type"/>
+        <result property="deliveryMode" column="delivery_mode"/>
         <result property="oriTarget" column="ori_target"/>
         <result property="oriMsg" column="ori_msg"/>
         <result property="pnOriginal" column="pn_original"/>
@@ -44,7 +45,7 @@
 
     <sql id="TaskColumns">
         id, source_username, source_local_id, source_server_id, source_message_time,
-        source_category, task_source, task_type, send_type, ori_target, ori_msg, pn_original, pn_normalized,
+        source_category, task_source, task_type, send_type, delivery_mode, ori_target, ori_msg, pn_original, pn_normalized,
         brand, product_type, spec, qty, ori_price, offer_price, send_target, send_target_success,
         send_content, handle_status, send_attempts, last_attempt_at, last_error, matched_inq_json,
         offer_json, approved_by, approved_at, approval_reason, sent_at, remark,
@@ -59,6 +60,7 @@
             <if test="handleStatus != null and handleStatus != ''">AND handle_status = #{handleStatus}</if>
             <if test="taskType != null and taskType != ''">AND task_type = #{taskType}</if>
             <if test="taskSource != null and taskSource != ''">AND task_source = #{taskSource}</if>
+            <if test="deliveryMode != null and deliveryMode != ''">AND delivery_mode = #{deliveryMode}</if>
             <if test="pnKeyword != null and pnKeyword != ''">AND pn_original LIKE CONCAT('%', #{pnKeyword}, '%')</if>
             <if test="oriTarget != null and oriTarget != ''">AND ori_target LIKE CONCAT('%', #{oriTarget}, '%')</if>
             <if test="queryKeyword != null and queryKeyword != ''">
@@ -89,13 +91,13 @@
             useGeneratedKeys="true" keyProperty="id">
         INSERT IGNORE INTO wechat_offer_task (
             source_username, source_local_id, source_server_id, source_message_time,
-            source_category, task_source, task_type, send_type, ori_target, ori_msg, pn_original, pn_normalized,
+            source_category, task_source, task_type, send_type, delivery_mode, ori_target, ori_msg, pn_original, pn_normalized,
             brand, product_type, spec, qty, ori_price, offer_price, send_target, send_target_success,
             send_content, handle_status, send_attempts, matched_inq_json, offer_json, remark,
             create_by, create_time, update_by, update_time
         ) VALUES (
             #{sourceUsername}, #{sourceLocalId}, #{sourceServerId}, #{sourceMessageTime},
-            #{sourceCategory}, #{taskSource}, #{taskType}, #{sendType}, #{oriTarget}, #{oriMsg}, #{pnOriginal}, #{pnNormalized},
+            #{sourceCategory}, #{taskSource}, #{taskType}, #{sendType}, #{deliveryMode}, #{oriTarget}, #{oriMsg}, #{pnOriginal}, #{pnNormalized},
             #{brand}, #{productType}, #{spec}, #{qty}, #{oriPrice}, #{offerPrice}, #{sendTarget}, #{sendTargetSuccess},
             #{sendContent}, #{handleStatus}, COALESCE(#{sendAttempts}, 0), #{matchedInqJson}, #{offerJson}, #{remark},
             #{createBy}, NOW(), #{updateBy}, NOW()

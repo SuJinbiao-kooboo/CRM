@@ -4,6 +4,9 @@
       <el-form-item label="聊天对象" prop="name">
         <el-input v-model="queryParams.name" placeholder="群名或好友名" clearable style="width:180px" @keyup.enter.native="handleQuery" />
       </el-form-item>
+      <el-form-item label="消息ID" prop="serverId">
+        <el-input v-model="queryParams.serverId" placeholder="server_id，支持模糊" clearable style="width:200px" @keyup.enter.native="handleQuery" />
+      </el-form-item>
       <el-form-item label="消息内容" prop="keyword">
         <el-input v-model="queryParams.keyword" placeholder="正文或异常原因" clearable style="width:180px" @keyup.enter.native="handleQuery" />
       </el-form-item>
@@ -62,7 +65,8 @@
               <li>买卖双向，不按“客户/供应商”身份直接判类；我方成员发送的待判消息固定为 OTHER/SELF，不调用 AI。</li>
               <li>我方历史消息在提示词中标记为 SELF-OTHER，仍作为业务上下文，可供后续外部消息关联 inq/offer。</li>
               <li>我方成员发送的消息固定为 OTHER，不调用 AI 分类；该名单由 <code>selfNames</code> 配置，默认 Eke,May,Jin,Jasmine。</li>
-              <li><b>过滤顺序</b>：blackNames / pollIgnoreChats 命中 → 转黑表；whiteNames 非空时只分类白名单会话；selfNames 直接 OTHER；其余才调用 AI。</li>
+              <li><b>内部Offer转发群</b>：群名配置在字典 <code>wechat_analysis_config.internalOfferGroupNames</code>（默认“内部offer记录群”）。群内我方成员转发的消息不按 selfNames 直接判 OTHER，而是按正文识别 INQ/OFFER；录入时用消息首行、末行模糊匹配供应商名称/简称/别名，取第一个命中，匹配不到不录入并推送飞书告警。</li>
+              <li><b>过滤顺序</b>：blackNames 命中 → 转黑表；whiteNames 非空时只分类白名单会话；selfNames 直接 OTHER；其余才调用 AI。</li>
               <li><b>人工改分类</b>：下拉修改会写入 MANUAL 来源，可正常参与后续录入和任务生成；已录入或已生成任务的消息会锁定，避免破坏已有记录。</li>
             </ul>
             <div class="help-title">TRACE 告警规则</div>
@@ -103,7 +107,7 @@
             <div class="help-title">配置位置</div>
             <ul>
               <li><b>统一配置</b>：系统管理 → 字典管理 → 字典类型 <code>wechat_analysis_config</code>。</li>
-              <li><b>blackNames / pollIgnoreChats</b>：聊天对象名称包含任一关键字（逗号分隔、不区分大小写）时，消息转存 <code>wechat_message_black</code>，不进入主表和分类。</li>
+              <li><b>blackNames</b>：聊天对象名称包含任一关键字（逗号分隔、不区分大小写）时，消息转存 <code>wechat_message_black</code>，不进入主表和分类。</li>
               <li><b>whiteNames</b>：非空时只有名称完全匹配的聊天对象参与分类；<b>selfNames</b>：我方成员名单，默认 Eke,May,Jin,Jasmine。</li>
               <li><b>llmPromptBase / llmExamples</b>：系统提示词和示例；<b>aiContextWindow</b> 控制最近上下文条数，<b>llmBatchSize</b> 控制单批条数。</li>
               <li><b>classifyEnabled</b>：自动分类开关；<b>classifyTriggerCount</b>、<b>classifyMaxIdleSec</b>、<b>classifyBatchSize</b> 控制定时触发。</li>
@@ -436,7 +440,7 @@ export default {
       classifyStatuses: ['PENDING', 'PROCESSING', 'SUCCESS', 'FAILED', 'SKIPPED'],
       entryStatuses: ['NOT_APPLICABLE', 'PENDING', 'PROCESSING', 'SUCCESS', 'SUCCESS_WARN', 'FAILED', 'DEAD', 'SKIPPED'],
       taskStatuses: ['PENDING', 'PROCESSING', 'GENERATED', 'SKIPPED', 'MANUAL_REVIEW', 'FAILED'],
-      queryParams: { pageNum: 1, pageSize: 20, name: undefined, keyword: undefined, msgCategories: [], classifyStatus: undefined, entryStatus: undefined, taskStatus: undefined, beginTime: undefined, endTime: undefined }
+      queryParams: { pageNum: 1, pageSize: 20, name: undefined, serverId: undefined, keyword: undefined, msgCategories: [], classifyStatus: undefined, entryStatus: undefined, taskStatus: undefined, beginTime: undefined, endTime: undefined }
     }
   },
   created() {

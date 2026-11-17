@@ -609,6 +609,7 @@
             <if test="beginTime != null and beginTime != ''">AND create_time &gt;= #{beginTime}</if>
             <if test="endTime != null and endTime != ''">AND create_time &lt;= #{endTime}</if>
             <if test="name != null and name != ''">AND name LIKE CONCAT('%', #{name}, '%')</if>
+            <if test="serverId != null and serverId != ''">AND server_id LIKE CONCAT('%', #{serverId}, '%')</if>
             <if test="msgCategories != null and msgCategories != ''">
                 AND msg_category IN
                 <foreach collection="msgCategories.split(',')" item="category" open="(" separator="," close=")">

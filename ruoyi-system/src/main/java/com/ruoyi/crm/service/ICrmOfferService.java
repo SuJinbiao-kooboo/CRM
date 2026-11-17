@@ -11,6 +11,12 @@ public interface ICrmOfferService {
 
     CrmOffer selectOfferById(Long id);
 
+    /**
+     * 按单据明细 ITEM 料号匹配最近一条有效 Offer 的品牌和规格型号。
+     * 返回 key：brand、spec；先精确匹配标准化料号，再用尾部“拆”字互换兜底。
+     */
+    Map<String, String> resolveOfferInfoByItemName(String itemName);
+
     int insertOffer(CrmOffer offer);
 
     int updateOffer(CrmOffer offer);

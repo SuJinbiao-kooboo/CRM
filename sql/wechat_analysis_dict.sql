@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS wechat_message (
   KEY idx_entry_status_since (entry_status, create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微信消息表(仅保留最近N天,定时清理)';
 
--- 1.5) 黑名单消息表：pollIgnoreChats(名称包含关键词) 命中的群消息只入库、不做分类/处理；
+-- 1.5) 黑名单消息表：blackNames(名称包含关键词) 命中的群消息只入库、不做分类/处理；
 -- 与主表结构一致，唯一键相同，不参与 msgRetentionDays 自动清理（保留备查）。
 CREATE TABLE IF NOT EXISTS wechat_message_black (
   id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '自增主键', 
@@ -97,7 +97,7 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_cla
 DELETE FROM sys_dict_data WHERE dict_type='wechat_analysis_config';
 INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_default, status, create_by, create_time, remark) VALUES
 (1,  'whiteNames', '', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '会话白名单（非空时只放过这些名称，多个用逗号拼接）'),
-(2,  'blackNames', '山樾湾2F业主群,前海路5号玩乐吃喝,封窗进展,兔宝宝山樾湾2F 812苏总', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '会话排除名单（名称包含任一关键词，不区分大小写；命中转存 wechat_message_black，多个用逗号分隔）'),
+(2,  'blackNames', '山樾湾2F业主群,前海路5号玩乐吃喝,封窗进展,兔宝宝山樾湾2F 812苏总,业主群,玩乐吃喝', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '会话黑名单（名称包含任一关键词，不区分大小写；命中转存 wechat_message_black；多个用逗号分隔；拉取、分类、录入三处统一生效）'),
 (14, 'llmBatchSize', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '每次AI分类调用最多待判消息条数(1-20)，按条数顺序处理'),
 (16, 'llmTimeoutSec', '180', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '单次大模型请求超时时间(秒)'),
 (90, 'aiTriggerCount', '5', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), 'AI分类触发条数：同一会话积累未分类消息达到该数量立即调起AI分类'),
@@ -111,7 +111,6 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, is_defa
 (101, 'pollBackSec', '120', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '拉取冗余回看(秒)：每轮从「上次拉到的最大消息时间-该值」开始扫描，防止边界丢消息(默认120)'),
 (102, 'pollInitBackSec', '259200', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '首轮拉取历史窗口(秒)：水位未初始化时往前拉多少秒历史(默认259200=3天，与消息保留天数匹配)'),
 (103, 'pollLimit', '5000', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '每轮拉取消息条数上限(条)：dump 增量扫描单次最多返回条数(默认5000)'),
-(104, 'pollIgnoreChats', '业主群,玩乐吃喝,封窗进展,兔宝宝山樾湾', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '拉取过滤：名称包含任一关键词的群/好友消息转存 wechat_message_black，不进入分类；多个用英文逗号分隔'),
 (105, 'classifyTriggerCount', '5', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '分类触发条数(条)：未分类(status=0)消息数量达到该值即触发 AI 分类(默认5)'),
 (106, 'classifyMaxIdleSec', '180', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '分类触发超时(秒)：最早未分类消息等待超过该秒数即触发 AI 分类(默认180=3分钟)'),
 (107, 'classifyBatchSize', '20', 'wechat_analysis_config', 'N', '0', 'admin', NOW(), '每轮最多分类条数(条)：定时/手动分类每次只取最早未分类的N条，分类后 status=1(默认20)'),

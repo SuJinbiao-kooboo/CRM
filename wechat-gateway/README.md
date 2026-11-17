@@ -340,12 +340,10 @@ POST /system/dict/data/refreshCache   （带管理员 token）
    - 增量水位：每轮从「上次拉到的最大消息时间 − `pollBackSec` 冗余」开始扫，防止边界丢消息；
      首次启动（水位为空）往前拉 **`pollInitBackSec`** 秒历史（默认 3 天，与消息保留天数一致）；
    - 单轮上限 **`pollLimit`** 条（默认 5000）；
-   - **黑名单 `pollIgnoreChats`**：群/好友名称【包含】任一关键词（逗号分隔，如 `推广群,广告`）的消息
+   - **黑名单 `blackNames`**：群/好友名称【包含】任一关键词（逗号分隔，如 `推广群,广告`）的消息
      不进入主表，转存 **`wechat_message_black`** 黑表（重复跳过），
      不做分类、不做任何处理，仅留档备查（不参与自动清理）。
-   - **分类黑名单 `blackNames`**：按会话名【精确匹配】；即使消息已在主表，也不参与 AI 分类，
-     统一标记 `OTHER/FILTER/status=3`。它永远优先于 `whiteNames`。
-     两者区别：`pollIgnoreChats` 是入库前的关键词路由，`blackNames` 是主表分类前的精确过滤。
+     即使消息已在主表，也不参与 AI 分类，统一标记 `OTHER/FILTER/status=3`。它永远优先于 `whiteNames`。
 2. **定时分类**（`WeChatClassifyScheduler.scanUnclassified`，每 10 秒检查一次）：
    - 未分类（`status=0`）消息数量 ≥ **`classifyTriggerCount`** 条（默认 5），
      或最早未分类消息等待 ≥ **`classifyMaxIdleSec`** 秒（默认 180）→ 触发 AI 分类；
@@ -406,7 +404,7 @@ mysql -uroot -p 你的库名 < C:\Project\RuoYi-Vue\sql\wechat_semantics_v5.sql
   ③ 清空旧单向提示词/示例；④ 增加“至少等待60秒、最多回溯24小时”门禁；
   ⑤ 把升级前历史 INQ/OFFER 标为 `SUCCESS` 或 `SKIPPED`，**不会自动批量补录**。
 - `wechat_semantics_v5.sql` 会：关闭旧本地规则参数、补充 `selfNames`，并把超过800字的旧
-  `llmExamples` 清空回退内置精简示例；不改 `blackNames`、`pollIgnoreChats` 和消息数据。
+  `llmExamples` 清空回退内置精简示例；不改 `blackNames` 和消息数据。
 - 导入后刷新字典缓存（`POST /system/dict/data/refreshCache`，带管理员 token）
   或直接**重启 ruoyi-admin**（直接改 MySQL 字典不重启不会热生效，走管理端页面改会自动刷新）。
 
@@ -444,7 +442,7 @@ mysql -uroot -p 你的库名 < C:\Project\RuoYi-Vue\sql\wechat_semantics_v5.sql
 | pollBackSec | 120 | 拉取冗余回看(秒)，防边界丢消息 |
 | pollInitBackSec | 259200 | 首轮拉取历史窗口(秒)，默认3天(与保留天数匹配) |
 | pollLimit | 5000 | 每轮拉取消息条数上限 |
-| pollIgnoreChats | 业主群,玩乐吃喝... | 入库前关键词过滤：名称包含任一关键词的消息转存 `wechat_message_black` |
+| blackNames | 业主群,玩乐吃喝... | 会话黑名单：名称包含任一关键词即跳过并转存 `wechat_message_black` |
 | classifyTriggerCount | 5 | 未分类(status=0)消息达到该条数即触发分类 |
 | classifyMaxIdleSec | 180 | 最早未分类消息等待超过该秒数即触发分类 |
 | classifyBatchSize | 20 | 每轮最多分类条数(取最早)，分类后 status=1 |
@@ -539,7 +537,7 @@ wechat_message(status=1, msg_category∈INQ,OFFER, 最近24小时, 分类后≥6
 | content 开头仍有 `xxx:` 残留 | 网关会剥离发送者前缀行（`wxid_*`/普通微信号/`@openim` 格式），若仍有残留一般是正文本身如此（如 `OFFER:` 开头）。 |
 | 改了代码不起作用 | 重新编译启动 `ruoyi-admin`；脚本无缓存，每次现跑。 |
 | 黑名单群消息去哪了 | 全部存到 `wechat_message_black` 表（只留档，不分类不处理），可单独查该表。 |
-| 黑名单群为什么主表还有旧消息 | `pollIgnoreChats` 只影响新拉取消息；执行 `sql/wechat_semantics_v3.sql` 会把历史主表记录纠正为 OTHER/FILTER/status=3。 |
+| 黑名单群为什么主表还有旧消息 | `blackNames` 主要影响新拉取消息；执行 `sql/wechat_semantics_v3.sql` 会把历史主表记录纠正为 OTHER/FILTER/status=3。 |
 | `Data too long for column 'server_id'` | 执行 `sql/wechat_semantics_v3.sql`，三张表的 server_id 都会扩到 255。 |
 | `PermissionError ... message_*.db.tmp -> message_*.db` | 已修复网关连接顺序并增加 5 次短重试；升级后确认运行的是项目内 `wechat-gateway/wx_gateway.py`。 |
 | TRACE 没有飞书 / status 一直是 1 | 检查 `sys.ai.alert.webhook`、飞书机器人是否返回 `code=0`；失败会保持 status=1 并由 `POST /wechat/trace/alert/scan` 重试，成功后置 2。 |

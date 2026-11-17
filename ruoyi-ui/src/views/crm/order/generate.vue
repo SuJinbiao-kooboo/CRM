@@ -57,6 +57,7 @@
               <el-table-column v-for="c in currentType.itemColumns" :key="c.key" :label="c.label" min-width="100">
                 <template slot-scope="scope">
                   <span v-if="c.computed">{{ itemAmount(scope.row) }}</span>
+                  <el-input v-else-if="c.key === 'itemName'" v-model="scope.row[c.key]" size="mini" @change="handleItemChange(scope.row)" />
                   <el-input v-else v-model="scope.row[c.key]" size="mini" />
                 </template>
               </el-table-column>
@@ -82,7 +83,7 @@
 
 <script>
 import { saveAs } from 'file-saver'
-import { docTypes, parseDocItems, generateDoc, resolveSeller } from '@/api/crm/order'
+import { docTypes, parseDocItems, generateDoc, resolveSeller, resolveDocOfferInfo } from '@/api/crm/order'
 import { listSupplierOptions } from '@/api/crm/supplier'
 
 const TOP_KEYS = ['orderNo', 'dateText', 'sellerId', 'sellerText', 'buyerId', 'buyerText', 'snText', 'shipTo', 'customerPoNo']
@@ -197,6 +198,47 @@ export default {
     itemAmount(row) {
       const amount = (Number(row.qty) || 0) * (Number(row.unitPrice) || 0)
       return amount.toFixed(2)
+    },
+    handleItemChange(row) {
+      const itemName = (row.itemName || '').trim()
+      if (!itemName) {
+        if (row.__autoSpec && row.spec === row.__autoSpec) {
+          this.$set(row, 'spec', '')
+        }
+        if (row.__autoBrand && row.brand === row.__autoBrand) {
+          this.$set(row, 'brand', '')
+        }
+        row.__autoSpec = ''
+        row.__autoBrand = ''
+        return
+      }
+      // ITEM 变化时先移除上一次自动带出的值，避免换了料号后残留旧品牌/规格。
+      if (row.__autoSpec && row.spec === row.__autoSpec) {
+        this.$set(row, 'spec', '')
+      }
+      if (row.__autoBrand && row.brand === row.__autoBrand) {
+        this.$set(row, 'brand', '')
+      }
+      row.__autoSpec = ''
+      row.__autoBrand = ''
+      row.__specSeq = (row.__specSeq || 0) + 1
+      const seq = row.__specSeq
+      resolveDocOfferInfo(itemName).then(res => {
+        if (row.__specSeq !== seq || (row.itemName || '').trim() !== itemName) {
+          return
+        }
+        const info = res.data && typeof res.data === 'object' ? res.data : {}
+        const spec = info.spec ? String(info.spec).trim() : ''
+        const brand = info.brand ? String(info.brand).trim() : ''
+        if (!row.spec && spec) {
+          row.__autoSpec = spec
+          this.$set(row, 'spec', spec)
+        }
+        if (!row.brand && brand) {
+          row.__autoBrand = brand
+          this.$set(row, 'brand', brand)
+        }
+      }).catch(() => {})
     },
     onSupplierChange(field, val) {
       if (!val) {

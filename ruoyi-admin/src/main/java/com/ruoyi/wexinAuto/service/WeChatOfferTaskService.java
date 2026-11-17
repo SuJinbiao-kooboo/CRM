@@ -19,6 +19,8 @@ import com.ruoyi.wexinAuto.model.PartyMatch;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
 import com.ruoyi.wexinAuto.model.WeChatManualTaskRequest;
 import com.ruoyi.wexinAuto.model.WeChatOfferTask;
+import com.ruoyi.wexinAuto.model.WeChatForwardResult;
+import com.ruoyi.wexinAuto.model.WeChatForwardSkip;
 import com.ruoyi.wexinAuto.model.WeChatSendItem;
 import com.ruoyi.wexinAuto.model.WeChatSendResult;
 import com.ruoyi.wexinAuto.model.WeChatSessionStatus;
@@ -64,11 +66,14 @@ public class WeChatOfferTaskService {
     public static final String STATUS_APPROVED = "APPROVED_PENDING_SEND";
     public static final String STATUS_SENT = "SENT";
     public static final String STATUS_NO_ACTION = "NO_ACTION";
+    /** 逐目标直发：每个群单独调用一次发送。 */
+    public static final String DELIVERY_DIRECT = "DIRECT";
+    /** 微信转发：先发到文件传输助手，再每批最多 9 个目标点“分别发送”。 */
+    public static final String DELIVERY_FORWARD = "FORWARD";
 
     private static final int TASK_NOT_CREATED = 0;
     private static final int TASK_INSERTED = 1;
     private static final int TASK_EXISTS = 2;
-    private static final int MANUAL_MAX_TARGETS = 32;
     private static final int TARGET_FIELD_MAX_LENGTH = 300;
     private static final int MANUAL_CONTENT_MAX_LENGTH = 100000;
     private static final String AUTO_INQUIRY_SOURCE_USERNAME = "AUTO_INQUIRY_OFFER";
@@ -137,7 +142,7 @@ public class WeChatOfferTaskService {
      * 手工创建一条微信任务：同一份粘贴内容发送到所选供应商对应的销售群或采购群。
      *
      * <p>系统将多个群写入同一条任务的 send_target，沿用现有审批、批量审批和发送扫描流程。
-     * 为避免 JSON 目标字段无序膨胀，最多允许 32 个目标，单个群名/伙伴字段最长 300 字符。</p>
+     * 发送目标数量不设上限，单个群名/伙伴字段最长 300 字符。</p>
      */
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> createManualTask(WeChatManualTaskRequest request) {
@@ -209,9 +214,6 @@ public class WeChatOfferTaskService {
                 WeChatTaskTarget target = new WeChatTaskTarget(targetName,
                         supplier.getSupplierCode(), supplier.getSupplierName());
                 targets.putIfAbsent(targetName, target);
-                if (targets.size() > MANUAL_MAX_TARGETS) {
-                    throw new ServiceException("单条任务最多允许" + MANUAL_MAX_TARGETS + "个发送目标");
-                }
             }
         }
         if (targets.isEmpty()) {
@@ -229,6 +231,7 @@ public class WeChatOfferTaskService {
         task.setTaskSource(TASK_SOURCE_MANUAL);
         task.setTaskType(TASK_MANUAL_SEND);
         task.setSendType("WECHAT");
+        task.setDeliveryMode(DELIVERY_FORWARD);
         task.setOriTarget("手工创建（" + ("purchase".equals(groupSide) ? "采购群" : "销售群") + "）");
         task.setOriMsg(content);
         task.setPnOriginal("MANUAL");
@@ -320,47 +323,41 @@ public class WeChatOfferTaskService {
 
         List<Long> taskIds = new ArrayList<>();
         int duplicateCount = 0;
-        int chunkIndex = 0;
-        for (int from = 0; from < allTargets.size(); from += MANUAL_MAX_TARGETS) {
-            int to = Math.min(from + MANUAL_MAX_TARGETS, allTargets.size());
-            List<WeChatTaskTarget> chunk = new ArrayList<>(allTargets.subList(from, to));
-            validateTargets(chunk);
-            chunkIndex++;
-            String uniqueSuffix = allTargets.size() > MANUAL_MAX_TARGETS ? "_" + chunkIndex : "";
-            String taskKey = AUTO_INQUIRY_SOURCE_USERNAME + "_" + supplier.getId() + uniqueSuffix;
+        validateTargets(allTargets);
+        String taskKey = AUTO_INQUIRY_SOURCE_USERNAME + "_" + supplier.getId();
 
-            WeChatOfferTask task = new WeChatOfferTask();
-            task.setSourceUsername(AUTO_INQUIRY_SOURCE_USERNAME);
-            task.setSourceLocalId(Long.parseLong(dateKey));
-            task.setSourceMessageTime(new Date());
-            task.setSourceCategory("OTHER");
-            task.setTaskSource(TASK_SOURCE_AUTO_INQUIRY_OFFER);
-            task.setTaskType(TASK_MANUAL_SEND);
-            task.setSendType("WECHAT");
-            task.setOriTarget("自动询Offer（销售群）");
-            task.setOriMsg(normalizedContent);
-            task.setPnOriginal(taskKey);
-            task.setPnNormalized(taskKey);
-            task.setQty(0);
-            try {
-                task.setSendTarget(jackson.writeValueAsString(chunk));
-            } catch (Exception e) {
-                throw new ServiceException("发送目标序列化失败");
-            }
-            task.setSendTargetSuccess("[]");
-            task.setSendContent(normalizedContent);
-            task.setHandleStatus(STATUS_PENDING_APPROVAL);
-            task.setSendAttempts(0);
-            task.setRemark("自动询Offer，供应商 " + supplier.getSupplierCode() + " "
-                    + StringUtils.defaultString(supplier.getSupplierName()) + "，目标群 " + chunk.size() + " 个");
-            task.setCreateBy(AUTO_INQUIRY_OPERATOR);
-            task.setUpdateBy(AUTO_INQUIRY_OPERATOR);
+        WeChatOfferTask task = new WeChatOfferTask();
+        task.setSourceUsername(AUTO_INQUIRY_SOURCE_USERNAME);
+        task.setSourceLocalId(Long.parseLong(dateKey));
+        task.setSourceMessageTime(new Date());
+        task.setSourceCategory("OTHER");
+        task.setTaskSource(TASK_SOURCE_AUTO_INQUIRY_OFFER);
+        task.setTaskType(TASK_MANUAL_SEND);
+        task.setSendType("WECHAT");
+        task.setDeliveryMode(DELIVERY_FORWARD);
+        task.setOriTarget("自动询Offer（销售群）");
+        task.setOriMsg(normalizedContent);
+        task.setPnOriginal(taskKey);
+        task.setPnNormalized(taskKey);
+        task.setQty(0);
+        try {
+            task.setSendTarget(jackson.writeValueAsString(allTargets));
+        } catch (Exception e) {
+            throw new ServiceException("发送目标序列化失败");
+        }
+        task.setSendTargetSuccess("[]");
+        task.setSendContent(normalizedContent);
+        task.setHandleStatus(STATUS_PENDING_APPROVAL);
+        task.setSendAttempts(0);
+        task.setRemark("自动询Offer，供应商 " + supplier.getSupplierCode() + " "
+                + StringUtils.defaultString(supplier.getSupplierName()) + "，目标群 " + allTargets.size() + " 个");
+        task.setCreateBy(AUTO_INQUIRY_OPERATOR);
+        task.setUpdateBy(AUTO_INQUIRY_OPERATOR);
 
-            if (taskMapper.insertTaskIgnore(task) > 0 && task.getId() != null) {
-                taskIds.add(task.getId());
-            } else {
-                duplicateCount++;
-            }
+        if (taskMapper.insertTaskIgnore(task) > 0 && task.getId() != null) {
+            taskIds.add(task.getId());
+        } else {
+            duplicateCount++;
         }
 
         Map<String, Object> out = new LinkedHashMap<>();
@@ -400,12 +397,8 @@ public class WeChatOfferTaskService {
         throw new ServiceException("groupSide只能为sales、purchase或all");
     }
 
-    /** 发送目标落库前统一校验：最多 32 个，群名/伙伴编码/伙伴名称每个字段最多 300 字符。 */
+    /** 发送目标落库前统一校验：目标数量不设上限，群名/伙伴编码/伙伴名称每个字段最多 300 字符。 */
     private void validateTargets(List<WeChatTaskTarget> targets) {
-        int size = targets == null ? 0 : targets.size();
-        if (size > MANUAL_MAX_TARGETS) {
-            throw new ServiceException("单条任务最多允许" + MANUAL_MAX_TARGETS + "个发送目标");
-        }
         Set<String> names = new HashSet<>();
         if (targets == null) {
             return;
@@ -783,6 +776,7 @@ public class WeChatOfferTaskService {
         }
         WeChatOfferTask task = baseTask(message);
         task.setTaskType(taskType);
+        task.setDeliveryMode(deliveryModeForTaskType(taskType));
         task.setPnOriginal(pnOriginal);
         task.setPnNormalized(pnNormalized);
         task.setBrand(offer.getProductBrand());
@@ -807,6 +801,16 @@ public class WeChatOfferTaskService {
         return taskMapper.selectByUnique(task.getSourceUsername(), task.getSourceLocalId(),
                 task.getTaskType(), task.getPnNormalized(), task.getSendType()) != null
                 ? TASK_EXISTS : TASK_NOT_CREATED;
+    }
+
+    /** 对外批量发送走微信转发，客户回复保持逐目标直发。 */
+    private String deliveryModeForTaskType(String taskType) {
+        if (TASK_SUPPLIER_INQUIRY.equals(taskType)
+                || TASK_CUSTOMER_PUSH.equals(taskType)
+                || TASK_MANUAL_SEND.equals(taskType)) {
+            return DELIVERY_FORWARD;
+        }
+        return DELIVERY_DIRECT;
     }
 
     /**
@@ -1271,14 +1275,19 @@ public class WeChatOfferTaskService {
         int maxAttempts = Math.max(1, config.integer("taskSendMaxAttempts", 3));
         int scanMax = Math.max(1, Math.min(500, config.integer("taskSendScanBatchSize", 50)));
         List<WeChatOfferTask> candidates = taskMapper.selectSendCandidates(maxAttempts, scanMax);
-        List<WeChatOfferTask> pending = new ArrayList<>();
+        List<WeChatOfferTask> directPending = new ArrayList<>();
+        List<WeChatOfferTask> forwardPending = new ArrayList<>();
         for (WeChatOfferTask task : candidates) {
             fillTargets(task);
             if (hasUnsentTarget(task)) {
-                pending.add(task);
+                if (DELIVERY_FORWARD.equals(deliveryModeOf(task))) {
+                    forwardPending.add(task);
+                } else {
+                    directPending.add(task);
+                }
             }
         }
-        if (pending.isEmpty()) {
+        if (directPending.isEmpty() && forwardPending.isEmpty()) {
             out.put("scannedTasks", candidates.size());
             out.put("sendGroups", 0);
             out.put("sentGroups", 0);
@@ -1297,7 +1306,7 @@ public class WeChatOfferTaskService {
                     + "。本轮未点击微信、未消耗重试次数，解锁后自动继续");
             return out;
         }
-        String expectedAccount = config.str("autoSendAccount", "Eke");
+        String expectedAccount = config.str("autoSendAccount", "Jin");
         String currentAccount = gateway.currentSendAccount();
         if (!expectedAccount.equalsIgnoreCase(currentAccount)) {
             String message = StringUtils.isBlank(currentAccount)
@@ -1306,7 +1315,27 @@ public class WeChatOfferTaskService {
             log.warn(message);
             throw new ServiceException(message);
         }
-        List<SendGroup> groups = buildGroups(pending);
+        Map<String, Object> forwardStats = new LinkedHashMap<>();
+        if (!forwardPending.isEmpty()) {
+            forwardStats = sendForwardRound(forwardPending);
+            if (Boolean.TRUE.equals(forwardStats.get("paused"))) {
+                out.put("scannedTasks", candidates.size());
+                out.putAll(forwardStats);
+                return out;
+            }
+        }
+        if (directPending.isEmpty()) {
+            out.put("scannedTasks", candidates.size());
+            out.putAll(forwardStats);
+            out.put("sendGroups", 0);
+            out.put("sentGroups", 0);
+            out.put("failedGroups", 0);
+            if (!out.containsKey("message")) {
+                out.put("message", "没有待发送任务");
+            }
+            return out;
+        }
+        List<SendGroup> groups = buildGroups(directPending);
         int totalGroups = groups.size();
         int roundMax = Math.max(1, Math.min(50, config.integer("taskSendRoundMax", 3)));
         if (groups.size() > roundMax) {
@@ -1334,6 +1363,20 @@ public class WeChatOfferTaskService {
             List<WeChatSendResult> results;
             try {
                 results = gateway.batchSendTargets(items);
+            } catch (WeChatGatewayService.BatchSendAbortedException e) {
+                log.warn("网关未产出任何发送结果，按普通失败处理并继续重试: {}", e.getMessage());
+                for (SendGroup group : batch) {
+                    applyRetryableFailure(group, e.getMessage());
+                }
+                releasePausedAttempts(attemptTaskIds, new LinkedHashSet<>());
+                failedGroups += batch.size();
+                out.put("scannedTasks", candidates.size());
+                out.put("sendGroups", groups.size());
+                out.put("sentGroups", sentGroups);
+                out.put("failedGroups", failedGroups);
+                out.put("message", "网关未产出结果（微信窗口不可用），已按普通失败处理，下一轮继续重试: "
+                        + e.getMessage());
+                return out;
             } catch (Exception e) {
                 log.error("批量发送网关异常，停止本轮自动发送", e);
                 markUnknown(attemptTaskIds, clip("GATEWAY_RESULT_UNKNOWN: " + e.getMessage(), 1000));
@@ -1444,10 +1487,275 @@ public class WeChatOfferTaskService {
         out.put("pendingGroups", Math.max(0, totalGroups - groups.size()));
         out.put("sentGroups", sentGroups);
         out.put("failedGroups", failedGroups);
-        out.put("message", "发送扫描完成：本轮目标组 " + groups.size() + "/" + totalGroups
+        String directMessage = "发送扫描完成：本轮目标组 " + groups.size() + "/" + totalGroups
                 + "，成功 " + sentGroups + "，失败 " + failedGroups
-                + (totalGroups > groups.size() ? "，其余目标顺延下一轮" : ""));
+                + (totalGroups > groups.size() ? "，其余目标顺延下一轮" : "");
+        for (String key : Arrays.asList("forwardGroups", "forwardTotalGroups", "forwardSentTargets",
+                "forwardCompletedGroups", "forwardFailedGroups")) {
+            if (forwardStats.containsKey(key)) {
+                out.put(key, forwardStats.get(key));
+            }
+        }
+        if (forwardStats.containsKey("message")) {
+            directMessage += "；" + forwardStats.get("message");
+        }
+        out.put("message", directMessage);
         return out;
+    }
+
+    /**
+     * 转发模式：相同任务类型 + 相同正文合并为一组。先发到文件传输助手，
+     * 再按 forwardChunkSize（微信上限 9）逐个批次点击“分别发送”。
+     * 每批成功即写 send_target_success，下一批失败或进程中断不会重发已成功目标。
+     */
+    private Map<String, Object> sendForwardRound(List<WeChatOfferTask> tasks) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        List<ForwardGroup> allGroups = buildForwardGroups(tasks);
+        int totalGroups = allGroups.size();
+        int roundMax = Math.max(1, Math.min(50, config.integer("taskSendRoundMax", 3)));
+        List<ForwardGroup> groups = allGroups.size() > roundMax
+                ? new ArrayList<>(allGroups.subList(0, roundMax)) : allGroups;
+        String sourceChat = gateway.forwardSourceChat();
+        int chunk = gateway.forwardChunkSize();
+        int sentTargets = 0;
+        int completedGroups = 0;
+        int failedGroups = 0;
+        boolean paused = false;
+        String pauseMessage = "";
+        outer:
+        for (ForwardGroup group : groups) {
+            if (StringUtils.isBlank(group.text)) {
+                for (ForwardTarget target : group.targets.values()) {
+                    for (Long taskId : target.targetByTask.keySet()) {
+                        taskMapper.markUnknown(taskId, "GATEWAY_RESULT_UNKNOWN: 转发内容为空，未发送");
+                    }
+                }
+                failedGroups++;
+                continue;
+            }
+            Set<Long> attemptTaskIds = new LinkedHashSet<>();
+            for (WeChatOfferTask task : group.tasks) {
+                attemptTaskIds.add(task.getId());
+                taskMapper.markSendAttempt(task.getId(), new Date());
+            }
+            int groupSent = 0;
+            String groupError = null;
+            boolean groupUnknown = false;
+            boolean sessionPaused = false;
+            while (!group.targets.isEmpty()) {
+                List<String> names = new ArrayList<>();
+                for (String name : group.targets.keySet()) {
+                    names.add(name);
+                    if (names.size() >= chunk) {
+                        break;
+                    }
+                }
+                if (names.isEmpty()) {
+                    break;
+                }
+                WeChatForwardResult result;
+                try {
+                    result = gateway.forwardSend(sourceChat, group.text, names);
+                } catch (Exception e) {
+                    groupUnknown = true;
+                    groupError = "GATEWAY_RESULT_UNKNOWN: " + e.getMessage();
+                    break;
+                }
+                if (result == null) {
+                    groupUnknown = true;
+                    groupError = "GATEWAY_RESULT_UNKNOWN: 网关未返回转发结果";
+                    break;
+                }
+                if ("SESSION_LOCKED".equalsIgnoreCase(result.getStatus())) {
+                    sessionPaused = true;
+                    pauseMessage = StringUtils.defaultIfBlank(result.getMessage(),
+                            "Windows 已锁屏或交互桌面不可用");
+                    break;
+                }
+                int applied = applyForwardSuccess(group, result.getSent());
+                groupSent += applied;
+                sentTargets += applied;
+                if (result.isOk()) {
+                    if (applied == 0) {
+                        groupError = "网关返回成功但未返回任何已发送目标";
+                        break;
+                    }
+                    continue;
+                }
+                if (group.targets.isEmpty()) {
+                    break;
+                }
+                String message = StringUtils.defaultIfBlank(result.getMessage(), result.getStatus());
+                if (result.getSkipped() != null && !result.getSkipped().isEmpty()) {
+                    StringBuilder skipped = new StringBuilder();
+                    for (WeChatForwardSkip item : result.getSkipped()) {
+                        if (item == null || StringUtils.isBlank(item.getName())) {
+                            continue;
+                        }
+                        if (skipped.length() > 0) {
+                            skipped.append("；");
+                        }
+                        skipped.append(item.getName());
+                        if (StringUtils.isNotBlank(item.getReason())) {
+                            skipped.append("(").append(item.getReason()).append(")");
+                        }
+                    }
+                    if (skipped.length() > 0) {
+                        message = message + "；未发送目标: " + skipped;
+                    }
+                }
+                if (isForwardRetryable(result.getStatus())) {
+                    groupError = message;
+                    break;
+                }
+                groupUnknown = true;
+                groupError = "GATEWAY_RESULT_UNKNOWN: " + message;
+                break;
+            }
+            if (sessionPaused) {
+                for (Long taskId : attemptTaskIds) {
+                    taskMapper.releaseSendAttempt(taskId);
+                }
+                paused = true;
+                pauseMessage += "。本轮转发已暂停，未发送目标解锁后继续";
+                break outer;
+            }
+            if (groupUnknown) {
+                Set<Long> unknownTaskIds = new LinkedHashSet<>();
+                for (ForwardTarget target : group.targets.values()) {
+                    unknownTaskIds.addAll(target.targetByTask.keySet());
+                }
+                markUnknown(unknownTaskIds, clip(groupError
+                        + "；为避免重复发送已停止自动重试，请核实后确认未发送", 1000));
+                failedGroups++;
+                paused = true;
+                pauseMessage = groupError + "。后续转发已暂停，请人工核实";
+                break outer;
+            }
+            if (groupError != null) {
+                for (ForwardTarget target : group.targets.values()) {
+                    for (WeChatOfferTask task : target.tasks) {
+                        taskMapper.updateSendResult(task.getId(), task.getSendTargetSuccess(),
+                                STATUS_APPROVED, clip(groupError, 1000), null);
+                    }
+                }
+                failedGroups++;
+            }
+            if (groupSent > 0) {
+                for (WeChatOfferTask task : group.tasks) {
+                    if (hasUnsentTarget(task)) {
+                        taskMapper.releaseSendAttempt(task.getId());
+                    }
+                }
+            }
+            if (group.targets.isEmpty()) {
+                completedGroups++;
+            }
+        }
+        out.put("forwardGroups", groups.size());
+        out.put("forwardTotalGroups", totalGroups);
+        out.put("forwardSentTargets", sentTargets);
+        out.put("forwardCompletedGroups", completedGroups);
+        out.put("forwardFailedGroups", failedGroups);
+        out.put("message", "转发模式：本组 " + groups.size() + "/" + totalGroups
+                + "，成功目标 " + sentTargets + "，完成组 " + completedGroups
+                + (paused ? "，已暂停" : "")
+                + (totalGroups > groups.size() ? "，其余顺延下一轮" : ""));
+        if (paused) {
+            out.put("paused", true);
+            out.put("message", pauseMessage);
+        }
+        return out;
+    }
+
+    private List<ForwardGroup> buildForwardGroups(List<WeChatOfferTask> tasks) {
+        Map<String, ForwardGroup> groups = new LinkedHashMap<>();
+        for (WeChatOfferTask task : tasks) {
+            if (!DELIVERY_FORWARD.equals(deliveryModeOf(task))) {
+                continue;
+            }
+            String text = StringUtils.defaultIfBlank(task.getSendContent(), task.getOriMsg()).trim();
+            String key = StringUtils.defaultString(task.getTaskType()) + "\u0000" + text;
+            ForwardGroup group = groups.computeIfAbsent(key, ignored -> {
+                ForwardGroup value = new ForwardGroup();
+                value.taskType = task.getTaskType();
+                value.text = text;
+                return value;
+            });
+            group.tasks.add(task);
+            Set<String> success = new HashSet<>();
+            for (WeChatTaskTarget target : task.getSuccessTargets()) {
+                success.add(target.getName());
+            }
+            for (WeChatTaskTarget target : task.getTargets()) {
+                if (target == null || StringUtils.isBlank(target.getName())
+                        || success.contains(target.getName())) {
+                    continue;
+                }
+                ForwardTarget item = group.targets.computeIfAbsent(target.getName(), ignored -> {
+                    ForwardTarget value = new ForwardTarget();
+                    value.target = target;
+                    return value;
+                });
+                item.tasks.add(task);
+                item.targetByTask.put(task.getId(), target);
+            }
+        }
+        List<ForwardGroup> result = new ArrayList<>();
+        for (ForwardGroup group : groups.values()) {
+            if (!group.targets.isEmpty()) {
+                result.add(group);
+            }
+        }
+        return result;
+    }
+
+    private int applyForwardSuccess(ForwardGroup group, List<String> sent) {
+        if (sent == null || sent.isEmpty()) {
+            return 0;
+        }
+        int applied = 0;
+        for (String name : sent) {
+            ForwardTarget target = group.targets.remove(name);
+            if (target == null) {
+                continue;
+            }
+            for (WeChatOfferTask task : target.tasks) {
+                SendGroup single = new SendGroup();
+                single.taskType = group.taskType;
+                single.target = target.targetByTask.get(task.getId());
+                single.tasks.add(task);
+                applySuccess(single);
+            }
+            applied++;
+        }
+        return applied;
+    }
+
+    private boolean isForwardRetryable(String status) {
+        return "SEED_FAILED".equalsIgnoreCase(status)
+                || "NO_PICKER".equalsIgnoreCase(status)
+                || "COUNT_MISMATCH".equalsIgnoreCase(status)
+                || "BAD_TARGETS".equalsIgnoreCase(status)
+                || "PARTIAL".equalsIgnoreCase(status)
+                || "UNAVAILABLE".equalsIgnoreCase(status);
+    }
+
+    private String deliveryModeOf(WeChatOfferTask task) {
+        return StringUtils.defaultIfBlank(task.getDeliveryMode(), DELIVERY_DIRECT).toUpperCase(Locale.ROOT);
+    }
+
+    private static final class ForwardGroup {
+        private String taskType;
+        private String text;
+        private final List<WeChatOfferTask> tasks = new ArrayList<>();
+        private final Map<String, ForwardTarget> targets = new LinkedHashMap<>();
+    }
+
+    private static final class ForwardTarget {
+        private WeChatTaskTarget target;
+        private final List<WeChatOfferTask> tasks = new ArrayList<>();
+        private final Map<Long, WeChatTaskTarget> targetByTask = new LinkedHashMap<>();
     }
 
     private static final class SendGroup {
@@ -1581,6 +1889,19 @@ public class WeChatOfferTaskService {
     private void markUnknown(Set<Long> taskIds, String error) {
         for (Long taskId : taskIds) {
             taskMapper.markUnknown(taskId, error);
+        }
+    }
+
+    /**
+     * 网关未产出任何发送结果就异常退出（如微信主窗口不存在）：本轮确定一条都没发出去，
+     * 按普通失败记录并释放本次尝试次数，让队列下一轮继续重试。
+     */
+    private void applyRetryableFailure(SendGroup group, String error) {
+        String message = clip("GATEWAY_SEND_ABORTED: "
+                + StringUtils.defaultIfBlank(error, "网关未产出任何发送结果"), 1000);
+        for (WeChatOfferTask task : group.tasks) {
+            taskMapper.updateSendResult(task.getId(), task.getSendTargetSuccess(),
+                    STATUS_APPROVED, message, null);
         }
     }
 

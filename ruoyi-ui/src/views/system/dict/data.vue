@@ -99,7 +99,24 @@
           <el-tag v-else :type="scope.row.listClass == 'primary' ? '' : scope.row.listClass" :class="scope.row.cssClass">{{ scope.row.dictLabel }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="字典键值" align="center" prop="dictValue" />
+      <el-table-column
+        :label="queryParams.dictType === 'feishu_robot_config' ? '机器人地址（Webhook）' : '字典键值'"
+        align="center"
+        prop="dictValue"
+        :show-overflow-tooltip="true"
+      />
+      <el-table-column
+        v-if="queryParams.dictType === 'feishu_robot_config'"
+        label="机器人签名（Secret）"
+        align="center"
+        prop="cssClass"
+        width="240"
+      >
+        <template slot-scope="scope">
+          <span v-if="scope.row.cssClass" class="robot-secret">{{ scope.row.cssClass }}</span>
+          <el-tag v-else type="info" size="mini">未配置（未开启签名校验）</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="字典排序" align="center" prop="dictSort" />
       <el-table-column label="状态" align="center" prop="status">
         <template slot-scope="scope">
@@ -141,28 +158,40 @@
     />
 
     <!-- 添加或修改参数配置对话框 -->
-    <el-dialog :title="title" :visible.sync="open" width="500px" append-to-body>
+    <el-dialog :title="title" :visible.sync="open" width="560px" append-to-body>
       <el-form ref="form" :model="form" :rules="rules" label-width="80px">
+        <el-alert
+          v-if="form.dictType === 'feishu_robot_config'"
+          title="飞书机器人固定填写两项"
+          type="info"
+          :closable="false"
+          show-icon
+          class="mb15"
+        >
+          <div>数据键值 = 机器人地址 Webhook；样式属性 = 机器人签名 Secret；备注写清楚用途。签名在飞书机器人“安全设置-签名校验”中获取，未开启签名校验时留空。</div>
+        </el-alert>
         <el-form-item label="字典类型">
           <el-input v-model="form.dictType" :disabled="true" />
         </el-form-item>
         <el-form-item label="数据标签" prop="dictLabel">
           <el-input v-model="form.dictLabel" placeholder="请输入数据标签" />
         </el-form-item>
-        <el-form-item label="数据键值" prop="dictValue">
+        <el-form-item :label="form.dictType === 'feishu_robot_config' ? '机器人地址' : '数据键值'" prop="dictValue">
           <el-input
             v-model="form.dictValue"
             :type="form.dictType === 'wechat_analysis_config' ? 'textarea' : 'text'"
             :autosize="form.dictType === 'wechat_analysis_config' ? { minRows: 6, maxRows: 24 } : false"
-            placeholder="请输入数据键值" />
+            :placeholder="form.dictType === 'feishu_robot_config' ? '粘贴飞书机器人 Webhook 地址' : '请输入数据键值'" />
         </el-form-item>
-        <el-form-item label="样式属性" prop="cssClass">
-          <el-input v-model="form.cssClass" placeholder="请输入样式属性" />
+        <el-form-item :label="form.dictType === 'feishu_robot_config' ? '签名 Secret' : '样式属性'" prop="cssClass">
+          <el-input
+            v-model="form.cssClass"
+            :placeholder="form.dictType === 'feishu_robot_config' ? '粘贴机器人签名 Secret；未开启签名校验可留空' : '请输入样式属性'" />
         </el-form-item>
-        <el-form-item label="显示排序" prop="dictSort">
+        <el-form-item v-if="form.dictType !== 'feishu_robot_config'" label="显示排序" prop="dictSort">
           <el-input-number v-model="form.dictSort" controls-position="right" :min="0" />
         </el-form-item>
-        <el-form-item label="回显样式" prop="listClass">
+        <el-form-item v-if="form.dictType !== 'feishu_robot_config'" label="回显样式" prop="listClass">
           <el-select v-model="form.listClass">
             <el-option
               v-for="item in listClassOptions"

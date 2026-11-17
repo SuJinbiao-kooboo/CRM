@@ -120,6 +120,36 @@ public class CrmOfferServiceImpl implements ICrmOfferService {
     }
 
     @Override
+    public Map<String, String> resolveOfferInfoByItemName(String itemName) {
+        Map<String, String> info = new LinkedHashMap<>();
+        String pn = PnUtils.normalize(itemName);
+        if (pn.isEmpty()) {
+            return info;
+        }
+        mergeOfferInfo(info, offerMapper.selectLatestOfferInfoByPn(pn));
+        // 兼容报价料号尾部带“拆”与基础料号混用的情况，精确匹配失败后再做一次互换查询。
+        if (StringUtils.isBlank(info.get("brand")) || StringUtils.isBlank(info.get("spec"))) {
+            String fallback = pn.endsWith("拆") && pn.length() > 1
+                    ? pn.substring(0, pn.length() - 1)
+                    : pn + "拆";
+            mergeOfferInfo(info, offerMapper.selectLatestOfferInfoByPn(fallback));
+        }
+        return info;
+    }
+
+    private void mergeOfferInfo(Map<String, String> info, CrmOffer offer) {
+        if (offer == null) {
+            return;
+        }
+        if (StringUtils.isBlank(info.get("brand")) && StringUtils.isNotBlank(offer.getProductBrand())) {
+            info.put("brand", offer.getProductBrand().trim());
+        }
+        if (StringUtils.isBlank(info.get("spec")) && StringUtils.isNotBlank(offer.getSpec())) {
+            info.put("spec", offer.getSpec().trim());
+        }
+    }
+
+    @Override
     public int insertOffer(CrmOffer offer) {
         offer.setProductCode(requireProductCode(offer));
         String userName = SecurityUtils.getUsername();

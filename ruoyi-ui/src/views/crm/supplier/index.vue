@@ -11,10 +11,7 @@
         </el-select>
       </el-form-item>
       <el-form-item label="供应商名称">
-        <el-input v-model="queryParams.supplierName" placeholder="请输入供应商名称" clearable @keyup.enter.native="handleQuery" />
-      </el-form-item>
-      <el-form-item label="公司别名">
-        <el-input v-model="queryParams.supplierAlias" placeholder="请输入公司别名" clearable @keyup.enter.native="handleQuery" />
+        <el-input v-model="queryParams.supplierName" placeholder="名称/简称/别名，模糊搜索" clearable style="width:220px" @keyup.enter.native="handleQuery" />
       </el-form-item>
       <el-form-item label="联系人名称">
         <el-input v-model="queryParams.contactName" placeholder="请输入联系人名称" clearable @keyup.enter.native="handleQuery" />
@@ -29,9 +26,16 @@
           <el-option v-for="d in dictMainProducts" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
         </el-select>
       </el-form-item>
-      <el-form-item label="合作等级" v-if="false">
-        <el-select v-model="queryParams.cooperationLevelArr" multiple collapse-tags filterable placeholder="请选择">
+      <el-form-item label="合作方向">
+        <el-select v-model="queryParams.cooperationDirectionArr" multiple collapse-tags filterable clearable placeholder="请选择（可查未设置）" style="width:240px">
+          <el-option v-for="d in dictCooperationDirection" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+          <el-option label="（未设置）" value="__EMPTY__" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="合作等级">
+        <el-select v-model="queryParams.cooperationLevelArr" multiple collapse-tags filterable clearable placeholder="请选择（可查未设置）" style="width:200px">
           <el-option v-for="d in dictCooperationLevel" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+          <el-option label="（未设置）" value="__EMPTY__" />
         </el-select>
       </el-form-item>
       <el-form-item label="风险等级" v-if="false">
@@ -43,9 +47,6 @@
         <el-select v-model="queryParams.paymentTermsArr" multiple collapse-tags filterable placeholder="请选择">
           <el-option v-for="d in dictPaymentTerms" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
         </el-select>
-      </el-form-item>
-      <el-form-item label="合作等级" prop="cooperationLevel">
-        <el-input v-model="queryParams.cooperationLevel" placeholder="合作等级(模糊)" clearable @keyup.enter.native="handleQuery" />
       </el-form-item>
       <el-form-item label="风险等级" prop="riskLevel">
         <el-input v-model="queryParams.riskLevel" placeholder="风险等级(模糊)" clearable @keyup.enter.native="handleQuery" />
@@ -78,9 +79,16 @@
             <el-option v-for="d in dictCooperationStatus" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
           </el-select>
         </el-form-item>
+        <el-form-item label="合作方向">
+          <el-select v-model="queryParams.cooperationDirectionArr" multiple collapse-tags filterable clearable placeholder="请选择">
+            <el-option v-for="d in dictCooperationDirection" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+            <el-option label="（未设置）" value="__EMPTY__" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="合作等级">
-          <el-select v-model="queryParams.cooperationLevelArr" multiple collapse-tags filterable placeholder="请选择">
+          <el-select v-model="queryParams.cooperationLevelArr" multiple collapse-tags filterable clearable placeholder="请选择">
             <el-option v-for="d in dictCooperationLevel" :key="d.dictValue" :label="d.dictLabel" :value="d.dictValue" />
+            <el-option label="（未设置）" value="__EMPTY__" />
           </el-select>
         </el-form-item>
         <el-form-item label="风险等级">
@@ -338,21 +346,20 @@
 
     <!-- 自定义列弹窗：控制列表字段显示/隐藏与顺序（改动即时生效并持久化到 localStorage） -->
     <el-dialog title="自定义列" :visible.sync="columnDialogOpen" width="480px" append-to-body>
-      <div class="column-config-tip">勾选控制显示，箭头调整列顺序，改动即时生效</div>
+      <div class="column-config-tip">勾选控制显示，按住左侧手柄拖动调整列顺序，改动即时生效</div>
       <div class="column-config-toolbar">
         <el-button type="text" size="mini" icon="el-icon-circle-check" @click="toggleColumnVisible(true)">全部显示</el-button>
         <el-button type="text" size="mini" icon="el-icon-circle-close" @click="toggleColumnVisible(false)">全部隐藏</el-button>
         <el-button type="text" size="mini" icon="el-icon-refresh-left" @click="resetColumns">恢复默认</el-button>
       </div>
-      <div class="column-config-list">
-        <div v-for="(col, index) in tableColumns" :key="col.key" class="column-config-item">
-          <el-checkbox v-model="col.visible" @change="saveColumnConfig">{{ col.label }}</el-checkbox>
-          <span>
-            <el-button type="text" size="mini" icon="el-icon-top" title="前移" :disabled="index === 0" @click="moveColumn(index, -1)" />
-            <el-button type="text" size="mini" icon="el-icon-bottom" title="后移" :disabled="index === tableColumns.length - 1" @click="moveColumn(index, 1)" />
-          </span>
+      <draggable v-model="tableColumns" class="column-config-list" handle=".column-drag-handle" :animation="150" @end="saveColumnConfig">
+        <div v-for="col in tableColumns" :key="col.key" class="column-config-item">
+          <div class="column-config-label">
+            <i class="el-icon-rank column-drag-handle" title="按住拖动调整顺序"></i>
+            <el-checkbox v-model="col.visible" @change="saveColumnConfig">{{ col.label }}</el-checkbox>
+          </div>
         </div>
-      </div>
+      </draggable>
       <div slot="footer" class="dialog-footer">
         <el-button type="primary" @click="columnDialogOpen = false">完 成</el-button>
       </div>
@@ -750,6 +757,7 @@ import request from '@/utils/request'
 import { listSubscription, addSubscriptions, updateSubscriptionStatus, deleteSubscriptions } from '@/api/crm/subscription'
 import { getDicts } from '@/api/system/dict/data'
 import { getToken } from '@/utils/auth'
+import draggable from 'vuedraggable'
 
 // 供应商列表可选字段全集：key 唯一；type 决定渲染方式：
 // plain=纯文本 / html=富文本(列表剥标签展示纯文本，textProp 为预处理后字段) / datetime=时间格式化 / link=供应商名称链接 / statusSelect=行内合作状态下拉 / statusTag=启停标签
@@ -839,7 +847,7 @@ function loadColumnConfig() {
 
 export default {
   name: 'CrmSupplier',
-  components: { Editor: () => import('@/components/Editor') },
+  components: { Editor: () => import('@/components/Editor'), draggable },
   data() {
     return {
       loading: false,
@@ -870,7 +878,7 @@ export default {
       uploadUrl: process.env.VUE_APP_BASE_API + '/crm/supplier/attachment/upload',
       uploadHeaders: { Authorization: 'Bearer ' + getToken() },
       uploadFiles: [],
-      queryParams: { pageNum: 1, pageSize: 10, supplierCode: '', supplierName: '', supplierAlias: '', contactName: '', cooperationStatus: '', supplierTypeArr: [], brandsArr: [], mainProductsArr: [], cooperationLevelArr: [], riskLevelArr: [], paymentTermsArr: [], params: {} },
+      queryParams: { pageNum: 1, pageSize: 10, supplierCode: '', supplierName: '', supplierAlias: '', contactName: '', cooperationStatus: '', supplierTypeArr: [], brandsArr: [], mainProductsArr: [], cooperationDirectionArr: [], cooperationLevelArr: [], riskLevelArr: [], paymentTermsArr: [], params: {} },
       form: { id: undefined, supplierName: '', supplierCode: '', supplierShortName: '', supplierAlias: '', supplierType: '', supplierTypeArr: [], brands: '', brandsArr: [], country: '', address: '', website: '', mainProducts: '', mainProductsArr: [], cooperationLevel: '', cooperationLevelArr: [], riskLevel: '', riskLevelArr: [], paymentTerms: '', paymentTermsArr: [], cooperationDirection: '', cooperationDirectionArr: [], profitRatio: 2, autoApprove: 0, autoInquiryOffer: 0, salesGroup: '', purchaseGroup: '', cooperationStatus: '', followUpByArr: [], businessLicense: '', taxNumber: '', bankInfo: '', bankAccount: '', billTo: '', shipTo: '', introduction: '', remark: '', remarkSecond: '', status: 1, followUpBy: '', tagsFirst: '', tagsSecond: '', tagsThird: '', tagsSi: '', tagsFirstArr: [], tagsSecondArr: [], tagsThirdArr: [], tagsSiArr: [], contacts: [], attachments: [] },
       dictSupplierType: [], dictMainProducts: [], dictCooperationLevel: [], dictRiskLevel: [], dictPaymentTerms: [], dictProductBrand: [], dictCooperationDirection: [], dictCooperationStatus: [], dictTagsFirst: [], dictTagsSecond: [], dictTagsThird: [], dictTagsSi: [],
       userOptions: [],
@@ -918,15 +926,6 @@ export default {
       localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(this.tableColumns))
       // 列顺序/显隐变化可能引起 element-ui 表格渲染不同步，自增版本号触发表格整体重建
       this.columnVersion++
-    },
-    moveColumn(index, dir) {
-      const target = index + dir
-      const len = this.tableColumns.length
-      if (target < 0 || target >= len) { return }
-      const tmp = this.tableColumns[index]
-      this.$set(this.tableColumns, index, this.tableColumns[target])
-      this.$set(this.tableColumns, target, tmp)
-      this.saveColumnConfig()
     },
     toggleColumnVisible(visible) {
       this.tableColumns.forEach(c => { c.visible = visible })
@@ -1004,6 +1003,7 @@ export default {
       this.queryParams.params.brandsList = this.queryParams.brandsArr
       this.queryParams.params.mainProductsList = this.queryParams.mainProductsArr
       this.queryParams.params.cooperationLevelList = this.queryParams.cooperationLevelArr
+      this.queryParams.params.cooperationDirectionList = this.queryParams.cooperationDirectionArr
       this.queryParams.params.riskLevelList = this.queryParams.riskLevelArr
       this.queryParams.params.paymentTermsList = this.queryParams.paymentTermsArr
       listSupplier(this.queryParams).then(res => {
@@ -1014,7 +1014,21 @@ export default {
       })
     },
     handleQuery() { this.queryParams.pageNum = 1; this.getList() },
-    resetQuery() { this.queryParams.supplierTypeArr = []; this.queryParams.brandsArr = []; this.queryParams.mainProductsArr = []; this.queryParams.cooperationLevelArr = []; this.queryParams.riskLevelArr = []; this.queryParams.paymentTermsArr = []; this.handleQuery() },
+    resetQuery() {
+      this.queryParams.supplierCode = ''
+      this.queryParams.supplierName = ''
+      this.queryParams.supplierAlias = ''
+      this.queryParams.contactName = ''
+      this.queryParams.cooperationStatus = ''
+      this.queryParams.supplierTypeArr = []
+      this.queryParams.brandsArr = []
+      this.queryParams.mainProductsArr = []
+      this.queryParams.cooperationDirectionArr = []
+      this.queryParams.cooperationLevelArr = []
+      this.queryParams.riskLevelArr = []
+      this.queryParams.paymentTermsArr = []
+      this.handleQuery()
+    },
     handleSelectionChange(selection) {
       this.ids = selection.map(item => item.id)
       this.single = selection.length != 1
@@ -1455,6 +1469,10 @@ export default {
 .column-config-list { max-height: 52vh; overflow-y: auto; border-top: 1px solid #ebeef5; }
 .column-config-item { display: flex; justify-content: space-between; align-items: center; padding: 2px 6px; }
 .column-config-item:hover { background: #f5f7fa; }
+.column-config-label { display: flex; align-items: center; gap: 4px; }
+.column-drag-handle { cursor: move; color: #909399; font-size: 16px; padding: 0 4px; }
+.column-drag-handle:hover { color: #409EFF; }
+.column-config-item.sortable-ghost { background: #ecf5ff; opacity: 0.6; }
 /* 文本框底列单元格：单行省略 + 悬浮全文（show-overflow-tooltip 对带插槽列不生效，故用 CSS 实现同等效果） */
 .cell-text-ellipsis { display: inline-block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 </style>

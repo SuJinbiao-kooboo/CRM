@@ -134,7 +134,9 @@
                 and s.supplier_code like concat('%', #{supplierCode}, '%')
             </if>
             <if test="supplierName != null and supplierName != ''">
-                and s.supplier_name like concat('%', #{supplierName}, '%')
+                and (s.supplier_name like concat('%', #{supplierName}, '%')
+                     or s.supplier_short_name like concat('%', #{supplierName}, '%')
+                     or s.supplier_alias like concat('%', #{supplierName}, '%'))
             </if>
             <if test="supplierAlias != null and supplierAlias != ''">
                 and s.supplier_alias like concat('%', #{supplierAlias}, '%')
@@ -166,7 +168,20 @@
             <if test="params != null and params['cooperationLevelList'] != null and params['cooperationLevelList'].length() > 0">
                 and (
                 <foreach collection="params.cooperationLevelList.split(',')" item="t" separator=" or ">
-                    s.cooperation_level like concat('%', #{t}, '%')
+                    <choose>
+                        <when test="t == '__EMPTY__'">(s.cooperation_level is null or trim(s.cooperation_level) = '')</when>
+                        <otherwise>find_in_set(#{t}, replace(s.cooperation_level, ' ', '')) &gt; 0</otherwise>
+                    </choose>
+                </foreach>
+                )
+            </if>
+            <if test="params != null and params['cooperationDirectionList'] != null and params['cooperationDirectionList'].length() > 0">
+                and (
+                <foreach collection="params.cooperationDirectionList.split(',')" item="t" separator=" or ">
+                    <choose>
+                        <when test="t == '__EMPTY__'">(s.cooperation_direction is null or trim(s.cooperation_direction) = '')</when>
+                        <otherwise>find_in_set(#{t}, replace(s.cooperation_direction, ' ', '')) &gt; 0</otherwise>
+                    </choose>
                 </foreach>
                 )
             </if>

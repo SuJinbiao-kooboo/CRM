@@ -48,7 +48,8 @@
               <li><b>发送扫描</b>：立即扫描并发送“已审批待发送”任务；人工点击不受 <code>autoSendEnabled=false</code> 限制，但当前微信登录账号必须是 <code>autoSendAccount</code>（默认 Eke），否则停止发送。网关返回失败时一律按“结果未知”处理，不再自动重试，避免消息实际已发出后重复发送。</li>
               <li><b>自动发送开关</b>：开启后由定时任务持续扫描“已审批待发送”任务并发送；关闭后定时发送停止，“发送扫描”按钮仍可人工执行。</li>
               <li><b>审批/编辑</b>：查看来源消息、OFFER 快照、关联 INQ、发送目标和发送预览，并修改任务状态、对外报价、发送内容和发送目标。</li>
-              <li><b>发送目标容量</b>：<code>send_target</code>、<code>send_target_success</code> 使用 JSON 存储，业务上限为 <code>32 个目标 × 每个目标字段 300 字符</code>；群名、伙伴编码、伙伴名称均受此限制。手工创建和审批修改都会校验。</li>
+              <li><b>发送目标容量</b>：<code>send_target</code>、<code>send_target_success</code> 使用 JSON 存储，发送目标数量不设上限；群名、伙伴编码、伙伴名称每个字段最多 300 字符。手工创建和审批修改都会校验字段长度。</li>
+              <li><b>发送方式</b>：供应商询价、客户推送、手工群发和自动询Offer 默认使用“微信转发”：先把正文发送到 <code>forwardSourceChat</code>（默认“文件传输助手”），再按 <code>forwardChunkSize</code> 分批点击“分别发送”。微信单次最多 9 人，生产建议 9，当前转发链路测试使用 2；点击后即记该批目标成功。客户回复仍按目标逐个直发。</li>
               <li><b>批量审批</b>：勾选列表多行后点击，弹窗选择统一审批状态，默认“已审批待发送”，也可选择待审批、已审批已发送或无需处理；逐条保存并返回失败明细。</li>
               <li><b>确认未发送</b>：仅当最近异常以 <code>GATEWAY_RESULT_UNKNOWN</code> 开头时出现；人工确认网关确实未发送后，任务恢复为“已审批待发送”，重试次数清零。</li>
               <li><b>删除/批量删除</b>：删除任务时弹窗选择“是否回退数据”。选“否”只删除任务；选“是”会把来源微信消息的 <code>task_status</code> 重置为 <code>PENDING</code>，便于重新生成，但不会改变分类、AI 录入和已生成的 OFFER。</li>
@@ -81,23 +82,24 @@
             <div class="help-title">发送扫描细节</div>
             <ul>
               <li>只处理 <code>APPROVED_PENDING_SEND</code>、发送目标非空、发送次数小于 <code>taskSendMaxAttempts</code>（当前 3）且非结果未知的任务。</li>
-              <li>单次最多扫描 <code>taskSendScanBatchSize=50</code> 条；每轮最多处理 <code>taskSendRoundMax=3</code> 个目标组，网关每批最多 <code>taskSendBatchSize=3</code> 组，超出的组顺延到下一轮；同一任务类型+同一群名合并为一条消息。</li>
+              <li>单次最多扫描 <code>taskSendScanBatchSize</code> 条（当前 200）；每轮最多处理 <code>taskSendRoundMax</code> 个转发组（默认 3，字典可按需新增），直发模式每批最多 <code>taskSendBatchSize</code> 个目标（当前 20），超出的顺延到下一轮；同一任务类型+同一群名合并为一条消息。</li>
               <li>每个目标成功即写入成功清单；全部成功置“已审批已发送”；失败目标保留在发送目标中，但统一标记 <code>GATEWAY_RESULT_UNKNOWN</code>，不会自动进入下一轮。</li>
               <li>网关返回失败、异常或结果不完整时停止本轮并标记为结果未知，需人工核实确实未发送后点“确认未发送”，避免重复发送。</li>
-              <li>自动扫描由 <code>autoSendEnabled=true</code> 开启，间隔 <code>taskSendScanSec=600</code> 秒（每 10 分钟最多一轮）。</li>
+              <li>自动扫描由 <code>autoSendEnabled=true</code> 开启，间隔 <code>taskSendScanSec</code> 秒（当前 30 秒最多一轮）。</li>
             </ul>
             <div class="help-title">防封限频（当前生产配置）</div>
             <ul>
-              <li>网关拟人节奏 <code>rhythm=calm</code>：5 分钟内最多 3 次写动作，超限自动冷却 60~150 秒。</li>
-              <li>目标之间随机间隔 <code>interval=30~60</code> 秒；等待抖动倍率 <code>nap=1.1~1.8</code>，不采用固定节奏。</li>
-              <li>单批上限 <code>maxBatch=3</code>；每轮最多 <code>taskSendRoundMax=3</code> 个目标组、每批最多 <code>taskSendBatchSize=3</code> 组；<code>verify=true</code> 发送后回读数据库防重复发送。</li>
-              <li><code>autoSendEnabled</code> 保持 <code>false</code>；仅在微信已登录、固定账号 <code>autoSendAccount=Eke</code>、人工单发验证通过后再开启。</li>
+              <li>网关拟人节奏由 <code>rhythm</code> 控制（当前 <code>calm</code>），目标之间随机间隔 <code>intervalMin</code>~<code>intervalMax</code> 秒（当前 6~15），等待抖动倍率 <code>napMin</code>~<code>napMax</code>（当前 1.0~1.6）。</li>
+              <li>直发单批上限 <code>maxBatch</code>（当前 20）；转发每批人数由 <code>forwardChunkSize</code> 控制（微信硬上限 9）。<code>forwardVerify=false</code> 时，点击“分别发送”且目标数校验通过即认为该批成功。</li>
+              <li>自动发送仅在微信已登录、当前账号等于 <code>autoSendAccount=Eke</code>、Windows 未锁屏时执行；锁屏或账号不符会暂停，不消耗重试次数。</li>
               <li>修改 <code>wechat_send_config</code> 或 <code>wechat_analysis_config</code> 后，必须刷新字典缓存或重启后端才会生效。</li>
             </ul>
             <div class="help-title">配置位置</div>
             <ul>
               <li>系统管理 → 字典管理 → 字典类型 <code>wechat_analysis_config</code>（发送开关、扫描间隔、批次）。</li>
-              <li>系统管理 → 字典管理 → 字典类型 <code>wechat_send_config</code>（拟人节奏、随机间隔、单批上限、回读确认）。</li>
+              <li>系统管理 → 字典管理 → 字典类型 <code>wechat_send_config</code>（拟人节奏、随机间隔、单批上限、回读确认、转发参数）。</li>
+              <li><b>转发参数位置</b>：<code>wechat_send_config.forwardSourceChat</code> = 先发送到的源会话（默认“文件传输助手”）；<code>forwardChunkSize</code> = 每次转发勾选人数（1-9，测试时设为 2，测试完成后已恢复 9）；<code>forwardVerify</code> = 是否回读确认（当前 false）。本次 5 个目标按 2+2+1 分三批转发。</li>
+              <li><b>本次转发测试</b>：任务内容“早上好”，目标为 Jasmine、Grace  Liu 大唐电子 联系人、May、Jin、特斯拉并购委员会；5 个目标均已发送成功并写入 <code>send_target_success</code>。Jin 的微信选择框显示名是“Jin”，但直接搜“Jin”会被模糊搜索结果挤掉，系统会用联系人昵称“Jin-IT配件分销 征途数通”二次搜索后再勾选“Jin”。</li>
               <li><b>生成</b>：<code>autoTaskGenerateEnabled</code>、<code>taskGenerateScanSec</code>、<code>taskGenerateBatchSize</code>、<code>msgRetentionDays</code>。</li>
               <li><b>发送</b>：<code>autoSendEnabled</code>、<code>taskSendScanSec</code>、<code>taskSendMaxAttempts</code>、<code>taskSendScanBatchSize</code>、<code>taskSendRoundMax</code>、<code>taskSendBatchSize</code>、<code>autoSendAccount</code>。</li>
               <li><b>INQ 直接回复</b>：<code>inqMatchDayNo</code>，默认 2，表示昨天 00:00 至当前；该窗口同时用于客户 INQ 与供应商 OFFER 的关联。</li>
@@ -146,6 +148,9 @@
       <el-table-column label="对外报价" prop="offerPrice" width="100" align="right" />
       <el-table-column label="发送目标" width="105" align="center">
         <template slot-scope="scope">{{ (scope.row.targets || []).length }} / 成功 {{ (scope.row.successTargets || []).length }}</template>
+      </el-table-column>
+      <el-table-column label="发送方式" width="90" align="center">
+        <template slot-scope="scope"><el-tag size="mini" :type="scope.row.deliveryMode === 'FORWARD' ? 'success' : 'info'">{{ deliveryModeLabel(scope.row.deliveryMode) }}</el-tag></template>
       </el-table-column>
       <el-table-column label="发送次数" prop="sendAttempts" width="85" align="center" />
       <el-table-column label="状态" width="165" align="center">
@@ -307,7 +312,7 @@
               </el-table>
             </div>
           </div>
-          <div class="manual-tip mt10">同一供应商的多个群会合并为一个任务；同一群自动去重。单条任务最多 32 个发送目标，每个群名/伙伴字段最多 300 字符。</div>
+          <div class="manual-tip mt10">同一供应商的多个群会合并为一个任务；同一群自动去重。发送目标数量不设上限，每个群名/伙伴字段最多 300 字符；执行时按每批最多 9 个目标转发。</div>
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
@@ -326,6 +331,7 @@
         <el-descriptions-item label="INQ/OFFER 发生时间">{{ form.sourceMessageTime || '-' }}</el-descriptions-item>
         <el-descriptions-item label="来源分类">{{ form.sourceCategory || '-' }}</el-descriptions-item>
         <el-descriptions-item label="任务类型">{{ taskTypeLabel(form.taskType) }}</el-descriptions-item>
+        <el-descriptions-item label="发送方式">{{ deliveryModeLabel(form.deliveryMode) }}</el-descriptions-item>
         <el-descriptions-item label="料号">{{ form.pnOriginal || '-' }}</el-descriptions-item>
         <el-descriptions-item label="数量">{{ form.qty == null ? '-' : form.qty }}</el-descriptions-item>
         <el-descriptions-item label="成本价">{{ form.oriPrice == null ? '-' : form.oriPrice }}</el-descriptions-item>
@@ -628,13 +634,9 @@ export default {
       let added = 0
       for (const row of rows) {
         if (selectedIds.has(row.id)) continue
-        if (this.manualSelectedSuppliers.length >= 32) break
         this.manualSelectedSuppliers.push(Object.assign({}, row))
         selectedIds.add(row.id)
         added++
-      }
-      if (this.manualSelectedSuppliers.length >= 32 && added < rows.length) {
-        this.$modal.msgWarning('单条任务最多选择 32 家供应商；若一家配置多个群，后端会按发送目标数再次校验')
       }
       this.applyManualSupplierFilters()
     },
@@ -706,10 +708,6 @@ export default {
     },
     addTarget() {
       if (!this.form.targets) this.$set(this.form, 'targets', [])
-      if (this.form.targets.length >= 32) {
-        this.$modal.msgWarning('单条任务最多允许 32 个发送目标')
-        return
-      }
       this.form.targets.push({ name: '', partyCode: '', partyName: '' })
     },
     removeTarget(index) {
@@ -719,10 +717,6 @@ export default {
       const targets = (this.form.targets || []).filter(item => String(item.name || '').trim())
       if (this.form.handleStatus === 'APPROVED_PENDING_SEND' && targets.length === 0) {
         this.$modal.msgError('已审批待发送任务必须至少有一个发送目标')
-        return
-      }
-      if (targets.length > 32) {
-        this.$modal.msgError('单条任务最多允许 32 个发送目标')
         return
       }
       const overlong = targets.find(item => ['name', 'partyCode', 'partyName']
@@ -804,6 +798,9 @@ export default {
     taskTypeLabel(value) {
       const item = this.taskTypes.find(x => x.value === value)
       return item ? item.label : (value || '-')
+    },
+    deliveryModeLabel(value) {
+      return value === 'FORWARD' ? '微信转发' : '逐目标直发'
     },
     taskTypeTag(value) {
       if (value === 'CUSTOMER_REPLY') return 'success'

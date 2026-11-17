@@ -20,6 +20,9 @@ public interface IDocGenerateService {
     /** 从上传的 PO / PL 文件解析明细（仅返回数据，由页面确认后再生成） */
     List<Map<String, Object>> parseItems(DocGenerateReq req, Map<String, MultipartFile> files) throws IOException;
 
+    /** 按 ITEM 料号匹配 Offer 品牌和规格型号，供页面即时回填 Brand / Spec. */
+    Map<String, String> resolveItemOfferInfo(String itemName);
+
     /** 生成单据 Excel 字节流 */
     byte[] generateExcel(DocGenerateReq req, Map<String, MultipartFile> files) throws IOException;
 

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.ruoyi.crm.domain.CrmOffer;
 import com.ruoyi.crm.domain.CrmOfferPriceMode;
+import com.ruoyi.crm.domain.CrmSupplier;
 import com.ruoyi.crm.mapper.CrmOfferMapper;
 import com.ruoyi.crm.service.ai.AiChannelService;
 import com.ruoyi.crm.service.ICrmOfferService;
@@ -15,6 +16,7 @@ import com.ruoyi.wexinAuto.config.WeChatAutomationConfig;
 import com.ruoyi.wexinAuto.config.WeChatGatewayProperties;
 import com.ruoyi.wexinAuto.model.PartyMatch;
 import com.ruoyi.wexinAuto.model.WeChatMessage;
+import com.ruoyi.wexinAuto.model.WeChatForwardResult;
 import com.ruoyi.wexinAuto.model.WeChatSendItem;
 import com.ruoyi.wexinAuto.model.WeChatSendResult;
 import com.ruoyi.wexinAuto.model.WeChatSessionStatus;
@@ -698,7 +700,6 @@ public class WeChatGatewayService {
         m.put("reconcileBackSec", analysisInt("pollReconcileBackSec", 259200));
         m.put("reconcileLimit", analysisInt("pollReconcileLimit", 10000));
         m.put("limit", analysisInt("pollLimit", 5000));
-        m.put("ignoreChats", analysisStr("pollIgnoreChats", ""));
         m.put("blackNames", analysisStr("blackNames", ""));
         m.put("whiteNames", analysisStr("whiteNames", ""));
         m.put("blackTable", "wechat_message_black");
@@ -723,7 +724,7 @@ public class WeChatGatewayService {
      * since 为空时：dump --since <水位-冗余回看>，即只拉新增；
      * since 非空时(如 2026-10-17 00:00:00)：dump --since <指定时间>，重新拉该时刻之后的消息，
      * 已入库的(唯一键 username+sort_seq+正文哈希冲突)由 SQL 直接跳过，不重复处理、不覆盖已有分类。
-     * 解析出的消息先过 pollIgnoreChats / blackNames 名称关键词过滤，命中写黑表，其余入库(status=0)。
+     * 解析出的消息先过 blackNames 名称关键词过滤，命中写黑表，其余入库(status=0)。
      *
      * @return false 表示上一轮 dump 仍在执行、本次被跳过
      */
@@ -835,7 +836,7 @@ public class WeChatGatewayService {
     }
 
     /**
-     * pollIgnoreChats / blackNames 黑名单拆分：名称包含任一关键词(不区分大小写)的消息 → black(转存
+     * blackNames 黑名单拆分：名称包含任一关键词(不区分大小写)的消息 → black(转存
      * wechat_message_black，只落库不做任何处理)；其余 → normal(正常入库参与分类)。
      */
     private void splitExcludedChats(List<WeChatMessage> raw, List<WeChatMessage> normal, List<WeChatMessage> black) {
@@ -855,7 +856,6 @@ public class WeChatGatewayService {
 
     private List<String> excludedChatKeys() {
         Set<String> keys = new LinkedHashSet<>();
-        addChatKeys(keys, analysisStr("pollIgnoreChats", ""));
         addChatKeys(keys, analysisStr("blackNames", ""));
         return new ArrayList<>(keys);
     }
@@ -1747,22 +1747,35 @@ public class WeChatGatewayService {
             return;
         }
 
-        PartyMatch party = partyService.resolve(anchor.getName());
-        if (party.isUnmappedOrAmbiguous()) {
-            String prefix = PartyMatch.UNMAPPED.equals(party.getStatus()) ? "群未映射" : "群映射冲突";
-            markGroupSkipped(group, anchor, prefix + "：" + StringUtils.defaultString(party.getMessage()),
-                    "PENDING", "UNMAPPED_CHAT", stats);
-            return;
-        }
-        if (!party.isOk()) {
-            markGroupSkipped(group, anchor, party.getStatus() + ": " + StringUtils.defaultString(party.getMessage()),
-                    "MANUAL_REVIEW", party.getStatus(), stats);
-            return;
+        boolean internalChat = partyService.isInternalOfferChat(anchor.getName());
+        PartyMatch party;
+        if (internalChat) {
+            CrmSupplier matched = partyService.matchSupplierFromMessage(anchor.getContent());
+            if (matched == null) {
+                markGroupSkipped(group, anchor, "内部群未匹配到供应商，已跳过录入",
+                        "SKIPPED", "INTERNAL_NO_SUPPLIER", stats);
+                alertInternalSupplierMiss(anchor);
+                return;
+            }
+            party = PartyMatch.ok(matched);
+        } else {
+            party = partyService.resolve(anchor.getName());
+            if (party.isUnmappedOrAmbiguous()) {
+                String prefix = PartyMatch.UNMAPPED.equals(party.getStatus()) ? "群未映射" : "群映射冲突";
+                markGroupSkipped(group, anchor, prefix + "：" + StringUtils.defaultString(party.getMessage()),
+                        "PENDING", "UNMAPPED_CHAT", stats);
+                return;
+            }
+            if (!party.isOk()) {
+                markGroupSkipped(group, anchor, party.getStatus() + ": " + StringUtils.defaultString(party.getMessage()),
+                        "MANUAL_REVIEW", party.getStatus(), stats);
+                return;
+            }
         }
 
         boolean self = WeChatTextUtils.isSelf(anchor.getSender(), selfNames());
         boolean offer = "OFFER".equalsIgnoreCase(anchor.getMsgCategory());
-        if (self && offer && !hasExternalCustomerInq(anchor)) {
+        if (!internalChat && self && offer && !hasExternalCustomerInq(anchor)) {
             markGroupSkipped(group, anchor, "我方外发OFFER无客户INQ，完全人工处理",
                     "SKIPPED", "SELF_OUTBOUND_ONLY", stats);
             return;
@@ -1770,7 +1783,10 @@ public class WeChatGatewayService {
 
         CrmOfferPriceMode priceMode = CrmOfferPriceMode.NONE;
         String inqOfferType = "Inq";
-        if (offer && self) {
+        if (offer && internalChat) {
+            priceMode = CrmOfferPriceMode.COST_PLUS_PROFIT;
+            inqOfferType = "Offer";
+        } else if (offer && self) {
             priceMode = CrmOfferPriceMode.AS_IS;
             inqOfferType = "Offer";
         } else if (offer) {
@@ -1846,6 +1862,24 @@ public class WeChatGatewayService {
         store.updateTaskState(message.getUsername(), message.getLocalId(), "SKIPPED", "NO_STOCK", "");
         log.info("微信消息为明确缺货响应，跳过Offer录入: chat={} sender={} localId={}",
                 message.getName(), message.getSender(), message.getLocalId());
+    }
+
+    /** 内部群匹配不到供应商：不录入，按消息维度推送飞书告警（同一消息只发一次）。 */
+    private void alertInternalSupplierMiss(WeChatMessage anchor) {
+        String detail = "聊天对象: " + anchor.getName() + "\n"
+                + "发言人: " + anchor.getSender() + "\n"
+                + "消息ID: " + anchor.getLocalId() + "\n"
+                + "消息时间: " + anchor.getCreateTime() + "\n"
+                + "首行/末行均未匹配到供应商名称、简称或别名，未生成 crm_offer。\n\n"
+                + "消息内容:\n" + clipFeishuText(StringUtils.defaultString(anchor.getContent()), 3000)
+                + "\n\n处理建议: 在供应商档案补全名称/别名后，到“微信消息列表”对该消息手动录入。";
+        String event = "WECHAT_INTERNAL_NO_SUPPLIER|" + anchor.getUsername() + "|" + anchor.getLocalId();
+        boolean sent = aiChannelService.alert(event,
+                "【内部Offer录入-未匹配供应商】" + anchor.getSender(), detail);
+        if (!sent) {
+            log.warn("内部群供应商未匹配告警发送失败: chat={} localId={}",
+                    anchor.getName(), anchor.getLocalId());
+        }
     }
 
     private void markGroupSkipped(EntryGroup group, WeChatMessage anchor, String entryMessage,
@@ -3012,6 +3046,33 @@ public class WeChatGatewayService {
         return runBatchSend(cfg);
     }
 
+    /**
+     * 单批微信转发：先把正文发到 sourceChat（默认文件传输助手），再右键该消息，
+     * 一次勾选最多 9 个目标并点击“分别发送”。一次调用只处理一个批次。
+     */
+    public WeChatForwardResult forwardSend(String sourceChat, String text, List<String> targets) {
+        Map<String, Object> cfg = sendConfig();
+        cfg.put("source_chat", StringUtils.defaultIfBlank(sourceChat, "文件传输助手"));
+        cfg.put("text", text);
+        cfg.put("targets", targets);
+        cfg.put("chunk", forwardChunkSize());
+        cfg.put("verify", forwardVerify());
+        return runForwardSend(cfg);
+    }
+
+    public String forwardSourceChat() {
+        return sendCfg("forwardSourceChat", "文件传输助手");
+    }
+
+    /** 微信转发窗一次最多 9 人，超过 9 的配置按 9 处理。 */
+    public int forwardChunkSize() {
+        return Math.max(1, Math.min(9, sendInt("forwardChunkSize", 9)));
+    }
+
+    public boolean forwardVerify() {
+        return sendBool("forwardVerify", false);
+    }
+
     private Map<String, Object> sendConfig() {
         Map<String, Object> cfg = new LinkedHashMap<>();
         cfg.put("rhythm", sendCfg("rhythm", props.getSendRhythm()));
@@ -3176,6 +3237,110 @@ public class WeChatGatewayService {
         }
     }
 
+    /**
+     * batch_send 未产出任何结果就异常退出（例如微信主窗口不存在、未登录）。
+     * 这种情况本轮一条都没发出去，属于可重试失败，不能当成“结果未知”永久停发。
+     */
+    public static class BatchSendAbortedException extends IllegalStateException {
+        private final int exitCode;
+        private final List<String> targets;
+
+        public BatchSendAbortedException(String message, int exitCode, List<String> targets) {
+            super(message);
+            this.exitCode = exitCode;
+            this.targets = targets == null ? new ArrayList<>() : new ArrayList<>(targets);
+        }
+
+        public int getExitCode() {
+            return exitCode;
+        }
+
+        public List<String> getTargets() {
+            return targets;
+        }
+    }
+
+    /** forward_send 单次调用只处理一批目标，避免进程中断后无法确认后续批次。 */
+    private WeChatForwardResult runForwardSend(Map<String, Object> cfg) {
+        Process process = null;
+        List<String> jsonLines = Collections.synchronizedList(new ArrayList<>());
+        long hardTimeoutSec = Math.max(180L,
+                Math.min(900L, sendInt("sendTimeoutSec", 180) + 120L));
+        ExecutorService readerPool = Executors.newSingleThreadExecutor(r -> {
+            Thread thread = new Thread(r, "wx-forward-send-reader");
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            ProcessBuilder pb = new ProcessBuilder(props.getPython(), props.getScript(), "forward_send");
+            pb.redirectErrorStream(true);
+            process = pb.start();
+            try (BufferedWriter w = new BufferedWriter(
+                    new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8))) {
+                w.write(jackson.writeValueAsString(cfg));
+                w.newLine();
+                w.flush();
+            }
+            final Process running = process;
+            Future<?> readFuture = readerPool.submit(() -> {
+                try (BufferedReader r = new BufferedReader(
+                        new InputStreamReader(running.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = r.readLine()) != null) {
+                        if (WeChatMessageParser.isJsonLine(line)) {
+                            jsonLines.add(line);
+                        } else if (StringUtils.isNotBlank(line)) {
+                            log.info("[wx_gateway.forward_send] {}", line);
+                        }
+                    }
+                } catch (Exception e) {
+                    throw new IllegalStateException("读取 wx_gateway 转发结果失败: " + e.getMessage(), e);
+                }
+            });
+            try {
+                readFuture.get(hardTimeoutSec, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                process.destroyForcibly();
+                readFuture.cancel(true);
+                throw new IllegalStateException("wx_gateway forward_send 超过 " + hardTimeoutSec
+                        + " 秒未完成，已强制终止进程");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                process.destroyForcibly();
+                readFuture.cancel(true);
+                throw new IllegalStateException("等待 wx_gateway forward_send 被中断", e);
+            } catch (ExecutionException e) {
+                throw new IllegalStateException("读取 wx_gateway forward_send 结果失败", e.getCause());
+            }
+            if (!process.waitFor(15, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                throw new IllegalStateException("wx_gateway forward_send 输出已结束但进程未在 15 秒内退出，已强制终止");
+            }
+            int code = process.exitValue();
+            log.info("wx_gateway forward_send 退出码: {}", code);
+            WeChatForwardResult result = null;
+            for (String line : jsonLines) {
+                try {
+                    result = jackson.readValue(line, WeChatForwardResult.class);
+                } catch (IOException e) {
+                    log.warn("解析转发结果失败: {}", line, e);
+                }
+            }
+            if (result != null) {
+                return result;
+            }
+            throw new IllegalStateException("wx_gateway forward_send 未返回结果，exitCode=" + code);
+        } catch (Exception e) {
+            log.error("微信转发执行失败", e);
+            throw new IllegalStateException("微信转发失败: " + e.getMessage(), e);
+        } finally {
+            readerPool.shutdownNow();
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
+    }
+
     private List<WeChatSendResult> runBatchSend(Map<String, Object> cfg) {
         List<WeChatSendResult> out = new ArrayList<>();
         Process process = null;
@@ -3236,8 +3401,17 @@ public class WeChatGatewayService {
             int code = process.exitValue();
             log.info("wx_gateway batch_send 退出码: {}", code);
             if (code != 0) {
+                if (out.isEmpty()) {
+                    BatchSendAbortedException aborted = new BatchSendAbortedException(
+                            "wx_gateway batch_send 未产出任何发送结果即异常退出，exitCode=" + code,
+                            code, sendTargetNames(cfg));
+                    alertBatchSendAborted(aborted);
+                    throw aborted;
+                }
                 throw new IllegalStateException("wx_gateway batch_send 进程异常退出，exitCode=" + code);
             }
+        } catch (BatchSendAbortedException e) {
+            throw e;
         } catch (Exception e) {
             log.error("批量发送执行失败", e);
             throw new IllegalStateException("批量发送失败: " + e.getMessage(), e);
@@ -3248,6 +3422,44 @@ public class WeChatGatewayService {
             }
         }
         return out;
+    }
+
+    /** 取本轮发送目标名，供告警内容使用。 */
+    private List<String> sendTargetNames(Map<String, Object> cfg) {
+        List<String> names = new ArrayList<>();
+        Object targets = cfg.get("targets");
+        if (targets instanceof List) {
+            for (Object item : (List<?>) targets) {
+                String name = item instanceof WeChatSendItem
+                        ? ((WeChatSendItem) item).getName()
+                        : (item == null ? "" : String.valueOf(item));
+                if (StringUtils.isNotBlank(name)) {
+                    names.add(name);
+                }
+            }
+        }
+        return names;
+    }
+
+    /** 网关还没开始发送就退出：本轮一条都没发出去，立即告警（10 分钟一次，避免跟着扫描节奏刷屏）。 */
+    private void alertBatchSendAborted(BatchSendAbortedException error) {
+        try {
+            StringBuilder detail = new StringBuilder();
+            detail.append("时间: ").append(fmtTime(System.currentTimeMillis())).append('\n')
+                    .append("网关退出码: ").append(error.getExitCode()).append('\n')
+                    .append("发送目标: ").append(String.join(", ", error.getTargets())).append('\n')
+                    .append("原因: ").append(error.getMessage()).append('\n')
+                    .append("处置: 本轮未发送任何消息，任务已按普通失败处理，下一轮自动重试。\n")
+                    .append("请检查：微信是否已登录、主窗口是否被关闭或最小化到托盘、屏幕是否已锁定。");
+            String event = "WECHAT_SEND_ABORT|" + (System.currentTimeMillis() / 600_000L);
+            boolean sent = aiChannelService.alert(event,
+                    "【微信自动发送失败】网关未产出结果就退出", detail.toString());
+            if (!sent) {
+                log.warn("微信发送异常告警未发出，请检查字典 feishu_robot_config 的 business_alert");
+            }
+        } catch (Exception e) {
+            log.warn("微信发送异常告警发送失败: {}", e.getMessage());
+        }
     }
 
     // ------------------------------------------------------------------

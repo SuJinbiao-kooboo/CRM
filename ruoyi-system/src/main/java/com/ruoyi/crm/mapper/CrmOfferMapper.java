@@ -18,6 +18,8 @@ public interface CrmOfferMapper {
                                      @Param("pattern") String pattern);
     /** 同料号全部有效报价历史，供统一好价格算法使用。 */
     List<CrmOffer> selectPriceHistoryByPn(@Param("pn") String pn);
+    /** 按标准化料号查询最近一条含品牌或规格的有效 Offer，供单据生成回填 Brand / Spec. 使用。 */
+    CrmOffer selectLatestOfferInfoByPn(@Param("pn") String pn);
     /**
      * AI料号查询：按用户提供的料号左前缀模糊匹配（不区分大小写），查询最近1个月内（Offer日期口径）的INQ/OFFER历史记录
      * @param partNumbers 料号前缀集合（已转大写）

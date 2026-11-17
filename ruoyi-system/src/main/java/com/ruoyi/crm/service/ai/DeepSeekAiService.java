@@ -79,18 +79,18 @@ public class DeepSeekAiService {
     private RedisCache redisCache;
 
     /** 数据库提示词版本标记：旧版配置缺少此标记时自动使用内置精简版，避免历史长提示词覆盖拆机修复。 */
-    private static final String PROMPT_VERSION_MARK = "v2026-11-12";
+    private static final String PROMPT_VERSION_MARK = "v2026-11-16";
 
     /** 默认基础提示词：精简版，定义JSON格式、字段规则、料号特例和拆机识别（配合解析示例一起生效）。 */
     private static final String DEFAULT_SYSTEM_PROMPT_BASE = String.join("\n",
-            "# Offer解析提示词 v2026-11-12",
+            "# Offer解析提示词 v2026-11-16",
             "你是IT硬件物料录入助手。把用户文本中的每条报价整理成JSON，只输出JSON：",
             "{\"items\":[{\"brand\":\"\",\"partNumber\":\"\",\"model\":\"\",\"spec\":\"\",\"quantity\":null,\"price\":null,\"currency\":\"USD\",\"dc\":\"\",\"coo\":\"\",\"deliveryTime\":\"\",\"productType\":\"\",\"usageSegment\":\"\",\"productDetail\":\"\",\"remark\":\"\"}]}",
             "",
             "规则：",
             "1. 每条报价一行；同一料号不同价格、数量或成色必须分行，禁止合并、遗漏。缺货/没货/无货/no stock/out of stock不生成行。",
             "2. 只提取原文或已确认型号支持的信息，禁止编造。字符串缺失填\"\"，数量/价格缺失填null。",
-            "3. partNumber是唯一料号，原样保留，不改写、不截断。CPU料号可能很短（如6338），SRKJ9等辅助码不能当料号。",
+            "3. partNumber是唯一料号，不改写、不截断。CPU料号可能很短（如6338）；S-Spec（SRMM0、SA4R9）、MM#（FJ80/CL80/FH80/PK80/DC80/CM80开头）等辅助码不能当料号，也不能和型号用斜杠或空格拼在一起。",
             "4. quantity取整数：1k=1000，500+=500，40pcs=40。price只取数字，去掉货币符号；currency原文非USD时填代码（如CNY、EUR），否则USD。",
             "5. deliveryTime提取L/T、LT、3d、2w、4-6周、货期、现货等；dc提取批次/年份码；coo提取产地（NON CN、CN、MY、TW、JP、KR等），多个用逗号。",
             "6. productType按文末【产品类型候选】选择；根据料号前缀、描述判断，无法确定填“其他”。",
@@ -100,9 +100,15 @@ public class DeepSeekAiService {
             "",
             "料号特例：",
             "- AMD EPYC：EPYC9015/100-000001553 → partNumber=9015，model=EPYC 9015，OPN 100-000001553放productDetail。",
+            "- Intel CPU：U7-366H/SA4R9 → partNumber=U7-366H；I7-1365U/SRMM0 + FJ8071505259101 → partNumber=I7-1365U；I7-4700EQ/SR17L → I7-4700EQ；J6413/SRKL7 → J6413；X6425E/SRKUE → X6425E；9470/SRMJC → 9470；W3-2423/SRM9L → W3-2423。S-Spec 和 MM# 只放 productDetail。",
             "- WD：0F62796-WUH722424ALE6L4 → partNumber=WUH722424ALE6L4；0F内部编码不作料号。",
             "- Samsung SSD：能确认系列时model写PM1655/PM1653/PM893/PM9A3/PM9A1，partNumber保留完整SKU；MZILG1T6/MZILG3T2→PM1655，MZILG960/MZILG1T9/MZILG3T8/MZILG7T6/MZILG15T/MZILG30T→PM1653。",
             "- NVIDIA：5090/RTX5090/RTX 5090（含涡轮、品牌、OC等）→partNumber=RTX 5090 32G，model=RTX 5090，spec=32GB GDDR7；PRO 6000 Server Edition/服务器版→PRO 6000 SE 96G / RTX PRO 6000 SE；Workstation Edition/工作站版→PRO 6000 WS 96G / RTX PRO 6000 WS；只写PRO 6000时保持PRO 6000，不猜SE/WS；5090D、5090D V2、PRO 6000D、MAX-Q保持原样。",
+            "",
+            "输出前二次检查（必须逐行执行）：",
+            "1. partNumber 只能是一个 CPU 型号；若出现“/S...”后缀、独立 S-Spec、或 FJ80/CL80/FH80/PK80/DC80/CM80 开头的 MM#，必须删掉这些辅助码，只保留前面的型号，并把辅助码移到 productDetail。",
+            "2. 换行后的 MM# 属于上一行同一个 CPU，但绝不能把它并入 partNumber；换行后的数量也不能并入料号。",
+            "3. 若 partNumber 只剩 S-Spec 或 MM#，说明已经解析错，必须回到原文找同一组里的 CPU 型号；找不到则不要生成该行。",
             "",
             "拆机/二手规则（最高优先级，适用于CPU、GPU、RAM、SSD、HDD、主板、颗粒等所有类型）：",
             "- 原文出现「拆」「拆机」「拆新」「拆箱」「拆件」「拆封」「二手」，或出现独立成词的「CP」「Pull」「Pulled」「Clean Pull」「Renew」「Renewed」「Refurb」「Refurbished」「Used」时，该行按拆机处理（CPU/PCS/PCIe中的CP不算）。",

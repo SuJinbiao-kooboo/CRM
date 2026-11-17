@@ -14,6 +14,7 @@ public class OfferMaterialNormalizerTest {
         testNegativeMarkers();
         testQueryToken();
         testMixedNewAndPulled();
+        testIntelCpuSspec();
         System.out.println("OfferMaterialNormalizerTest PASSED");
     }
 
@@ -72,6 +73,65 @@ public class OfferMaterialNormalizerTest {
                 "4510 71pcs 拆 800USD 94pcs 新 830USD");
         eq("4510拆", pulled.get("partNumber"), "拆/新混合-拆机行");
         eq("4510", brandNew.get("partNumber"), "拆/新混合-全新行");
+    }
+
+    private static void testIntelCpuSspec() {
+        assertIntelPart("U7-366H/SA4R9", "U7-366H", "U7-366H/SA4R9\n20 pcs");
+        assertIntelPart("I7-1365U/SRMM0", "I7-1365U",
+                "I7-1365U/SRMM0\nFJ8071505259101\n514 pcs");
+        assertIntelPart("I7-4700EQ/SR17L", "I7-4700EQ",
+                "I7-4700EQ/SR17L\nCL8064701483802\n63 pcs");
+        assertIntelPart("I7-6820EQ/SR2DT", "I7-6820EQ",
+                "I7-6820EQ/SR2DT\n300 to 1k+ pcs");
+        assertIntelPart("I7-6822EQ/SR2DW", "I7-6822EQ",
+                "I7-6822EQ/SR2DW\nCL8066202302204\n190 pcs");
+        assertIntelPart("W3-2423/SRM9L", "W3-2423", "W3-2423/SRM9L\n15 pcs");
+        assertIntelPart("I7-6600U/SR2F1", "I7-6600U",
+                "I7-6600U/SR2F1\nFJ8066201924950\n100 pcs");
+        assertIntelPart("I5-1145G7E/SRK0Z", "I5-1145G7E",
+                "I5-1145G7E/SRK0Z\nFH8069004542000\n180 pcs");
+        assertIntelPart("CORE5-120U/SRN7P", "CORE5-120U", "CORE5-120U/SRN7P\n3480 pcs");
+        assertIntelPart("X6425E/SRKUE", "X6425E", "X6425E/SRKUE\n1k to 3k pcs");
+        assertIntelPart("J6413/SRKL7", "J6413", "J6413/SRKL7\n2475 pcs");
+        assertIntelPart("9470/SRMJC", "9470", "9470/SRMJC\nPK8071305223200\n70 pcs");
+        assertIntelPart("I7-1365U SRMM0 FJ8071505259101", "I7-1365U",
+                "I7-1365U/SRMM0\nFJ8071505259101\n514 pcs");
+        assertIntelPart("FJ8071505426801SRN7N", "I7-1365U",
+                "I7-1365U\nFJ8071505426801SRN7N\n514 pcs");
+        assertIntelPart("I7-1365U/SRMM0FJ8071505259101", "I7-1365U",
+                "I7-1365U/SRMM0\nFJ8071505259101\n514 pcs");
+
+        eq("U7-366H", OfferMaterialNormalizer.normalizePartNumberToken("U7-366H/SA4R9"),
+                "查询-Intel S-Spec");
+        eq("I7-1365U", OfferMaterialNormalizer.normalizePartNumberToken("I7-1365U/SRMM0"),
+                "查询-Intel S-Spec 2");
+        eq("SNV3S/4000G", OfferMaterialNormalizer.normalizePartNumberToken("SNV3S/4000G"),
+                "查询-Kingston斜杠料号不受影响");
+        eq("SA400S37/960G", OfferMaterialNormalizer.normalizePartNumberToken("SA400S37/960G"),
+                "查询-Kingston SA400不受影响");
+        eq("KVR32N22S8/16", OfferMaterialNormalizer.normalizePartNumberToken("KVR32N22S8/16"),
+                "查询-Kingston内存不受影响");
+        eq("MZ-77E1T0B/EU", OfferMaterialNormalizer.normalizePartNumberToken("MZ-77E1T0B/EU"),
+                "查询-Samsung斜杠料号不受影响");
+
+        Map<String, Object> mmOnly = item("CL8066202302204", "", "CL8066202302204", "CPU");
+        List<Map<String, Object>> items = new ArrayList<>();
+        items.add(mmOnly);
+        OfferMaterialNormalizer.normalizeItems(items,
+                "Any support for these ?\n\nI7-6822EQ/SR2DW\nCL8066202302204\n190 pcs");
+        eq("I7-6822EQ", mmOnly.get("partNumber"), "MM#单独出现时回找CPU型号");
+    }
+
+    private static void assertIntelPart(String pn, String expected, String source) {
+        Map<String, Object> item = item(pn, pn, pn, "CPU");
+        List<Map<String, Object>> items = new ArrayList<>();
+        items.add(item);
+        OfferMaterialNormalizer.normalizeItems(items, source);
+        eq(expected, item.get("partNumber"), "Intel CPU料号-" + pn);
+        if (pn.contains("/")) {
+            assertContains(String.valueOf(item.get("productDetail")),
+                    pn.substring(pn.indexOf('/') + 1), "Intel CPU详情保留辅助码-" + pn);
+        }
     }
 
     private static void assertPulled(String pn, String model, String source, String expected, String type) {

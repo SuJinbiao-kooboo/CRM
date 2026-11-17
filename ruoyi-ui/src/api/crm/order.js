@@ -45,6 +45,11 @@ export function docTypes() {
   return request({ url: '/crm/order/doc/types', method: 'get' })
 }
 
+// 按 ITEM 料号匹配 Offer 品牌和规格型号（单据生成 Brand / Spec. 自动回填）
+export function resolveDocOfferInfo(itemName) {
+  return request({ url: '/crm/order/doc/resolveOfferInfo', method: 'get', params: { itemName: itemName } })
+}
+
 function buildFormData(payload, files) {
   const formData = new FormData()
   formData.append('payload', JSON.stringify(payload))

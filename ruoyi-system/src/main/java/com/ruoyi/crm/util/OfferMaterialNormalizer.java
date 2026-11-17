@@ -1,5 +1,7 @@
 package com.ruoyi.crm.util;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -31,6 +33,36 @@ public final class OfferMaterialNormalizer {
             "^(\\d{4}[A-Z]{0,2})\\s*(?:-{2,}|—{2,}|–{2,}|：|:)\\s*(?:USD|CNY|RMB|\\$|¥|€)?\\s*"
                     + "(\\d+(?:\\.\\d+)?)\\s*(?:USD|CNY|RMB)?$",
             Pattern.CASE_INSENSITIVE);
+
+    /** Intel CPU 型号主体：I7-1365U / U7-366H / CORE5-120U / X6425E / J6413 / N97 / D-1712TR / W3-2423 / 9470 / 6426Y / E5-2609V3。 */
+    private static final Pattern INTEL_CPU_MODEL = Pattern.compile(
+            "(?i)^(?:"
+                    + "[IUVG][0-9]{0,2}-[0-9]{3,5}[A-Z0-9]*"
+                    + "|[IUVG][0-9]{3,5}[A-Z]{1,3}"
+                    + "|CORE\\s*[3579][\\s-]*[0-9]{3,4}[A-Z0-9]*"
+                    + "|[XJN][0-9]{2,4}[A-Z]{0,4}"
+                    + "|D-[0-9]{4}[A-Z]*"
+                    + "|W[0-9]-[0-9]{4}[A-Z]*"
+                    + "|E[0-9]-[0-9]{4}[A-Z0-9]*"
+                    + "|[0-9]{4,5}[A-Z+]{0,2}"
+                    + "|[0-9]{3}[HU]"
+                    + ")$");
+    /** Intel S-Spec：SRMM0、SA4R9、SRKJ9 等 5 位码；第 2 位必须是字母，避免误伤 S3520 这类型号。 */
+    private static final Pattern INTEL_SSPEC = Pattern.compile("(?i)\\bS[A-Z][A-Z0-9]{3}\\b");
+    /** Intel MM#/OPN：FJ80、CL80、FH80、PK80、DC80、CM80 等，后面可能紧贴 S-Spec。 */
+    private static final Pattern INTEL_MM = Pattern.compile(
+            "(?i)\\b(?:FJ|CL|FH|PK|DC|CM)[0-9]{12,14}(?:[-\\s]?S[A-Z][A-Z0-9]{3})?\\b");
+    /** 型号/S-Spec：U7-366H/SA4R9、I7-1365U/SRMM0。 */
+    private static final Pattern INTEL_SSPEC_SLASH = Pattern.compile(
+            "(?i)^(.+?)\\s*/\\s*S[A-Z][A-Z0-9]{3}(?:\\s*[-]?\\s*(?:FJ|CL|FH|PK|DC|CM)[0-9]{12,14})?$");
+    /** 型号 + 空格 + S-Spec：I7-1365U SRMM0，可再跟 MM#。 */
+    private static final Pattern INTEL_SSPEC_TRAILING = Pattern.compile(
+            "(?i)^(.+?)\\s+S[A-Z][A-Z0-9]{3}(?:\\s*[-]?\\s*(?:FJ|CL|FH|PK|DC|CM)[0-9]{12,14})?$");
+    private static final Pattern INTEL_SSPEC_ONLY = Pattern.compile("(?i)^S[A-Z][A-Z0-9]{3}$");
+    private static final Pattern INTEL_MM_ONLY = Pattern.compile(
+            "(?i)^(?:FJ|CL|FH|PK|DC|CM)[0-9]{12,14}(?:[-\\s]?S[A-Z][A-Z0-9]{3})?$");
+    private static final Pattern INTEL_CPU_HINT = Pattern.compile(
+            "(?i)\\b(?:INTEL|XEON|CORE|PENTIUM|CELERON|ATOM)\\b|处理器|CPU");
     private static final Pattern CAPACITY_T = Pattern.compile(
             "(?i)(?<![A-Z0-9])(\\d+(?:\\.\\d+)?)\\s*T(?![A-Z0-9])");
     private static final Pattern CAPACITY_G = Pattern.compile(
@@ -101,6 +133,10 @@ public final class OfferMaterialNormalizer {
     private static String normalizePartNumberBase(String normalized) {
         if (normalized == null || normalized.isEmpty()) {
             return "";
+        }
+        String intelModel = extractIntelCpuModel(normalized);
+        if (intelModel != null) {
+            return intelModel;
         }
         Matcher amd = AMD_EPYC_PART.matcher(normalized);
         if (amd.matches()) {
@@ -192,6 +228,21 @@ public final class OfferMaterialNormalizer {
         } else if (isNvidiaContext(combined, type)
                 && NVIDIA_PRO_6000_BARE_TOKEN.matcher(pn).matches()) {
             pn = NVIDIA_PRO_6000_STANDARD;
+        }
+
+        String intelPn = resolveIntelCpuPartNumber(pn, model, combined, type,
+                str(item.get("brand")), sourceContent);
+        if (intelPn != null) {
+            pn = intelPn;
+            if (model.isEmpty() || model.equalsIgnoreCase(originalPn)
+                    || model.equalsIgnoreCase(originalPn.replace(" ", ""))) {
+                model = pn;
+            }
+            if (type.isEmpty()) {
+                put(item, "productType", "CPU");
+                type = "CPU";
+            }
+            detail = ensureIntelAuxDetail(detail, originalPn);
         }
 
         String samsungSeries = detectSamsungSeries(combined, pn);
@@ -323,6 +374,171 @@ public final class OfferMaterialNormalizer {
             return false;
         }
         return type.isEmpty() || "GPU".equalsIgnoreCase(type);
+    }
+
+    /** Intel CPU 的 partNumber 只保留型号，S-Spec/MM# 辅助码留在 productDetail。 */
+    private static String resolveIntelCpuPartNumber(String pn, String model, String combined,
+                                                    String type, String brand, String sourceContent) {
+        if (!isIntelCpuContext(combined, type, brand)) {
+            return null;
+        }
+        String cleaned = extractIntelCpuModel(pn);
+        if (cleaned != null) {
+            return cleaned;
+        }
+        if (!isIntelAuxiliaryOnly(pn)) {
+            return null;
+        }
+        for (String auxiliary : intelAuxiliaries(pn)) {
+            String fromSource = findIntelModelInSource(auxiliary, sourceContent);
+            if (fromSource != null) {
+                return fromSource;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isIntelCpuContext(String combined, String type, String brand) {
+        String context = PnUtils.normalize(brand + " " + combined);
+        if (context.contains("AMD") || context.contains("EPYC") || context.contains("RYZEN")
+                || context.contains("RADEON") || context.contains("NVIDIA")
+                || context.contains("GEFORCE") || context.contains("RTX")) {
+            return false;
+        }
+        return "CPU".equalsIgnoreCase(type) || "INTEL".equalsIgnoreCase(brand)
+                || INTEL_CPU_HINT.matcher(combined).find();
+    }
+
+    /** 从型号/S-Spec/MM# 的组合中提取 Intel CPU 型号；无法确定时返回 null。 */
+    private static String extractIntelCpuModel(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        String pn = value.replace('(', ' ').replace(')', ' ')
+                .replaceAll("\\s+", " ").trim();
+        Matcher slash = INTEL_SSPEC_SLASH.matcher(pn);
+        if (slash.matches() && isIntelCpuModel(slash.group(1).trim())) {
+            return slash.group(1).trim().toUpperCase(Locale.ROOT);
+        }
+        Matcher trailing = INTEL_SSPEC_TRAILING.matcher(pn);
+        if (trailing.matches() && isIntelCpuModel(trailing.group(1).trim())) {
+            return trailing.group(1).trim().toUpperCase(Locale.ROOT);
+        }
+        String withoutMm = INTEL_MM.matcher(pn).replaceAll(" ")
+                .replaceAll("\\s+", " ").trim();
+        if (!withoutMm.isEmpty() && !withoutMm.equals(pn)) {
+            String withoutAux = INTEL_SSPEC.matcher(withoutMm).replaceAll(" ")
+                    .replaceAll("\\s+", " ").trim();
+            if (isIntelCpuModel(withoutAux)) {
+                return withoutAux.toUpperCase(Locale.ROOT);
+            }
+        }
+        return isIntelCpuModel(pn) ? pn.toUpperCase(Locale.ROOT) : null;
+    }
+
+    private static boolean isIntelCpuModel(String value) {
+        return value != null && INTEL_CPU_MODEL.matcher(value.trim()).matches();
+    }
+
+    /** MM# 或 S-Spec 单独出现在 partNumber 时，从原文邻近行找回 CPU 型号。 */
+    private static String findIntelModelInSource(String auxiliary, String sourceContent) {
+        if (auxiliary == null || auxiliary.isEmpty() || sourceContent == null) {
+            return null;
+        }
+        String[] lines = sourceContent.split("\\r?\\n", -1);
+        String needle = auxiliary.toUpperCase(Locale.ROOT);
+        for (int i = 0; i < lines.length; i++) {
+            if (!lines[i].toUpperCase(Locale.ROOT).contains(needle)) {
+                continue;
+            }
+            for (int j = i; j >= Math.max(0, i - 2); j--) {
+                String model = extractIntelModelFromLine(lines[j]);
+                if (model != null) {
+                    return model;
+                }
+            }
+            for (int j = i + 1; j <= Math.min(lines.length - 1, i + 1); j++) {
+                String model = extractIntelModelFromLine(lines[j]);
+                if (model != null) {
+                    return model;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String extractIntelModelFromLine(String line) {
+        if (line == null || line.trim().isEmpty()) {
+            return null;
+        }
+        String upper = line.toUpperCase(Locale.ROOT);
+        if (upper.contains("EPYC") || upper.contains("AMD") || upper.contains("RYZEN")
+                || upper.contains("RADEON") || upper.contains("NVIDIA") || upper.contains("RTX")) {
+            return null;
+        }
+        boolean quantityLine = upper.matches(".*\\b(?:PCS|QTY|QUANTITY|PRICE|USD)\\b.*");
+        String cleaned = line.replace('(', ' ').replace(')', ' ')
+                .replace('[', ' ').replace(']', ' ')
+                .replace(',', ' ').replace(';', ' ');
+        for (String token : cleaned.split("\\s+")) {
+            String value = token.trim();
+            if (value.isEmpty()) {
+                continue;
+            }
+            Matcher slash = INTEL_SSPEC_SLASH.matcher(value);
+            if (slash.matches() && isIntelCpuModel(slash.group(1).trim())) {
+                return slash.group(1).trim().toUpperCase(Locale.ROOT);
+            }
+            if (isIntelCpuModel(value)) {
+                if (quantityLine && value.matches("[0-9]{4,5}")) {
+                    continue;
+                }
+                return value.toUpperCase(Locale.ROOT);
+            }
+        }
+        return null;
+    }
+
+    private static List<String> intelAuxiliaries(String value) {
+        List<String> result = new ArrayList<>();
+        if (value == null || value.isEmpty()) {
+            return result;
+        }
+        Matcher sspec = INTEL_SSPEC.matcher(value);
+        while (sspec.find()) {
+            addUnique(result, sspec.group());
+        }
+        Matcher mm = INTEL_MM.matcher(value);
+        while (mm.find()) {
+            addUnique(result, mm.group());
+        }
+        return result;
+    }
+
+    private static void addUnique(List<String> values, String value) {
+        for (String existing : values) {
+            if (existing.equalsIgnoreCase(value)) {
+                return;
+            }
+        }
+        values.add(value.toUpperCase(Locale.ROOT));
+    }
+
+    private static boolean isIntelAuxiliaryOnly(String value) {
+        String normalized = value == null ? "" : value.replace('(', ' ').replace(')', ' ')
+                .replaceAll("\\s+", " ").trim();
+        return INTEL_SSPEC_ONLY.matcher(normalized).matches()
+                || INTEL_MM_ONLY.matcher(normalized).matches();
+    }
+
+    private static String ensureIntelAuxDetail(String detail, String originalPn) {
+        String value = detail;
+        for (String auxiliary : intelAuxiliaries(originalPn)) {
+            if (!containsIgnoreCase(value, auxiliary)) {
+                value = appendMissing(value, auxiliary);
+            }
+        }
+        return value;
     }
 
     private static boolean isServerEditionToken(String token) {

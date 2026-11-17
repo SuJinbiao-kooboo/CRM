@@ -1222,6 +1222,218 @@ def cmd_batch_send(args):
     log("批量发送结束: 成功 %d/%d" % (ok_total, len(targets)))
 
 
+def _forward_search_hints(db, targets):
+    """备注名在转发选择框里可能搜不到，用联系人昵称做二次搜索提示。
+
+    例如联系人昵称是「Jin-IT配件分销 征途数通」、备注是「Jin」时，直接搜
+    「Jin」会被微信的模糊搜索排到别的联系人，找不到精确行；改搜昵称后
+    选择框里才会出现显示名为「Jin」的精确行。
+    """
+    hints = {}
+    for name in targets or []:
+        try:
+            rows = db.search_contact(name) or []
+        except Exception:
+            continue
+        exact = [r for r in rows
+                 if str(r.get("remark") or "").strip() == name]
+        if len(exact) != 1:
+            continue
+        nick = str(exact[0].get("nick_name") or "").strip()
+        if nick and nick != name:
+            hints[name] = nick
+    return hints
+
+
+def _install_forward_hint_fallback(ops, hints):
+    """给 ForwardOps.select_one 加一层“精确名搜不到时用提示词再搜”的兜底。"""
+    if not hints:
+        return
+    from wechatauto.labels import (PICKER_ROW_CLS, PICKER_SEARCH_ROW_CLS,
+                                   SEARCH_BOX_NAME)
+    original = ops.select_one
+
+    def select_one(name):
+        result = original(name)
+        if result.get("ok"):
+            return result
+        hint = hints.get(name)
+        if not hint:
+            return result
+        h, win = ops._forward_window()
+        if win is None:
+            return result
+        box = ops._find(win, (SEARCH_BOX_NAME,), contains=False)
+        if box is None or not ops.uia._set_text(box, hint):
+            return result
+        ops._searched = hint
+        row = None
+        deadline = time.time() + 3.0
+        while time.time() < deadline:
+            h, win = ops._forward_window()
+            for cls in (PICKER_SEARCH_ROW_CLS, PICKER_ROW_CLS):
+                row = ops._find(win, (name,), cls=cls, contains=False)
+                if row is not None:
+                    break
+            if row is not None:
+                break
+            time.sleep(0.4)
+        if row is None:
+            return {"ok": False, "who": name,
+                    "reason": "not-found-after-hint：搜「%s」后仍无「%s」" % (hint, name)}
+        checked = ops._check_row(h, row)
+        if not checked.get("ok"):
+            return checked
+        _h, win = ops._forward_window()
+        if name not in ops.selected(win):
+            return {"ok": False, "who": name,
+                    "reason": "not-checked：点了「%s」但没进右侧已选栏" % name}
+        return {"ok": True, "reason": "ok", "who": name}
+
+    ops.select_one = select_one
+
+
+def cmd_forward_send(args):
+    """从 stdin 读取单批转发配置，先发到源会话，再转发给最多 9 个目标。
+
+    配置字段:
+      source_chat  源会话(默认文件传输助手)
+      text         要转发到源会话的正文
+      targets      [群名...] 本批目标(最多 9 个)
+      chunk        本次转发窗勾选人数(1-9)
+      verify       是否回读各目标会话确认送达(默认 false)
+      rhythm/nap   拟人节奏参数，与 batch_send 相同
+
+    输出一行 JSON: {ok,status,message,sent,failed,skipped}
+    """
+    def emit(payload):
+        sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
+
+    try:
+        cfg = json.load(sys.stdin)
+    except Exception as e:
+        emit({"ok": False, "status": "BAD_CONFIG", "message": "读取 stdin JSON 失败: %s" % e,
+              "sent": [], "failed": [], "skipped": []})
+        return
+    source = (cfg.get("source_chat") or "文件传输助手").strip()
+    text = (cfg.get("text") or "").strip()
+    targets = [str(t).strip() for t in (cfg.get("targets") or []) if str(t).strip()]
+    try:
+        chunk = max(1, min(9, int(cfg.get("chunk") or 9)))
+    except (TypeError, ValueError):
+        chunk = 9
+    verify = bool(cfg.get("verify", False))
+    if not source or not text or not targets:
+        emit({"ok": False, "status": "BAD_TARGETS", "message": "source_chat/text/targets 不能为空",
+              "sent": [], "failed": [], "skipped": []})
+        return
+    if len(targets) > chunk:
+        emit({"ok": False, "status": "BAD_TARGETS",
+              "message": "单批目标 %d 个超过 chunk=%d，请在 Java 侧分批" % (len(targets), chunk),
+              "sent": [], "failed": [], "skipped": []})
+        return
+
+    session = windows_session_status()
+    log("交互桌面检测: %s (%s)" % (session.get("desktop") or "?",
+                                 session.get("reason") or "未知"))
+    if not session.get("unlocked"):
+        emit({"ok": False, "status": "SESSION_LOCKED",
+              "message": "Windows 当前不可交互: %s" % (session.get("reason") or "未知"),
+              "sent": [], "failed": [], "skipped": []})
+        return
+
+    rhythm = (cfg.get("rhythm") or "calm").lower()
+    nap = cfg.get("nap") or []
+    nap_min = float(nap[0]) if len(nap) > 0 else 1.1
+    nap_max = float(nap[1]) if len(nap) > 1 else 1.8
+    if nap_max < nap_min:
+        nap_max = nap_min
+    os.environ["WECHATAUTO_RHYTHM"] = rhythm
+    try:
+        import wechatauto.rhythm as rhythm_mod
+        rhythm_mod.set_profile(rhythm)
+        rhythm_mod.configure(nap=(nap_min, nap_max))
+    except Exception as e:
+        log("配置拟人节奏失败(继续用默认): %s" % e)
+
+    try:
+        from wechatauto.guia import WeChatGUI
+        from wechatauto.db import WeChatDB
+        from wechatauto.wx import WeChat
+        patch_send_verify()
+        gui = WeChatGUI()
+    except Exception as e:
+        emit({"ok": False, "status": "UNAVAILABLE",
+              "message": "初始化微信窗口失败（是否已登录且窗口可见？）: %s" % e,
+              "sent": [], "failed": [], "skipped": []})
+        return
+
+    log("转发源会话=%s, 目标=%d 个, chunk=%d, verify=%s"
+        % (source, len(targets), chunk, verify))
+    try:
+        resp = gui.send_msg(text, who=source, verify=verify)
+        data = resp.to_dict() if hasattr(resp, "to_dict") else (resp if isinstance(resp, dict) else {})
+        if data.get("status") != "成功":
+            emit({"ok": False, "status": "SEED_FAILED",
+                  "message": "源消息发送失败: %s" % (data.get("message") or data.get("status") or "未知"),
+                  "sent": [], "failed": [], "skipped": []})
+            return
+    except Exception as e:
+        emit({"ok": False, "status": "SEED_FAILED",
+              "message": "源消息发送异常: %s" % e,
+              "sent": [], "failed": [], "skipped": []})
+        return
+
+    time.sleep(1.0)
+    try:
+        db = WeChatDB()
+        wx = WeChat(gui=gui, db=db)
+        ops = wx._forward()
+        if ops is None:
+            emit({"ok": False, "status": "UNAVAILABLE",
+                  "message": "UIA 驱动不可用，无法转发消息",
+                  "sent": [], "failed": [], "skipped": []})
+            return
+        _install_forward_hint_fallback(ops, _forward_search_hints(db, targets))
+        r = ops.forward(targets, chat=source, match=wx._match_key(text),
+                        chunk=chunk, verify=verify)
+        sent = list(r.get("sent") or [])
+        failed = list(r.get("failed") or [])
+        skipped = list(r.get("skipped") or [])
+        reason = str(r.get("reason") or "")
+        low = reason.lower()
+        if r.get("ok") and not failed and not skipped:
+            status = "OK"
+        elif sent:
+            status = "PARTIAL"
+        elif low.startswith("no-picker") or low.startswith("no-message"):
+            status = "NO_PICKER"
+        elif low.startswith("count-mismatch") or low.startswith("no-recipient"):
+            status = "COUNT_MISMATCH"
+        elif low.startswith("bad-targets"):
+            status = "BAD_TARGETS"
+        elif low.startswith("still-open"):
+            status = "RESULT_UNKNOWN"
+        else:
+            status = "FAILED"
+        if status == "PARTIAL" and skipped:
+            detail = "部分成功 %d/%d；跳过: %s" % (
+                len(sent), len(targets),
+                "；".join("%s(%s)" % (s.get("name"), s.get("reason"))
+                         for s in skipped if isinstance(s, dict)))
+        else:
+            detail = reason or ("成功 %d/%d" % (len(sent), len(targets)))
+        emit({"ok": status == "OK", "status": status,
+              "message": detail,
+              "sent": sent, "failed": failed, "skipped": skipped})
+    except Exception as e:
+        log("转发过程异常: %s" % e)
+        emit({"ok": False, "status": "RESULT_UNKNOWN",
+              "message": "转发过程异常，结果未知: %s" % e,
+              "sent": [], "failed": [], "skipped": []})
+
+
 def cmd_whoami(args):
     """输出当前登录微信账号，供自动发送前校验固定账号。"""
     db, _ = build_db(None, args.account)
@@ -1369,6 +1581,10 @@ def main():
                        help="批量发送(从 stdin 读 JSON 配置)，逐条结果 NDJSON 到 stdout")
     p.set_defaults(func=cmd_batch_send)
 
+    p = sub.add_parser("forward_send",
+                       help="单批微信转发(从 stdin 读 JSON 配置)，先发源会话再分别发送")
+    p.set_defaults(func=cmd_forward_send)
+
     p = sub.add_parser("session_status", help="检测 Windows 交互桌面是否可用(锁屏预检)")
     p.set_defaults(func=cmd_session_status)
 
@@ -1404,7 +1620,7 @@ def main():
     args = ap.parse_args()
     cleanup_stale_proc_dirs()
     configure_wechatauto(verbose=getattr(args.func, "__name__", "") in (
-        "cmd_batch_send", "cmd_media", "cmd_quote_media"))
+        "cmd_batch_send", "cmd_forward_send", "cmd_media", "cmd_quote_media"))
     try:
         args.func(args)
     except KeyboardInterrupt:

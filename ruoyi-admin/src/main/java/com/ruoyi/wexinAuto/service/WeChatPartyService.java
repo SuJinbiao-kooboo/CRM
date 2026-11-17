@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -76,6 +77,91 @@ public class WeChatPartyService {
             }
         }
         return false;
+    }
+
+    /** 内部 Offer 转发群：我方成员把供应商私聊的 INQ/OFFER 转发进群，发送人始终是我方。 */
+    public boolean isInternalOfferChat(String chatName) {
+        return config.isInternalOfferChat(chatName);
+    }
+
+    /**
+     * 内部群消息按首行、末行的供应商名称/简称/别名做模糊匹配。
+     * 首行优先，其次末行；同一行内按供应商 id 升序取第一个命中，命中即返回。
+     */
+    public CrmSupplier matchSupplierFromMessage(String content) {
+        List<String> lines = nonEmptyLines(content);
+        if (lines.isEmpty()) {
+            return null;
+        }
+        CrmSupplier first = matchSupplierLine(lines.get(0));
+        if (first != null) {
+            return first;
+        }
+        String last = lines.get(lines.size() - 1);
+        return last.equals(lines.get(0)) ? null : matchSupplierLine(last);
+    }
+
+    /** 单行模糊匹配：供应商全称、简称、公司别名（支持 , ， / 、 ; 分隔）任一被该行包含即命中。 */
+    public CrmSupplier matchSupplierLine(String line) {
+        String text = normalizeText(line);
+        if (text.length() < 2) {
+            return null;
+        }
+        List<CrmSupplier> suppliers = new ArrayList<>(supplierMapper.selectAllForWeChat());
+        suppliers.sort(Comparator.comparing(CrmSupplier::getId, Comparator.nullsLast(Long::compareTo)));
+        for (CrmSupplier supplier : suppliers) {
+            if (isUnlinkedSupplier(supplier) || !isUsableSupplier(supplier)) {
+                continue;
+            }
+            for (String candidate : supplierKeys(supplier)) {
+                String key = normalizeText(candidate);
+                if (key.length() >= 2 && text.contains(key)) {
+                    return supplier;
+                }
+            }
+        }
+        return null;
+    }
+
+    private List<String> supplierKeys(CrmSupplier supplier) {
+        List<String> keys = new ArrayList<>();
+        addKey(keys, supplier.getSupplierName());
+        addKey(keys, supplier.getSupplierShortName());
+        String aliases = supplier.getSupplierAlias();
+        if (StringUtils.isNotBlank(aliases)) {
+            for (String alias : aliases.split("[,，/、;；|]")) {
+                addKey(keys, alias);
+            }
+        }
+        return keys;
+    }
+
+    private void addKey(List<String> keys, String value) {
+        String key = StringUtils.trimToEmpty(value);
+        if (key.length() >= 2 && !keys.contains(key)) {
+            keys.add(key);
+        }
+    }
+
+    private List<String> nonEmptyLines(String content) {
+        List<String> lines = new ArrayList<>();
+        if (StringUtils.isBlank(content)) {
+            return lines;
+        }
+        for (String raw : content.replace("\r", "\n").split("\n")) {
+            String value = StringUtils.trimToEmpty(raw);
+            if (!value.isEmpty() && !value.startsWith("<")) {
+                lines.add(value);
+            }
+        }
+        return lines;
+    }
+
+    private String normalizeText(String raw) {
+        return StringUtils.trimToEmpty(raw)
+                .replace('\u00A0', ' ')
+                .replaceAll("\\s+", " ")
+                .toLowerCase(Locale.ROOT);
     }
 
     public List<CrmSupplier> directionTargets(String productType, String brand,

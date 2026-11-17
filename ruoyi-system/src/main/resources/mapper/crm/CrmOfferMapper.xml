@@ -41,6 +41,11 @@
         <result column="wechat_local_id" property="wechatLocalId" />
     </resultMap>
 
+    <resultMap id="OfferInfoMap" type="com.ruoyi.crm.domain.CrmOffer">
+        <result column="product_brand" property="productBrand" />
+        <result column="spec" property="spec" />
+    </resultMap>
+
     <sql id="Base_Column_List">
         id, product_code, pn_normalized, product_brand, stock_date, product_detail, spec, price_cost, price_offer, price_unit,
         quantity, delivery_time, remark, sheet_name, moq_quantity, warranty_detail, dc, coo, supplier_code, supplier_name, tags_first, tags_second, tags_third, tags_si,
@@ -154,6 +159,21 @@
         where status=1 and price_offer is not null and price_offer &gt; 0
           and pn_normalized=#{pn}
         order by coalesce(stock_date,create_time) desc, id desc
+    </select>
+
+    <!-- 单据生成：品牌与规格各自取最近一条非空值，避免最新记录缺规格时漏掉历史规格 -->
+    <select id="selectLatestOfferInfoByPn" resultMap="OfferInfoMap">
+        select
+            (select c.product_brand from crm_offer c
+             where c.status = 1 and c.pn_normalized = #{pn}
+               and c.product_brand is not null and trim(c.product_brand) &lt;&gt; ''
+             order by coalesce(c.stock_date, c.create_time) desc, c.id desc
+             limit 1) as product_brand,
+            (select c.spec from crm_offer c
+             where c.status = 1 and c.pn_normalized = #{pn}
+               and c.spec is not null and trim(c.spec) &lt;&gt; ''
+             order by coalesce(c.stock_date, c.create_time) desc, c.id desc
+             limit 1) as spec
     </select>
 
     <!-- AI料号查询：料号左前缀模糊匹配（upper不区分大小写），近1个月内（Offer日期口径：库存日期优先、为空回退创建时间）的INQ/OFFER记录，组内按Offer日期倒排 -->

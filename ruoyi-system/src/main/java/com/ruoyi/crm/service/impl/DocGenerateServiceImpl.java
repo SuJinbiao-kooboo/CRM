@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,6 +23,7 @@ import com.ruoyi.crm.domain.CrmOrderItem;
 import com.ruoyi.crm.domain.dto.DocGenerateReq;
 import com.ruoyi.crm.domain.dto.DocTypeDef;
 import com.ruoyi.crm.service.IDocGenerateService;
+import com.ruoyi.crm.service.ICrmOfferService;
 import com.ruoyi.crm.service.util.DocItemParser;
 import com.ruoyi.crm.service.util.DocTypeRegistry;
 import com.ruoyi.crm.service.util.EntrustFiller;
@@ -34,6 +36,9 @@ public class DocGenerateServiceImpl implements IDocGenerateService {
 
     private static final String TPL_SN = "order-template/SN List.xlsx";
     private static final String DATE_PATTERN = "yyyy-MM-dd";
+
+    @Autowired
+    private ICrmOfferService offerService;
 
     @Override
     public List<DocTypeDef> listTypes() {
@@ -49,8 +54,15 @@ public class DocGenerateServiceImpl implements IDocGenerateService {
         }
         try (InputStream po = poFile == null ? null : poFile.getInputStream();
              InputStream pl = plFile == null ? null : plFile.getInputStream()) {
-            return DocItemParser.parse(po, pl);
+            List<Map<String, Object>> items = DocItemParser.parse(po, pl);
+            enrichOfferFields(items);
+            return items;
         }
+    }
+
+    @Override
+    public Map<String, String> resolveItemOfferInfo(String itemName) {
+        return offerService.resolveOfferInfoByItemName(itemName);
     }
 
     @Override
@@ -59,6 +71,8 @@ public class DocGenerateServiceImpl implements IDocGenerateService {
         if (StringUtils.isEmpty(type)) {
             throw new ServiceException("请选择单据类型");
         }
+        // 生成前统一兜底：手工/解析得到的行只要缺 Brand / Spec.，都按 ITEM 料号回填最近一条 Offer 信息。
+        enrichOfferFields(req.getItems());
         switch (type.toUpperCase()) {
             case DocTypeRegistry.PO:
                 return fillInvoiceTpl(DocTypeRegistry.TPL_PO, req, null, req.getSellerText(), null);
@@ -155,6 +169,33 @@ public class DocGenerateServiceImpl implements IDocGenerateService {
             items.add(item);
         }
         return items;
+    }
+
+    private void enrichOfferFields(List<Map<String, Object>> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        for (Map<String, Object> row : rows) {
+            if (row == null) {
+                continue;
+            }
+            String itemName = str(row.get("itemName"));
+            if (StringUtils.isEmpty(itemName)) {
+                continue;
+            }
+            boolean missingBrand = StringUtils.isEmpty(str(row.get("brand")));
+            boolean missingSpec = StringUtils.isEmpty(str(row.get("spec")));
+            if (!missingBrand && !missingSpec) {
+                continue;
+            }
+            Map<String, String> info = offerService.resolveOfferInfoByItemName(itemName);
+            if (missingBrand && StringUtils.isNotEmpty(info.get("brand"))) {
+                row.put("brand", info.get("brand"));
+            }
+            if (missingSpec && StringUtils.isNotEmpty(info.get("spec"))) {
+                row.put("spec", info.get("spec"));
+            }
+        }
     }
 
     private Date parseDate(String text) {

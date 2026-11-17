@@ -21,6 +21,8 @@ public class WeChatOfferTask extends BaseEntity {
     private String taskSource;
     private String taskType;
     private String sendType;
+    /** 发送方式：DIRECT 逐目标直发 / FORWARD 先发文件传输助手再微信转发 */
+    private String deliveryMode;
     private String oriTarget;
     private String oriMsg;
     private String pnOriginal;

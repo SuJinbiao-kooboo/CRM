@@ -58,6 +58,13 @@ public class OrderController extends BaseController {
         return success(docGenerateService.listTypes());
     }
 
+    /** 填写 ITEM 后按料号匹配 Offer 品牌和规格型号，用于页面即时回填 Brand / Spec. */
+    @PreAuthorize("@ss.hasPermi('crm:order:generate')")
+    @GetMapping("/doc/resolveOfferInfo")
+    public AjaxResult resolveDocOfferInfo(@RequestParam("itemName") String itemName) {
+        return success(docGenerateService.resolveItemOfferInfo(itemName));
+    }
+
     /** 解析上传的 PO / PL 文件，返回可编辑明细（不回写文件，页面确认后再生成） */
     @PreAuthorize("@ss.hasPermi('crm:order:generate')")
     @PostMapping("/doc/parseItems")

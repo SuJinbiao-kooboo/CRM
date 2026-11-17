@@ -70,4 +70,30 @@ public class WeChatAutomationConfig {
         int retention = Math.max(1, integer("msgRetentionDays", 30));
         return Math.max(1, Math.min(retention, days));
     }
+
+    /**
+     * 内部 Offer 转发群：由我方成员把供应商私聊的 INQ/OFFER 转发进群统一录入。
+     * 这些群的发送人天然属于 selfNames，不能再按“我方消息一律 OTHER”过滤。
+     */
+    public Set<String> internalOfferGroupNames() {
+        Set<String> names = new LinkedHashSet<>();
+        for (String name : str("internalOfferGroupNames", "内部offer记录群").split("[,，]")) {
+            String value = normalizeChatName(name);
+            if (!value.isEmpty()) {
+                names.add(value);
+            }
+        }
+        return names;
+    }
+
+    public boolean isInternalOfferChat(String chatName) {
+        String value = normalizeChatName(chatName);
+        return !value.isEmpty() && internalOfferGroupNames().contains(value);
+    }
+
+    private String normalizeChatName(String raw) {
+        return StringUtils.trimToEmpty(raw)
+                .replace('\u00A0', ' ')
+                .replaceAll("\\s+", " ");
+    }
 }

@@ -105,7 +105,8 @@ public class CrmWeChatTaskController extends BaseController {
      * 创建一条人工手动微信任务。
      *
      * <p>用户粘贴的原文会原样保存；一个任务可携带多个销售群或采购群发送目标，
-     * 目标最多 32 个，群名/伙伴字段每个最多 300 字符。创建后进入待审批状态，
+     * 目标数量不设上限，群名/伙伴字段每个最多 300 字符。任务默认使用微信转发
+     * （先发文件传输助手，再每批最多 9 个目标分别发送）。创建后进入待审批状态，
      * 复用现有批量审批和发送扫描流程。</p>
      */
     @PreAuthorize("@ss.hasPermi('wechat:task:generate')")
